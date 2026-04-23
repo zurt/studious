@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { DocMeta, listDocuments, pageImageUrl, uploadDocument } from "../api";
+import { generateCorrelationId, info } from "../logger";
 
 export function Library() {
   const [docs, setDocs] = useState<DocMeta[]>([]);
@@ -28,6 +29,8 @@ export function Library() {
     const file = ev.target.files?.[0];
     ev.target.value = "";
     if (!file) return;
+    const cid = generateCorrelationId();
+    info("Library", "upload_start", { filename: file.name, size: file.size, correlation_id: cid });
     setUploading(true);
     setError(null);
     try {

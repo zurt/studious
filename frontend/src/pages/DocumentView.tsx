@@ -10,6 +10,7 @@ import {
   pageImageUrl,
   submitTranscription,
 } from "../api";
+import { generateCorrelationId, info } from "../logger";
 import { MarkdownPane } from "../components/MarkdownPane";
 import { TranscribePanel } from "../components/TranscribePanel";
 
@@ -99,6 +100,8 @@ export function DocumentView() {
   async function startJob(req: Parameters<typeof submitTranscription>[1]) {
     setShowPanel(false);
     setError(null);
+    const cid = generateCorrelationId();
+    info("DocumentView", "transcribe_start", { doc_id: id, correlation_id: cid, engine: req.engine, provider: req.provider });
     try {
       const { job_id, pages } = await submitTranscription(id, req);
       setJob({

@@ -88,6 +88,10 @@ class JobManager:
         prompt: str = job.get("prompt") or get_settings().default_vlm_prompt
         overwrite: bool = bool(job.get("overwrite", False))
 
+        job_extra = {"job_id": job_id, "doc_id": doc_id}
+        log.info("job_start", extra={**job_extra, "page_count": len(pages), "engine": engine, "provider": provider_name})
+        job_t0 = time.monotonic()
+
         storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
         self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id, "pages": pages}})
 
@@ -148,6 +152,7 @@ class JobManager:
                 continue
 
             duration_ms = int((time.monotonic() - t0) * 1000)
+            log.info("page_done", extra={**job_extra, "page": page, "duration_ms": duration_ms})
             payload = {
                 "page": page,
                 "engine": engine,
@@ -170,9 +175,13 @@ class JobManager:
                 },
             )
 
+        job_duration_ms = int((time.monotonic() - job_t0) * 1000)
+        final_status = "completed" if not errors else "completed_with_errors"
+        log.info("job_end", extra={**job_extra, "status": final_status, "duration_ms": job_duration_ms, "error_count": len(errors)})
+
         storage.update_job(
             job_id,
-            status="completed" if not errors else "completed_with_errors",
+            status=final_status,
             finished_at=_now_iso(),
             errors=errors,
         )

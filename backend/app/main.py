@@ -8,9 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import documents, jobs, providers, transcribe
 from .jobs import manager
+from .middleware import CorrelationMiddleware, StructuredFormatter
 from .providers import registry
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+# Structured JSON logging
+_handler = logging.StreamHandler()
+_handler.setFormatter(StructuredFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[_handler])
 
 
 @asynccontextmanager
@@ -24,11 +28,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Studious", lifespan=lifespan)
+app.add_middleware(CorrelationMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["x-correlation-id"],
 )
 
 app.include_router(documents.router)

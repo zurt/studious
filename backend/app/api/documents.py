@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import logging
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 from ..services import pdf, storage
+
+log = logging.getLogger("studious.api.documents")
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -46,10 +50,13 @@ async def upload_document(file: UploadFile = File(...)):
     pages_dir = doc_dir / "pages"
     original = doc_dir / meta["original_filename"]
 
+    t0 = time.monotonic()
     if source_type == "pdf":
         page_count = pdf.render_pdf_to_pages(original, pages_dir)
     else:
         page_count = pdf.copy_image_as_page(original, pages_dir)
+    render_ms = int((time.monotonic() - t0) * 1000)
+    log.info("document_uploaded", extra={"doc_id": meta["id"], "source_type": source_type, "page_count": page_count, "render_ms": render_ms})
 
     meta["page_count"] = page_count
     import json
