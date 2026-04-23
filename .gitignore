@@ -18,6 +18,9 @@ dist/
 .env.local
 data/
 
+# Benchmarks
+benchmarks/results/
+
 # Editor / OS
 .DS_Store
 .idea/
