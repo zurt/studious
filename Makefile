@@ -1,14 +1,18 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend clean
+.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend audit clean benchmark
 
 install: install-backend install-frontend
 	@echo ""
-	@echo "==> System dependency reminder:"
-	@echo "    sudo apt install tesseract-ocr tesseract-ocr-jpn tesseract-ocr-jpn-vert"
+	@echo "==> System dependencies (install if not present):"
+	@echo "    macOS:         brew install tesseract tesseract-lang uv"
+	@echo "    Debian/Ubuntu: sudo apt install tesseract-ocr tesseract-ocr-jpn tesseract-ocr-jpn-vert"
+	@echo "                   (install uv: https://docs.astral.sh/uv/)"
 	@echo ""
 	@echo "==> Copy .env.example to .env and fill in ANTHROPIC_API_KEY."
+	@echo ""
+	@echo "==> Required tools: uv, npm >= 11.10"
 
 install-backend:
-	cd backend && python3 -m venv .venv && . .venv/bin/activate && pip install -e .
+	cd backend && uv venv .venv && uv pip install -e ".[dev]"
 
 install-frontend:
 	cd frontend && npm install
@@ -26,6 +30,16 @@ test: test-backend
 
 test-backend:
 	cd backend && . .venv/bin/activate && pytest
+
+audit:
+	@echo "==> npm audit"
+	cd frontend && npm audit --omit=dev || true
+	@echo ""
+	@echo "==> pip-audit"
+	cd backend && . .venv/bin/activate && pip-audit || true
+
+benchmark:
+	. backend/.venv/bin/activate && python -m benchmarks.run_benchmark
 
 clean:
 	rm -rf backend/.venv backend/.pytest_cache backend/**/__pycache__ frontend/node_modules frontend/dist
