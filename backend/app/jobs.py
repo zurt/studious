@@ -1,0 +1,182 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from collections import defaultdict
+from datetime import datetime, timezone
+from typing import Any
+
+from .config import get_settings
+from .providers import registry
+from .services import pdf, storage
+
+log = logging.getLogger("studious.jobs")
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+class JobManager:
+    """Sequential, in-process job queue.
+
+    One transcription request runs at a time. Subsequent submissions queue
+    behind the current job. Per-page progress is broadcast on per-job event
+    queues for SSE consumers.
+    """
+
+    def __init__(self) -> None:
+        self._queue: asyncio.Queue[str] = asyncio.Queue()
+        self._worker: asyncio.Task[None] | None = None
+        self._listeners: dict[str, list[asyncio.Queue[dict[str, Any]]]] = defaultdict(list)
+
+    async def start(self) -> None:
+        if self._worker is None or self._worker.done():
+            self._worker = asyncio.create_task(self._run(), name="studious-job-worker")
+
+    async def stop(self) -> None:
+        if self._worker and not self._worker.done():
+            self._worker.cancel()
+            try:
+                await self._worker
+            except asyncio.CancelledError:
+                pass
+
+    def submit(self, payload: dict[str, Any]) -> dict[str, Any]:
+        job = storage.create_job(payload)
+        self._queue.put_nowait(job["id"])
+        return job
+
+    def subscribe(self, job_id: str) -> asyncio.Queue[dict[str, Any]]:
+        q: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self._listeners[job_id].append(q)
+        return q
+
+    def unsubscribe(self, job_id: str, q: asyncio.Queue[dict[str, Any]]) -> None:
+        if job_id in self._listeners:
+            try:
+                self._listeners[job_id].remove(q)
+            except ValueError:
+                pass
+            if not self._listeners[job_id]:
+                self._listeners.pop(job_id, None)
+
+    def _emit(self, job_id: str, event: dict[str, Any]) -> None:
+        for q in list(self._listeners.get(job_id, [])):
+            q.put_nowait(event)
+
+    async def _run(self) -> None:
+        while True:
+            job_id = await self._queue.get()
+            try:
+                await self._run_job(job_id)
+            except Exception:
+                log.exception("job %s failed", job_id)
+            finally:
+                self._queue.task_done()
+
+    async def _run_job(self, job_id: str) -> None:
+        job = storage.load_job(job_id)
+        if job is None:
+            return
+        doc_id = job["doc_id"]
+        pages: list[int] = job["pages"]
+        engine: str = job["engine"]
+        provider_name: str = job["provider"]
+        config: dict[str, Any] = job.get("config", {}) or {}
+        prompt: str = job.get("prompt") or get_settings().default_vlm_prompt
+        overwrite: bool = bool(job.get("overwrite", False))
+
+        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
+        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id, "pages": pages}})
+
+        try:
+            if engine == "ocr":
+                provider = registry.get_ocr(provider_name)
+            elif engine == "vlm":
+                provider = registry.get_vlm(provider_name)
+            else:
+                raise ValueError(f"unknown engine: {engine!r}")
+        except Exception as exc:
+            storage.update_job(
+                job_id,
+                status="failed",
+                finished_at=_now_iso(),
+                errors=[{"message": str(exc)}],
+            )
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+
+        errors: list[dict[str, Any]] = []
+        for page in pages:
+            if not overwrite and storage.load_transcription(doc_id, page) is not None:
+                self._emit(
+                    job_id,
+                    {"event": "page-skipped", "data": {"page": page, "reason": "exists"}},
+                )
+                storage.update_job(job_id, current_page=page)
+                continue
+
+            self._emit(job_id, {"event": "page-started", "data": {"page": page}})
+            storage.update_job(job_id, current_page=page)
+
+            image_path = storage.page_image_path(doc_id, page)
+            if not image_path.exists():
+                err = {"page": page, "message": f"missing page image: {image_path}"}
+                errors.append(err)
+                self._emit(job_id, {"event": "page-error", "data": err})
+                continue
+
+            t0 = time.monotonic()
+            try:
+                if engine == "ocr":
+                    result = await asyncio.to_thread(provider.transcribe, image_path, config)
+                    payload_extra: dict[str, Any] = {}
+                else:
+                    image_bytes = await asyncio.to_thread(
+                        pdf.prepare_for_vlm, image_path, get_settings().vlm_max_edge
+                    )
+                    result = await asyncio.to_thread(
+                        provider.transcribe, image_bytes, prompt, config
+                    )
+                    payload_extra = {"prompt": prompt, "model": config.get("model")}
+            except Exception as exc:
+                err = {"page": page, "message": str(exc)}
+                errors.append(err)
+                self._emit(job_id, {"event": "page-error", "data": err})
+                continue
+
+            duration_ms = int((time.monotonic() - t0) * 1000)
+            payload = {
+                "page": page,
+                "engine": engine,
+                "provider": provider_name,
+                "markdown": result.markdown,
+                "raw": result.raw,
+                "tokens": [],
+                "annotations": {},
+                "meta": result.meta,
+                "created_at": _now_iso(),
+                "duration_ms": duration_ms,
+                **payload_extra,
+            }
+            storage.save_transcription(doc_id, page, payload)
+            self._emit(
+                job_id,
+                {
+                    "event": "page-done",
+                    "data": {"page": page, "duration_ms": duration_ms},
+                },
+            )
+
+        storage.update_job(
+            job_id,
+            status="completed" if not errors else "completed_with_errors",
+            finished_at=_now_iso(),
+            errors=errors,
+        )
+        self._emit(job_id, {"event": "job-done", "data": {"errors": errors}})
+
+
+manager = JobManager()

@@ -1,0 +1,133 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI",
+    "Noto Sans JP", sans-serif;
+  --bg: #fff;
+  --fg: #111;
+  --muted: #666;
+  --border: #ddd;
+  --accent: #2761d9;
+  --bg-soft: #f5f5f7;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --fg: #e8e8ea;
+    --muted: #9aa0a6;
+    --border: #2a2d33;
+    --accent: #6aa2ff;
+    --bg-soft: #1b1e24;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  font: inherit;
+  background: var(--bg-soft);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+input, select, textarea {
+  font: inherit;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+textarea { width: 100%; min-height: 100px; resize: vertical; }
+
+.app {
+  display: flex; flex-direction: column; height: 100%;
+}
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+}
+.topbar h1 { font-size: 16px; margin: 0; }
+.topbar .spacer { flex: 1; }
+
+.library {
+  padding: 24px; max-width: 1100px; margin: 0 auto;
+}
+.library .grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px;
+}
+.doc-card {
+  display: flex; flex-direction: column; gap: 6px;
+  border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+  background: var(--bg-soft);
+}
+.doc-card img {
+  width: 100%; height: 200px; object-fit: contain; background: var(--bg); border-radius: 4px;
+}
+.doc-card .name { font-weight: 600; word-break: break-word; }
+.doc-card .meta { font-size: 12px; color: var(--muted); }
+
+.viewer {
+  flex: 1; display: grid; grid-template-rows: auto 1fr auto; min-height: 0;
+}
+.viewer .pane-row {
+  display: grid; grid-template-columns: 1fr 1fr; min-height: 0; height: 100%;
+}
+.viewer .pane {
+  overflow: auto; padding: 12px; min-height: 0;
+}
+.viewer .pane.left { border-right: 1px solid var(--border); background: #0001; }
+.viewer .page-img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.viewer .markdown {
+  max-width: 720px; margin: 0 auto; line-height: 1.7;
+}
+.viewer .markdown :is(h1,h2,h3,h4) { line-height: 1.3; }
+.viewer .markdown pre { background: var(--bg-soft); padding: 8px; border-radius: 6px; overflow:auto; }
+.viewer .markdown code { font-family: ui-monospace, "JetBrains Mono", monospace; }
+.viewer .markdown table { border-collapse: collapse; }
+.viewer .markdown th, .viewer .markdown td { border: 1px solid var(--border); padding: 4px 8px; }
+
+.viewer .empty {
+  color: var(--muted); padding: 32px; text-align: center;
+}
+
+.footer {
+  padding: 8px 16px; border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--muted); display: flex; gap: 12px; align-items: center;
+}
+
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 10;
+}
+.modal {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  width: min(560px, 92vw); padding: 18px; display: flex; flex-direction: column; gap: 12px;
+  max-height: 90vh; overflow: auto;
+}
+.modal h2 { margin: 0; font-size: 16px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 12px; color: var(--muted); }
+.row { display: flex; gap: 8px; align-items: center; }
+.row > * { flex: none; }
+.row .grow { flex: 1; }
+
+.badge {
+  display: inline-block; font-size: 11px; padding: 2px 6px; border-radius: 4px;
+  background: var(--bg-soft); color: var(--muted); border: 1px solid var(--border);
+}
+.action-bar {
+  display: flex; gap: 6px; margin: 8px 0 12px;
+}
+.action-bar button { font-size: 12px; padding: 4px 8px; }
+
+.error { color: #d33; }
