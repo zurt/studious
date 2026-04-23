@@ -1,0 +1,3 @@
+# Require packages to be at least 7 days old before installing.
+# Protects against supply chain attacks via recently-published malicious versions.
+exclude-newer = "7 days"
