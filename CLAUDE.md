@@ -2,11 +2,17 @@
 
 ## Project Overview
 
-Japanese study tool: upload PDFs/images, transcribe pages with OCR (Tesseract) or VLM (Anthropic Claude), view transcriptions side-by-side with originals.
+Japanese study tool: upload PDFs, organize into chapters, select regions of interest, and transcribe with VLM (Anthropic Claude). View transcriptions side-by-side with originals.
 
 - **Backend**: FastAPI (Python 3.11+), file-based storage, async job queue
-- **Frontend**: React 18 + TypeScript + Vite
+- **Frontend**: Vanilla TypeScript + Vite (no framework)
 - **Package managers**: uv (backend), npm (frontend) — both enforce 7-day cooldown on new package versions
+
+### Key concepts
+- **Document** — an uploaded PDF or image, rendered to page images
+- **Chapter** — a named page range within a document (e.g., 第14課, pp. 45-52)
+- **Region** — a bounding box on a page, tagged by type (reading_passage, vocab_list, grammar_points, exercises, instructions, other)
+- **Transcription** — VLM output stored as markdown, either per-page or per-region
 
 ## Development Commands
 

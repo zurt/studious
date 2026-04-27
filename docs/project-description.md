@@ -2,23 +2,24 @@
 
 ## What is Studious?
 
-Studious is a tool for studying Japanese textbooks and books. Users upload a PDF or image, transcribe pages using either Tesseract OCR or a Vision-Language Model (Anthropic Claude by default), and read the transcription side-by-side with the original page.
+Studious is a Japanese textbook study tool. Users upload a PDF, organize it into chapters, select regions of interest on pages (reading passages, vocab lists, grammar points, exercises), and transcribe them with a Vision-Language Model (Anthropic Claude). Transcriptions are displayed side-by-side with the original page images.
+
+The tool replaces a manual ChatGPT-based study workflow with persistent storage, chapter organization, and region-level transcription.
 
 ## Tech Stack
 
 ### Backend (Python 3.11+)
 - **Framework**: FastAPI with uvicorn
-- **OCR**: Tesseract with Japanese language support (jpn + jpn_vert)
 - **VLM**: Anthropic Claude API (configurable model: sonnet, opus, haiku)
 - **Storage**: File-based (JSON metadata, PNG page images, JSON transcriptions)
 - **Job queue**: In-process async queue with SSE progress streaming
 - **Config**: Pydantic Settings with .env file support
 
 ### Frontend (TypeScript)
-- **Framework**: React 18
-- **Build**: Vite with TypeScript
-- **Routing**: React Router
-- **Markdown**: react-markdown with GitHub-flavored markdown support
+- **No framework**: Vanilla TypeScript
+- **Build**: Vite
+- **Routing**: Custom minimal router
+- **Markdown**: marked (GitHub-flavored markdown)
 
 ### Infrastructure
 - **Package management**: uv (backend), npm (frontend) with 7-day cooldown
@@ -30,12 +31,11 @@ Studious is a tool for studying Japanese textbooks and books. Users upload a PDF
 ```
 ┌─────────────┐         ┌─────────────────────────────────────┐
 │   Browser    │◄──SSE──►│           FastAPI Backend            │
-│  React SPA   │◄──API──►│                                     │
+│  Vanilla TS  │◄──API──►│                                     │
 │  :5173       │         │  ┌──────────┐  ┌────────────────┐  │
 └─────────────┘         │  │ Job Queue │  │   Providers    │  │
-                        │  │ (async)   │──│  ├─ Tesseract  │  │
-                        │  └──────────┘  │  └─ Anthropic  │  │
-                        │                └────────────────┘  │
+                        │  │ (async)   │──│  └─ Anthropic  │  │
+                        │  └──────────┘  └────────────────┘  │
                         │  ┌─────────────────────────────┐   │
                         │  │   File Storage (data/)      │   │
                         │  │  documents/ jobs/            │   │
@@ -43,23 +43,36 @@ Studious is a tool for studying Japanese textbooks and books. Users upload a PDF
                         └─────────────────────────────────────┘
 ```
 
+### Data Model
+
+```
+data/documents/{doc_id}/
+  meta.json                    # document metadata
+  original.{ext}               # uploaded file
+  pages/{nnnn}.png             # rendered page images
+  transcriptions/{nnnn}.json   # full-page transcriptions
+  chapters/{chapter_id}/
+    meta.json                  # chapter: title, page range, order
+    regions/{region_id}.json   # region: page, bbox, tag, transcription
+```
+
 ### Request Flow
 
 1. User uploads PDF/image via frontend
 2. Backend saves original file, renders PDF pages to PNG
-3. User selects pages and provider, submits transcription job
-4. Job queue processes pages sequentially, streaming progress via SSE
-5. Transcription results stored as JSON, displayed as rendered markdown
+3. User creates chapters (named page ranges) and draws regions on pages
+4. User triggers transcription on regions — image is cropped to bbox, sent to VLM
+5. Transcription results stored as markdown in region file, displayed alongside original
 
 ### Key Directories
 
 - `backend/app/` — FastAPI application code
-  - `api/` — route handlers (documents, transcribe, jobs, providers)
-  - `providers/` — OCR and VLM provider implementations
+  - `api/` — route handlers (documents, chapters, regions, transcribe, jobs, providers)
+  - `providers/` — VLM provider implementations
   - `services/` — business logic (storage, PDF processing, range parsing)
-- `frontend/src/` — React application code
-  - `pages/` — Library (document list) and DocumentView (reader)
-  - `components/` — TranscribePanel, MarkdownPane
+- `frontend/src/` — Vanilla TypeScript application
+  - `pages/` — library, document-view, chapter-view
+  - `modules/` — region-drawer (canvas overlay), region-list
 - `data/` — runtime data (gitignored)
 - `benchmarks/` — quality benchmarking tools
 - `docs/` — project documentation

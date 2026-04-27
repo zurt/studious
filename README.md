@@ -1,12 +1,12 @@
 # Studious
 
-A tool for studying Japanese textbooks and books. Upload a PDF or image,
-transcribe pages with either Tesseract OCR or a Vision-LLM (Anthropic Claude
-by default, with a custom prompt), and read the transcription side-by-side
-with the original page.
+A Japanese textbook study tool. Upload a PDF, organize it into chapters,
+select regions of interest on pages, and transcribe them with a Vision-LLM
+(Anthropic Claude). View transcriptions side-by-side with the original page
+images.
 
-This is the MVP. Future features (designed for, not built): furigana display,
-vocabulary lookup, and LLM translation + grammar breakdown.
+Built to replace a manual ChatGPT-based study workflow with persistent storage,
+chapter organization, and region-level transcription.
 
 ## Quick start
 
@@ -15,14 +15,10 @@ vocabulary lookup, and LLM translation + grammar breakdown.
 - Python 3.11+
 - Node.js 18+ with npm 11.10+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- Tesseract OCR with Japanese language data
 
 ```bash
-# system deps (Debian/Ubuntu)
-sudo apt install tesseract-ocr tesseract-ocr-jpn tesseract-ocr-jpn-vert
-
 # macOS
-brew install tesseract tesseract-lang uv
+brew install uv
 
 # install
 make install
@@ -38,12 +34,20 @@ make dev-frontend    # http://localhost:5173
 
 Open <http://localhost:5173>.
 
+## Workflow
+
+1. **Upload** a PDF or image
+2. **Create chapters** — define page ranges within a document
+3. **Draw regions** — select areas of interest on pages (reading passages, vocab lists, grammar points, exercises)
+4. **Transcribe** — run VLM transcription on individual regions
+5. View transcriptions side-by-side with the original page
+
 ## Layout
 
-- `backend/` — FastAPI app (Python 3.11+).
-- `frontend/` — Vite + React + TypeScript.
-- `data/` — uploaded documents, rasterized pages, transcriptions, and job
-  state (gitignored). Override with `STUDIOUS_DATA_DIR`.
+- `backend/` — FastAPI app (Python 3.11+), file-based storage.
+- `frontend/` — Vite + vanilla TypeScript (no framework).
+- `data/` — uploaded documents, rasterized pages, transcriptions, chapters, and
+  regions (gitignored). Override with `STUDIOUS_DATA_DIR`.
 - `benchmarks/` — quality benchmarking tools for tracking extraction accuracy.
 - `docs/` — project description, roadmap, and architecture documentation.
 
@@ -52,14 +56,6 @@ Open <http://localhost:5173>.
 ```bash
 make test
 ```
-
-## Quality benchmarks
-
-```bash
-make benchmark
-```
-
-See `benchmarks/fixtures/README.md` for how to add test documents.
 
 ## Security
 
@@ -75,4 +71,3 @@ Run `make audit` to check for known vulnerabilities.
 
 All API requests carry `X-Correlation-ID` headers for end-to-end tracing.
 Backend logs are structured JSON with correlation IDs and timing breakdowns.
-See `docs/project-description.md` for the full architecture.
