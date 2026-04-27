@@ -7,6 +7,7 @@ import { generateCorrelationId, info } from "../logger";
 import { navigate } from "../router";
 import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawer";
 import { renderRegionList } from "../modules/region-list";
+import { createZoomPanViewer } from "../modules/zoom-pan";
 import { marked } from "marked";
 
 const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
@@ -23,21 +24,21 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           <a href="/doc/${docId}" id="back-link">Document</a>
           <span id="chapter-title">Loading...</span>
           <div class="spacer"></div>
+          <button id="tracker-btn" title="Untranscribed regions">0 pending</button>
           <button id="prev-btn" disabled>&larr;</button>
           <span id="page-info">-</span>
           <button id="next-btn" disabled>&rarr;</button>
         </div>
       </div>
       <div class="pane-row">
-        <div class="pane left">
-          <img id="page-img" class="page-img" alt="Page" />
-        </div>
+        <div class="pane left" id="left-pane"></div>
         <div class="pane" id="right-pane">
           <div id="region-list-container"></div>
           <div id="region-detail" class="region-detail"></div>
         </div>
       </div>
     </div>
+    <div id="tracker-popover" class="tracker-popover" style="display:none"></div>
   `;
 
   const backLink = container.querySelector<HTMLAnchorElement>("#back-link")!;
@@ -47,9 +48,13 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const pageInfo = container.querySelector<HTMLElement>("#page-info")!;
   const prevBtn = container.querySelector<HTMLButtonElement>("#prev-btn")!;
   const nextBtn = container.querySelector<HTMLButtonElement>("#next-btn")!;
-  const pageImg = container.querySelector<HTMLImageElement>("#page-img")!;
+  const trackerBtn = container.querySelector<HTMLButtonElement>("#tracker-btn")!;
+  const leftPane = container.querySelector<HTMLElement>("#left-pane")!;
   const regionListContainer = container.querySelector<HTMLElement>("#region-list-container")!;
   const regionDetail = container.querySelector<HTMLElement>("#region-detail")!;
+  const trackerPopover = container.querySelector<HTMLElement>("#tracker-popover")!;
+
+  const viewer = createZoomPanViewer(leftPane);
 
   let doc: DocMeta | null = null;
   let chapter: Chapter | null = null;
@@ -57,6 +62,104 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   let regions: Region[] = [];
   let selectedRegionId: string | null = null;
   let drawer: ReturnType<typeof createRegionDrawer> | null = null;
+  let trackerOpen = false;
+
+  // ---------- Tracker popover ----------
+  trackerBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    trackerOpen = !trackerOpen;
+    trackerPopover.style.display = trackerOpen ? "flex" : "none";
+    if (trackerOpen) renderTracker();
+  });
+
+  function onDocClick(e: MouseEvent) {
+    if (trackerOpen && !trackerPopover.contains(e.target as Node) && e.target !== trackerBtn) {
+      trackerOpen = false;
+      trackerPopover.style.display = "none";
+    }
+  }
+  document.addEventListener("click", onDocClick);
+
+  function updateTrackerBtn() {
+    const pending = regions.filter((r) => !r.transcription_md).length;
+    trackerBtn.textContent = pending > 0 ? `${pending} pending` : "All done";
+  }
+
+  function renderTracker() {
+    const pending = regions.filter((r) => !r.transcription_md);
+    const done = regions.filter((r) => r.transcription_md);
+    trackerPopover.innerHTML = `
+      <div class="tracker-header">
+        <span>Regions</span>
+        <span style="font-size:11px;color:var(--muted)">${done.length}/${regions.length} transcribed</span>
+        <div class="grow"></div>
+        ${pending.length > 0 ? `<button id="batch-transcribe-btn">Transcribe all</button>` : ""}
+      </div>
+      <div class="tracker-list">
+        ${regions.length === 0 ? '<div class="sidebar-empty">No regions yet</div>' : ""}
+        ${regions.map((r) => `
+          <div class="tracker-item" data-page="${r.page}" data-id="${r.id}">
+            <div class="tracker-item-info">
+              <div class="tracker-item-title">${r.label || r.tag.replace("_", " ")}</div>
+              <div class="tracker-item-meta">p. ${r.page} &middot; ${r.tag.replace("_", " ")}</div>
+            </div>
+            <span class="tracker-status ${r.transcription_md ? "done" : "pending"}">
+              ${r.transcription_md ? "done" : "pending"}
+            </span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+
+    // Click to navigate to region's page
+    trackerPopover.querySelectorAll<HTMLElement>(".tracker-item").forEach((el) => {
+      el.addEventListener("click", () => {
+        const targetPage = parseInt(el.dataset.page!);
+        const targetId = el.dataset.id!;
+        if (targetPage !== page) {
+          page = targetPage;
+          updatePage();
+        }
+        selectRegion(targetId);
+        trackerOpen = false;
+        trackerPopover.style.display = "none";
+      });
+    });
+
+    // Batch transcribe
+    const batchBtn = trackerPopover.querySelector<HTMLButtonElement>("#batch-transcribe-btn");
+    if (batchBtn) {
+      batchBtn.addEventListener("click", () => handleBatchTranscribe());
+    }
+  }
+
+  async function handleBatchTranscribe() {
+    const pending = regions.filter((r) => !r.transcription_md);
+    if (pending.length === 0) return;
+
+    info("ChapterView", "batch_transcribe_started", { count: pending.length });
+
+    for (const region of pending) {
+      try {
+        const { job_id } = await transcribeRegion(docId, chapterId, region.id);
+        await new Promise<void>((resolve) => {
+          openJobStream(job_id, async (event) => {
+            if (event.event === "job-done" || event.event === "job-failed") {
+              resolve();
+            }
+          });
+        });
+      } catch {
+        // Continue with next region on error
+      }
+    }
+
+    // Reload all regions after batch completes
+    regions = await listRegions(docId, chapterId);
+    updateTrackerBtn();
+    renderTracker();
+    refreshRegionUI();
+  }
 
   async function load() {
     doc = await getDocument(docId);
@@ -68,13 +171,14 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     chapterTitle.textContent = chapter.title;
     page = chapter.page_start;
     regions = chapter.regions || [];
+    updateTrackerBtn();
     setupDrawer();
     updatePage();
   }
 
   function setupDrawer() {
     if (drawer) drawer.destroy();
-    drawer = createRegionDrawer(pageImg, {
+    drawer = createRegionDrawer(viewer.getImage(), {
       regions: toDrawable(pageRegions()),
       onDraw: (bbox) => showTagPopover(bbox),
       onSelect: (id) => selectRegion(id),
@@ -97,7 +201,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
   function updatePage() {
     if (!chapter) return;
-    pageImg.src = pageImageUrl(docId, page);
+    viewer.setImage(pageImageUrl(docId, page));
     pageInfo.textContent = `${page} (${chapter.page_start}-${chapter.page_end})`;
     prevBtn.disabled = page <= chapter.page_start;
     nextBtn.disabled = page >= chapter.page_end;
@@ -174,6 +278,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         info("ChapterView", "region_created", { region_id: region.id, tag });
         regions.push(region);
         selectedRegionId = region.id;
+        updateTrackerBtn();
         refreshRegionUI();
       } catch (e: any) {
         alert("Failed to create region: " + e.message);
@@ -188,8 +293,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
       openJobStream(job_id, async (event) => {
         if (event.event === "job-done") {
-          // Reload regions to get updated transcription
           regions = await listRegions(docId, chapterId);
+          updateTrackerBtn();
           refreshRegionUI();
         } else if (event.event === "job-failed") {
           alert("Transcription failed: " + (event.data?.error || "unknown error"));
@@ -205,6 +310,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       await deleteRegion(docId, chapterId, region.id);
       regions = regions.filter((r) => r.id !== region.id);
       if (selectedRegionId === region.id) selectedRegionId = null;
+      updateTrackerBtn();
       refreshRegionUI();
     } catch (e: any) {
       alert("Failed to delete region: " + e.message);
@@ -219,6 +325,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   });
 
   function onKey(e: KeyboardEvent) {
+    if (e.metaKey || e.ctrlKey) return; // let zoom-pan handle Cmd keys
     if (e.key === "ArrowLeft") prevBtn.click();
     if (e.key === "ArrowRight") nextBtn.click();
   }
@@ -228,6 +335,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
   return () => {
     document.removeEventListener("keydown", onKey);
+    document.removeEventListener("click", onDocClick);
     drawer?.destroy();
+    viewer.destroy();
   };
 }

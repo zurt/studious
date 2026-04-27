@@ -13,6 +13,11 @@
 - [x] Region tagging (reading_passage, vocab_list, grammar_points, exercises, etc.)
 - [x] Region-level VLM transcription (crop to bbox, send to Claude)
 - [x] Vanilla TypeScript frontend (no framework)
+- [x] Map-like zoom/pan page viewer (pinch zoom, two-finger scroll, Cmd+/-, Cmd+0, fit button)
+- [x] Full screen mode
+- [x] Chapter popover panel (closed by default) with drag-to-reorder
+- [x] Current chapter indicator banner in document view
+- [x] Region transcription tracker widget in chapter view (pending count, batch transcribe)
 
 ## Phase 2: Sentence Breakdowns
 
