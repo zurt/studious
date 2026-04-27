@@ -44,3 +44,27 @@ def prepare_for_vlm(image_path: Path, max_edge: int = 1568) -> bytes:
         buf = io.BytesIO()
         im.save(buf, format="PNG", optimize=True)
         return buf.getvalue()
+
+
+def crop_region(image_path: Path, bbox: list[float], max_edge: int = 1568) -> bytes:
+    """Crop a page image to a normalized bounding box and prepare for VLM.
+
+    ``bbox`` is [x1, y1, x2, y2] where each value is a fraction (0.0–1.0)
+    of the image dimensions.  Returns PNG bytes ready for VLM input.
+    """
+    x1, y1, x2, y2 = bbox
+    with Image.open(image_path) as im:
+        im = im.convert("RGB")
+        w, h = im.size
+        crop_box = (int(x1 * w), int(y1 * h), int(x2 * w), int(y2 * h))
+        cropped = im.crop(crop_box)
+        cw, ch = cropped.size
+        long_edge = max(cw, ch)
+        if long_edge > max_edge:
+            scale = max_edge / float(long_edge)
+            cropped = cropped.resize(
+                (max(1, int(cw * scale)), max(1, int(ch * scale))), Image.LANCZOS
+            )
+        buf = io.BytesIO()
+        cropped.save(buf, format="PNG", optimize=True)
+        return buf.getvalue()

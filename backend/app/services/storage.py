@@ -118,6 +118,150 @@ def transcribed_pages(doc_id: str) -> list[int]:
     return sorted(pages)
 
 
+# ---------- Chapters ----------
+
+
+def _chapters_dir(doc_id: str) -> Path:
+    return document_dir(doc_id) / "chapters"
+
+
+def create_chapter(
+    doc_id: str,
+    *,
+    title: str,
+    page_start: int,
+    page_end: int,
+    order: int = 0,
+) -> dict[str, Any]:
+    chapter_id = uuid.uuid4().hex[:12]
+    chapter_dir = _chapters_dir(doc_id) / chapter_id
+    (chapter_dir / "regions").mkdir(parents=True, exist_ok=True)
+    meta = {
+        "id": chapter_id,
+        "doc_id": doc_id,
+        "title": title,
+        "page_start": page_start,
+        "page_end": page_end,
+        "order": order,
+        "created_at": _now_iso(),
+    }
+    _atomic_write_text(chapter_dir / "meta.json", json.dumps(meta, indent=2, ensure_ascii=False))
+    return meta
+
+
+def list_chapters(doc_id: str) -> list[dict[str, Any]]:
+    root = _chapters_dir(doc_id)
+    if not root.exists():
+        return []
+    out: list[dict[str, Any]] = []
+    for child in sorted(root.iterdir()):
+        meta_path = child / "meta.json"
+        if meta_path.exists():
+            out.append(json.loads(meta_path.read_text("utf-8")))
+    out.sort(key=lambda m: m.get("order", 0))
+    return out
+
+
+def load_chapter(doc_id: str, chapter_id: str) -> dict[str, Any] | None:
+    meta_path = _chapters_dir(doc_id) / chapter_id / "meta.json"
+    if not meta_path.exists():
+        return None
+    return json.loads(meta_path.read_text("utf-8"))
+
+
+def update_chapter(doc_id: str, chapter_id: str, **changes: Any) -> dict[str, Any] | None:
+    chapter = load_chapter(doc_id, chapter_id)
+    if chapter is None:
+        return None
+    chapter.update(changes)
+    _atomic_write_text(
+        _chapters_dir(doc_id) / chapter_id / "meta.json",
+        json.dumps(chapter, indent=2, ensure_ascii=False),
+    )
+    return chapter
+
+
+def delete_chapter(doc_id: str, chapter_id: str) -> bool:
+    chapter_dir = _chapters_dir(doc_id) / chapter_id
+    if not chapter_dir.exists():
+        return False
+    shutil.rmtree(chapter_dir)
+    return True
+
+
+# ---------- Regions ----------
+
+
+def _regions_dir(doc_id: str, chapter_id: str) -> Path:
+    return _chapters_dir(doc_id) / chapter_id / "regions"
+
+
+def create_region(
+    doc_id: str,
+    chapter_id: str,
+    *,
+    page: int,
+    bbox: list[float],
+    tag: str,
+    label: str = "",
+) -> dict[str, Any]:
+    region_id = uuid.uuid4().hex[:12]
+    region = {
+        "id": region_id,
+        "chapter_id": chapter_id,
+        "page": page,
+        "bbox": bbox,
+        "tag": tag,
+        "label": label,
+        "transcription_md": None,
+        "created_at": _now_iso(),
+    }
+    _atomic_write_text(
+        _regions_dir(doc_id, chapter_id) / f"{region_id}.json",
+        json.dumps(region, indent=2, ensure_ascii=False),
+    )
+    return region
+
+
+def list_regions(doc_id: str, chapter_id: str) -> list[dict[str, Any]]:
+    root = _regions_dir(doc_id, chapter_id)
+    if not root.exists():
+        return []
+    out: list[dict[str, Any]] = []
+    for f in sorted(root.iterdir()):
+        if f.suffix == ".json":
+            out.append(json.loads(f.read_text("utf-8")))
+    out.sort(key=lambda r: (r.get("page", 0), r.get("created_at", "")))
+    return out
+
+
+def load_region(doc_id: str, chapter_id: str, region_id: str) -> dict[str, Any] | None:
+    p = _regions_dir(doc_id, chapter_id) / f"{region_id}.json"
+    if not p.exists():
+        return None
+    return json.loads(p.read_text("utf-8"))
+
+
+def update_region(doc_id: str, chapter_id: str, region_id: str, **changes: Any) -> dict[str, Any] | None:
+    region = load_region(doc_id, chapter_id, region_id)
+    if region is None:
+        return None
+    region.update(changes)
+    _atomic_write_text(
+        _regions_dir(doc_id, chapter_id) / f"{region_id}.json",
+        json.dumps(region, indent=2, ensure_ascii=False),
+    )
+    return region
+
+
+def delete_region(doc_id: str, chapter_id: str, region_id: str) -> bool:
+    p = _regions_dir(doc_id, chapter_id) / f"{region_id}.json"
+    if not p.exists():
+        return False
+    p.unlink()
+    return True
+
+
 # ---------- Jobs ----------
 
 
