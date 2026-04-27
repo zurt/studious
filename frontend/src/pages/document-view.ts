@@ -1,9 +1,10 @@
 import {
-  getDocument, getTranscription, pageImageUrl, createChapter,
+  getDocument, getTranscription, pageImageUrl, createChapter, updateChapter,
   type DocMeta, type Transcription, type Chapter,
 } from "../api";
 import { generateCorrelationId } from "../logger";
 import { navigate } from "../router";
+import { createZoomPanViewer } from "../modules/zoom-pan";
 import { marked } from "marked";
 
 export function mountDocumentView(params: Record<string, string>, container: HTMLElement) {
@@ -21,21 +22,19 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
           <span id="page-info">-</span>
           <button id="next-btn" disabled>&rarr;</button>
           <div class="spacer"></div>
-          <button id="new-chapter-btn">New Chapter</button>
+          <button id="chapters-btn">Chapters</button>
+          <button id="new-chapter-btn">+ Chapter</button>
         </div>
+        <div id="chapter-banner" class="chapter-banner" style="display:none"></div>
       </div>
       <div class="pane-row">
-        <div class="pane left" style="display:flex">
-          <div id="chapter-sidebar" class="chapter-sidebar"></div>
-          <div style="flex:1; overflow:auto; padding:12px">
-            <img id="page-img" class="page-img" alt="Page" />
-          </div>
-        </div>
+        <div class="pane left" id="left-pane"></div>
         <div class="pane" id="right-pane">
           <div class="empty">Select a page to view</div>
         </div>
       </div>
     </div>
+    <div id="chapters-popover" class="popover-panel" style="display:none"></div>
   `;
 
   const backLink = container.querySelector<HTMLAnchorElement>("#back-link")!;
@@ -45,28 +44,71 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
   const pageInfo = container.querySelector<HTMLElement>("#page-info")!;
   const prevBtn = container.querySelector<HTMLButtonElement>("#prev-btn")!;
   const nextBtn = container.querySelector<HTMLButtonElement>("#next-btn")!;
+  const chaptersBtn = container.querySelector<HTMLButtonElement>("#chapters-btn")!;
   const newChapterBtn = container.querySelector<HTMLButtonElement>("#new-chapter-btn")!;
-  const pageImg = container.querySelector<HTMLImageElement>("#page-img")!;
   const rightPane = container.querySelector<HTMLElement>("#right-pane")!;
-  const sidebar = container.querySelector<HTMLElement>("#chapter-sidebar")!;
+  const leftPane = container.querySelector<HTMLElement>("#left-pane")!;
+  const chapterBanner = container.querySelector<HTMLElement>("#chapter-banner")!;
+  const chaptersPopover = container.querySelector<HTMLElement>("#chapters-popover")!;
+
+  const viewer = createZoomPanViewer(leftPane);
 
   let doc: DocMeta | null = null;
   let page = 1;
+  let popoverOpen = false;
+
+  // ---------- Chapter popover (toggle) ----------
+  chaptersBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    popoverOpen = !popoverOpen;
+    chaptersPopover.style.display = popoverOpen ? "flex" : "none";
+    if (popoverOpen) renderPopover();
+  });
+
+  // Close popover on outside click
+  function onDocClick(e: MouseEvent) {
+    if (popoverOpen && !chaptersPopover.contains(e.target as Node) && e.target !== chaptersBtn) {
+      popoverOpen = false;
+      chaptersPopover.style.display = "none";
+    }
+  }
+  document.addEventListener("click", onDocClick);
 
   async function load() {
     doc = await getDocument(docId);
     docTitle.textContent = doc.name;
     updatePage();
-    renderSidebar();
   }
 
   function updatePage() {
     if (!doc) return;
-    pageImg.src = pageImageUrl(docId, page);
+    viewer.setImage(pageImageUrl(docId, page));
     pageInfo.textContent = `${page} / ${doc.page_count}`;
     prevBtn.disabled = page <= 1;
     nextBtn.disabled = page >= doc.page_count;
     loadTranscription();
+    updateChapterBanner();
+  }
+
+  function updateChapterBanner() {
+    if (!doc) return;
+    const chapters = doc.chapters || [];
+    const current = chapters.find((ch) => page >= ch.page_start && page <= ch.page_end);
+    if (current) {
+      chapterBanner.style.display = "flex";
+      chapterBanner.innerHTML = `
+        <a href="/doc/${docId}/chapter/${current.id}" id="banner-link" class="chapter-banner-link">
+          ${current.title}
+        </a>
+        <span class="chapter-banner-meta">pp. ${current.page_start}-${current.page_end}</span>
+      `;
+      chapterBanner.querySelector("#banner-link")!.addEventListener("click", (e) => {
+        e.preventDefault();
+        navigate(`/doc/${docId}/chapter/${current.id}`);
+      });
+    } else {
+      chapterBanner.style.display = "none";
+    }
   }
 
   async function loadTranscription() {
@@ -89,38 +131,116 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
     `;
   }
 
-  function renderSidebar() {
+  // ---------- Chapters popover with drag-to-reorder ----------
+  function renderPopover() {
     if (!doc) return;
     const chapters = doc.chapters || [];
-    sidebar.innerHTML = `
-      <div class="sidebar-header">Chapters</div>
-      ${chapters.length === 0 ? '<div class="sidebar-empty">No chapters yet</div>' : ""}
-      ${chapters.map((ch) => `
-        <a href="/doc/${docId}/chapter/${ch.id}" class="sidebar-item" data-chapter-id="${ch.id}">
-          <div class="sidebar-item-title">${ch.title}</div>
-          <div class="sidebar-item-meta">pp. ${ch.page_start}-${ch.page_end}</div>
-        </a>
-      `).join("")}
+    chaptersPopover.innerHTML = `
+      <div class="popover-header">
+        <span>Chapters</span>
+      </div>
+      <div id="chapter-drag-list" class="chapter-drag-list">
+        ${chapters.length === 0 ? '<div class="sidebar-empty">No chapters yet</div>' : ""}
+        ${chapters.map((ch, i) => `
+          <div class="chapter-drag-item" data-index="${i}" data-id="${ch.id}" draggable="true">
+            <span class="drag-handle" title="Drag to reorder">&#x2630;</span>
+            <a href="/doc/${docId}/chapter/${ch.id}" class="chapter-drag-link">
+              <span class="sidebar-item-title">${ch.title}</span>
+              <span class="sidebar-item-meta">pp. ${ch.page_start}-${ch.page_end}</span>
+            </a>
+          </div>
+        `).join("")}
+      </div>
     `;
-    sidebar.querySelectorAll<HTMLAnchorElement>(".sidebar-item").forEach((a) => {
+
+    // Wire chapter links
+    chaptersPopover.querySelectorAll<HTMLAnchorElement>(".chapter-drag-link").forEach((a) => {
       a.addEventListener("click", (e) => {
         e.preventDefault();
+        popoverOpen = false;
+        chaptersPopover.style.display = "none";
         navigate(a.getAttribute("href")!);
       });
     });
+
+    // Drag and drop reorder
+    const list = chaptersPopover.querySelector<HTMLElement>("#chapter-drag-list")!;
+    let dragIndex: number | null = null;
+
+    list.addEventListener("dragstart", (e) => {
+      const item = (e.target as HTMLElement).closest(".chapter-drag-item") as HTMLElement | null;
+      if (!item) return;
+      dragIndex = parseInt(item.dataset.index!);
+      item.classList.add("dragging");
+      e.dataTransfer!.effectAllowed = "move";
+    });
+
+    list.addEventListener("dragend", (e) => {
+      const item = (e.target as HTMLElement).closest(".chapter-drag-item") as HTMLElement | null;
+      if (item) item.classList.remove("dragging");
+      dragIndex = null;
+    });
+
+    list.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer!.dropEffect = "move";
+      const afterEl = getDragAfterElement(list, e.clientY);
+      const dragging = list.querySelector(".dragging");
+      if (!dragging) return;
+      if (afterEl) {
+        list.insertBefore(dragging, afterEl);
+      } else {
+        list.appendChild(dragging);
+      }
+    });
+
+    list.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      if (dragIndex === null || !doc) return;
+      // Read new order from DOM
+      const items = list.querySelectorAll<HTMLElement>(".chapter-drag-item");
+      const chapters = doc.chapters || [];
+      const updates: Promise<any>[] = [];
+      items.forEach((item, newIndex) => {
+        const id = item.dataset.id!;
+        const ch = chapters.find((c) => c.id === id);
+        if (ch && ch.order !== newIndex + 1) {
+          updates.push(updateChapter(docId, id, { order: newIndex + 1 }));
+        }
+      });
+      if (updates.length > 0) {
+        await Promise.all(updates);
+        doc = await getDocument(docId);
+        renderPopover();
+      }
+    });
+  }
+
+  function getDragAfterElement(list: HTMLElement, y: number): Element | null {
+    const items = [...list.querySelectorAll<HTMLElement>(".chapter-drag-item:not(.dragging)")];
+    let closest: Element | null = null;
+    let closestOffset = Number.NEGATIVE_INFINITY;
+    for (const item of items) {
+      const box = item.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closestOffset) {
+        closestOffset = offset;
+        closest = item;
+      }
+    }
+    return closest;
   }
 
   prevBtn.addEventListener("click", () => { if (page > 1) { page--; updatePage(); } });
   nextBtn.addEventListener("click", () => { if (doc && page < doc.page_count) { page++; updatePage(); } });
 
-  // Keyboard navigation
   function onKey(e: KeyboardEvent) {
+    if (e.metaKey || e.ctrlKey) return; // let zoom-pan handle Cmd keys
     if (e.key === "ArrowLeft") prevBtn.click();
     if (e.key === "ArrowRight") nextBtn.click();
   }
   document.addEventListener("keydown", onKey);
 
-  // New chapter modal
   newChapterBtn.addEventListener("click", () => showNewChapterModal());
 
   function showNewChapterModal() {
@@ -177,7 +297,6 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
         });
         bg.remove();
         doc = await getDocument(docId);
-        renderSidebar();
         navigate(`/doc/${docId}/chapter/${ch.id}`);
       } catch (e: any) {
         errEl.textContent = e.message;
@@ -189,5 +308,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
 
   return () => {
     document.removeEventListener("keydown", onKey);
+    document.removeEventListener("click", onDocClick);
+    viewer.destroy();
   };
 }
