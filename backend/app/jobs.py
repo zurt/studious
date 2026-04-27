@@ -80,6 +80,13 @@ class JobManager:
         job = storage.load_job(job_id)
         if job is None:
             return
+        job_type = job.get("job_type", "transcribe_pages")
+        if job_type == "transcribe_region":
+            await self._run_region_job(job_id, job)
+            return
+        await self._run_pages_job(job_id, job)
+
+    async def _run_pages_job(self, job_id: str, job: dict[str, Any]) -> None:
         doc_id = job["doc_id"]
         pages: list[int] = job["pages"]
         engine: str = job["engine"]
@@ -186,6 +193,55 @@ class JobManager:
             errors=errors,
         )
         self._emit(job_id, {"event": "job-done", "data": {"errors": errors}})
+
+
+    async def _run_region_job(self, job_id: str, job: dict[str, Any]) -> None:
+        doc_id = job["doc_id"]
+        chapter_id = job["chapter_id"]
+        region_id = job["region_id"]
+        page: int = job["page"]
+        bbox: list[float] = job["bbox"]
+        provider_name: str = job["provider"]
+        config: dict[str, Any] = job.get("config", {}) or {}
+        prompt: str = job.get("prompt", "")
+
+        job_extra = {"job_id": job_id, "doc_id": doc_id, "chapter_id": chapter_id, "region_id": region_id}
+        log.info("region_job_start", extra=job_extra)
+
+        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
+        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id}})
+
+        try:
+            provider = registry.get_vlm(provider_name)
+        except Exception as exc:
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+
+        image_path = storage.page_image_path(doc_id, page)
+        if not image_path.exists():
+            err_msg = f"missing page image: {image_path}"
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            return
+
+        t0 = time.monotonic()
+        try:
+            image_bytes = await asyncio.to_thread(
+                pdf.crop_region, image_path, bbox, get_settings().vlm_max_edge
+            )
+            result = await asyncio.to_thread(provider.transcribe, image_bytes, prompt, config)
+        except Exception as exc:
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        log.info("region_job_done", extra={**job_extra, "duration_ms": duration_ms})
+
+        storage.update_region(doc_id, chapter_id, region_id, transcription_md=result.markdown)
+        storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
+        self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
 
 
 manager = JobManager()

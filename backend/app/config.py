@@ -22,6 +22,14 @@ DEFAULT_VLM_PROMPT = (
 )
 
 
+REGION_TRANSCRIBE_PROMPT = (
+    "You are transcribing a selected region from a Japanese textbook page. "
+    "Output GitHub-flavored Markdown preserving the content exactly as written. "
+    "When furigana is present, write it inline as 漢字(かんじ). "
+    "Output only the Markdown, with no preamble or commentary."
+)
+
+
 class Settings(BaseModel):
     data_dir: Path
     anthropic_api_key: str | None

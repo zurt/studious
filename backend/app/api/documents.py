@@ -76,6 +76,7 @@ def get_doc(doc_id: str):
         raise HTTPException(404, "document not found")
     meta = dict(meta)
     meta["transcribed_pages"] = storage.transcribed_pages(doc_id)
+    meta["chapters"] = storage.list_chapters(doc_id)
     return meta
 
 
