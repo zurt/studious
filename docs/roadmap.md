@@ -19,6 +19,12 @@
 - [x] Current chapter indicator banner in document view
 - [x] Region transcription tracker widget in chapter view (pending count, batch transcribe)
 
+## Phase 1.5: UX Safety + LLM Observability
+
+- [ ] Confirmation dialogs for delete operations (regions, chapters, documents)
+- [ ] LLM audit log (append-only JSONL with provider, model, tokens, duration, context)
+- [ ] Cost tracking estimation (per-model token pricing, cost-per-request, summary API)
+
 ## Phase 2: Sentence Breakdowns
 
 - [ ] Sentence-by-sentence breakdown (vocab, grammar, gloss) per region
