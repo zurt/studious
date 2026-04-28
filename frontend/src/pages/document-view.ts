@@ -264,6 +264,9 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
 
   function showNewChapterModal() {
     if (!doc) return;
+    const maxPage = doc.page_count;
+    const initStart = page;
+    const initEnd = Math.min(page + 9, maxPage);
     const bg = document.createElement("div");
     bg.className = "modal-bg";
     bg.innerHTML = `
@@ -276,15 +279,21 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
         <div class="row">
           <div class="field grow">
             <label>Start page</label>
-            <input id="ch-start" type="number" min="1" max="${doc.page_count}" value="${page}" />
+            <input id="ch-start" type="number" min="1" max="${maxPage}" value="${initStart}" />
           </div>
           <div class="field grow">
             <label>End page</label>
-            <input id="ch-end" type="number" min="1" max="${doc.page_count}" value="${Math.min(page + 9, doc.page_count)}" />
+            <input id="ch-end" type="number" min="1" max="${maxPage}" value="${initEnd}" />
           </div>
-          <div class="field grow">
-            <label>Order</label>
-            <input id="ch-order" type="number" min="0" value="${(doc.chapters?.length ?? 0) + 1}" />
+        </div>
+        <div class="row chapter-thumbs">
+          <div class="chapter-thumb grow">
+            <div class="chapter-thumb-label">Start</div>
+            <img id="ch-start-thumb" alt="" />
+          </div>
+          <div class="chapter-thumb grow">
+            <div class="chapter-thumb-label">End</div>
+            <img id="ch-end-thumb" alt="" />
           </div>
         </div>
         <div class="row">
@@ -297,14 +306,48 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
     `;
     document.body.appendChild(bg);
 
+    const startInput = bg.querySelector<HTMLInputElement>("#ch-start")!;
+    const endInput = bg.querySelector<HTMLInputElement>("#ch-end")!;
+    const startThumb = bg.querySelector<HTMLImageElement>("#ch-start-thumb")!;
+    const endThumb = bg.querySelector<HTMLImageElement>("#ch-end-thumb")!;
+
+    function clamp(n: number) {
+      if (!Number.isFinite(n)) return null;
+      return Math.min(maxPage, Math.max(1, Math.floor(n)));
+    }
+    function updateThumbs() {
+      const s = clamp(parseInt(startInput.value, 10));
+      const e = clamp(parseInt(endInput.value, 10));
+      if (s) startThumb.src = pageImageUrl(docId, s);
+      if (e) endThumb.src = pageImageUrl(docId, e);
+    }
+    function onStartChange() {
+      const s = clamp(parseInt(startInput.value, 10));
+      if (s === null) return;
+      startInput.value = String(s);
+      const e = clamp(parseInt(endInput.value, 10));
+      if (e !== null && e < s) endInput.value = String(s);
+      updateThumbs();
+    }
+    function onEndChange() {
+      const e = clamp(parseInt(endInput.value, 10));
+      if (e === null) return;
+      endInput.value = String(e);
+      const s = clamp(parseInt(startInput.value, 10));
+      if (s !== null && s > e) startInput.value = String(e);
+      updateThumbs();
+    }
+    startInput.addEventListener("input", onStartChange);
+    endInput.addEventListener("input", onEndChange);
+    updateThumbs();
+
     bg.querySelector("#ch-cancel")!.addEventListener("click", () => bg.remove());
     bg.addEventListener("click", (e) => { if (e.target === bg) bg.remove(); });
 
     bg.querySelector("#ch-save")!.addEventListener("click", async () => {
       const title = (bg.querySelector<HTMLInputElement>("#ch-title")!).value.trim();
-      const startPage = parseInt((bg.querySelector<HTMLInputElement>("#ch-start")!).value);
-      const endPage = parseInt((bg.querySelector<HTMLInputElement>("#ch-end")!).value);
-      const order = parseInt((bg.querySelector<HTMLInputElement>("#ch-order")!).value);
+      const startPage = parseInt(startInput.value);
+      const endPage = parseInt(endInput.value);
       const errEl = bg.querySelector<HTMLElement>("#ch-error")!;
 
       if (!title) { errEl.textContent = "Title is required"; return; }
@@ -312,7 +355,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
 
       try {
         const ch = await createChapter(docId, {
-          title, page_start: startPage, page_end: endPage, order,
+          title, page_start: startPage, page_end: endPage,
         });
         bg.remove();
         doc = await getDocument(docId);

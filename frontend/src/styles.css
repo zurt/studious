@@ -130,6 +130,17 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .field label { font-size: 12px; color: var(--muted); }
 .row { display: flex; gap: 8px; align-items: center; }
 .row > * { flex: none; }
+
+.chapter-thumbs { align-items: stretch; }
+.chapter-thumb {
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 0; flex: 1 1 0;
+}
+.chapter-thumb-label { font-size: 12px; color: var(--muted); }
+.chapter-thumb img {
+  width: 100%; height: 200px; object-fit: contain;
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: 6px;
+}
 .row .grow { flex: 1; }
 
 .badge {
