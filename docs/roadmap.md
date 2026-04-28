@@ -21,7 +21,7 @@
 
 ## Phase 1.5: UX Safety + LLM Observability
 
-- [ ] Confirmation dialogs for delete operations (regions, chapters, documents)
+- [x] Confirmation dialog utility + wired into region delete (chapter/document delete UI not yet implemented)
 - [ ] LLM audit log (append-only JSONL with provider, model, tokens, duration, context)
 - [ ] Cost tracking estimation (per-model token pricing, cost-per-request, summary API)
 
