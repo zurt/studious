@@ -17,12 +17,12 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
         <div class="topbar">
           <a href="/" id="back-link">Library</a>
           <span id="doc-title">Loading...</span>
+          <button id="chapters-btn">Chapters</button>
           <div class="spacer"></div>
           <button id="prev-btn" disabled>&larr;</button>
           <span id="page-info">-</span>
           <button id="next-btn" disabled>&rarr;</button>
           <div class="spacer"></div>
-          <button id="chapters-btn">Chapters</button>
           <button id="new-chapter-btn">+ Chapter</button>
         </div>
         <div id="chapter-banner" class="chapter-banner" style="display:none"></div>
@@ -58,11 +58,21 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
   let popoverOpen = false;
 
   // ---------- Chapter popover (toggle) ----------
+  function positionChaptersPopover() {
+    const btnRect = chaptersBtn.getBoundingClientRect();
+    chaptersPopover.style.left = btnRect.left + "px";
+    chaptersPopover.style.right = "auto";
+    chaptersPopover.style.top = (btnRect.bottom + 4) + "px";
+  }
+
   chaptersBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     popoverOpen = !popoverOpen;
     chaptersPopover.style.display = popoverOpen ? "flex" : "none";
-    if (popoverOpen) renderPopover();
+    if (popoverOpen) {
+      renderPopover();
+      positionChaptersPopover();
+    }
   });
 
   // Close popover on outside click
