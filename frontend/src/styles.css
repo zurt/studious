@@ -264,7 +264,7 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 
 /* Transcription tracker popover */
 .tracker-popover {
-  position: absolute; top: 52px; left: 16px; z-index: 5;
+  position: fixed; top: 52px; left: 16px; z-index: 5;
   width: 320px; max-height: 400px;
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);

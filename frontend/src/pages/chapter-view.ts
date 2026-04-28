@@ -66,11 +66,24 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   let trackerOpen = false;
 
   // ---------- Tracker popover ----------
+  function positionTrackerPopover() {
+    const btnRect = trackerBtn.getBoundingClientRect();
+    const popoverWidth = trackerPopover.offsetWidth || 320;
+    let left = btnRect.right - popoverWidth;
+    if (left < 8) left = 8;
+    trackerPopover.style.left = left + "px";
+    trackerPopover.style.right = "auto";
+    trackerPopover.style.top = (btnRect.bottom + 4) + "px";
+  }
+
   trackerBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     trackerOpen = !trackerOpen;
     trackerPopover.style.display = trackerOpen ? "flex" : "none";
-    if (trackerOpen) renderTracker();
+    if (trackerOpen) {
+      renderTracker();
+      positionTrackerPopover();
+    }
   });
 
   function onDocClick(e: MouseEvent) {
