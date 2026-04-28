@@ -5,6 +5,7 @@ import {
 import { generateCorrelationId } from "../logger";
 import { navigate } from "../router";
 import { createZoomPanViewer } from "../modules/zoom-pan";
+import { attachPageInput } from "../modules/page-input";
 import { marked } from "marked";
 
 export function mountDocumentView(params: Record<string, string>, container: HTMLElement) {
@@ -52,6 +53,13 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
   const chaptersPopover = container.querySelector<HTMLElement>("#chapters-popover")!;
 
   const viewer = createZoomPanViewer(leftPane);
+
+  attachPageInput(pageInfo, {
+    getMin: () => 1,
+    getMax: () => doc?.page_count ?? 1,
+    getCurrent: () => page,
+    onCommit: (p) => { page = p; updatePage(); },
+  });
 
   let doc: DocMeta | null = null;
   let page = 1;

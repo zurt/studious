@@ -9,6 +9,7 @@ import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawe
 import { renderRegionList } from "../modules/region-list";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { confirmDialog } from "../modules/confirm";
+import { attachPageInput } from "../modules/page-input";
 import { marked } from "marked";
 
 const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
@@ -56,6 +57,13 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const trackerPopover = container.querySelector<HTMLElement>("#tracker-popover")!;
 
   const viewer = createZoomPanViewer(leftPane);
+
+  attachPageInput(pageInfo, {
+    getMin: () => chapter?.page_start ?? 1,
+    getMax: () => chapter?.page_end ?? 1,
+    getCurrent: () => page,
+    onCommit: (p) => { page = p; updatePage(); },
+  });
 
   let doc: DocMeta | null = null;
   let chapter: Chapter | null = null;
