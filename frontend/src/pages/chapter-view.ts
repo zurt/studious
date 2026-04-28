@@ -8,6 +8,7 @@ import { navigate } from "../router";
 import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawer";
 import { renderRegionList } from "../modules/region-list";
 import { createZoomPanViewer } from "../modules/zoom-pan";
+import { confirmDialog } from "../modules/confirm";
 import { marked } from "marked";
 
 const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
@@ -306,6 +307,12 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   async function handleDelete(region: Region) {
+    const desc = region.label ? `"${region.label}" (${region.tag})` : region.tag;
+    const ok = await confirmDialog(
+      "Delete region?",
+      `Delete ${desc} on page ${region.page}? Its transcription will be lost.`,
+    );
+    if (!ok) return;
     try {
       await deleteRegion(docId, chapterId, region.id);
       regions = regions.filter((r) => r.id !== region.id);
