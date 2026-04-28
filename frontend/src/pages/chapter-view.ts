@@ -183,6 +183,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       return;
     }
     chapterTitle.textContent = chapter.title;
+    chapterTitle.title = chapter.title;
     page = chapter.page_start;
     regions = chapter.regions || [];
     updateTrackerBtn();

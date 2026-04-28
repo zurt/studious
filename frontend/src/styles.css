@@ -55,9 +55,14 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .topbar {
   display: flex; align-items: center; gap: 16px;
   padding: 10px 16px; border-bottom: 1px solid var(--border);
+  min-width: 0;
 }
 .topbar h1 { font-size: 16px; margin: 0; }
 .topbar .spacer { flex: 1; }
+.topbar #doc-title, .topbar #chapter-title {
+  min-width: 0; flex: 0 1 auto; max-width: 25vw;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .library {
   padding: 24px; max-width: 1100px; margin: 0 auto;
@@ -77,7 +82,7 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .doc-card .meta { font-size: 12px; color: var(--muted); }
 
 .viewer {
-  flex: 1; display: grid; grid-template-rows: auto 1fr; min-height: 0;
+  flex: 1; display: grid; grid-template-rows: auto 1fr; min-height: 0; min-width: 0;
 }
 .viewer .pane-row {
   display: grid; grid-template-columns: 1fr 1fr; min-height: 0; height: 100%;
@@ -255,7 +260,7 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 
 /* Viewer layout - update for banner row */
 .viewer .viewer-top {
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; min-width: 0;
 }
 
 /* Fullscreen adjustments */

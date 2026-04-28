@@ -87,6 +87,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
   async function load() {
     doc = await getDocument(docId);
     docTitle.textContent = doc.name;
+    docTitle.title = doc.name;
     updatePage();
   }
 
