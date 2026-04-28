@@ -125,7 +125,9 @@ export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOpti
 
   function getPos(e: MouseEvent): [number, number] {
     const rect = canvas.getBoundingClientRect();
-    return [e.clientX - rect.left, e.clientY - rect.top];
+    const sx = rect.width === 0 ? 1 : canvas.width / rect.width;
+    const sy = rect.height === 0 ? 1 : canvas.height / rect.height;
+    return [(e.clientX - rect.left) * sx, (e.clientY - rect.top) * sy];
   }
 
   function onMouseDown(e: MouseEvent) {
