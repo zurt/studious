@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
+from ..config import get_settings
 from ..services import pdf, storage
 
 log = logging.getLogger("studious.api.documents")
@@ -52,7 +53,7 @@ async def upload_document(file: UploadFile = File(...)):
 
     t0 = time.monotonic()
     if source_type == "pdf":
-        page_count = pdf.render_pdf_to_pages(original, pages_dir)
+        page_count = pdf.render_pdf_to_pages(original, pages_dir, dpi=get_settings().pdf_render_dpi)
     else:
         page_count = pdf.copy_image_as_page(original, pages_dir)
     render_ms = int((time.monotonic() - t0) * 1000)

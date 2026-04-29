@@ -37,7 +37,7 @@ class Settings(BaseModel):
     default_vlm_model: str = "claude-sonnet-4-6"
     default_vlm_prompt: str = DEFAULT_VLM_PROMPT
     vlm_max_edge: int = 1568
-    pdf_render_dpi: int = 150
+    pdf_render_dpi: int = 220
 
 
 @lru_cache
@@ -46,8 +46,13 @@ def get_settings() -> Settings:
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "documents").mkdir(exist_ok=True)
     (data_dir / "jobs").mkdir(exist_ok=True)
+    overrides: dict = {}
+    dpi_env = os.environ.get("STUDIOUS_PDF_RENDER_DPI")
+    if dpi_env:
+        overrides["pdf_render_dpi"] = int(dpi_env)
     return Settings(
         data_dir=data_dir,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
         tesseract_cmd=os.environ.get("TESSERACT_CMD") or None,
+        **overrides,
     )
