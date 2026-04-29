@@ -25,7 +25,11 @@ make install
 
 # config
 cp .env.example .env
-# edit .env, set ANTHROPIC_API_KEY
+
+# store your Anthropic API key in macOS Keychain (do not put it in .env)
+security add-generic-password -s ANTHROPIC_API_KEY -a "$USER" -w
+# then add to ~/.zshrc:
+#   export ANTHROPIC_API_KEY="$(security find-generic-password -s ANTHROPIC_API_KEY -a "$USER" -w 2>/dev/null)"
 
 # run (two terminals)
 make dev-backend     # http://localhost:8000
