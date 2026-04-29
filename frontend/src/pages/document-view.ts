@@ -304,7 +304,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
         <div id="ch-error" class="error"></div>
       </div>
     `;
-    document.body.appendChild(bg);
+    (document.fullscreenElement ?? document.body).appendChild(bg);
 
     const startInput = bg.querySelector<HTMLInputElement>("#ch-start")!;
     const endInput = bg.querySelector<HTMLInputElement>("#ch-end")!;

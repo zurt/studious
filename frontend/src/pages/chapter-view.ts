@@ -287,7 +287,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         </div>
       </div>
     `;
-    document.body.appendChild(bg);
+    (document.fullscreenElement ?? document.body).appendChild(bg);
 
     bg.querySelector("#tag-cancel")!.addEventListener("click", () => bg.remove());
     bg.addEventListener("click", (e) => { if (e.target === bg) bg.remove(); });

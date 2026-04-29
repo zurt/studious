@@ -17,7 +17,7 @@ export function confirmDialog(title: string, message: string, confirmLabel = "De
     bg.querySelector(".confirm-message")!.textContent = message;
     const okBtn = bg.querySelector<HTMLButtonElement>("#confirm-ok")!;
     okBtn.textContent = confirmLabel;
-    document.body.appendChild(bg);
+    (document.fullscreenElement ?? document.body).appendChild(bg);
 
     function close(result: boolean) {
       document.removeEventListener("keydown", onKey);
