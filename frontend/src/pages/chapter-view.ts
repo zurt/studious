@@ -72,6 +72,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   let selectedRegionId: string | null = null;
   let drawer: ReturnType<typeof createRegionDrawer> | null = null;
   let trackerOpen = false;
+  const transcribingIds = new Set<string>();
 
   // ---------- Tracker popover ----------
   function positionTrackerPopover() {
@@ -239,6 +240,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       onTranscribe: handleTranscribe,
       onDelete: handleDelete,
       onSelect: (r) => selectRegion(r.id),
+      transcribingIds,
     });
     renderDetail();
   }
@@ -255,8 +257,13 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       return;
     }
     if (region.transcription_md) {
+      const meta: string[] = [];
+      if (region.transcribed_model) meta.push(region.transcribed_model);
+      if (region.transcribed_at) meta.push(new Date(region.transcribed_at).toLocaleString());
+      const metaHtml = meta.length ? `<div class="region-detail-meta">${meta.join(" · ")}</div>` : "";
       regionDetail.innerHTML = `
         <div class="region-detail-header">Transcription</div>
+        ${metaHtml}
         <div class="markdown">${marked.parse(region.transcription_md)}</div>
       `;
     } else {
@@ -310,20 +317,28 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   async function handleTranscribe(region: Region) {
+    if (transcribingIds.has(region.id)) return;
+    transcribingIds.add(region.id);
+    refreshRegionUI();
     try {
       const { job_id } = await transcribeRegion(docId, chapterId, region.id);
       info("ChapterView", "transcribe_started", { region_id: region.id, job_id });
 
       openJobStream(job_id, async (event) => {
-        if (event.event === "job-done") {
-          regions = await listRegions(docId, chapterId);
-          updateTrackerBtn();
+        if (event.event === "job-done" || event.event === "job-failed") {
+          transcribingIds.delete(region.id);
+          if (event.event === "job-done") {
+            regions = await listRegions(docId, chapterId);
+            updateTrackerBtn();
+          } else {
+            alert("Transcription failed: " + (event.data?.error || "unknown error"));
+          }
           refreshRegionUI();
-        } else if (event.event === "job-failed") {
-          alert("Transcription failed: " + (event.data?.error || "unknown error"));
         }
       });
     } catch (e: any) {
+      transcribingIds.delete(region.id);
+      refreshRegionUI();
       alert("Failed to start transcription: " + e.message);
     }
   }

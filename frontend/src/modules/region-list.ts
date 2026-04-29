@@ -4,6 +4,7 @@ export type RegionListOptions = {
   onTranscribe: (region: Region) => void;
   onDelete: (region: Region) => void;
   onSelect: (region: Region) => void;
+  transcribingIds?: Set<string>;
 };
 
 const TAG_LABELS: Record<string, string> = {
@@ -62,11 +63,18 @@ export function renderRegionList(
 
     if (!region.transcription_md) {
       const transcribeBtn = document.createElement("button");
-      transcribeBtn.textContent = "Transcribe";
-      transcribeBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        opts.onTranscribe(region);
-      });
+      const inFlight = opts.transcribingIds?.has(region.id);
+      if (inFlight) {
+        transcribeBtn.textContent = "Transcribing…";
+        transcribeBtn.disabled = true;
+        transcribeBtn.classList.add("is-busy");
+      } else {
+        transcribeBtn.textContent = "Transcribe";
+        transcribeBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          opts.onTranscribe(region);
+        });
+      }
       actions.appendChild(transcribeBtn);
     }
 

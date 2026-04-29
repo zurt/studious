@@ -42,6 +42,8 @@ export type Region = {
   tag: string;
   label: string;
   transcription_md: string | null;
+  transcribed_at?: string | null;
+  transcribed_model?: string | null;
   created_at: string;
 };
 
