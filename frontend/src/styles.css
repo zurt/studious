@@ -77,6 +77,7 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px;
 }
 .doc-card {
+  position: relative;
   display: flex; flex-direction: column; gap: 6px;
   border: 1px solid var(--border); border-radius: 8px; padding: 10px;
   background: var(--bg-soft);
@@ -86,6 +87,35 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 }
 .doc-card .name { font-weight: 600; word-break: break-word; }
 .doc-card .meta { font-size: 12px; color: var(--muted); }
+
+.card-menu {
+  position: absolute; right: 6px; bottom: 6px;
+}
+.card-menu-btn {
+  width: 28px; height: 28px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--muted);
+  font-size: 18px; line-height: 1; cursor: pointer;
+}
+.card-menu-btn:hover { background: var(--bg-soft); color: inherit; }
+
+.card-menu-popup {
+  z-index: 100;
+  min-width: 160px;
+  display: flex; flex-direction: column;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  padding: 4px;
+}
+.card-menu-popup button {
+  background: transparent; border: none; text-align: left;
+  padding: 6px 10px; border-radius: 4px; cursor: pointer; color: inherit;
+  font: inherit;
+}
+.card-menu-popup button:hover { background: var(--bg-soft); }
+.card-menu-popup button.danger { color: #e06c75; }
+.card-menu-popup button.danger:hover { background: rgba(224, 108, 117, 0.15); }
 
 .viewer {
   flex: 1; display: grid; grid-template-rows: auto 1fr; min-height: 0; min-width: 0;

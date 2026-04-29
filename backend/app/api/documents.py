@@ -65,6 +65,64 @@ async def upload_document(file: UploadFile = File(...)):
     return meta
 
 
+@router.put("/{doc_id}/file")
+async def reupload_document(doc_id: str, file: UploadFile = File(...)):
+    meta = storage.load_document(doc_id)
+    if meta is None:
+        raise HTTPException(404, "document not found")
+    if not file.filename:
+        raise HTTPException(400, "missing filename")
+    suffix = Path(file.filename).suffix.lower()
+    if suffix in PDF_SUFFIXES:
+        source_type = "pdf"
+    elif suffix in IMAGE_SUFFIXES:
+        source_type = "image"
+    else:
+        raise HTTPException(400, f"unsupported file type: {suffix!r}")
+
+    tmp = Path(tempfile.mkstemp(suffix=suffix)[1])
+    try:
+        with tmp.open("wb") as out:
+            shutil.copyfileobj(file.file, out)
+    finally:
+        await file.close()
+
+    doc_dir = storage.document_dir(doc_id)
+    pages_dir = doc_dir / "pages"
+    for old in doc_dir.glob("original.*"):
+        old.unlink()
+    if pages_dir.exists():
+        shutil.rmtree(pages_dir)
+    new_original = doc_dir / f"original{suffix}"
+    shutil.move(str(tmp), new_original)
+
+    t0 = time.monotonic()
+    if source_type == "pdf":
+        page_count = pdf.render_pdf_to_pages(new_original, pages_dir, dpi=get_settings().pdf_render_dpi)
+    else:
+        page_count = pdf.copy_image_as_page(new_original, pages_dir)
+    render_ms = int((time.monotonic() - t0) * 1000)
+    log.info("document_reuploaded", extra={"doc_id": doc_id, "source_type": source_type, "page_count": page_count, "render_ms": render_ms})
+
+    meta["name"] = file.filename
+    meta["source_type"] = source_type
+    meta["page_count"] = page_count
+    meta["original_filename"] = f"original{suffix}"
+    import json
+    (doc_dir / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), "utf-8")
+    return meta
+
+
+@router.delete("/{doc_id}")
+def delete_document(doc_id: str):
+    doc_dir = storage.document_dir(doc_id)
+    if not doc_dir.exists():
+        raise HTTPException(404, "document not found")
+    shutil.rmtree(doc_dir)
+    log.info("document_deleted", extra={"doc_id": doc_id})
+    return {"deleted": doc_id}
+
+
 @router.get("")
 def list_docs():
     return storage.list_documents()

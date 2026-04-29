@@ -147,6 +147,24 @@ export async function uploadDocument(file: File): Promise<DocMeta> {
   return (await r.json()) as DocMeta;
 }
 
+export async function reuploadDocument(docId: string, file: File): Promise<DocMeta> {
+  const done = startTimer("api", `PUT /api/documents/${docId}/file`);
+  const fd = new FormData();
+  fd.append("file", file);
+  const r = await fetch(`/api/documents/${docId}/file`, {
+    method: "PUT",
+    body: fd,
+    headers: correlationHeaders(),
+  });
+  done({ status: r.status });
+  if (!r.ok) throw new Error(`reupload failed: ${r.status} ${await r.text()}`);
+  return (await r.json()) as DocMeta;
+}
+
+export async function deleteDocument(docId: string): Promise<void> {
+  return jdelete(`/api/documents/${docId}`);
+}
+
 export function pageImageUrl(docId: string, page: number): string {
   return `/api/documents/${docId}/pages/${page}/image`;
 }
