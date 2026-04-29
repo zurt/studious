@@ -67,6 +67,8 @@ def test_region_crud(isolated_data_dir, tmp_path: Path):
     assert region["bbox"] == [0.1, 0.2, 0.9, 0.8]
     assert region["tag"] == "reading_passage"
     assert region["transcription_md"] is None
+    assert region["transcribed_at"] is None
+    assert region["transcribed_model"] is None
 
     # Load
     loaded = storage.load_region(doc_id, ch["id"], region["id"])
@@ -83,9 +85,14 @@ def test_region_crud(isolated_data_dir, tmp_path: Path):
 
     # Update transcription
     updated = storage.update_region(
-        doc_id, ch["id"], region["id"], transcription_md="# Hello"
+        doc_id, ch["id"], region["id"],
+        transcription_md="# Hello",
+        transcribed_at="2026-04-27T12:00:00Z",
+        transcribed_model="claude-sonnet-4-6",
     )
     assert updated["transcription_md"] == "# Hello"
+    assert updated["transcribed_at"] == "2026-04-27T12:00:00Z"
+    assert updated["transcribed_model"] == "claude-sonnet-4-6"
     assert storage.load_region(doc_id, ch["id"], region["id"])["transcription_md"] == "# Hello"
 
     # Delete

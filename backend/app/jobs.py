@@ -239,7 +239,14 @@ class JobManager:
         duration_ms = int((time.monotonic() - t0) * 1000)
         log.info("region_job_done", extra={**job_extra, "duration_ms": duration_ms})
 
-        storage.update_region(doc_id, chapter_id, region_id, transcription_md=result.markdown)
+        storage.update_region(
+            doc_id,
+            chapter_id,
+            region_id,
+            transcription_md=result.markdown,
+            transcribed_at=_now_iso(),
+            transcribed_model=result.meta.get("model"),
+        )
         storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
         self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
 

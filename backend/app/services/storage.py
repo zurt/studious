@@ -214,6 +214,8 @@ def create_region(
         "tag": tag,
         "label": label,
         "transcription_md": None,
+        "transcribed_at": None,
+        "transcribed_model": None,
         "created_at": _now_iso(),
     }
     _atomic_write_text(
