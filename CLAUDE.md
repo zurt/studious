@@ -33,6 +33,7 @@ After every commit, follow these steps:
 2. **Run tests**: Run `make test` and ensure all tests pass. Fix any failures before proceeding.
 3. **README**: Update `README.md` if the change affects setup, usage, or architecture.
 4. **Docs**: Update relevant files in `docs/` if the change affects the project description, roadmap, or architecture.
+5. **Troubleshooting**: When you discover a new failure mode, where to find logs/state for a subsystem, or fix a bug whose diagnosis was non-obvious, add or update an entry in `docs/troubleshooting.md`. Keep it organized by symptom, not by date.
 
 ## Supply Chain Security
 
