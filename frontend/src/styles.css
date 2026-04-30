@@ -208,16 +208,25 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 
 /* Region cards */
 .region-card {
+  position: relative;
   padding: 10px; border: 1px solid var(--border); border-radius: 6px;
   margin-bottom: 8px; cursor: pointer; background: var(--bg);
 }
 .region-card:hover { border-color: var(--accent); }
 .region-card.selected { border-color: var(--accent); background: var(--bg-soft); }
-.region-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.region-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; padding-right: 72px; }
 .region-label { font-size: 13px; font-weight: 500; }
-.region-preview { font-size: 12px; color: var(--muted); line-height: 1.4; margin-bottom: 6px; }
-.region-actions { display: flex; gap: 6px; }
+.region-preview { font-size: 12px; color: var(--muted); line-height: 1.4; margin-bottom: 0; }
+.region-actions {
+  position: absolute; top: 8px; right: 8px;
+  display: flex; gap: 6px; align-items: center;
+}
 .region-actions button { font-size: 12px; padding: 3px 8px; }
+.region-actions .icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4px; line-height: 0;
+}
+.region-actions .icon-btn svg { display: block; }
 
 /* Tag badges */
 .tag-reading_passage { background: rgba(37,99,235,0.12); color: #2563eb; border-color: rgba(37,99,235,0.3); }

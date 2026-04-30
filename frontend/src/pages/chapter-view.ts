@@ -238,6 +238,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     drawer?.setRegions(toDrawable(pr));
     renderRegionList(regionListContainer, pr, selectedRegionId, {
       onTranscribe: handleTranscribe,
+      onRetranscribe: handleRetranscribe,
       onDelete: handleDelete,
       onSelect: (r) => selectRegion(r.id),
       transcribingIds,
@@ -341,6 +342,18 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       refreshRegionUI();
       alert("Failed to start transcription: " + e.message);
     }
+  }
+
+  async function handleRetranscribe(region: Region) {
+    if (transcribingIds.has(region.id)) return;
+    const desc = region.label ? `"${region.label}" (${region.tag})` : region.tag;
+    const ok = await confirmDialog(
+      "Re-transcribe region?",
+      `Re-transcribe ${desc} on page ${region.page}? The existing transcription will be replaced.`,
+      "Re-transcribe",
+    );
+    if (!ok) return;
+    handleTranscribe(region);
   }
 
   async function handleDelete(region: Region) {
