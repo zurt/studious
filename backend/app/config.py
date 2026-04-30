@@ -34,7 +34,7 @@ class Settings(BaseModel):
     data_dir: Path
     anthropic_api_key: str | None
     tesseract_cmd: str | None
-    default_vlm_model: str = "claude-sonnet-4-6"
+    default_vlm_model: str = "claude-opus-4-7"
     default_vlm_prompt: str = DEFAULT_VLM_PROMPT
     vlm_max_edge: int = 1568
     pdf_render_dpi: int = 300
