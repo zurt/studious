@@ -37,7 +37,7 @@ class Settings(BaseModel):
     default_vlm_model: str = "claude-sonnet-4-6"
     default_vlm_prompt: str = DEFAULT_VLM_PROMPT
     vlm_max_edge: int = 1568
-    pdf_render_dpi: int = 220
+    pdf_render_dpi: int = 300
 
 
 @lru_cache
