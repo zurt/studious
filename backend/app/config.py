@@ -10,24 +10,72 @@ from pydantic import BaseModel
 load_dotenv()
 
 
-DEFAULT_VLM_PROMPT = (
-    "You are transcribing a page from a Japanese textbook. Output "
-    "GitHub-flavored Markdown that preserves the natural reading order of the "
-    "page — top-to-bottom for horizontal text, right-to-left and "
-    "top-to-bottom for vertical text. Use headings for section titles, "
-    "bullet/numbered lists for enumerations, and tables for tabular content. "
-    "Preserve all Japanese text exactly as written; do not translate. When "
-    "furigana is present, write it inline as 漢字(かんじ). "
-    "Output only the Markdown, with no preamble or commentary."
-)
+DEFAULT_VLM_PROMPT = """\
+You are an expert OCR transcriber specializing in Japanese textbooks
+for English speakers. The image is a single page that mixes Japanese
+(kanji, hiragana, katakana, possibly with furigana) and English.
+
+<task>
+Transcribe the page into clean Markdown. Preserve the original reading
+order — top-to-bottom for horizontal text, right-to-left and
+top-to-bottom for vertical text. Preserve paragraph breaks. Convert
+visual structure to Markdown semantics:
+- Headings (chapter/section titles) → # / ## / ###
+- Bold or boxed terms → **bold**
+- Vocabulary lists or dialogue turns → bulleted or numbered lists
+- Tables (conjugation charts, vocab tables) → Markdown tables
+- Furigana above kanji → inline parens, e.g. 食(た)べる
+- Example sentences and their translations → keep on adjacent lines
+</task>
+
+<rules>
+- Transcribe Japanese exactly as printed. Do not "correct" spelling,
+  punctuation (including 、 and 。), or kana/kanji choices.
+- Transcribe English exactly as printed.
+- If a character or word is unclear, write [?] in its place. Do not
+  guess.
+- If a region is too blurry, illegible, or cut off to read, write
+  [illegible] and continue.
+- Do not add commentary, translations, or explanations that are not
+  on the page.
+- Do not summarize. Output the full page text.
+</rules>
+
+<output_format>
+Return only the Markdown transcription, with no preamble or closing
+remarks. Begin directly with the first line of the page.
+</output_format>
+"""
 
 
-REGION_TRANSCRIBE_PROMPT = (
-    "You are transcribing a selected region from a Japanese textbook page. "
-    "Output GitHub-flavored Markdown preserving the content exactly as written. "
-    "When furigana is present, write it inline as 漢字(かんじ). "
-    "Output only the Markdown, with no preamble or commentary."
-)
+REGION_TRANSCRIBE_PROMPT = """\
+You are an expert OCR transcriber specializing in Japanese textbooks
+for English speakers. The image is a selected region from a single
+page — it may be a passage, vocabulary list, table, or other element.
+
+<task>
+Transcribe the region into clean Markdown. Preserve the original
+reading order — top-to-bottom for horizontal text, right-to-left and
+top-to-bottom for vertical text — and preserve paragraph breaks. Use
+Markdown lists for enumerations and tables for tabular content.
+Render furigana inline with parens, e.g. 食(た)べる. Do not invent a
+heading if the region has no title.
+</task>
+
+<rules>
+- Transcribe Japanese and English exactly as printed. Do not
+  "correct" spelling, punctuation (including 、 and 。), or
+  kana/kanji choices.
+- If a character or word is unclear, write [?]. If part of the region
+  is illegible or cut off, write [illegible] and continue.
+- Do not add commentary or translations that are not on the page.
+</rules>
+
+<output_format>
+Return only the Markdown transcription, with no preamble or closing
+remarks.
+</output_format>
+"""
 
 
 class Settings(BaseModel):
