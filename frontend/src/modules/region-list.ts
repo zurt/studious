@@ -86,11 +86,13 @@ export function renderRegionList(
       retranscribeBtn.className = "icon-btn";
       retranscribeBtn.title = "Re-transcribe";
       retranscribeBtn.setAttribute("aria-label", "Re-transcribe");
-      retranscribeBtn.innerHTML = ICON_REDO;
       if (inFlight) {
         retranscribeBtn.disabled = true;
         retranscribeBtn.classList.add("is-busy");
+        retranscribeBtn.innerHTML = `<span class="spinner"></span>`;
+        retranscribeBtn.title = "Re-transcribing…";
       } else {
+        retranscribeBtn.innerHTML = ICON_REDO;
         retranscribeBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           opts.onRetranscribe(region);

@@ -257,16 +257,21 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       regionDetail.innerHTML = "";
       return;
     }
+    const inFlight = transcribingIds.has(region.id);
     if (region.transcription_md) {
       const meta: string[] = [];
       if (region.transcribed_model) meta.push(region.transcribed_model);
       if (region.transcribed_at) meta.push(new Date(region.transcribed_at).toLocaleString());
       const metaHtml = meta.length ? `<div class="region-detail-meta">${meta.join(" · ")}</div>` : "";
+      const busyHtml = inFlight ? `<div class="region-detail-busy"><span class="spinner"></span> Re-transcribing…</div>` : "";
       regionDetail.innerHTML = `
         <div class="region-detail-header">Transcription</div>
         ${metaHtml}
+        ${busyHtml}
         <div class="markdown">${marked.parse(region.transcription_md)}</div>
       `;
+    } else if (inFlight) {
+      regionDetail.innerHTML = `<div class="region-detail-header">Transcribing…</div><div class="region-detail-busy"><span class="spinner"></span> Working on this region.</div>`;
     } else {
       regionDetail.innerHTML = `<div class="region-detail-header">No transcription yet</div>`;
     }
@@ -325,16 +330,35 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       const { job_id } = await transcribeRegion(docId, chapterId, region.id);
       info("ChapterView", "transcribe_started", { region_id: region.id, job_id });
 
+      let settled = false;
+      const settle = async (kind: "done" | "failed", errMsg?: string) => {
+        if (settled) return;
+        settled = true;
+        transcribingIds.delete(region.id);
+        if (kind === "done") {
+          regions = await listRegions(docId, chapterId);
+          updateTrackerBtn();
+        } else {
+          alert("Transcription failed: " + (errMsg || "unknown error"));
+        }
+        refreshRegionUI();
+      };
+
       openJobStream(job_id, async (event) => {
-        if (event.event === "job-done" || event.event === "job-failed") {
-          transcribingIds.delete(region.id);
-          if (event.event === "job-done") {
-            regions = await listRegions(docId, chapterId);
-            updateTrackerBtn();
-          } else {
-            alert("Transcription failed: " + (event.data?.error || "unknown error"));
+        if (event.event === "job-done") {
+          await settle("done");
+        } else if (event.event === "job-failed") {
+          await settle("failed", event.data?.error);
+        } else if (event.event === "snapshot") {
+          // Race: job may have completed before the EventSource subscribed.
+          // The replayed snapshot is then our only signal.
+          const status = event.data?.status;
+          if (status === "completed") {
+            await settle("done");
+          } else if (status === "failed") {
+            const msg = event.data?.errors?.[0]?.message;
+            await settle("failed", msg);
           }
-          refreshRegionUI();
         }
       });
     } catch (e: any) {

@@ -227,6 +227,20 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   padding: 4px; line-height: 0;
 }
 .region-actions .icon-btn svg { display: block; }
+.region-actions .icon-btn.is-busy { opacity: 0.85; }
+
+.spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid currentColor; border-right-color: transparent;
+  border-radius: 50%; animation: spinner-rotate 0.7s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes spinner-rotate { to { transform: rotate(360deg); } }
+
+.region-detail-busy {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--muted); margin-bottom: 8px;
+}
 
 /* Tag badges */
 .tag-reading_passage { background: rgba(37,99,235,0.12); color: #2563eb; border-color: rgba(37,99,235,0.3); }
