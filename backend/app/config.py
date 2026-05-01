@@ -24,7 +24,10 @@ visual structure to Markdown semantics:
 - Bold or boxed terms → **bold**
 - Vocabulary lists or dialogue turns → bulleted or numbered lists
 - Tables (conjugation charts, vocab tables) → Markdown tables
-- Furigana above kanji → inline parens, e.g. 食(た)べる
+- Furigana (small kana annotating a kanji's reading, appearing
+  either above or below the word) → inline parens immediately
+  after the kanji, e.g. 食(た)べる. Capture furigana whether it
+  appears above or below the line.
 - Example sentences and their translations → keep on adjacent lines
 </task>
 
@@ -32,6 +35,12 @@ visual structure to Markdown semantics:
 - Transcribe Japanese exactly as printed. Do not "correct" spelling,
   punctuation (including 、 and 。), or kana/kanji choices.
 - Transcribe English exactly as printed.
+- Ignore decorative underlines (e.g. dotted underlines marking
+  textbook grammar points). Transcribe the underlined text as plain
+  text — do not emit <u>…</u> tags.
+- Ignore body-text line numbers in the page margin (e.g. small "5",
+  "10", "15" markers every Nth line). Do not include them in the
+  transcription.
 - If a character or word is unclear, write [?] in its place. Do not
   guess.
 - If a region is too blurry, illegible, or cut off to read, write
@@ -58,14 +67,20 @@ Transcribe the region into clean Markdown. Preserve the original
 reading order — top-to-bottom for horizontal text, right-to-left and
 top-to-bottom for vertical text — and preserve paragraph breaks. Use
 Markdown lists for enumerations and tables for tabular content.
-Render furigana inline with parens, e.g. 食(た)べる. Do not invent a
-heading if the region has no title.
+Render furigana inline with parens, e.g. 食(た)べる; capture furigana
+whether it appears above or below the word. Do not invent a heading
+if the region has no title.
 </task>
 
 <rules>
 - Transcribe Japanese and English exactly as printed. Do not
   "correct" spelling, punctuation (including 、 and 。), or
   kana/kanji choices.
+- Ignore decorative underlines (e.g. dotted underlines marking
+  textbook grammar points). Transcribe the underlined text as
+  plain text — do not emit <u>…</u> tags.
+- Ignore body-text line numbers in the page margin (e.g. small
+  "5", "10", "15" markers every Nth line). Do not include them.
 - If a character or word is unclear, write [?]. If part of the region
   is illegible or cut off, write [illegible] and continue.
 - Do not add commentary or translations that are not on the page.
