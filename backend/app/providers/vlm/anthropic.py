@@ -9,6 +9,13 @@ from ...config import get_settings
 from ..registry import TranscriptionResult
 
 
+_TEMPERATURE_DEPRECATED_PREFIXES = ("claude-opus-4-7",)
+
+
+def _model_deprecates_temperature(model: str) -> bool:
+    return any(model.startswith(p) for p in _TEMPERATURE_DEPRECATED_PREFIXES)
+
+
 class AnthropicVlm:
     name = "anthropic"
 
@@ -29,7 +36,6 @@ class AnthropicVlm:
             "default_config": {
                 "model": settings.default_vlm_model,
                 "max_tokens": 4096,
-                "temperature": 0,
             },
             "default_prompt": settings.default_vlm_prompt,
             "models": [
@@ -40,7 +46,7 @@ class AnthropicVlm:
             "config_schema": {
                 "model": {"type": "string"},
                 "max_tokens": {"type": "integer", "default": 4096, "min": 256, "max": 8192},
-                "temperature": {"type": "number", "default": 0, "min": 0, "max": 1},
+                "temperature": {"type": "number", "min": 0, "max": 1},
             },
         }
 
@@ -49,13 +55,14 @@ class AnthropicVlm:
     ) -> TranscriptionResult:
         model = str(config.get("model") or self._default_model)
         max_tokens = int(config.get("max_tokens", 4096))
-        temperature = float(config.get("temperature", 0))
+
+        kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens}
+        if "temperature" in config and not _model_deprecates_temperature(model):
+            kwargs["temperature"] = float(config["temperature"])
 
         b64 = base64.standard_b64encode(image_bytes).decode("ascii")
         message = self._client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
+            **kwargs,
             messages=[
                 {
                     "role": "user",
