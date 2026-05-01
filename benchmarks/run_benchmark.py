@@ -12,11 +12,36 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+def ensure_anthropic_api_key() -> None:
+    """Populate ANTHROPIC_API_KEY from macOS Keychain if not already set.
+
+    The README's recommended setup stores the key in Keychain and exports it
+    from interactive shell rc files. `make` spawns a non-interactive subshell
+    that does not source those files, so fall back to a direct Keychain lookup.
+    """
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return
+    user = os.environ.get("USER")
+    if not user or sys.platform != "darwin":
+        return
+    try:
+        value = subprocess.check_output(
+            ["security", "find-generic-password", "-s", "ANTHROPIC_API_KEY", "-a", user, "-w"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return
+    if value:
+        os.environ["ANTHROPIC_API_KEY"] = value
 
 BENCHMARKS_DIR = Path(__file__).parent
 FIXTURES_DIR = BENCHMARKS_DIR / "fixtures"
@@ -192,6 +217,9 @@ def main():
     args = parser.parse_args()
 
     provider = args.provider or ("tesseract" if args.engine == "ocr" else "anthropic")
+
+    if provider == "anthropic":
+        ensure_anthropic_api_key()
 
     print(f"Studious Quality Benchmark")
     print(f"  engine:   {args.engine}")
