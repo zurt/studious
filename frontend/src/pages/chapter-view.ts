@@ -26,6 +26,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         <div class="topbar">
           <a href="/doc/${docId}" id="back-link">Document</a>
           <span id="chapter-title">Loading...</span>
+          <button id="prev-chapter-btn" class="chapter-nav-btn" title="Previous chapter" aria-label="Previous chapter" disabled>&larr;</button>
+          <button id="next-chapter-btn" class="chapter-nav-btn" title="Next chapter" aria-label="Next chapter" disabled>&rarr;</button>
           <div class="spacer"></div>
           <button id="tracker-btn" title="Untranscribed regions">0 pending</button>
           <button id="prev-btn" disabled>&larr;</button>
@@ -52,6 +54,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const prevBtn = container.querySelector<HTMLButtonElement>("#prev-btn")!;
   const nextBtn = container.querySelector<HTMLButtonElement>("#next-btn")!;
   const trackerBtn = container.querySelector<HTMLButtonElement>("#tracker-btn")!;
+  const prevChapterBtn = container.querySelector<HTMLButtonElement>("#prev-chapter-btn")!;
+  const nextChapterBtn = container.querySelector<HTMLButtonElement>("#next-chapter-btn")!;
   const leftPane = container.querySelector<HTMLElement>("#left-pane")!;
   const regionListContainer = container.querySelector<HTMLElement>("#region-list-container")!;
   const regionDetail = container.querySelector<HTMLElement>("#region-detail")!;
@@ -211,6 +215,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
     chapterTitle.textContent = chapter.title;
     chapterTitle.title = chapter.title;
+    updateChapterNav();
     regions = chapter.regions || [];
     page = Number.isFinite(initialPageParam) ? initialPageParam : chapter.page_start;
 
@@ -233,6 +238,28 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       onSelect: (id) => selectRegion(id),
     });
   }
+
+  function sortedChapters(): Chapter[] {
+    const list = doc?.chapters || [];
+    return [...list].sort((a, b) => a.order - b.order || a.page_start - b.page_start);
+  }
+
+  function updateChapterNav() {
+    const list = sortedChapters();
+    const idx = list.findIndex((c) => c.id === chapterId);
+    prevChapterBtn.disabled = idx <= 0;
+    nextChapterBtn.disabled = idx < 0 || idx >= list.length - 1;
+  }
+
+  function jumpChapter(delta: number) {
+    const list = sortedChapters();
+    const idx = list.findIndex((c) => c.id === chapterId);
+    const target = list[idx + delta];
+    if (target) navigate(`/doc/${docId}/chapter/${target.id}`);
+  }
+
+  prevChapterBtn.addEventListener("click", () => jumpChapter(-1));
+  nextChapterBtn.addEventListener("click", () => jumpChapter(1));
 
   function pageRegions(): Region[] {
     return regions.filter((r) => r.page === page);
