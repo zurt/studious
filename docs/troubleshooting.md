@@ -28,6 +28,13 @@ ls -lt backend/data/jobs/ | head    # most recent jobs
 ### Region state
 `backend/data/documents/<doc_id>/chapters/<chapter_id>/regions/<region_id>.json` — disk truth for a region. Check `transcribed_at` and `transcription_md` here to verify whether the data actually changed, independent of what the UI shows.
 
+### LLM audit log
+`backend/data/llm_audit.jsonl` — append-only JSONL, one line per VLM API call. Each entry records `provider`, `model`, `job_type`, `doc_id`/`chapter_id`/`region_id`/`page` context, token usage, `duration_ms`, and `status` (`success` or `error`). Use this to confirm a call happened, see how long it took, and look up token counts after the fact. OCR calls are not logged (no API cost). Tail it during a session:
+
+```bash
+tail -f backend/data/llm_audit.jsonl | jq -c .
+```
+
 ### Frontend logs
 - Browser DevTools **Console** — `frontend/src/logger.ts` emits structured entries with `correlation_id` that match backend logs.
 - DevTools **Network → `/api/jobs/<job_id>/events` → EventStream** — SSE-specific view of job events (`snapshot`, `job-started`, `job-done`, `job-failed`, `ping`).

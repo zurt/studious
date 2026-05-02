@@ -75,3 +75,8 @@ Run `make audit` to check for known vulnerabilities.
 
 All API requests carry `X-Correlation-ID` headers for end-to-end tracing.
 Backend logs are structured JSON with correlation IDs and timing breakdowns.
+
+Every VLM API call is recorded in `data/llm_audit.jsonl` (append-only JSONL):
+provider, model, token usage, duration, status, and the originating
+job/document/chapter/region. See `docs/troubleshooting.md` for the schema and
+tailing tips.
