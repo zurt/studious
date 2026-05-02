@@ -123,8 +123,11 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   function renderTracker() {
-    const pending = regions.filter((r) => !r.transcription_md);
-    const done = regions.filter((r) => r.transcription_md);
+    const sorted = [...regions].sort((a, b) =>
+      a.page - b.page || a.bbox[1] - b.bbox[1] || a.bbox[0] - b.bbox[0]
+    );
+    const pending = sorted.filter((r) => !r.transcription_md);
+    const done = sorted.filter((r) => r.transcription_md);
     trackerPopover.innerHTML = `
       <div class="tracker-header">
         <span>Regions</span>
@@ -133,8 +136,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         ${pending.length > 0 ? `<button id="batch-transcribe-btn">Transcribe all</button>` : ""}
       </div>
       <div class="tracker-list">
-        ${regions.length === 0 ? '<div class="sidebar-empty">No regions yet</div>' : ""}
-        ${regions.map((r) => `
+        ${sorted.length === 0 ? '<div class="sidebar-empty">No regions yet</div>' : ""}
+        ${sorted.map((r) => `
           <div class="tracker-item" data-page="${r.page}" data-id="${r.id}">
             <div class="tracker-item-info">
               <div class="tracker-item-title">${r.label || r.tag.replace("_", " ")}</div>

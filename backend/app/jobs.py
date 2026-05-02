@@ -160,7 +160,7 @@ class JobManager:
                 if engine == "vlm":
                     llm_audit.record(
                         provider=provider_name,
-                        model=str(config.get("model") or ""),
+                        model=str(config.get("model") or get_settings().default_vlm_model),
                         job_type="transcribe_pages",
                         status="error",
                         duration_ms=int((time.monotonic() - t0) * 1000),
@@ -174,7 +174,6 @@ class JobManager:
 
             duration_ms = int((time.monotonic() - t0) * 1000)
             if engine == "vlm":
-                usage = llm_audit.extract_usage(result.meta)
                 llm_audit.record(
                     provider=provider_name,
                     model=result.meta.get("model"),
@@ -185,7 +184,7 @@ class JobManager:
                     job_id=job_id,
                     page=page,
                     correlation_id=correlation_id_var.get(""),
-                    **usage,
+                    **llm_audit.extract_usage(result.meta),
                 )
             log.info("page_done", extra={**job_extra, "page": page, "duration_ms": duration_ms})
             payload = {
@@ -262,7 +261,7 @@ class JobManager:
         except Exception as exc:
             llm_audit.record(
                 provider=provider_name,
-                model=str(config.get("model") or ""),
+                model=str(config.get("model") or get_settings().default_vlm_model),
                 job_type="transcribe_region",
                 status="error",
                 duration_ms=int((time.monotonic() - t0) * 1000),
@@ -279,7 +278,6 @@ class JobManager:
             return
 
         duration_ms = int((time.monotonic() - t0) * 1000)
-        usage = llm_audit.extract_usage(result.meta)
         llm_audit.record(
             provider=provider_name,
             model=result.meta.get("model"),
@@ -292,7 +290,7 @@ class JobManager:
             job_id=job_id,
             page=page,
             correlation_id=correlation_id_var.get(""),
-            **usage,
+            **llm_audit.extract_usage(result.meta),
         )
         log.info("region_job_done", extra={**job_extra, "duration_ms": duration_ms})
 

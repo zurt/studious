@@ -7,7 +7,7 @@
           {
             "type": "command",
             "if": "Bash(git commit *)",
-            "command": "cd backend && . .venv/bin/activate && pytest 2>&1 || true",
+            "command": "make test 2>&1 || true",
             "timeout": 120,
             "statusMessage": "Running tests after commit..."
           }
