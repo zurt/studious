@@ -1,12 +1,14 @@
 import {
   getDocument, getTranscription, pageImageUrl, createChapter, updateChapter,
-  type DocMeta, type Transcription, type Chapter,
+  deleteChapter, listRegions, moveRegion, deleteRegion,
+  type DocMeta, type Transcription, type Chapter, type Region,
 } from "../api";
 import { generateCorrelationId } from "../logger";
 import { navigate, replaceQuery } from "../router";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
+import { confirmDialog } from "../modules/confirm";
 import { marked } from "marked";
 
 export function mountDocumentView(params: Record<string, string>, container: HTMLElement) {
@@ -176,6 +178,8 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
               <span class="sidebar-item-title">${ch.title}</span>
               <span class="sidebar-item-meta">pp. ${ch.page_start}-${ch.page_end}</span>
             </a>
+            <button class="chapter-action-btn edit-btn" data-id="${ch.id}" title="Edit chapter" aria-label="Edit chapter">&#x270E;</button>
+            <button class="chapter-action-btn delete-btn" data-id="${ch.id}" title="Delete chapter" aria-label="Delete chapter">&times;</button>
           </div>
         `).join("")}
       </div>
@@ -188,6 +192,36 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
         popoverOpen = false;
         chaptersPopover.style.display = "none";
         navigate(a.getAttribute("href")!);
+      });
+    });
+
+    // Wire edit buttons
+    chaptersPopover.querySelectorAll<HTMLButtonElement>(".edit-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id!;
+        const ch = (doc?.chapters || []).find((c) => c.id === id);
+        if (ch) showChapterModal({ mode: "edit", existing: ch });
+      });
+    });
+
+    // Wire delete buttons
+    chaptersPopover.querySelectorAll<HTMLButtonElement>(".delete-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id!;
+        const ch = (doc?.chapters || []).find((c) => c.id === id);
+        if (!ch) return;
+        const ok = await confirmDialog(
+          "Delete chapter",
+          `Delete "${ch.title}" (pp. ${ch.page_start}-${ch.page_end})? This will remove all regions and transcriptions in this chapter.`,
+          "Delete",
+        );
+        if (!ok) return;
+        await deleteChapter(docId, ch.id);
+        doc = await getDocument(docId);
+        renderPopover();
+        updateChapterBanner();
       });
     });
 
@@ -269,18 +303,25 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
   }
   document.addEventListener("keydown", onKey);
 
-  newChapterBtn.addEventListener("click", () => showNewChapterModal());
+  newChapterBtn.addEventListener("click", () => showChapterModal({ mode: "create" }));
 
-  function showNewChapterModal() {
+  type ChapterModalOpts =
+    | { mode: "create" }
+    | { mode: "edit"; existing: Chapter };
+
+  function showChapterModal(opts: ChapterModalOpts) {
     if (!doc) return;
     const maxPage = doc.page_count;
-    const initStart = page;
-    const initEnd = Math.min(page + 9, maxPage);
+    const isEdit = opts.mode === "edit";
+    const initTitle = isEdit ? opts.existing.title : "";
+    const initStart = isEdit ? opts.existing.page_start : page;
+    const initEnd = isEdit ? opts.existing.page_end : Math.min(page + 9, maxPage);
+
     const bg = document.createElement("div");
     bg.className = "modal-bg";
     bg.innerHTML = `
       <div class="modal">
-        <h2>New Chapter</h2>
+        <h2>${isEdit ? "Edit Chapter" : "New Chapter"}</h2>
         <div class="field">
           <label>Title</label>
           <input id="ch-title" type="text" placeholder="e.g. 第14課 男の料理と市民権" />
@@ -308,13 +349,15 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
         <div class="row">
           <div class="grow"></div>
           <button id="ch-cancel">Cancel</button>
-          <button id="ch-save">Create</button>
+          <button id="ch-save">${isEdit ? "Save" : "Create"}</button>
         </div>
         <div id="ch-error" class="error"></div>
       </div>
     `;
     (document.fullscreenElement ?? document.body).appendChild(bg);
 
+    const titleInput = bg.querySelector<HTMLInputElement>("#ch-title")!;
+    titleInput.value = initTitle;
     const startInput = bg.querySelector<HTMLInputElement>("#ch-start")!;
     const endInput = bg.querySelector<HTMLInputElement>("#ch-end")!;
     const startThumb = bg.querySelector<HTMLImageElement>("#ch-start-thumb")!;
@@ -354,24 +397,91 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
     bg.addEventListener("click", (e) => { if (e.target === bg) bg.remove(); });
 
     bg.querySelector("#ch-save")!.addEventListener("click", async () => {
-      const title = (bg.querySelector<HTMLInputElement>("#ch-title")!).value.trim();
+      const title = titleInput.value.trim();
       const startPage = parseInt(startInput.value);
       const endPage = parseInt(endInput.value);
       const errEl = bg.querySelector<HTMLElement>("#ch-error")!;
+      errEl.textContent = "";
 
       if (!title) { errEl.textContent = "Title is required"; return; }
       if (isNaN(startPage) || isNaN(endPage)) { errEl.textContent = "Invalid page numbers"; return; }
 
       try {
-        const ch = await createChapter(docId, {
-          title, page_start: startPage, page_end: endPage,
-        });
-        bg.remove();
-        doc = await getDocument(docId);
-        navigate(`/doc/${docId}/chapter/${ch.id}`);
+        if (isEdit) {
+          const ch = opts.existing;
+          const rangeChanged = startPage !== ch.page_start || endPage !== ch.page_end;
+          if (rangeChanged) {
+            const regions = await listRegions(docId, ch.id);
+            const orphans = regions.filter((r) => r.page < startPage || r.page > endPage);
+            if (orphans.length > 0) {
+              const action = await chooseOrphanAction(orphans);
+              if (action === null) return;
+              if (action === "move") {
+                const minPage = Math.min(...orphans.map((r) => r.page));
+                const maxPg = Math.max(...orphans.map((r) => r.page));
+                const newCh = await createChapter(docId, {
+                  title: `${ch.title} (orphans)`,
+                  page_start: minPage,
+                  page_end: maxPg,
+                });
+                for (const r of orphans) {
+                  await moveRegion(docId, ch.id, r.id, newCh.id);
+                }
+              } else {
+                for (const r of orphans) {
+                  await deleteRegion(docId, ch.id, r.id);
+                }
+              }
+            }
+          }
+          await updateChapter(docId, ch.id, {
+            title, page_start: startPage, page_end: endPage,
+          });
+          bg.remove();
+          doc = await getDocument(docId);
+          renderPopover();
+          updateChapterBanner();
+        } else {
+          const ch = await createChapter(docId, {
+            title, page_start: startPage, page_end: endPage,
+          });
+          bg.remove();
+          doc = await getDocument(docId);
+          navigate(`/doc/${docId}/chapter/${ch.id}`);
+        }
       } catch (e: any) {
         errEl.textContent = e.message;
       }
+    });
+  }
+
+  function chooseOrphanAction(orphans: Region[]): Promise<"move" | "delete" | null> {
+    return new Promise((resolve) => {
+      const minPage = Math.min(...orphans.map((r) => r.page));
+      const maxPg = Math.max(...orphans.map((r) => r.page));
+      const bg = document.createElement("div");
+      bg.className = "modal-bg";
+      bg.innerHTML = `
+        <div class="modal" style="width: min(460px, 92vw)">
+          <h2>Regions outside new range</h2>
+          <p class="confirm-message">
+            ${orphans.length} region${orphans.length === 1 ? "" : "s"} on page${minPage === maxPg ? ` ${minPage}` : `s ${minPage}-${maxPg}`}
+            fall outside the new chapter range. What should happen to them?
+          </p>
+          <div class="row">
+            <div class="grow"></div>
+            <button id="orphan-cancel">Cancel</button>
+            <button id="orphan-delete" class="btn-danger">Delete regions</button>
+            <button id="orphan-move">Move to new chapter</button>
+          </div>
+        </div>
+      `;
+      (document.fullscreenElement ?? document.body).appendChild(bg);
+      const close = (result: "move" | "delete" | null) => { bg.remove(); resolve(result); };
+      bg.querySelector("#orphan-cancel")!.addEventListener("click", () => close(null));
+      bg.querySelector("#orphan-move")!.addEventListener("click", () => close("move"));
+      bg.querySelector("#orphan-delete")!.addEventListener("click", () => close("delete"));
+      bg.addEventListener("click", (e) => { if (e.target === bg) close(null); });
     });
   }
 

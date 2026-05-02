@@ -107,6 +107,37 @@ def test_region_crud(isolated_data_dir, tmp_path: Path):
     assert storage.load_region(doc_id, ch["id"], "nonexistent") is None
 
 
+def test_move_region_between_chapters(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    src = storage.create_chapter(doc_id, title="Src", page_start=1, page_end=3)
+    dst = storage.create_chapter(doc_id, title="Dst", page_start=4, page_end=8)
+    region = storage.create_region(
+        doc_id, src["id"], page=2, bbox=[0, 0, 1, 1], tag="other"
+    )
+    storage.update_region(
+        doc_id, src["id"], region["id"], transcription_md="# preserved"
+    )
+
+    moved = storage.move_region(doc_id, src["id"], region["id"], dst["id"])
+    assert moved is not None
+    assert moved["chapter_id"] == dst["id"]
+    assert moved["transcription_md"] == "# preserved"
+
+    assert storage.load_region(doc_id, src["id"], region["id"]) is None
+    landed = storage.load_region(doc_id, dst["id"], region["id"])
+    assert landed is not None
+    assert landed["transcription_md"] == "# preserved"
+
+
+def test_move_region_missing_returns_none(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    src = storage.create_chapter(doc_id, title="Src", page_start=1, page_end=3)
+    dst = storage.create_chapter(doc_id, title="Dst", page_start=4, page_end=8)
+    assert storage.move_region(doc_id, src["id"], "nope", dst["id"]) is None
+
+
 def test_delete_chapter_cascades_regions(isolated_data_dir, tmp_path: Path):
     doc = _make_doc(tmp_path)
     doc_id = doc["id"]

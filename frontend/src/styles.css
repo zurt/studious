@@ -359,6 +359,19 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   min-width: 0; flex: 1;
 }
 .chapter-drag-link:hover { text-decoration: none; }
+.chapter-action-btn {
+  flex-shrink: 0;
+  width: 24px; height: 24px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px; line-height: 1;
+  background: transparent; border: 1px solid transparent; color: var(--muted);
+  border-radius: 4px;
+}
+.chapter-action-btn:hover { background: var(--bg); border-color: var(--border); color: var(--fg); }
+.chapter-action-btn.delete-btn:hover { color: #e06c75; border-color: #e06c75; }
+.chapter-nav-btn {
+  padding: 2px 8px; font-size: 12px; line-height: 1.3;
+}
 
 /* Viewer layout - update for banner row */
 .viewer .viewer-top {

@@ -245,6 +245,18 @@ export async function deleteRegion(
   return jdelete(`/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}`);
 }
 
+export async function moveRegion(
+  docId: string,
+  srcChapterId: string,
+  regionId: string,
+  dstChapterId: string,
+): Promise<Region> {
+  return jpost(
+    `/api/documents/${docId}/chapters/${srcChapterId}/regions/${regionId}/move`,
+    { dst_chapter_id: dstChapterId },
+  );
+}
+
 export async function transcribeRegion(
   docId: string,
   chapterId: string,

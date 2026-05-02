@@ -264,6 +264,25 @@ def delete_region(doc_id: str, chapter_id: str, region_id: str) -> bool:
     return True
 
 
+def move_region(
+    doc_id: str, src_chapter_id: str, region_id: str, dst_chapter_id: str
+) -> dict[str, Any] | None:
+    region = load_region(doc_id, src_chapter_id, region_id)
+    if region is None:
+        return None
+    region["chapter_id"] = dst_chapter_id
+    dst_dir = _regions_dir(doc_id, dst_chapter_id)
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    _atomic_write_text(
+        dst_dir / f"{region_id}.json",
+        json.dumps(region, indent=2, ensure_ascii=False),
+    )
+    src = _regions_dir(doc_id, src_chapter_id) / f"{region_id}.json"
+    if src.exists():
+        src.unlink()
+    return region
+
+
 # ---------- Jobs ----------
 
 

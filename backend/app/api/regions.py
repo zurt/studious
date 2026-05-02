@@ -101,6 +101,38 @@ def delete_region(doc_id: str, chapter_id: str, region_id: str):
     return {"ok": True}
 
 
+class MoveRegion(BaseModel):
+    dst_chapter_id: str
+
+
+@router.post("/{region_id}/move")
+def move_region(doc_id: str, chapter_id: str, region_id: str, body: MoveRegion):
+    _require_chapter(doc_id, chapter_id)
+    dst_chapter = storage.load_chapter(doc_id, body.dst_chapter_id)
+    if dst_chapter is None:
+        raise HTTPException(404, "destination chapter not found")
+    region = storage.load_region(doc_id, chapter_id, region_id)
+    if region is None:
+        raise HTTPException(404, "region not found")
+    if region["page"] < dst_chapter["page_start"] or region["page"] > dst_chapter["page_end"]:
+        raise HTTPException(
+            400,
+            f"region page {region['page']} is outside destination chapter range "
+            f"({dst_chapter['page_start']}-{dst_chapter['page_end']})",
+        )
+    moved = storage.move_region(doc_id, chapter_id, region_id, body.dst_chapter_id)
+    log.info(
+        "region_moved",
+        extra={
+            "doc_id": doc_id,
+            "src_chapter_id": chapter_id,
+            "dst_chapter_id": body.dst_chapter_id,
+            "region_id": region_id,
+        },
+    )
+    return moved
+
+
 @router.post("/{region_id}/transcribe")
 def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
     _require_chapter(doc_id, chapter_id)
