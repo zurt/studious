@@ -50,6 +50,27 @@ P2 — polish:
 - [ ] 11. `tests/test_logging.py` to lock in formatter behaviour (regression guard for #1)
 - [ ] 12. Rotate `llm_audit.jsonl` monthly + maintain summary cache
 
+## Phase 1.7: Test Coverage
+
+See `docs/test-coverage-plan.md` for the full phased plan. Items below are the
+high-priority work (phases 1 and 2 of that plan).
+
+- [ ] FastAPI handler tests via `TestClient` covering documents, chapters,
+      regions, transcribe, jobs (SSE), and providers routes
+- [ ] `JobManager` coverage for VLM engine path, region jobs, unknown engine,
+      per-page errors → `completed_with_errors`, missing page image,
+      `overwrite=True`, SSE subscribe/unsubscribe, sequential ordering
+- [ ] `CorrelationMiddleware` and `StructuredFormatter` tests
+- [ ] `services/pdf.py` tests for `render_pdf_to_pages`, `copy_image_as_page`,
+      `prepare_for_vlm`
+- [ ] Provider registry tests + Anthropic VLM tests with mocked SDK
+      (temperature deprecation for `claude-opus-4-7`, model default, message
+      envelope, usage extraction)
+- [ ] Storage edge cases: atomic write crash safety, `list_documents`
+      ordering, Japanese-string round-trip, `update_job` missing id
+- [ ] `pytest --cov=app` wired into `make test` with ≥75% on `app/api/`,
+      `app/jobs.py`, `app/middleware.py`
+
 ## Phase 2: Sentence Breakdowns
 
 - [ ] Sentence-by-sentence breakdown (vocab, grammar, gloss) per region

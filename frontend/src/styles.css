@@ -303,11 +303,21 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .zp-img {
   display: block; user-select: none; -webkit-user-drag: none;
 }
-.zp-fit-btn {
-  position: absolute; top: 8px; right: 8px; font-size: 12px; padding: 4px 10px;
-  z-index: 2; opacity: 0.85;
+.zp-fit-group {
+  position: absolute; top: 8px; right: 8px; z-index: 2; opacity: 0.85;
+  display: inline-flex;
 }
-.zp-fit-btn:hover { opacity: 1; }
+.zp-fit-group:hover { opacity: 1; }
+.zp-fit-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4px 8px; line-height: 1;
+}
+.zp-fit-group .zp-fit-btn + .zp-fit-btn {
+  border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
+.zp-fit-group .zp-fit-btn:first-child {
+  border-top-right-radius: 0; border-bottom-right-radius: 0;
+}
 
 /* Icon button (e.g. fullscreen) */
 .icon-btn {
