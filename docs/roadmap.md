@@ -18,6 +18,7 @@
 - [x] Chapter popover panel (closed by default) with drag-to-reorder
 - [x] Current chapter indicator banner in document view
 - [x] Region transcription tracker widget in chapter view (pending count, batch transcribe)
+- [x] Resizable split panes with collapse affordance (drag splitter, collapse left/right, persists in localStorage)
 
 ## Phase 1.5: UX Safety + LLM Observability
 
