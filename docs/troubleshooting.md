@@ -29,11 +29,18 @@ ls -lt backend/data/jobs/ | head    # most recent jobs
 `backend/data/documents/<doc_id>/chapters/<chapter_id>/regions/<region_id>.json` — disk truth for a region. Check `transcribed_at` and `transcription_md` here to verify whether the data actually changed, independent of what the UI shows.
 
 ### LLM audit log
-`backend/data/llm_audit.jsonl` — append-only JSONL, one line per VLM API call. Each entry records `provider`, `model`, `job_type`, `doc_id`/`chapter_id`/`region_id`/`page` context, token usage, `duration_ms`, and `status` (`success` or `error`). Use this to confirm a call happened, see how long it took, and look up token counts after the fact. OCR calls are not logged (no API cost). Tail it during a session:
+`backend/data/llm_audit.jsonl` — append-only record of every VLM API call (one JSON object per line). Each entry has `id`, `timestamp`, `provider`, `model`, `job_type`, `status` (`success` or `error`), `duration_ms`, token counts, `correlation_id`, and `doc_id` / `chapter_id` / `region_id` / `job_id` / `page` context. OCR calls are not logged (no API cost). Use this to confirm a call happened, see how long it took, and look up token counts after the fact.
 
 ```bash
+# tail the most recent calls
 tail -f backend/data/llm_audit.jsonl | jq -c .
+
+# all errored calls
+jq 'select(.status == "error")' backend/data/llm_audit.jsonl
 ```
+
+The log is written via `app.services.llm_audit.record(...)` from `app/jobs.py` after every VLM call (success or failure).
+
 
 ### Frontend logs
 - Browser DevTools **Console** — `frontend/src/logger.ts` emits structured entries with `correlation_id` that match backend logs.

@@ -6,7 +6,7 @@ import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from ..config import get_settings
 
@@ -281,42 +281,6 @@ def move_region(
     if src.exists():
         src.unlink()
     return region
-
-
-# ---------- LLM audit log ----------
-
-
-def llm_audit_path() -> Path:
-    return get_settings().data_dir / "llm_audit.jsonl"
-
-
-def append_llm_audit(entry: dict[str, Any]) -> dict[str, Any]:
-    """Append a single LLM call record to the audit log (JSONL).
-
-    The caller is responsible for assembling the entry; this only sets `id`
-    and `timestamp` if missing and writes one JSON object per line.
-    """
-    entry = {
-        "id": entry.get("id") or f"req_{uuid.uuid4().hex[:12]}",
-        "timestamp": entry.get("timestamp") or _now_iso(),
-        **{k: v for k, v in entry.items() if k not in ("id", "timestamp")},
-    }
-    p = llm_audit_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with p.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    return entry
-
-
-def read_llm_audit() -> Iterator[dict[str, Any]]:
-    p = llm_audit_path()
-    if not p.exists():
-        return
-    with p.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                yield json.loads(line)
 
 
 # ---------- Jobs ----------

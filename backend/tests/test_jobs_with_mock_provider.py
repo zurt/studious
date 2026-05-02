@@ -8,7 +8,7 @@ from PIL import Image
 
 from app.jobs import JobManager
 from app.providers import registry
-from app.services import storage
+from app.services import llm_audit, storage
 
 
 class _MockOcr:
@@ -155,7 +155,7 @@ async def test_vlm_job_writes_llm_audit_log(isolated_data_dir, mock_vlm_provider
     finally:
         await mgr.stop()
 
-    entries = list(storage.read_llm_audit())
+    entries = llm_audit.read_all()
     assert len(entries) == 2
     for entry, expected_page in zip(entries, [1, 2]):
         assert entry["provider"] == "mock-vlm"
@@ -196,7 +196,7 @@ async def test_vlm_job_audit_log_records_failures(isolated_data_dir, mock_vlm_pr
     finally:
         await mgr.stop()
 
-    entries = list(storage.read_llm_audit())
+    entries = llm_audit.read_all()
     assert len(entries) == 1
     assert entries[0]["status"] == "error"
     assert "boom" in entries[0]["error"]
@@ -230,7 +230,7 @@ async def test_ocr_job_does_not_write_audit_log(isolated_data_dir, mock_ocr_prov
     finally:
         await mgr.stop()
 
-    assert list(storage.read_llm_audit()) == []
+    assert llm_audit.read_all() == []
 
 
 async def test_overwrite_false_skips_existing(isolated_data_dir, mock_ocr_provider):

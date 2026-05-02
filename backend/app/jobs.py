@@ -8,44 +8,15 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .config import get_settings
+from .middleware import correlation_id_var
 from .providers import registry
-from .services import pdf, storage
+from .services import llm_audit, pdf, storage
 
 log = logging.getLogger("studious.jobs")
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _log_llm_audit(
-    *,
-    job_type: str,
-    provider: str,
-    model: str | None,
-    duration_ms: int,
-    status: str,
-    error: str | None,
-    meta: dict[str, Any] | None,
-    context: dict[str, Any],
-) -> None:
-    usage = (meta or {}).get("usage") or {}
-    entry = {
-        "provider": provider,
-        "model": model,
-        "job_type": job_type,
-        "input_tokens": usage.get("input_tokens"),
-        "output_tokens": usage.get("output_tokens"),
-        "image_tokens": usage.get("image_tokens"),
-        "duration_ms": duration_ms,
-        "status": status,
-        "error": error,
-        **context,
-    }
-    try:
-        storage.append_llm_audit(entry)
-    except Exception:
-        log.exception("failed to write LLM audit entry")
 
 
 class JobManager:
@@ -183,34 +154,37 @@ class JobManager:
                     )
                     payload_extra = {"prompt": prompt, "model": config.get("model")}
             except Exception as exc:
-                duration_ms = int((time.monotonic() - t0) * 1000)
-                if engine == "vlm":
-                    _log_llm_audit(
-                        job_type="transcribe_pages",
-                        provider=provider_name,
-                        model=str(config.get("model") or get_settings().default_vlm_model),
-                        duration_ms=duration_ms,
-                        status="error",
-                        error=str(exc),
-                        meta=None,
-                        context={"job_id": job_id, "doc_id": doc_id, "page": page},
-                    )
                 err = {"page": page, "message": str(exc)}
                 errors.append(err)
                 self._emit(job_id, {"event": "page-error", "data": err})
+                if engine == "vlm":
+                    llm_audit.record(
+                        provider=provider_name,
+                        model=str(config.get("model") or get_settings().default_vlm_model),
+                        job_type="transcribe_pages",
+                        status="error",
+                        duration_ms=int((time.monotonic() - t0) * 1000),
+                        doc_id=doc_id,
+                        job_id=job_id,
+                        page=page,
+                        error=str(exc),
+                        correlation_id=correlation_id_var.get(""),
+                    )
                 continue
 
             duration_ms = int((time.monotonic() - t0) * 1000)
             if engine == "vlm":
-                _log_llm_audit(
-                    job_type="transcribe_pages",
+                llm_audit.record(
                     provider=provider_name,
                     model=result.meta.get("model"),
-                    duration_ms=duration_ms,
+                    job_type="transcribe_pages",
                     status="success",
-                    error=None,
-                    meta=result.meta,
-                    context={"job_id": job_id, "doc_id": doc_id, "page": page},
+                    duration_ms=duration_ms,
+                    doc_id=doc_id,
+                    job_id=job_id,
+                    page=page,
+                    correlation_id=correlation_id_var.get(""),
+                    **llm_audit.extract_usage(result.meta),
                 )
             log.info("page_done", extra={**job_extra, "page": page, "duration_ms": duration_ms})
             payload = {
@@ -279,44 +253,44 @@ class JobManager:
             return
 
         t0 = time.monotonic()
-        audit_context = {
-            "job_id": job_id,
-            "doc_id": doc_id,
-            "chapter_id": chapter_id,
-            "region_id": region_id,
-            "page": page,
-        }
         try:
             image_bytes = await asyncio.to_thread(
                 pdf.crop_region, image_path, bbox, get_settings().vlm_max_edge
             )
             result = await asyncio.to_thread(provider.transcribe, image_bytes, prompt, config)
         except Exception as exc:
-            duration_ms = int((time.monotonic() - t0) * 1000)
-            _log_llm_audit(
-                job_type="transcribe_region",
+            llm_audit.record(
                 provider=provider_name,
                 model=str(config.get("model") or get_settings().default_vlm_model),
-                duration_ms=duration_ms,
+                job_type="transcribe_region",
                 status="error",
+                duration_ms=int((time.monotonic() - t0) * 1000),
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                region_id=region_id,
+                job_id=job_id,
+                page=page,
                 error=str(exc),
-                meta=None,
-                context=audit_context,
+                correlation_id=correlation_id_var.get(""),
             )
             storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
             self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
             return
 
         duration_ms = int((time.monotonic() - t0) * 1000)
-        _log_llm_audit(
-            job_type="transcribe_region",
+        llm_audit.record(
             provider=provider_name,
             model=result.meta.get("model"),
-            duration_ms=duration_ms,
+            job_type="transcribe_region",
             status="success",
-            error=None,
-            meta=result.meta,
-            context=audit_context,
+            duration_ms=duration_ms,
+            doc_id=doc_id,
+            chapter_id=chapter_id,
+            region_id=region_id,
+            job_id=job_id,
+            page=page,
+            correlation_id=correlation_id_var.get(""),
+            **llm_audit.extract_usage(result.meta),
         )
         log.info("region_job_done", extra={**job_extra, "duration_ms": duration_ms})
 

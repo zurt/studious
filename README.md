@@ -50,8 +50,9 @@ Open <http://localhost:5173>.
 
 - `backend/` — FastAPI app (Python 3.11+), file-based storage.
 - `frontend/` — Vite + vanilla TypeScript (no framework).
-- `data/` — uploaded documents, rasterized pages, transcriptions, chapters, and
-  regions (gitignored). Override with `STUDIOUS_DATA_DIR`.
+- `data/` — uploaded documents, rasterized pages, transcriptions, chapters,
+  regions, and `llm_audit.jsonl` (append-only log of VLM calls; gitignored).
+  Override with `STUDIOUS_DATA_DIR`.
 - `benchmarks/` — quality benchmarking tools for tracking extraction accuracy.
 - `docs/` — project description, roadmap, and architecture documentation.
 
