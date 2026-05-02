@@ -10,6 +10,7 @@ import { renderRegionList } from "../modules/region-list";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { confirmDialog } from "../modules/confirm";
 import { attachPageInput } from "../modules/page-input";
+import { attachPaneSplitter } from "../modules/pane-splitter";
 import { marked } from "marked";
 
 const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
@@ -56,6 +57,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const regionDetail = container.querySelector<HTMLElement>("#region-detail")!;
   const trackerPopover = container.querySelector<HTMLElement>("#tracker-popover")!;
 
+  attachPaneSplitter(container.querySelector<HTMLElement>(".pane-row")!);
   const viewer = createZoomPanViewer(leftPane);
 
   attachPageInput(pageInfo, {

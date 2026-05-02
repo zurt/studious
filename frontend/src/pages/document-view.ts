@@ -6,6 +6,7 @@ import { generateCorrelationId } from "../logger";
 import { navigate, replaceQuery } from "../router";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { attachPageInput } from "../modules/page-input";
+import { attachPaneSplitter } from "../modules/pane-splitter";
 import { marked } from "marked";
 
 export function mountDocumentView(params: Record<string, string>, container: HTMLElement) {
@@ -52,6 +53,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
   const chapterBanner = container.querySelector<HTMLElement>("#chapter-banner")!;
   const chaptersPopover = container.querySelector<HTMLElement>("#chapters-popover")!;
 
+  attachPaneSplitter(container.querySelector<HTMLElement>(".pane-row")!);
   const viewer = createZoomPanViewer(leftPane);
 
   attachPageInput(pageInfo, {

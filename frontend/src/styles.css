@@ -121,12 +121,43 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   flex: 1; display: grid; grid-template-rows: auto 1fr; min-height: 0; min-width: 0;
 }
 .viewer .pane-row {
-  display: grid; grid-template-columns: 1fr 1fr; min-height: 0; height: 100%;
+  display: grid;
+  grid-template-columns: var(--pane-left, 1fr) auto var(--pane-right, 1fr);
+  min-height: 0; height: 100%;
 }
 .viewer .pane {
-  overflow: auto; padding: 12px; min-height: 0;
+  overflow: auto; padding: 12px; min-height: 0; min-width: 0;
 }
-.viewer .pane.left { border-right: 1px solid var(--border); background: #0001; }
+.viewer .pane.left { background: #0001; }
+.viewer .pane-row[data-collapsed="left"] .pane.left,
+.viewer .pane-row[data-collapsed="right"] .pane:not(.left) {
+  padding: 0; overflow: hidden; visibility: hidden;
+}
+
+.pane-splitter {
+  display: flex; flex-direction: column; align-items: center;
+  width: 14px; background: var(--bg-soft);
+  border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  user-select: none;
+}
+.pane-splitter-handle {
+  flex: 1; width: 100%; cursor: col-resize;
+  background-image: linear-gradient(var(--border), var(--border));
+  background-size: 2px 24px; background-position: center; background-repeat: no-repeat;
+}
+.pane-splitter-handle:hover { background-color: rgba(39, 97, 217, 0.08); }
+.pane-collapse-btn {
+  width: 14px; height: 22px; padding: 0; border-radius: 0;
+  border: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  background: var(--bg-soft); color: var(--muted);
+  font-size: 12px; line-height: 1; display: flex; align-items: center; justify-content: center;
+}
+.pane-collapse-btn:first-child { border-top: none; }
+.pane-collapse-btn:last-child { border-bottom: none; }
+.pane-collapse-btn:hover { background: var(--bg); color: var(--accent); border-color: var(--accent); }
+.pane-row-resizing { cursor: col-resize; }
+.pane-row-resizing * { user-select: none; pointer-events: none; }
+.pane-row-resizing .pane-splitter-handle { pointer-events: auto; }
 .viewer .page-img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
 .viewer .markdown {
   max-width: 720px; margin: 0 auto; line-height: 1.7;
