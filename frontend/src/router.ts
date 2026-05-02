@@ -39,6 +39,20 @@ export function navigate(path: string) {
   resolve();
 }
 
+export function replaceQuery(params: Record<string, string | null | undefined>) {
+  const search = new URLSearchParams(location.search);
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined || value === "") {
+      search.delete(key);
+    } else {
+      search.set(key, value);
+    }
+  }
+  const qs = search.toString();
+  const url = location.pathname + (qs ? "?" + qs : "");
+  history.replaceState(null, "", url);
+}
+
 function resolve() {
   const path = location.pathname;
 

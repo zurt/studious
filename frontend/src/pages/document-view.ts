@@ -3,7 +3,7 @@ import {
   type DocMeta, type Transcription, type Chapter,
 } from "../api";
 import { generateCorrelationId } from "../logger";
-import { navigate } from "../router";
+import { navigate, replaceQuery } from "../router";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { attachPageInput } from "../modules/page-input";
 import { marked } from "marked";
@@ -62,8 +62,13 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
   });
 
   let doc: DocMeta | null = null;
-  let page = 1;
+  let page = parseInitialPage();
   let popoverOpen = false;
+
+  function parseInitialPage(): number {
+    const raw = parseInt(new URLSearchParams(location.search).get("page") || "", 10);
+    return Number.isFinite(raw) && raw >= 1 ? raw : 1;
+  }
 
   // ---------- Chapter popover (toggle) ----------
   function positionChaptersPopover() {
@@ -96,6 +101,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
     doc = await getDocument(docId);
     docTitle.textContent = doc.name;
     docTitle.title = doc.name;
+    if (page > doc.page_count) page = doc.page_count;
     updatePage();
   }
 
@@ -105,6 +111,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
     pageInfo.textContent = `${page} / ${doc.page_count}`;
     prevBtn.disabled = page <= 1;
     nextBtn.disabled = page >= doc.page_count;
+    replaceQuery({ page: String(page) });
     loadTranscription();
     updateChapterBanner();
   }

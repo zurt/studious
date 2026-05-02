@@ -4,7 +4,7 @@ import {
   type DocMeta, type Chapter, type Region,
 } from "../api";
 import { generateCorrelationId, info } from "../logger";
-import { navigate } from "../router";
+import { navigate, replaceQuery } from "../router";
 import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawer";
 import { renderRegionList } from "../modules/region-list";
 import { createZoomPanViewer } from "../modules/zoom-pan";
@@ -65,6 +65,10 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     onCommit: (p) => { page = p; updatePage(); },
   });
 
+  const initialQuery = new URLSearchParams(location.search);
+  const initialPageParam = parseInt(initialQuery.get("page") || "", 10);
+  const initialRegionParam = initialQuery.get("region");
+
   let doc: DocMeta | null = null;
   let chapter: Chapter | null = null;
   let page = 0;
@@ -73,6 +77,10 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   let drawer: ReturnType<typeof createRegionDrawer> | null = null;
   let trackerOpen = false;
   const transcribingIds = new Set<string>();
+
+  function syncUrl() {
+    replaceQuery({ page: String(page), region: selectedRegionId });
+  }
 
   // ---------- Tracker popover ----------
   function positionTrackerPopover() {
@@ -191,10 +199,25 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       container.innerHTML = `<div class="library"><p class="error">Chapter not found</p></div>`;
       return;
     }
+    // If the URL asks for a page outside this chapter's range, drop chapter
+    // context and let the document view handle it.
+    if (Number.isFinite(initialPageParam)
+        && (initialPageParam < chapter.page_start || initialPageParam > chapter.page_end)) {
+      navigate(`/doc/${docId}?page=${initialPageParam}`);
+      return;
+    }
+
     chapterTitle.textContent = chapter.title;
     chapterTitle.title = chapter.title;
-    page = chapter.page_start;
     regions = chapter.regions || [];
+    page = Number.isFinite(initialPageParam) ? initialPageParam : chapter.page_start;
+
+    // Restore selected region from URL if it exists on the current page.
+    if (initialRegionParam) {
+      const r = regions.find((reg) => reg.id === initialRegionParam);
+      if (r && r.page === page) selectedRegionId = r.id;
+    }
+
     updateTrackerBtn();
     setupDrawer();
     updatePage();
@@ -229,7 +252,12 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     pageInfo.textContent = `${page} (${chapter.page_start}-${chapter.page_end})`;
     prevBtn.disabled = page <= chapter.page_start;
     nextBtn.disabled = page >= chapter.page_end;
-    selectedRegionId = null;
+    // Clear selection if it's no longer on this page (e.g. after prev/next).
+    if (selectedRegionId) {
+      const sel = regions.find((r) => r.id === selectedRegionId);
+      if (!sel || sel.page !== page) selectedRegionId = null;
+    }
+    syncUrl();
     refreshRegionUI();
   }
 
@@ -248,6 +276,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
   function selectRegion(id: string) {
     selectedRegionId = id === selectedRegionId ? null : id;
+    syncUrl();
     refreshRegionUI();
   }
 
@@ -314,6 +343,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         info("ChapterView", "region_created", { region_id: region.id, tag });
         regions.push(region);
         selectedRegionId = region.id;
+        syncUrl();
         updateTrackerBtn();
         refreshRegionUI();
       } catch (e: any) {
@@ -390,7 +420,10 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     try {
       await deleteRegion(docId, chapterId, region.id);
       regions = regions.filter((r) => r.id !== region.id);
-      if (selectedRegionId === region.id) selectedRegionId = null;
+      if (selectedRegionId === region.id) {
+        selectedRegionId = null;
+        syncUrl();
+      }
       updateTrackerBtn();
       refreshRegionUI();
     } catch (e: any) {
