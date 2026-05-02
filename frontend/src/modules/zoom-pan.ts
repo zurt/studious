@@ -4,7 +4,7 @@
  * - Pinch-to-zoom on trackpad
  * - Two-finger scroll to pan
  * - Cmd+/- to zoom, Cmd+0 for actual size
- * - Zoom-to-fit button
+ * - Zoom-to-fit and fit-width buttons
  * - Min/max zoom limits
  */
 
@@ -16,6 +16,7 @@ export type ZoomPanViewer = {
   setImage: (src: string) => void;
   getImage: () => HTMLImageElement;
   zoomToFit: () => void;
+  zoomToFitWidth: () => void;
   destroy: () => void;
 };
 
@@ -36,13 +37,27 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
   content.appendChild(img);
   viewport.appendChild(content);
 
-  // Fit button
+  // Fit button group
+  const fitGroup = document.createElement("div");
+  fitGroup.className = "zp-fit-group";
+
   const fitBtn = document.createElement("button");
   fitBtn.className = "zp-fit-btn";
   fitBtn.title = "Zoom to fit";
-  fitBtn.textContent = "Fit";
+  fitBtn.setAttribute("aria-label", "Zoom to fit");
+  fitBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"/></svg>`;
+
+  const fitWidthBtn = document.createElement("button");
+  fitWidthBtn.className = "zp-fit-btn";
+  fitWidthBtn.title = "Fit width";
+  fitWidthBtn.setAttribute("aria-label", "Fit width");
+  fitWidthBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/></svg>`;
+
+  fitGroup.appendChild(fitBtn);
+  fitGroup.appendChild(fitWidthBtn);
+
   container.appendChild(viewport);
-  container.appendChild(fitBtn);
+  container.appendChild(fitGroup);
 
   parent.appendChild(container);
 
@@ -67,6 +82,18 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
     scale = clampScale(Math.min(vw / iw, vh / ih));
     translateX = (vw - iw * scale) / 2;
     translateY = (vh - ih * scale) / 2;
+    applyTransform();
+  }
+
+  function zoomToFitWidth() {
+    if (!img.naturalWidth) return;
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    const iw = img.naturalWidth;
+    const ih = img.naturalHeight;
+    scale = clampScale(vw / iw);
+    translateX = (vw - iw * scale) / 2;
+    translateY = Math.max(0, (vh - ih * scale) / 2);
     applyTransform();
   }
 
@@ -131,6 +158,7 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
   viewport.addEventListener("wheel", onWheel, { passive: false });
   document.addEventListener("keydown", onKey);
   fitBtn.addEventListener("click", zoomToFit);
+  fitWidthBtn.addEventListener("click", zoomToFitWidth);
 
   img.addEventListener("load", () => {
     zoomToFit();
@@ -145,6 +173,7 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
       return img;
     },
     zoomToFit,
+    zoomToFitWidth,
     destroy() {
       viewport.removeEventListener("wheel", onWheel);
       document.removeEventListener("keydown", onKey);
