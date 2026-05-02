@@ -8,8 +8,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .config import get_settings
+from .middleware import correlation_id_var
 from .providers import registry
-from .services import pdf, storage
+from .services import llm_audit, pdf, storage
 
 log = logging.getLogger("studious.jobs")
 
@@ -156,9 +157,36 @@ class JobManager:
                 err = {"page": page, "message": str(exc)}
                 errors.append(err)
                 self._emit(job_id, {"event": "page-error", "data": err})
+                if engine == "vlm":
+                    llm_audit.record(
+                        provider=provider_name,
+                        model=str(config.get("model") or ""),
+                        job_type="transcribe_pages",
+                        status="error",
+                        duration_ms=int((time.monotonic() - t0) * 1000),
+                        doc_id=doc_id,
+                        job_id=job_id,
+                        page=page,
+                        error=str(exc),
+                        correlation_id=correlation_id_var.get(""),
+                    )
                 continue
 
             duration_ms = int((time.monotonic() - t0) * 1000)
+            if engine == "vlm":
+                usage = llm_audit.extract_usage(result.meta)
+                llm_audit.record(
+                    provider=provider_name,
+                    model=result.meta.get("model"),
+                    job_type="transcribe_pages",
+                    status="success",
+                    duration_ms=duration_ms,
+                    doc_id=doc_id,
+                    job_id=job_id,
+                    page=page,
+                    correlation_id=correlation_id_var.get(""),
+                    **usage,
+                )
             log.info("page_done", extra={**job_extra, "page": page, "duration_ms": duration_ms})
             payload = {
                 "page": page,
@@ -232,11 +260,40 @@ class JobManager:
             )
             result = await asyncio.to_thread(provider.transcribe, image_bytes, prompt, config)
         except Exception as exc:
+            llm_audit.record(
+                provider=provider_name,
+                model=str(config.get("model") or ""),
+                job_type="transcribe_region",
+                status="error",
+                duration_ms=int((time.monotonic() - t0) * 1000),
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                region_id=region_id,
+                job_id=job_id,
+                page=page,
+                error=str(exc),
+                correlation_id=correlation_id_var.get(""),
+            )
             storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
             self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
             return
 
         duration_ms = int((time.monotonic() - t0) * 1000)
+        usage = llm_audit.extract_usage(result.meta)
+        llm_audit.record(
+            provider=provider_name,
+            model=result.meta.get("model"),
+            job_type="transcribe_region",
+            status="success",
+            duration_ms=duration_ms,
+            doc_id=doc_id,
+            chapter_id=chapter_id,
+            region_id=region_id,
+            job_id=job_id,
+            page=page,
+            correlation_id=correlation_id_var.get(""),
+            **usage,
+        )
         log.info("region_job_done", extra={**job_extra, "duration_ms": duration_ms})
 
         storage.update_region(

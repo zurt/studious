@@ -28,6 +28,19 @@ ls -lt backend/data/jobs/ | head    # most recent jobs
 ### Region state
 `backend/data/documents/<doc_id>/chapters/<chapter_id>/regions/<region_id>.json` — disk truth for a region. Check `transcribed_at` and `transcription_md` here to verify whether the data actually changed, independent of what the UI shows.
 
+### LLM audit log
+`backend/data/llm_audit.jsonl` — append-only record of every VLM call (one JSON object per line). Each entry has `id`, `timestamp`, `provider`, `model`, `job_type`, `status`, `duration_ms`, token counts, and `doc_id` / `chapter_id` / `region_id` / `job_id` / `page` context.
+
+```bash
+# tail the most recent calls
+tail -n 5 backend/data/llm_audit.jsonl | jq
+
+# all errored calls
+jq 'select(.status == "error")' backend/data/llm_audit.jsonl
+```
+
+Useful when reconciling cost/usage with the provider dashboard or hunting silent retries. The log is written via `app.services.llm_audit.record(...)` from `app/jobs.py` after every VLM call (success or failure); OCR calls do not appear.
+
 ### Frontend logs
 - Browser DevTools **Console** — `frontend/src/logger.ts` emits structured entries with `correlation_id` that match backend logs.
 - DevTools **Network → `/api/jobs/<job_id>/events` → EventStream** — SSE-specific view of job events (`snapshot`, `job-started`, `job-done`, `job-failed`, `ping`).
