@@ -24,7 +24,7 @@
 
 - [x] Confirmation dialog utility + wired into region, chapter, and document delete
 - [x] LLM audit log (append-only JSONL with provider, model, tokens, duration, context)
-- [ ] Cost tracking estimation (per-model token pricing, cost-per-request, summary API)
+- [x] Cost tracking estimation (per-model token pricing, cost-per-request, summary API)
 
 ## Phase 1.6: Logging & Observability Improvements
 
@@ -42,7 +42,7 @@ P1 — frontend correctness & DX:
 - [ ] 5. Replace frontend `_activeCorrelationId` module global with per-request CIDs
 - [ ] 6. Wire `logError` into every frontend `catch` block (currently `alert()` only)
 - [ ] 7. Add `STUDIOUS_LOG_LEVEL` env var; demote `page_done` to DEBUG
-- [ ] 8. Add `/api/costs/summary` and `/api/costs/audit` endpoints (foundation for cost UI)
+- [x] 8. Add `/api/costs/summary` and `/api/costs/audit` endpoints (foundation for cost UI)
 
 P2 — polish:
 - [ ] 9. `make logs` / `make audit-log` targets (`tail -F | jq -C .`)

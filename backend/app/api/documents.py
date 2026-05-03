@@ -135,7 +135,17 @@ def get_doc(doc_id: str):
         raise HTTPException(404, "document not found")
     meta = dict(meta)
     meta["transcribed_pages"] = storage.transcribed_pages(doc_id)
-    meta["chapters"] = storage.list_chapters(doc_id)
+    chapters = storage.list_chapters(doc_id)
+    meta["chapters"] = chapters
+    regions_total = 0
+    regions_transcribed = 0
+    for ch in chapters:
+        for r in storage.list_regions(doc_id, ch["id"]):
+            regions_total += 1
+            if r.get("transcription_md"):
+                regions_transcribed += 1
+    meta["regions_total"] = regions_total
+    meta["regions_transcribed"] = regions_transcribed
     return meta
 
 

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import chapters, documents, jobs, providers, regions, transcribe
+from .api import chapters, costs, documents, jobs, providers, regions, transcribe
 from .jobs import manager
 from .middleware import CorrelationMiddleware, StructuredFormatter
 from .providers import registry
@@ -43,6 +43,7 @@ app.include_router(regions.router)
 app.include_router(transcribe.router)
 app.include_router(jobs.router)
 app.include_router(providers.router)
+app.include_router(costs.router)
 
 
 @app.get("/api/health")

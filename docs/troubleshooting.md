@@ -41,6 +41,9 @@ jq 'select(.status == "error")' backend/data/llm_audit.jsonl
 
 The log is written via `app.services.llm_audit.record(...)` from `app/jobs.py` after every VLM call (success or failure).
 
+### Cost estimates
+`GET /api/costs/summary` — totals plus breakdown by model and by document, derived from `llm_audit.jsonl` and the `MODEL_PRICING` table in `backend/app/config.py`. `GET /api/costs/audit?limit=&offset=` returns paginated audit entries (newest first) annotated with `estimated_cost_usd`. Models not in the pricing table appear in `unknown_models` and contribute `null` cost — add them to `MODEL_PRICING` when you start using a new model. Estimates ignore prompt-cache discounts.
+
 
 ### Frontend logs
 - Browser DevTools **Console** — `frontend/src/logger.ts` emits structured entries with `correlation_id` that match backend logs.

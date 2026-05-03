@@ -93,6 +93,24 @@ remarks.
 """
 
 
+# Per-model pricing in USD per 1M tokens. Keep in sync with Anthropic's
+# published pricing. Image tokens are billed as input tokens by Anthropic
+# and are already included in `usage.input_tokens`, so no separate rate.
+MODEL_PRICING: dict[str, dict[str, float]] = {
+    # Claude 4 family
+    "claude-opus-4-7": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-6": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-5": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-1": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-20250514": {"input": 15.0, "output": 75.0},
+    "claude-sonnet-4-6": {"input": 3.0, "output": 15.0},
+    "claude-sonnet-4-5": {"input": 3.0, "output": 15.0},
+    "claude-sonnet-4-20250514": {"input": 3.0, "output": 15.0},
+    "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
+    "claude-haiku-4-5": {"input": 1.0, "output": 5.0},
+}
+
+
 class Settings(BaseModel):
     data_dir: Path
     anthropic_api_key: str | None
