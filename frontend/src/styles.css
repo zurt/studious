@@ -289,6 +289,24 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .region-detail-actions { display: flex; gap: 6px; align-items: center; }
 .region-detail-actions .icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px; line-height: 0; }
 .region-detail-actions .icon-btn svg { display: block; }
+
+.text-size-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.text-size-toggle .text-size-btn {
+  padding: 2px 8px; line-height: 1; border: none; border-radius: 0;
+  font-family: inherit; font-weight: 600; color: var(--muted);
+  background: transparent; text-transform: none;
+}
+.text-size-toggle .text-size-btn + .text-size-btn { border-left: 1px solid var(--border); }
+.text-size-toggle .text-size-btn.size-1 { font-size: 11px; }
+.text-size-toggle .text-size-btn.size-2 { font-size: 14px; }
+.text-size-toggle .text-size-btn.size-3 { font-size: 17px; }
+.text-size-toggle .text-size-btn:hover { background: var(--bg-soft); color: var(--fg); }
+.text-size-toggle .text-size-btn.active { background: var(--accent); color: #fff; }
+
+.markdown.text-size-2 { font-size: 150%; }
+.markdown.text-size-2 h1, .markdown.text-size-2 h2, .markdown.text-size-2 h3 { font-size: inherit; }
+.markdown.text-size-3 { font-size: 200%; }
+.markdown.text-size-3 h1, .markdown.text-size-3 h2, .markdown.text-size-3 h3 { font-size: inherit; }
 .region-detail-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
 
 /* Zoom-pan viewer */

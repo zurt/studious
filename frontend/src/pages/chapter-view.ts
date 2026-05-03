@@ -15,6 +15,16 @@ import { marked } from "marked";
 
 const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
 
+type TextSize = 1 | 2 | 3;
+const TEXT_SIZE_KEY = "studious.transcription.textSize";
+function getTranscriptionTextSize(): TextSize {
+  const v = Number(localStorage.getItem(TEXT_SIZE_KEY));
+  return v === 2 || v === 3 ? v : 1;
+}
+function setTranscriptionTextSize(size: TextSize) {
+  localStorage.setItem(TEXT_SIZE_KEY, String(size));
+}
+
 export function mountChapterView(params: Record<string, string>, container: HTMLElement) {
   const docId = params.id;
   const chapterId = params.chapterId;
@@ -325,19 +335,34 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       if (region.transcribed_at) meta.push(new Date(region.transcribed_at).toLocaleString());
       const metaHtml = meta.length ? `<div class="region-detail-meta">${meta.join(" · ")}</div>` : "";
       const busyHtml = inFlight ? `<div class="region-detail-busy"><span class="spinner"></span> Re-transcribing…</div>` : "";
+      const size = getTranscriptionTextSize();
       regionDetail.innerHTML = `
         <div class="region-detail-header">
           <span>Transcription</span>
-          <span class="region-detail-actions"></span>
+          <span class="region-detail-actions">
+            <span class="text-size-toggle" role="group" aria-label="Text size">
+              <button type="button" class="icon-btn text-size-btn size-1${size === 1 ? " active" : ""}" data-size="1" title="100%" aria-label="100%" aria-pressed="${size === 1}">A</button>
+              <button type="button" class="icon-btn text-size-btn size-2${size === 2 ? " active" : ""}" data-size="2" title="150%" aria-label="150%" aria-pressed="${size === 2}">A</button>
+              <button type="button" class="icon-btn text-size-btn size-3${size === 3 ? " active" : ""}" data-size="3" title="200%" aria-label="200%" aria-pressed="${size === 3}">A</button>
+            </span>
+          </span>
         </div>
         ${metaHtml}
         ${busyHtml}
-        <div class="markdown">${marked.parse(region.transcription_md)}</div>
+        <div class="markdown text-size-${size}">${marked.parse(region.transcription_md)}</div>
       `;
       const detailActions = regionDetail.querySelector(".region-detail-actions");
       if (detailActions) {
         detailActions.appendChild(makeCopyButton(() => region.transcription_md || ""));
       }
+      regionDetail.querySelectorAll<HTMLButtonElement>(".text-size-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const s = Number(btn.dataset.size) as 1 | 2 | 3;
+          setTranscriptionTextSize(s);
+          renderDetail();
+        });
+      });
     } else if (inFlight) {
       regionDetail.innerHTML = `<div class="region-detail-header">Transcribing…</div><div class="region-detail-busy"><span class="spinner"></span> Working on this region.</div>`;
     } else {
