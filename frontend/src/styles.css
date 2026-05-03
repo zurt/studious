@@ -285,7 +285,10 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 
 /* Region detail */
 .region-detail { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
-.region-detail-header { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; }
+.region-detail-header { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.region-detail-actions { display: flex; gap: 6px; align-items: center; }
+.region-detail-actions .icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px; line-height: 0; }
+.region-detail-actions .icon-btn svg { display: block; }
 .region-detail-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
 
 /* Zoom-pan viewer */

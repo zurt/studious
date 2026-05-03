@@ -6,7 +6,7 @@ import {
 import { generateCorrelationId, info } from "../logger";
 import { navigate, replaceQuery } from "../router";
 import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawer";
-import { renderRegionList } from "../modules/region-list";
+import { renderRegionList, makeCopyButton } from "../modules/region-list";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { confirmDialog } from "../modules/confirm";
 import { attachPageInput } from "../modules/page-input";
@@ -326,11 +326,18 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       const metaHtml = meta.length ? `<div class="region-detail-meta">${meta.join(" · ")}</div>` : "";
       const busyHtml = inFlight ? `<div class="region-detail-busy"><span class="spinner"></span> Re-transcribing…</div>` : "";
       regionDetail.innerHTML = `
-        <div class="region-detail-header">Transcription</div>
+        <div class="region-detail-header">
+          <span>Transcription</span>
+          <span class="region-detail-actions"></span>
+        </div>
         ${metaHtml}
         ${busyHtml}
         <div class="markdown">${marked.parse(region.transcription_md)}</div>
       `;
+      const detailActions = regionDetail.querySelector(".region-detail-actions");
+      if (detailActions) {
+        detailActions.appendChild(makeCopyButton(() => region.transcription_md || ""));
+      }
     } else if (inFlight) {
       regionDetail.innerHTML = `<div class="region-detail-header">Transcribing…</div><div class="region-detail-busy"><span class="spinner"></span> Working on this region.</div>`;
     } else {
