@@ -25,6 +25,30 @@ function setTranscriptionTextSize(size: TextSize) {
   localStorage.setItem(TEXT_SIZE_KEY, String(size));
 }
 
+const LAST_REGION_KEY = "studious.lastRegion";
+function lastRegionMap(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_REGION_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+function getRememberedRegion(chapterId: string, page: number): string | null {
+  return lastRegionMap()[`${chapterId}:${page}`] || null;
+}
+function rememberRegion(chapterId: string, page: number, regionId: string | null) {
+  const map = lastRegionMap();
+  const key = `${chapterId}:${page}`;
+  if (regionId) map[key] = regionId;
+  else delete map[key];
+  localStorage.setItem(LAST_REGION_KEY, JSON.stringify(map));
+}
+
+function pickFirstRegion(regs: Region[]): Region | null {
+  if (regs.length === 0) return null;
+  return [...regs].sort((a, b) => a.bbox[1] - b.bbox[1] || a.bbox[0] - b.bbox[0])[0];
+}
+
 export function mountChapterView(params: Record<string, string>, container: HTMLElement) {
   const docId = params.id;
   const chapterId = params.chapterId;
@@ -299,6 +323,14 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       const sel = regions.find((r) => r.id === selectedRegionId);
       if (!sel || sel.page !== page) selectedRegionId = null;
     }
+    // Restore remembered selection for this page, or fall back to the first region.
+    if (!selectedRegionId) {
+      const remembered = getRememberedRegion(chapterId, page);
+      const onPage = pageRegions();
+      const restored = remembered ? onPage.find((r) => r.id === remembered) : null;
+      const target = restored || pickFirstRegion(onPage);
+      selectedRegionId = target ? target.id : null;
+    }
     syncUrl();
     refreshRegionUI();
   }
@@ -318,6 +350,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
   function selectRegion(id: string) {
     selectedRegionId = id === selectedRegionId ? null : id;
+    rememberRegion(chapterId, page, selectedRegionId);
     syncUrl();
     refreshRegionUI();
   }
