@@ -19,6 +19,10 @@
 - [x] Current chapter indicator banner in document view
 - [x] Region transcription tracker widget in chapter view (pending count, batch transcribe)
 - [x] Resizable split panes with collapse affordance (drag splitter, collapse left/right, persists in localStorage)
+- [x] Copy-to-clipboard buttons on region cards and transcription detail view
+- [x] Text size toggle (100/150/200%) in transcription detail view
+- [x] Auto-select region on page navigation, remembering last selection per page
+- [x] Region hover highlight with fade-out (replaces persistent shading)
 
 ## Phase 1.5: UX Safety + LLM Observability
 
