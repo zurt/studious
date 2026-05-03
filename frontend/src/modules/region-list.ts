@@ -5,6 +5,7 @@ export type RegionListOptions = {
   onRetranscribe: (region: Region) => void;
   onDelete: (region: Region) => void;
   onSelect: (region: Region) => void;
+  onHover?: (region: Region | null) => void;
   transcribingIds?: Set<string>;
 };
 
@@ -62,6 +63,10 @@ export function renderRegionList(
     const card = document.createElement("div");
     card.className = "region-card" + (region.id === selectedId ? " selected" : "");
     card.addEventListener("click", () => opts.onSelect(region));
+    if (opts.onHover) {
+      card.addEventListener("mouseenter", () => opts.onHover!(region));
+      card.addEventListener("mouseleave", () => opts.onHover!(null));
+    }
 
     const header = document.createElement("div");
     header.className = "region-header";

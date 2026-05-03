@@ -343,6 +343,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       onRetranscribe: handleRetranscribe,
       onDelete: handleDelete,
       onSelect: (r) => selectRegion(r.id),
+      onHover: (r) => drawer?.setHover(r ? r.id : null),
       transcribingIds,
     });
     renderDetail();
