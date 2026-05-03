@@ -445,3 +445,95 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 }
 .tracker-status.done { background: rgba(22,163,74,0.12); color: #16a34a; }
 .tracker-status.pending { background: rgba(234,88,12,0.12); color: #ea580c; }
+
+/* Floating top-right controls — always visible, including in fullscreen */
+.floating-controls {
+  position: fixed; top: 4px; right: 8px; z-index: 9;
+  display: flex; gap: 4px;
+}
+
+/* Settings modal */
+.settings-modal {
+  width: min(960px, 95vw);
+  height: min(720px, 90vh);
+  max-height: 90vh;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.settings-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+}
+.settings-header h2 { font-size: 16px; margin: 0; }
+.settings-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  min-height: 0;
+}
+.settings-nav {
+  list-style: none; margin: 0; padding: 12px 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-soft);
+  overflow-y: auto;
+}
+.settings-nav-item {
+  padding: 8px 18px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--fg);
+  border-left: 2px solid transparent;
+}
+.settings-nav-item:hover { background: rgba(0,0,0,0.04); }
+.settings-nav-item.active {
+  background: var(--bg);
+  border-left-color: var(--accent, #2563eb);
+  font-weight: 500;
+}
+.settings-content {
+  overflow-y: auto;
+  padding: 18px 22px;
+}
+.settings-section { margin-bottom: 24px; }
+.settings-section:last-child { margin-bottom: 0; }
+.settings-section h3 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); margin: 0 0 10px; font-weight: 600;
+}
+.settings-dl {
+  display: grid; grid-template-columns: max-content 1fr;
+  gap: 6px 16px; margin: 0; font-size: 13px;
+}
+.settings-dl dt { color: var(--muted); }
+.settings-dl dd { margin: 0; }
+.settings-inline-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.settings-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.settings-table th, .settings-table td {
+  text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border);
+}
+.settings-table th {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted); font-weight: 600;
+}
+.settings-table td code { font-size: 12px; }
+
+.usage-totals {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.usage-stat {
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; background: var(--bg-soft);
+}
+.usage-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.usage-stat-value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+.usage-stat-sub { font-size: 11px; margin-top: 2px; }
+.small { font-size: 12px; }
+.usage-empty {
+  border: 1px dashed var(--border); border-radius: 8px;
+  padding: 24px; text-align: center;
+}
+.usage-empty-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }

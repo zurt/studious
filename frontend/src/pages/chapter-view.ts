@@ -153,7 +153,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
   function updateTrackerBtn() {
     const pending = regions.filter((r) => !r.transcription_md).length;
-    trackerBtn.textContent = pending > 0 ? `${pending} pending` : "All done";
+    trackerBtn.textContent = pending > 0 ? `${pending} pending` : "Regions";
   }
 
   function renderTracker() {

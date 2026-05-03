@@ -8,6 +8,8 @@ export type DocMeta = {
   created_at: string;
   transcribed_pages?: number[];
   chapters?: Chapter[];
+  regions_total?: number;
+  regions_transcribed?: number;
 };
 
 export type Transcription = {
@@ -183,6 +185,33 @@ export async function getTranscription(
 
 export async function getProviders(): Promise<ProvidersResponse> {
   return jget("/api/providers");
+}
+
+// ---------- Costs ----------
+
+export type CostBucket = {
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number;
+};
+
+export type CostSummary = {
+  total_requests: number;
+  success_count: number;
+  error_count: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_estimated_cost_usd: number;
+  by_model: Record<string, CostBucket>;
+  by_doc: Record<string, CostBucket>;
+  unknown_models: string[];
+  first_timestamp: string | null;
+  last_timestamp: string | null;
+};
+
+export async function getCostSummary(): Promise<CostSummary> {
+  return jget("/api/costs/summary");
 }
 
 // ---------- Chapters ----------
