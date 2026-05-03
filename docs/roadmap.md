@@ -25,6 +25,7 @@
 - [x] Confirmation dialog utility + wired into region, chapter, and document delete
 - [x] LLM audit log (append-only JSONL with provider, model, tokens, duration, context)
 - [x] Cost tracking estimation (per-model token pricing, cost-per-request, summary API)
+- [x] Settings modal (general + usage sections) with floating gear/fullscreen controls and cost summary UI
 
 ## Phase 1.6: Logging & Observability Improvements
 
