@@ -7,6 +7,7 @@ import {
   getProviders,
   listDocuments,
 } from "../api";
+import { error as logError } from "../logger";
 import { replaceQuery } from "../router";
 
 type Section = "general" | "usage";
@@ -133,7 +134,8 @@ async function renderGeneral(host: HTMLElement) {
       docList.map((d) => getDocument(d.id).catch(() => d))
     );
     host.innerHTML = generalHtml(providers, docs);
-  } catch (e) {
+  } catch (e: any) {
+    logError("SettingsModal", "general_load_failed", { error: e?.message ?? String(e), stack: e?.stack });
     host.innerHTML = `<div class="error">Failed to load: ${escapeHtml(String(e))}</div>`;
   }
 }
@@ -200,7 +202,8 @@ async function renderUsage(host: HTMLElement) {
   try {
     const [summary, docs] = await Promise.all([getCostSummary(), listDocuments()]);
     host.innerHTML = usageHtml(summary, docs);
-  } catch (e) {
+  } catch (e: any) {
+    logError("SettingsModal", "usage_load_failed", { error: e?.message ?? String(e), stack: e?.stack });
     host.innerHTML = `<div class="error">Failed to load: ${escapeHtml(String(e))}</div>`;
   }
 }

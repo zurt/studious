@@ -3,7 +3,7 @@ import {
   createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream,
   type DocMeta, type Chapter, type Region,
 } from "../api";
-import { generateCorrelationId, info } from "../logger";
+import { generateCorrelationId, info, error as logError } from "../logger";
 import { navigate, replaceQuery } from "../router";
 import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawer";
 import { renderRegionList, makeCopyButton } from "../modules/region-list";
@@ -52,7 +52,6 @@ function pickFirstRegion(regs: Region[]): Region | null {
 export function mountChapterView(params: Record<string, string>, container: HTMLElement) {
   const docId = params.id;
   const chapterId = params.chapterId;
-  generateCorrelationId();
 
   container.innerHTML = `
     <div class="viewer">
@@ -211,11 +210,12 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     const pending = regions.filter((r) => !r.transcription_md);
     if (pending.length === 0) return;
 
-    info("ChapterView", "batch_transcribe_started", { count: pending.length });
+    const batchCid = generateCorrelationId();
+    info("ChapterView", "batch_transcribe_started", { count: pending.length, correlation_id: batchCid });
 
     for (const region of pending) {
       try {
-        const { job_id } = await transcribeRegion(docId, chapterId, region.id);
+        const { job_id } = await transcribeRegion(docId, chapterId, region.id, batchCid);
         await new Promise<void>((resolve) => {
           openJobStream(job_id, async (event) => {
             if (event.event === "job-done" || event.event === "job-failed") {
@@ -223,8 +223,13 @@ export function mountChapterView(params: Record<string, string>, container: HTML
             }
           });
         });
-      } catch {
-        // Continue with next region on error
+      } catch (e: any) {
+        logError("ChapterView", "batch_transcribe_region_failed", {
+          region_id: region.id,
+          error: e.message,
+          stack: e.stack,
+          correlation_id: batchCid,
+        });
       }
     }
 
@@ -445,6 +450,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         updateTrackerBtn();
         refreshRegionUI();
       } catch (e: any) {
+        logError("ChapterView", "region_create_failed", {
+          chapter_id: chapterId, page, tag, error: e.message, stack: e.stack,
+        });
         alert("Failed to create region: " + e.message);
       }
     });
@@ -454,9 +462,10 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     if (transcribingIds.has(region.id)) return;
     transcribingIds.add(region.id);
     refreshRegionUI();
+    const cid = generateCorrelationId();
     try {
-      const { job_id } = await transcribeRegion(docId, chapterId, region.id);
-      info("ChapterView", "transcribe_started", { region_id: region.id, job_id });
+      const { job_id } = await transcribeRegion(docId, chapterId, region.id, cid);
+      info("ChapterView", "transcribe_started", { region_id: region.id, job_id, correlation_id: cid });
 
       let settled = false;
       const settle = async (kind: "done" | "failed", errMsg?: string) => {
@@ -467,6 +476,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           regions = await listRegions(docId, chapterId);
           updateTrackerBtn();
         } else {
+          logError("ChapterView", "transcribe_failed", {
+            region_id: region.id, job_id, error: errMsg || "unknown", correlation_id: cid,
+          });
           alert("Transcription failed: " + (errMsg || "unknown error"));
         }
         refreshRegionUI();
@@ -492,6 +504,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     } catch (e: any) {
       transcribingIds.delete(region.id);
       refreshRegionUI();
+      logError("ChapterView", "transcribe_submit_failed", {
+        region_id: region.id, error: e.message, stack: e.stack, correlation_id: cid,
+      });
       alert("Failed to start transcription: " + e.message);
     }
   }
@@ -525,6 +540,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       updateTrackerBtn();
       refreshRegionUI();
     } catch (e: any) {
+      logError("ChapterView", "region_delete_failed", {
+        region_id: region.id, error: e.message, stack: e.stack,
+      });
       alert("Failed to delete region: " + e.message);
     }
   }

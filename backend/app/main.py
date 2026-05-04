@@ -7,14 +7,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import chapters, costs, documents, jobs, providers, regions, transcribe
+from .config import get_settings
 from .jobs import manager
 from .middleware import CorrelationMiddleware, StructuredFormatter
 from .providers import registry
 
-# Structured JSON logging
+# Structured JSON logging. Level is configurable via STUDIOUS_LOG_LEVEL.
 _handler = logging.StreamHandler()
 _handler.setFormatter(StructuredFormatter())
-logging.basicConfig(level=logging.INFO, handlers=[_handler])
+_level = logging.getLevelName(get_settings().log_level)
+logging.basicConfig(
+    level=_level if isinstance(_level, int) else logging.INFO,
+    handlers=[_handler],
+)
 
 
 @asynccontextmanager

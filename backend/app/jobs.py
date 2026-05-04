@@ -45,6 +45,10 @@ class JobManager:
                 pass
 
     def submit(self, payload: dict[str, Any]) -> dict[str, Any]:
+        # Capture the caller's correlation id so the worker, which runs
+        # in a detached task with an empty context var, can still log
+        # under the same trace.
+        payload = {**payload, "correlation_id": correlation_id_var.get("")}
         job = storage.create_job(payload)
         self._queue.put_nowait(job["id"])
         return job
@@ -81,11 +85,15 @@ class JobManager:
         job = storage.load_job(job_id)
         if job is None:
             return
-        job_type = job.get("job_type", "transcribe_pages")
-        if job_type == "transcribe_region":
-            await self._run_region_job(job_id, job)
-            return
-        await self._run_pages_job(job_id, job)
+        token = correlation_id_var.set(job.get("correlation_id") or "")
+        try:
+            job_type = job.get("job_type", "transcribe_pages")
+            if job_type == "transcribe_region":
+                await self._run_region_job(job_id, job)
+                return
+            await self._run_pages_job(job_id, job)
+        finally:
+            correlation_id_var.reset(token)
 
     async def _run_pages_job(self, job_id: str, job: dict[str, Any]) -> None:
         doc_id = job["doc_id"]
@@ -185,8 +193,13 @@ class JobManager:
                     page=page,
                     correlation_id=correlation_id_var.get(""),
                     **llm_audit.extract_usage(result.meta),
+                    **llm_audit.extract_provenance(result.meta),
                 )
-            log.info("page_done", extra={**job_extra, "page": page, "duration_ms": duration_ms})
+            log.debug("page_done", extra={**job_extra, "page": page, "duration_ms": duration_ms})
+            # Note: `duration_ms` is intentionally not persisted in the
+            # transcription payload — the LLM audit log is the canonical source
+            # for per-call timing. Keeping it here as well would create a second
+            # source of truth that drifts.
             payload = {
                 "page": page,
                 "engine": engine,
@@ -197,7 +210,6 @@ class JobManager:
                 "annotations": {},
                 "meta": result.meta,
                 "created_at": _now_iso(),
-                "duration_ms": duration_ms,
                 **payload_extra,
             }
             storage.save_transcription(doc_id, page, payload)
@@ -291,6 +303,7 @@ class JobManager:
             page=page,
             correlation_id=correlation_id_var.get(""),
             **llm_audit.extract_usage(result.meta),
+            **llm_audit.extract_provenance(result.meta),
         )
         log.info("region_job_done", extra={**job_extra, "duration_ms": duration_ms})
 

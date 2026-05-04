@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import uuid
+from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -53,22 +54,34 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
             correlation_id_var.reset(token)
 
 
+# Attributes set by stdlib's `logging.LogRecord` — anything not in this set
+# is treated as caller-supplied via `extra={...}` and merged into the JSON.
+_STDLIB_RECORD_ATTRS = frozenset(
+    vars(logging.LogRecord("", 0, "", 0, "", (), None)).keys()
+) | {"message", "asctime", "taskName"}
+
+
 class StructuredFormatter(logging.Formatter):
-    """Emits log records as single-line JSON with correlation ID."""
+    """Emits log records as single-line JSON with correlation ID.
+
+    All caller-supplied `extra={...}` fields are preserved; only the stdlib
+    `LogRecord` attributes (and a few formatter-injected ones) are filtered
+    out. Add a new field to a log site by passing it in `extra=` — no change
+    to this formatter is needed.
+    """
 
     def format(self, record: logging.LogRecord) -> str:
-        entry = {
+        entry: dict[str, Any] = {
             "ts": self.formatTime(record),
             "level": record.levelname,
             "logger": record.name,
             "msg": record.getMessage(),
             "correlation_id": correlation_id_var.get(""),
         }
-        # Merge extra fields set via extra={} on log calls
-        for key in ("method", "path", "status", "duration_ms", "job_id", "page", "doc_id"):
-            val = getattr(record, key, None)
-            if val is not None:
-                entry[key] = val
+        for key, val in record.__dict__.items():
+            if key in _STDLIB_RECORD_ATTRS or key in entry:
+                continue
+            entry[key] = val
         if record.exc_info and record.exc_info[1]:
             entry["exception"] = self.formatException(record.exc_info)
-        return json.dumps(entry, ensure_ascii=False)
+        return json.dumps(entry, ensure_ascii=False, default=str)

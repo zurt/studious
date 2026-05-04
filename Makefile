@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend audit clean benchmark
+.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend audit audit-log logs clean benchmark
 
 install: install-backend install-frontend
 	@echo ""
@@ -37,6 +37,15 @@ audit:
 	@echo ""
 	@echo "==> pip-audit"
 	cd backend && . .venv/bin/activate && pip-audit || true
+
+# Tail backend log assuming it was started with
+#   make dev-backend 2>&1 | tee /tmp/studious-backend.log
+logs:
+	tail -F /tmp/studious-backend.log | jq -C .
+
+# Tail the LLM audit log (one JSON line per provider call).
+audit-log:
+	tail -F backend/data/llm_audit.jsonl | jq -C .
 
 benchmark:
 	. backend/.venv/bin/activate && python -m benchmarks.run_benchmark
