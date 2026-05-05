@@ -1,6 +1,6 @@
 import {
   getBreakdown, requestBreakdown, openJobStream,
-  type Breakdown, type BreakdownSentence, type Region,
+  type Breakdown, type BreakdownLink, type BreakdownSentence, type Region,
 } from "../api";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
@@ -16,6 +16,81 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   let errMsg: string | null = null;
   let closeStream: (() => void) | null = null;
   let destroyed = false;
+  const popover = document.createElement("div");
+  popover.className = "bd-link-popover";
+  popover.setAttribute("role", "dialog");
+  popover.hidden = true;
+  let activeLinkBtn: HTMLButtonElement | null = null;
+
+  function closePopover(returnFocus = false) {
+    if (popover.hidden) return;
+    popover.hidden = true;
+    popover.innerHTML = "";
+    if (popover.parentElement) popover.parentElement.removeChild(popover);
+    const wasActive = activeLinkBtn;
+    activeLinkBtn = null;
+    if (returnFocus && wasActive && document.contains(wasActive)) wasActive.focus();
+  }
+
+  function openPopover(btn: HTMLButtonElement) {
+    if (!breakdown) return;
+    const sIdx = Number(btn.dataset.sIdx);
+    const kind = btn.dataset.kind;
+    const idx = Number(btn.dataset.idx);
+    const s = breakdown.sentences[sIdx];
+    if (!s) return;
+    let html = "";
+    let label = "";
+    if (kind === "vocab") {
+      const v = s.vocab?.[idx];
+      if (!v) return;
+      label = v.word;
+      html = `
+        <div class="bd-popover-word" lang="ja">${escapeHtml(v.word)}</div>
+        ${v.reading ? `<div class="bd-popover-reading" lang="ja">${escapeHtml(v.reading)}</div>` : ""}
+        <div class="bd-popover-meaning">${escapeHtml(v.meaning)}</div>`;
+    } else if (kind === "grammar") {
+      const g = s.grammar?.[idx];
+      if (!g) return;
+      label = g.pattern;
+      html = `
+        <div class="bd-popover-pattern" lang="ja">${escapeHtml(g.pattern)}</div>
+        <div class="bd-popover-meaning">${escapeHtml(g.explanation)}</div>`;
+    } else {
+      return;
+    }
+    popover.innerHTML = html;
+    popover.setAttribute("aria-label", `${kind}: ${label}`);
+    const card = btn.closest(".breakdown-card") as HTMLElement | null;
+    const parent = card || container;
+    parent.appendChild(popover);
+    popover.hidden = false;
+    const parentRect = parent.getBoundingClientRect();
+    const btnRect = btn.getBoundingClientRect();
+    popover.style.top = `${btnRect.bottom - parentRect.top + 4}px`;
+    const left = btnRect.left - parentRect.left;
+    const maxLeft = Math.max(0, parent.clientWidth - popover.offsetWidth - 4);
+    popover.style.left = `${Math.min(Math.max(0, left), maxLeft)}px`;
+    activeLinkBtn = btn;
+  }
+
+  function onDocClick(e: MouseEvent) {
+    if (popover.hidden) return;
+    const target = e.target as Node;
+    if (popover.contains(target)) return;
+    if (activeLinkBtn && activeLinkBtn.contains(target)) return;
+    const linkBtn = (target as HTMLElement).closest?.(".bd-link") as HTMLButtonElement | null;
+    if (linkBtn && container.contains(linkBtn)) return;
+    closePopover();
+  }
+  function onDocKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape" && !popover.hidden) {
+      e.stopPropagation();
+      closePopover(true);
+    }
+  }
+  document.addEventListener("click", onDocClick, true);
+  document.addEventListener("keydown", onDocKeydown);
 
   function sentenceToMarkdown(s: BreakdownSentence): string {
     const parts: string[] = [s.text];
@@ -44,6 +119,36 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
+  function sentenceTextHtml(s: BreakdownSentence, sIdx: number): string {
+    const text = s.text;
+    const raw = (s.links || [])
+      .filter((l) => l.kind === "vocab"
+        && Number.isInteger(l.start) && Number.isInteger(l.end)
+        && l.start >= 0 && l.end <= text.length && l.start < l.end)
+      .slice()
+      .sort((a, b) => a.start - b.start);
+    const links: BreakdownLink[] = [];
+    let cursor = 0;
+    for (const l of raw) {
+      if (l.start < cursor) continue;
+      links.push(l);
+      cursor = l.end;
+    }
+    if (!links.length) return escapeHtml(text);
+    const out: string[] = [];
+    let i = 0;
+    for (const l of links) {
+      if (l.start > i) out.push(escapeHtml(text.slice(i, l.start)));
+      const span = text.slice(l.start, l.end);
+      out.push(
+        `<button type="button" class="bd-link" data-s-idx="${sIdx}" data-kind="${l.kind}" data-idx="${l.index}">${escapeHtml(span)}</button>`,
+      );
+      i = l.end;
+    }
+    if (i < text.length) out.push(escapeHtml(text.slice(i)));
+    return out.join("");
+  }
+
   function headerHtml(actionsHtml: string = ""): string {
     const collapsed = isPaneCollapsed("breakdown");
     return `
@@ -55,6 +160,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
 
   function render() {
     if (destroyed) return;
+    closePopover();
     if (loading) {
       container.innerHTML = `
         ${headerHtml()}
@@ -107,7 +213,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       return `
         <div class="breakdown-card" data-idx="${i}">
           <div class="breakdown-card-header">
-            <div class="breakdown-text" lang="ja">${escapeHtml(s.text)}</div>
+            <div class="breakdown-text" lang="ja">${sentenceTextHtml(s, i)}</div>
             <span class="breakdown-card-actions" data-copy-slot="${i}"></span>
           </div>
           ${vocab ? `<table class="breakdown-vocab"><tbody>${vocab}</tbody></table>` : ""}
@@ -191,6 +297,16 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
 
   function onClick(e: MouseEvent) {
     const target = e.target as HTMLElement;
+    const linkBtn = target.closest(".bd-link") as HTMLButtonElement | null;
+    if (linkBtn) {
+      e.stopPropagation();
+      if (activeLinkBtn === linkBtn && !popover.hidden) {
+        closePopover(true);
+      } else {
+        openPopover(linkBtn);
+      }
+      return;
+    }
     if (!target.closest(".pane-collapsible-header")) return;
     if (target.closest(".breakdown-pane-actions")) return;
     toggleCollapsed();
@@ -281,6 +397,9 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   return () => {
     destroyed = true;
     if (closeStream) { closeStream(); closeStream = null; }
+    closePopover();
+    document.removeEventListener("click", onDocClick, true);
+    document.removeEventListener("keydown", onDocKeydown);
     container.removeEventListener("click", onClick);
     container.removeEventListener("keydown", onKeydown);
     container.innerHTML = "";
