@@ -49,6 +49,22 @@ export type Region = {
   created_at: string;
 };
 
+export type BreakdownVocab = { word: string; reading?: string; meaning: string };
+export type BreakdownGrammar = { pattern: string; explanation: string };
+export type BreakdownSentence = {
+  text: string;
+  gloss: string;
+  vocab?: BreakdownVocab[];
+  grammar?: BreakdownGrammar[];
+};
+export type Breakdown = {
+  region_id: string;
+  model?: string;
+  sentences: BreakdownSentence[];
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type ProviderInfo = {
   name: string;
   kind: "ocr" | "vlm";
@@ -280,6 +296,40 @@ export async function moveRegion(
     `/api/documents/${docId}/chapters/${srcChapterId}/regions/${regionId}/move`,
     { dst_chapter_id: dstChapterId },
   );
+}
+
+export async function getBreakdown(
+  docId: string,
+  chapterId: string,
+  regionId: string,
+  cid: string = generateCorrelationId(),
+): Promise<Breakdown | null> {
+  const r = await fetch(
+    `/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/breakdown`,
+    { headers: { "x-correlation-id": cid } },
+  );
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`breakdown fetch: ${r.status}`);
+  return (await r.json()) as Breakdown;
+}
+
+export async function requestBreakdown(
+  docId: string,
+  chapterId: string,
+  regionId: string,
+  opts: { overwrite?: boolean } = {},
+  cid: string = generateCorrelationId(),
+): Promise<{ job_id: string }> {
+  const url = `/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/breakdown`;
+  const done = startTimer("api", `POST ${url}`, { correlation_id: cid });
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-correlation-id": cid },
+    body: JSON.stringify({ overwrite: !!opts.overwrite }),
+  });
+  done({ status: r.status });
+  if (!r.ok) throw new Error(`${url}: ${r.status} ${await r.text()}`);
+  return (await r.json()) as { job_id: string };
 }
 
 export async function transcribeRegion(

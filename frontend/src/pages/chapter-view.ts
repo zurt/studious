@@ -9,6 +9,7 @@ import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawe
 import { renderRegionList, makeCopyButton } from "../modules/region-list";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { confirmDialog } from "../modules/confirm";
+import { mountBreakdownPane } from "../modules/breakdown-pane";
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { marked } from "marked";
@@ -73,6 +74,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         <div class="pane" id="right-pane">
           <div id="region-list-container"></div>
           <div id="region-detail" class="region-detail"></div>
+          <div id="breakdown-pane" class="breakdown-pane"></div>
         </div>
       </div>
     </div>
@@ -92,6 +94,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const leftPane = container.querySelector<HTMLElement>("#left-pane")!;
   const regionListContainer = container.querySelector<HTMLElement>("#region-list-container")!;
   const regionDetail = container.querySelector<HTMLElement>("#region-detail")!;
+  const breakdownPane = container.querySelector<HTMLElement>("#breakdown-pane")!;
+  let breakdownDestroy: (() => void) | null = null;
+  let breakdownMountKey: string | null = null;
   const trackerPopover = container.querySelector<HTMLElement>("#tracker-popover")!;
 
   attachPaneSplitter(container.querySelector<HTMLElement>(".pane-row")!);
@@ -361,8 +366,28 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     refreshRegionUI();
   }
 
+  function syncBreakdownPane(region: Region | undefined) {
+    // Show the breakdown pane only on regions that (a) aren't vocab_list and
+    // (b) have an existing transcription. Remount when the target region or
+    // its transcription changes; otherwise leave it alone to avoid blowing
+    // away in-progress state.
+    const eligible = region && region.tag !== "vocab_list" && !!region.transcription_md;
+    const key = eligible ? `${region.id}:${region.transcribed_at || ""}` : null;
+    if (key === breakdownMountKey) return;
+    if (breakdownDestroy) { breakdownDestroy(); breakdownDestroy = null; }
+    breakdownMountKey = key;
+    if (eligible && region) {
+      breakdownPane.style.display = "";
+      breakdownDestroy = mountBreakdownPane(breakdownPane, { docId, chapterId, region });
+    } else {
+      breakdownPane.style.display = "none";
+      breakdownPane.innerHTML = "";
+    }
+  }
+
   function renderDetail() {
     const region = regions.find((r) => r.id === selectedRegionId);
+    syncBreakdownPane(region);
     if (!region) {
       regionDetail.innerHTML = "";
       return;
@@ -566,6 +591,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   return () => {
     document.removeEventListener("keydown", onKey);
     document.removeEventListener("click", onDocClick);
+    if (breakdownDestroy) breakdownDestroy();
     drawer?.destroy();
     viewer.destroy();
   };

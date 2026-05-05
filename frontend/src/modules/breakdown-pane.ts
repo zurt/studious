@@ -1,0 +1,189 @@
+import {
+  getBreakdown, requestBreakdown, openJobStream,
+  type Breakdown, type Region,
+} from "../api";
+import { generateCorrelationId, info, error as logError } from "../logger";
+import { confirmDialog } from "./confirm";
+
+type Ctx = { docId: string; chapterId: string; region: Region };
+
+export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void {
+  let breakdown: Breakdown | null = null;
+  let loading = true;
+  let busy = false;
+  let errMsg: string | null = null;
+  let closeStream: (() => void) | null = null;
+  let destroyed = false;
+
+  function escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function render() {
+    if (destroyed) return;
+    if (loading) {
+      container.innerHTML = `
+        <div class="breakdown-pane-header">Sentence breakdown</div>
+        <div class="region-detail-busy"><span class="spinner"></span> Loading…</div>`;
+      return;
+    }
+    if (errMsg) {
+      container.innerHTML = `
+        <div class="breakdown-pane-header">
+          <span>Sentence breakdown</span>
+          <span class="breakdown-pane-actions">
+            <button type="button" id="bd-retry">Retry</button>
+          </span>
+        </div>
+        <div class="breakdown-error">${escapeHtml(errMsg)}</div>`;
+      container.querySelector<HTMLButtonElement>("#bd-retry")!
+        .addEventListener("click", () => { errMsg = null; void loadExisting(); });
+      return;
+    }
+    if (busy) {
+      container.innerHTML = `
+        <div class="breakdown-pane-header">Sentence breakdown</div>
+        <div class="region-detail-busy"><span class="spinner"></span> Generating breakdown…</div>`;
+      return;
+    }
+    if (!breakdown) {
+      container.innerHTML = `
+        <div class="breakdown-pane-header">
+          <span>Sentence breakdown</span>
+          <span class="breakdown-pane-actions">
+            <button type="button" id="bd-generate">Generate breakdown</button>
+          </span>
+        </div>
+        <div class="breakdown-empty">No breakdown yet.</div>`;
+      container.querySelector<HTMLButtonElement>("#bd-generate")!
+        .addEventListener("click", () => void generate(false));
+      return;
+    }
+
+    const meta: string[] = [];
+    if (breakdown.model) meta.push(breakdown.model);
+    if (breakdown.updated_at) meta.push(new Date(breakdown.updated_at).toLocaleString());
+    const metaHtml = meta.length
+      ? `<div class="region-detail-meta">${meta.map(escapeHtml).join(" · ")}</div>`
+      : "";
+
+    const cards = breakdown.sentences.map((s, i) => {
+      const vocab = (s.vocab || []).map((v) => `
+        <tr>
+          <td class="bd-vocab-word">${escapeHtml(v.word)}</td>
+          <td class="bd-vocab-reading">${escapeHtml(v.reading || "")}</td>
+          <td class="bd-vocab-meaning">${escapeHtml(v.meaning)}</td>
+        </tr>`).join("");
+      const grammar = (s.grammar || []).map((g) => `
+        <li><span class="bd-grammar-pattern">${escapeHtml(g.pattern)}</span> — ${escapeHtml(g.explanation)}</li>`).join("");
+      return `
+        <div class="breakdown-card" data-idx="${i}">
+          <div class="breakdown-text" lang="ja">${escapeHtml(s.text)}</div>
+          ${vocab ? `<table class="breakdown-vocab"><tbody>${vocab}</tbody></table>` : ""}
+          ${grammar ? `<ul class="breakdown-grammar">${grammar}</ul>` : ""}
+          <div class="breakdown-gloss">${escapeHtml(s.gloss)}</div>
+        </div>`;
+    }).join("");
+
+    container.innerHTML = `
+      <div class="breakdown-pane-header">
+        <span>Sentence breakdown</span>
+        <span class="breakdown-pane-actions">
+          <button type="button" id="bd-regenerate">Regenerate</button>
+        </span>
+      </div>
+      ${metaHtml}
+      <div class="breakdown-list">${cards}</div>`;
+
+    container.querySelector<HTMLButtonElement>("#bd-regenerate")!
+      .addEventListener("click", async () => {
+        const ok = await confirmDialog(
+          "Regenerate breakdown?",
+          "The existing breakdown will be replaced.",
+          "Regenerate",
+        );
+        if (ok) void generate(true);
+      });
+  }
+
+  async function loadExisting() {
+    loading = true;
+    render();
+    try {
+      breakdown = await getBreakdown(ctx.docId, ctx.chapterId, ctx.region.id);
+    } catch (e: any) {
+      logError("BreakdownPane", "load_failed", {
+        region_id: ctx.region.id, error: e.message, stack: e.stack,
+      });
+      errMsg = "Failed to load breakdown: " + e.message;
+      breakdown = null;
+    } finally {
+      loading = false;
+      render();
+    }
+  }
+
+  async function generate(overwrite: boolean) {
+    if (busy) return;
+    busy = true;
+    errMsg = null;
+    render();
+    const cid = generateCorrelationId();
+    try {
+      const { job_id } = await requestBreakdown(
+        ctx.docId, ctx.chapterId, ctx.region.id, { overwrite }, cid,
+      );
+      info("BreakdownPane", "breakdown_started", {
+        region_id: ctx.region.id, job_id, correlation_id: cid,
+      });
+
+      let settled = false;
+      const settle = async (kind: "done" | "failed", msg?: string) => {
+        if (settled || destroyed) return;
+        settled = true;
+        if (closeStream) { closeStream(); closeStream = null; }
+        busy = false;
+        if (kind === "done") {
+          try {
+            breakdown = await getBreakdown(ctx.docId, ctx.chapterId, ctx.region.id);
+          } catch (e: any) {
+            errMsg = "Failed to reload breakdown: " + e.message;
+          }
+        } else {
+          errMsg = "Breakdown failed: " + (msg || "unknown error");
+          logError("BreakdownPane", "breakdown_failed", {
+            region_id: ctx.region.id, job_id, error: msg, correlation_id: cid,
+          });
+        }
+        render();
+      };
+
+      closeStream = openJobStream(job_id, (event) => {
+        if (event.event === "job-done") void settle("done");
+        else if (event.event === "job-failed") void settle("failed", event.data?.error);
+        else if (event.event === "snapshot") {
+          const status = event.data?.status;
+          if (status === "completed") void settle("done");
+          else if (status === "failed") void settle("failed", event.data?.errors?.[0]?.message);
+        }
+      });
+    } catch (e: any) {
+      busy = false;
+      errMsg = "Failed to start breakdown: " + e.message;
+      logError("BreakdownPane", "breakdown_submit_failed", {
+        region_id: ctx.region.id, error: e.message, stack: e.stack, correlation_id: cid,
+      });
+      render();
+    }
+  }
+
+  void loadExisting();
+
+  return () => {
+    destroyed = true;
+    if (closeStream) { closeStream(); closeStream = null; }
+    container.innerHTML = "";
+  };
+}
