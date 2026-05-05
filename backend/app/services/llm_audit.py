@@ -84,6 +84,7 @@ def record(
     request_id: str | None = None,
     prompt_hash: str | None = None,
     image_bytes: int | None = None,
+    stop_reason: str | None = None,
 ) -> dict[str, Any]:
     """Append one audit entry. Returns the entry that was written."""
     entry: dict[str, Any] = {
@@ -109,6 +110,7 @@ def record(
         "request_id": request_id,
         "prompt_hash": prompt_hash,
         "image_bytes": image_bytes,
+        "stop_reason": stop_reason,
     }
 
     path = audit_log_path()
@@ -204,4 +206,5 @@ def extract_provenance(meta: dict[str, Any] | None) -> dict[str, Any]:
         "request_id": meta.get("request_id"),
         "prompt_hash": meta.get("prompt_hash"),
         "image_bytes": meta.get("image_bytes"),
+        "stop_reason": meta.get("stop_reason"),
     }

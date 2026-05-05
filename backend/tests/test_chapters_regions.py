@@ -252,6 +252,7 @@ def test_breakdown_post_overwrite_semantics(isolated_data_dir, tmp_path: Path):
     job = storage.load_job(r.json()["job_id"])
     assert job["job_type"] == "breakdown_region"
     assert job["tool_name"] == "record_breakdown"
+    assert job["config"]["max_tokens"] == 8192
     assert job["tool_schema"]["type"] == "object"
     assert "sentences" in job["tool_schema"]["required"]
 

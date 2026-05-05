@@ -145,12 +145,14 @@ def test_extract_provenance_pulls_request_metadata():
         "request_id": "req_abc",
         "prompt_hash": "deadbeef",
         "image_bytes": 12345,
+        "stop_reason": "tool_use",
         "other": "ignored",
     }
     assert llm_audit.extract_provenance(meta) == {
         "request_id": "req_abc",
         "prompt_hash": "deadbeef",
         "image_bytes": 12345,
+        "stop_reason": "tool_use",
     }
 
 
@@ -159,6 +161,7 @@ def test_extract_provenance_handles_missing():
         "request_id": None,
         "prompt_hash": None,
         "image_bytes": None,
+        "stop_reason": None,
     }
     assert llm_audit.extract_provenance(None) == expected_empty
     assert llm_audit.extract_provenance({}) == expected_empty

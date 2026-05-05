@@ -200,6 +200,7 @@ BREAKDOWN_TOOL_SCHEMA: dict = {
     "properties": {
         "sentences": {
             "type": "array",
+            "minItems": 1,
             "items": {
                 "type": "object",
                 "required": ["text", "gloss"],

@@ -396,7 +396,10 @@ class JobManager:
 
         sentences = result.tool_input.get("sentences")
         if not isinstance(sentences, list) or not sentences:
-            err_msg = "tool response missing non-empty `sentences`"
+            if result.meta.get("stop_reason") == "max_tokens":
+                err_msg = "tool response was truncated at max_tokens before returning non-empty `sentences`"
+            else:
+                err_msg = "tool response missing non-empty `sentences`"
             llm_audit.record(
                 provider=provider_name,
                 model=result.meta.get("model"),

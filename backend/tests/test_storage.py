@@ -147,6 +147,7 @@ def test_breakdown_tool_schema_shape():
     assert "sentences" in BREAKDOWN_TOOL_SCHEMA["required"]
     sentences = BREAKDOWN_TOOL_SCHEMA["properties"]["sentences"]
     assert sentences["type"] == "array"
+    assert sentences["minItems"] == 1
     item = sentences["items"]
     assert item["type"] == "object"
     assert set(item["required"]) == {"text", "gloss"}
