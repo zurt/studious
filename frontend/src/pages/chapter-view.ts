@@ -419,7 +419,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       `;
       const detailActions = regionDetail.querySelector(".region-detail-actions");
       if (detailActions) {
-        detailActions.appendChild(makeCopyButton(() => region.transcription_md || ""));
+        detailActions.prepend(makeCopyButton(() => region.transcription_md || ""));
       }
       regionDetail.querySelectorAll<HTMLButtonElement>(".text-size-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {

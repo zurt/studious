@@ -1,6 +1,6 @@
 import {
   getBreakdown, requestBreakdown, openJobStream,
-  type Breakdown, type Region,
+  type Breakdown, type BreakdownSentence, type Region,
 } from "../api";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
@@ -16,6 +16,27 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   let errMsg: string | null = null;
   let closeStream: (() => void) | null = null;
   let destroyed = false;
+
+  function sentenceToMarkdown(s: BreakdownSentence): string {
+    const parts: string[] = [s.text];
+    if (s.vocab && s.vocab.length) {
+      const rows = s.vocab.map((v) => {
+        const reading = v.reading ? `（${v.reading}）` : "";
+        return `- ${v.word}${reading} — ${v.meaning}`;
+      });
+      parts.push("**Vocab**\n" + rows.join("\n"));
+    }
+    if (s.grammar && s.grammar.length) {
+      const rows = s.grammar.map((g) => `- ${g.pattern} — ${g.explanation}`);
+      parts.push("**Grammar**\n" + rows.join("\n"));
+    }
+    if (s.gloss) parts.push(s.gloss);
+    return parts.join("\n\n");
+  }
+
+  function allSentencesToMarkdown(b: Breakdown): string {
+    return b.sentences.map(sentenceToMarkdown).join("\n\n");
+  }
 
   function escapeHtml(s: string): string {
     return s
@@ -91,20 +112,56 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
           </div>
           ${vocab ? `<table class="breakdown-vocab"><tbody>${vocab}</tbody></table>` : ""}
           ${grammar ? `<ul class="breakdown-grammar">${grammar}</ul>` : ""}
-          <div class="breakdown-gloss">${escapeHtml(s.gloss)}</div>
+          <div class="breakdown-gloss-row">
+            <div class="breakdown-gloss is-blurred">${escapeHtml(s.gloss)}</div>
+            <button type="button" class="icon-btn breakdown-gloss-toggle" data-gloss-toggle="${i}" title="Show gloss" aria-label="Show gloss" aria-pressed="false">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>`;
     }).join("");
 
     container.innerHTML = `
-      ${headerHtml(`<button type="button" id="bd-regenerate">Regenerate</button>`)}
+      ${headerHtml(`<span class="breakdown-copy-all-slot"></span><button type="button" id="bd-regenerate">Regenerate</button>`)}
       ${metaHtml}
       <div class="breakdown-list">${cards}</div>`;
+
+    const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
+    if (copyAllSlot) {
+      const copyAllBtn = makeCopyButton(() => allSentencesToMarkdown(breakdown!));
+      copyAllBtn.title = "Copy all";
+      copyAllBtn.setAttribute("aria-label", "Copy all");
+      copyAllSlot.appendChild(copyAllBtn);
+    }
 
     container.querySelectorAll<HTMLElement>("[data-copy-slot]").forEach((slot) => {
       const idx = Number(slot.getAttribute("data-copy-slot"));
       const sentence = breakdown!.sentences[idx];
       if (!sentence) return;
-      slot.appendChild(makeCopyButton(() => sentence.text));
+      slot.appendChild(makeCopyButton(() => sentenceToMarkdown(sentence)));
+    });
+
+    container.querySelectorAll<HTMLElement>(".breakdown-gloss-row").forEach((row) => {
+      const btn = row.querySelector<HTMLButtonElement>("[data-gloss-toggle]");
+      const gloss = row.querySelector<HTMLElement>(".breakdown-gloss");
+      if (!btn || !gloss) return;
+      const sync = () => {
+        const blurred = gloss.classList.contains("is-blurred");
+        btn.setAttribute("aria-pressed", String(!blurred));
+        btn.title = blurred ? "Show gloss" : "Hide gloss";
+        btn.setAttribute("aria-label", btn.title);
+      };
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        gloss.classList.toggle("is-blurred");
+        sync();
+      });
+      gloss.addEventListener("click", (e) => {
+        if (!gloss.classList.contains("is-blurred")) return;
+        e.stopPropagation();
+        gloss.classList.remove("is-blurred");
+        sync();
+      });
     });
 
     container.querySelector<HTMLButtonElement>("#bd-regenerate")!
