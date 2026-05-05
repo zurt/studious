@@ -9,7 +9,7 @@ from typing import Any
 import anthropic
 
 from ...config import get_settings
-from ..registry import TranscriptionResult
+from ..registry import ToolCallResult, TranscriptionResult
 
 
 _TEMPERATURE_DEPRECATED_PREFIXES = ("claude-opus-4-7",)
@@ -180,3 +180,129 @@ class AnthropicVlm:
             meta["usage"] = usage_dict
 
         return TranscriptionResult(markdown=raw, raw=raw, meta=meta)
+
+    def call_tool(
+        self,
+        prompt: str,
+        tool_name: str,
+        tool_schema: dict[str, Any],
+        config: dict[str, Any],
+    ) -> ToolCallResult:
+        model = str(config.get("model") or self._default_model)
+        max_tokens = int(config.get("max_tokens", 4096))
+        prompt_hash = _prompt_hash(prompt)
+
+        kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens}
+        if "temperature" in config and not _model_deprecates_temperature(model):
+            kwargs["temperature"] = float(config["temperature"])
+
+        log.info(
+            "vlm_tool_call_start",
+            extra={
+                "provider": self.name,
+                "model": model,
+                "max_tokens": max_tokens,
+                "tool_name": tool_name,
+                "prompt_hash": prompt_hash,
+            },
+        )
+
+        tools = [
+            {
+                "name": tool_name,
+                "description": f"Record the structured result for {tool_name}.",
+                "input_schema": tool_schema,
+            }
+        ]
+
+        t0 = time.monotonic()
+        try:
+            message = self._client.messages.create(
+                **kwargs,
+                tools=tools,
+                tool_choice={"type": "tool", "name": tool_name},
+                messages=[{"role": "user", "content": [{"type": "text", "text": prompt}]}],
+            )
+        except anthropic.APIStatusError as exc:
+            log.error(
+                "vlm_tool_call_error",
+                extra={
+                    "provider": self.name,
+                    "model": model,
+                    "status_code": getattr(exc, "status_code", None),
+                    "request_id": getattr(exc, "request_id", None),
+                    "error_class": type(exc).__name__,
+                    "duration_ms": int((time.monotonic() - t0) * 1000),
+                    "prompt_hash": prompt_hash,
+                    "tool_name": tool_name,
+                },
+            )
+            raise
+        except Exception as exc:
+            log.error(
+                "vlm_tool_call_error",
+                extra={
+                    "provider": self.name,
+                    "model": model,
+                    "error_class": type(exc).__name__,
+                    "duration_ms": int((time.monotonic() - t0) * 1000),
+                    "prompt_hash": prompt_hash,
+                    "tool_name": tool_name,
+                },
+            )
+            raise
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        request_id = getattr(message, "_request_id", None) or getattr(message, "id", None)
+
+        tool_input: dict[str, Any] | None = None
+        for block in message.content:
+            if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == tool_name:
+                raw_input = getattr(block, "input", None)
+                if isinstance(raw_input, dict):
+                    tool_input = raw_input
+                break
+        if tool_input is None:
+            raise RuntimeError(
+                f"model did not return a tool_use block for {tool_name!r} "
+                f"(stop_reason={message.stop_reason!r})"
+            )
+
+        usage = getattr(message, "usage", None)
+        usage_dict: dict[str, Any] = {}
+        if usage is not None:
+            usage_dict = {
+                "input_tokens": getattr(usage, "input_tokens", None),
+                "output_tokens": getattr(usage, "output_tokens", None),
+                "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", None),
+                "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", None),
+            }
+
+        log.info(
+            "vlm_tool_call_done",
+            extra={
+                "provider": self.name,
+                "model": model,
+                "request_id": request_id,
+                "duration_ms": duration_ms,
+                "stop_reason": message.stop_reason,
+                "input_tokens": usage_dict.get("input_tokens"),
+                "output_tokens": usage_dict.get("output_tokens"),
+                "cache_read_tokens": usage_dict.get("cache_read_input_tokens"),
+                "cache_creation_tokens": usage_dict.get("cache_creation_input_tokens"),
+                "prompt_hash": prompt_hash,
+                "tool_name": tool_name,
+            },
+        )
+
+        meta: dict[str, Any] = {
+            "model": model,
+            "stop_reason": message.stop_reason,
+            "request_id": request_id,
+            "prompt_hash": prompt_hash,
+            "image_bytes": 0,
+            "tool_name": tool_name,
+        }
+        if usage_dict:
+            meta["usage"] = usage_dict
+        return ToolCallResult(tool_input=tool_input, meta=meta)

@@ -174,6 +174,52 @@ def test_text_only_logs_image_bytes_zero(vlm, caplog):
     assert done.image_bytes == 0
 
 
+class _StubToolMessage:
+    def __init__(self, *, tool_name: str = "record_breakdown", tool_input: dict | None = None,
+                 stop_reason: str = "tool_use", include_text: bool = False) -> None:
+        self.id = "msg_stub"
+        self._request_id = "req_stub_tool"
+        self.stop_reason = stop_reason
+        blocks: list = []
+        if include_text:
+            blocks.append(SimpleNamespace(type="text", text="thinking..."))
+        if tool_input is not None:
+            blocks.append(SimpleNamespace(type="tool_use", name=tool_name, input=tool_input))
+        self.content = blocks
+        self.usage = SimpleNamespace(
+            input_tokens=12, output_tokens=4,
+            cache_read_input_tokens=None, cache_creation_input_tokens=None,
+        )
+
+
+def test_call_tool_returns_parsed_tool_input(vlm):
+    inst, messages, _ = vlm
+    inst._client.messages._message = _StubToolMessage(
+        tool_input={"sentences": [{"text": "x", "gloss": "y"}]}
+    )
+    result = inst.call_tool(
+        "prompt", "record_breakdown", {"type": "object"}, {"model": "claude-opus-4-7"}
+    )
+    assert result.tool_input == {"sentences": [{"text": "x", "gloss": "y"}]}
+    assert result.meta["model"] == "claude-opus-4-7"
+    assert result.meta["request_id"] == "req_stub_tool"
+    assert result.meta["tool_name"] == "record_breakdown"
+    assert result.meta["image_bytes"] == 0
+
+    call = messages.calls[0]
+    assert call["tools"][0]["name"] == "record_breakdown"
+    assert call["tool_choice"] == {"type": "tool", "name": "record_breakdown"}
+    msg = call["messages"][0]
+    assert msg["content"] == [{"type": "text", "text": "prompt"}]
+
+
+def test_call_tool_raises_when_no_tool_use_block(vlm):
+    inst, _, _ = vlm
+    inst._client.messages._message = _StubToolMessage(tool_input=None, stop_reason="end_turn", include_text=True)
+    with pytest.raises(RuntimeError, match="did not return a tool_use block"):
+        inst.call_tool("p", "record_breakdown", {"type": "object"}, {})
+
+
 def test_logs_error_and_reraises(vlm, caplog):
     inst, messages, _ = vlm
 

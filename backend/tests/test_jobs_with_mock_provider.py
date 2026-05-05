@@ -334,6 +334,193 @@ async def test_audit_log_captures_provider_provenance(isolated_data_dir):
     assert e["cache_creation_tokens"] == 0
 
 
+class _MockBreakdownVlm:
+    """Mock VLM that satisfies the call_tool protocol for breakdown jobs."""
+
+    name = "mock-breakdown-vlm"
+
+    def __init__(self, *, tool_input: dict | None = None, raise_exc: Exception | None = None) -> None:
+        self.tool_input = tool_input
+        self.raise_exc = raise_exc
+        self.calls: list[tuple[str, str, dict, dict]] = []
+
+    def info(self):
+        return {"name": self.name, "kind": "vlm"}
+
+    def transcribe(self, image_bytes, prompt, config):
+        raise NotImplementedError
+
+    def call_tool(self, prompt, tool_name, tool_schema, config):
+        self.calls.append((prompt, tool_name, tool_schema, config))
+        if self.raise_exc is not None:
+            raise self.raise_exc
+        return registry.ToolCallResult(
+            tool_input=self.tool_input or {},
+            meta={
+                "model": config.get("model", "mock-model"),
+                "request_id": "req_breakdown_1",
+                "prompt_hash": "deadbeef",
+                "image_bytes": 0,
+                "usage": {
+                    "input_tokens": 200,
+                    "output_tokens": 80,
+                    "cache_read_input_tokens": 0,
+                    "cache_creation_input_tokens": 0,
+                },
+            },
+        )
+
+
+async def _wait_for_terminal(job_id: str, timeout: float = 5.0) -> dict:
+    deadline = asyncio.get_event_loop().time() + timeout
+    while asyncio.get_event_loop().time() < deadline:
+        await asyncio.sleep(0.05)
+        cur = storage.load_job(job_id)
+        if cur and cur.get("status") in {"completed", "completed_with_errors", "failed"}:
+            return cur
+    raise AssertionError(f"job {job_id} did not finish")
+
+
+def _make_region_with_transcription(doc_id: str) -> tuple[str, str]:
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=1)
+    region = storage.create_region(
+        doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage"
+    )
+    storage.update_region(
+        doc_id, ch["id"], region["id"], transcription_md="口べたで料理好きの父親。"
+    )
+    return ch["id"], region["id"]
+
+
+async def test_breakdown_job_happy_path(isolated_data_dir):
+    sentences = [
+        {
+            "text": "口べたで料理好きの父親。",
+            "vocab": [{"word": "口べた", "reading": "くちべた", "meaning": "poor speaker"}],
+            "grammar": [],
+            "gloss": "A father who is bad at speaking but loves cooking.",
+        }
+    ]
+    mock = _MockBreakdownVlm(tool_input={"sentences": sentences})
+    registry.register_vlm("mock-breakdown-vlm", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "breakdown_region",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "region_id": region_id,
+                "engine": "vlm",
+                "provider": "mock-breakdown-vlm",
+                "config": {"model": "mock-model"},
+                "prompt": "BREAKDOWN_PROMPT",
+                "tool_name": "record_breakdown",
+                "tool_schema": {"type": "object"},
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    saved = storage.load_breakdown(meta["id"], chapter_id, region_id)
+    assert saved is not None
+    assert saved["sentences"] == sentences
+    assert saved["model"] == "mock-model"
+
+    # The prompt sent to the provider should embed the transcription.
+    assert mock.calls, "provider was not called"
+    sent_prompt = mock.calls[0][0]
+    assert "口べたで料理好きの父親。" in sent_prompt
+    assert "BREAKDOWN_PROMPT" in sent_prompt
+
+    entries = llm_audit.read_all()
+    assert len(entries) == 1
+    e = entries[0]
+    assert e["job_type"] == "breakdown_region"
+    assert e["status"] == "success"
+    assert e["region_id"] == region_id
+    assert e["chapter_id"] == chapter_id
+    assert e["input_tokens"] == 200
+
+
+async def test_breakdown_job_fails_on_malformed_tool_response(isolated_data_dir):
+    mock = _MockBreakdownVlm(tool_input={"sentences": []})  # empty list → fail
+    registry.register_vlm("mock-breakdown-bad", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "breakdown_region",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "region_id": region_id,
+                "provider": "mock-breakdown-bad",
+                "config": {"model": "mock-model"},
+                "prompt": "P",
+                "tool_name": "record_breakdown",
+                "tool_schema": {"type": "object"},
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "failed"
+    assert "sentences" in final["errors"][0]["message"]
+    assert storage.load_breakdown(meta["id"], chapter_id, region_id) is None
+    entries = llm_audit.read_all()
+    assert entries and entries[0]["status"] == "error"
+    assert entries[0]["job_type"] == "breakdown_region"
+
+
+async def test_breakdown_job_fails_when_region_has_no_transcription(isolated_data_dir):
+    mock = _MockBreakdownVlm(tool_input={"sentences": [{"text": "x", "gloss": "y"}]})
+    registry.register_vlm("mock-breakdown-notx", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    ch = storage.create_chapter(meta["id"], title="Ch", page_start=1, page_end=1)
+    region = storage.create_region(
+        meta["id"], ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage"
+    )
+    # Note: no transcription_md set.
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "breakdown_region",
+                "doc_id": meta["id"],
+                "chapter_id": ch["id"],
+                "region_id": region["id"],
+                "provider": "mock-breakdown-notx",
+                "config": {"model": "mock-model"},
+                "prompt": "P",
+                "tool_name": "record_breakdown",
+                "tool_schema": {"type": "object"},
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "failed"
+    assert "no transcription" in final["errors"][0]["message"]
+    assert mock.calls == []  # provider never called
+
+
 async def test_overwrite_false_skips_existing(isolated_data_dir, mock_ocr_provider):
     meta = _make_doc_with_pages(2)
     storage.save_transcription(

@@ -12,6 +12,12 @@ class TranscriptionResult:
     meta: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class ToolCallResult:
+    tool_input: dict[str, Any]
+    meta: dict[str, Any] = field(default_factory=dict)
+
+
 class OcrProvider(Protocol):
     name: str
 
@@ -26,6 +32,14 @@ class VlmProvider(Protocol):
     def transcribe(
         self, image_bytes: bytes | None, prompt: str, config: dict[str, Any]
     ) -> TranscriptionResult: ...
+
+    def call_tool(
+        self,
+        prompt: str,
+        tool_name: str,
+        tool_schema: dict[str, Any],
+        config: dict[str, Any],
+    ) -> ToolCallResult: ...
 
     def info(self) -> dict[str, Any]: ...
 

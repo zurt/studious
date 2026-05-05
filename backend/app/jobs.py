@@ -91,6 +91,9 @@ class JobManager:
             if job_type == "transcribe_region":
                 await self._run_region_job(job_id, job)
                 return
+            if job_type == "breakdown_region":
+                await self._run_breakdown_job(job_id, job)
+                return
             await self._run_pages_job(job_id, job)
         finally:
             correlation_id_var.reset(token)
@@ -314,6 +317,129 @@ class JobManager:
             transcription_md=result.markdown,
             transcribed_at=_now_iso(),
             transcribed_model=result.meta.get("model"),
+        )
+        storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
+        self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
+
+
+    async def _run_breakdown_job(self, job_id: str, job: dict[str, Any]) -> None:
+        doc_id = job["doc_id"]
+        chapter_id = job["chapter_id"]
+        region_id = job["region_id"]
+        provider_name: str = job["provider"]
+        config: dict[str, Any] = job.get("config", {}) or {}
+        prompt: str = job.get("prompt", "")
+        tool_name: str = job.get("tool_name", "record_breakdown")
+        tool_schema: dict[str, Any] = job.get("tool_schema", {})
+
+        job_extra = {
+            "job_id": job_id,
+            "doc_id": doc_id,
+            "chapter_id": chapter_id,
+            "region_id": region_id,
+        }
+        log.info("breakdown_job_start", extra=job_extra)
+
+        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
+        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id}})
+
+        region = storage.load_region(doc_id, chapter_id, region_id)
+        if region is None:
+            err_msg = "region not found"
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            return
+        transcription_md = region.get("transcription_md")
+        if not transcription_md:
+            err_msg = "region has no transcription"
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            return
+
+        try:
+            provider = registry.get_vlm(provider_name)
+        except Exception as exc:
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+
+        full_prompt = (
+            f"{prompt}\n\n<input>\n{transcription_md}\n</input>"
+            if prompt
+            else transcription_md
+        )
+
+        t0 = time.monotonic()
+        try:
+            result = await asyncio.to_thread(
+                provider.call_tool, full_prompt, tool_name, tool_schema, config
+            )
+        except Exception as exc:
+            llm_audit.record(
+                provider=provider_name,
+                model=str(config.get("model") or get_settings().default_vlm_model),
+                job_type="breakdown_region",
+                status="error",
+                duration_ms=int((time.monotonic() - t0) * 1000),
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                region_id=region_id,
+                job_id=job_id,
+                error=str(exc),
+                correlation_id=correlation_id_var.get(""),
+            )
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+
+        sentences = result.tool_input.get("sentences")
+        if not isinstance(sentences, list) or not sentences:
+            err_msg = "tool response missing non-empty `sentences`"
+            llm_audit.record(
+                provider=provider_name,
+                model=result.meta.get("model"),
+                job_type="breakdown_region",
+                status="error",
+                duration_ms=duration_ms,
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                region_id=region_id,
+                job_id=job_id,
+                error=err_msg,
+                correlation_id=correlation_id_var.get(""),
+                **llm_audit.extract_usage(result.meta),
+                **llm_audit.extract_provenance(result.meta),
+            )
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            return
+
+        llm_audit.record(
+            provider=provider_name,
+            model=result.meta.get("model"),
+            job_type="breakdown_region",
+            status="success",
+            duration_ms=duration_ms,
+            doc_id=doc_id,
+            chapter_id=chapter_id,
+            region_id=region_id,
+            job_id=job_id,
+            correlation_id=correlation_id_var.get(""),
+            **llm_audit.extract_usage(result.meta),
+            **llm_audit.extract_provenance(result.meta),
+        )
+        log.info("breakdown_job_done", extra={**job_extra, "duration_ms": duration_ms})
+
+        storage.save_breakdown(
+            doc_id,
+            chapter_id,
+            region_id,
+            {
+                "model": result.meta.get("model"),
+                "sentences": sentences,
+            },
         )
         storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
         self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
