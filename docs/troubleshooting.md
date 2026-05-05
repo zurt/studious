@@ -69,5 +69,11 @@ The backend process can't read the key from its environment. The Keychain-based 
 ### Job stuck in `running`
 The worker is sequential (`backend/app/jobs.py` `JobManager`). One stuck job blocks all subsequent ones. Check backend stdout for an exception traceback in the worker, then either let it finish or restart the backend (in-progress jobs do not resume on restart).
 
+### Sentence breakdown fails immediately with "no transcription"
+The breakdown job (`job_type=breakdown_region`) requires the region to have `transcription_md` set on disk before it runs. The API rejects the POST with 409 if the region has not been transcribed yet, and the job handler fails fast with the same message if a race wipes it. Transcribe the region first (or wait for the in-flight transcription to finish), then retry the breakdown.
+
+### Sentence breakdown fails with "tool response missing non-empty `sentences`"
+The VLM tool-use call returned, but the model's tool input either omitted `sentences` or sent an empty array. This is logged in `llm_audit.YYYY-MM.jsonl` with `job_type=breakdown_region`, `status=error`, and the full token usage so the call still counts toward cost. Causes seen in practice: the model refusing to break down extremely short or non-Japanese inputs, or a malformed tool schema. First inspect the audit entry's `request_id` to pull the raw call from Anthropic logs if needed; if the input is genuinely too short (one fragment), expect failure — that's not a bug. Otherwise, regenerate; the breakdown is idempotent and overwrites stale state when `overwrite=true`.
+
 ### Benchmark CER spikes or line accuracy collapses
 Before assuming a model/prompt regression: check whether the **ground truth** matches the format the current prompt is producing. CER and line-accuracy are computed character- and line-exact — markdown structure (`#`, `**`, `<u>`), fullwidth vs halfwidth punctuation, paragraph wrapping, and inline annotations like `[?N]` all count as differences. If you change the default VLM prompt's output style, the existing GT will need to be regenerated (or normalized before scoring). Rule of thumb: if line accuracy is in single digits while the body text reads correctly side-by-side, it's a format mismatch, not a regression.

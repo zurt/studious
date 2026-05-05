@@ -5,6 +5,7 @@ import {
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
 import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setPaneCollapsed } from "./collapsible";
+import { makeCopyButton } from "./region-list";
 
 type Ctx = { docId: string; chapterId: string; region: Region };
 
@@ -84,7 +85,10 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
         <li><span class="bd-grammar-pattern">${escapeHtml(g.pattern)}</span> — ${escapeHtml(g.explanation)}</li>`).join("");
       return `
         <div class="breakdown-card" data-idx="${i}">
-          <div class="breakdown-text" lang="ja">${escapeHtml(s.text)}</div>
+          <div class="breakdown-card-header">
+            <div class="breakdown-text" lang="ja">${escapeHtml(s.text)}</div>
+            <span class="breakdown-card-actions" data-copy-slot="${i}"></span>
+          </div>
           ${vocab ? `<table class="breakdown-vocab"><tbody>${vocab}</tbody></table>` : ""}
           ${grammar ? `<ul class="breakdown-grammar">${grammar}</ul>` : ""}
           <div class="breakdown-gloss">${escapeHtml(s.gloss)}</div>
@@ -95,6 +99,13 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       ${headerHtml(`<button type="button" id="bd-regenerate">Regenerate</button>`)}
       ${metaHtml}
       <div class="breakdown-list">${cards}</div>`;
+
+    container.querySelectorAll<HTMLElement>("[data-copy-slot]").forEach((slot) => {
+      const idx = Number(slot.getAttribute("data-copy-slot"));
+      const sentence = breakdown!.sentences[idx];
+      if (!sentence) return;
+      slot.appendChild(makeCopyButton(() => sentence.text));
+    });
 
     container.querySelector<HTMLButtonElement>("#bd-regenerate")!
       .addEventListener("click", async (e) => {

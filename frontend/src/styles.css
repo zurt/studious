@@ -339,6 +339,11 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
   background: var(--bg-soft);
 }
+.breakdown-card-header {
+  display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;
+}
+.breakdown-card-header .breakdown-text { margin-bottom: 0; flex: 1; }
+.breakdown-card-actions { flex: 0 0 auto; }
 .breakdown-text {
   font-size: 17px; line-height: 1.55; margin-bottom: 8px;
   font-family: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", system-ui, sans-serif;

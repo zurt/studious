@@ -98,6 +98,78 @@ def find_input_file(fixture_dir: Path) -> Path | None:
     return None
 
 
+def find_text_input(fixture_dir: Path) -> Path | None:
+    """Find a text input file (input.md / input.txt) for non-image fixtures."""
+    for ext in (".md", ".txt"):
+        candidate = fixture_dir / f"input{ext}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def run_breakdown(text: str, provider: str) -> dict:
+    """Run a sentence breakdown via the configured VLM tool-use path."""
+    sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
+    from app.config import (
+        BREAKDOWN_TOOL_SCHEMA,
+        SENTENCE_BREAKDOWN_PROMPT,
+        get_settings,
+    )
+    from app.providers import registry
+
+    registry.bootstrap_default_providers()
+    settings = get_settings()
+    prov = registry.get_vlm(provider)
+
+    full_prompt = f"{SENTENCE_BREAKDOWN_PROMPT}\n\n---\n\n{text}"
+    config = {"model": settings.default_vlm_model}
+
+    t0 = time.monotonic()
+    result = prov.call_tool(full_prompt, "record_breakdown", BREAKDOWN_TOOL_SCHEMA, config)
+    duration_ms = int((time.monotonic() - t0) * 1000)
+
+    return {
+        "tool_input": result.tool_input,
+        "meta": result.meta,
+        "duration_ms": duration_ms,
+    }
+
+
+def evaluate_breakdown(tool_input: dict, expected: dict) -> dict:
+    """Compare breakdown output against expected sentence count + vocab terms."""
+    sentences = tool_input.get("sentences") or []
+    actual_count = len(sentences)
+    expected_count = int(expected.get("expected_sentence_count", 0))
+    expected_vocab = list(expected.get("expected_vocab", []))
+
+    # Collect every vocab word and sentence text — match against either,
+    # since the model may surface a term in the sentence text without listing
+    # it as a vocab entry.
+    vocab_words: set[str] = set()
+    all_text_parts: list[str] = []
+    for s in sentences:
+        all_text_parts.append(str(s.get("text", "")))
+        all_text_parts.append(str(s.get("gloss", "")))
+        for v in s.get("vocab") or []:
+            w = v.get("word")
+            if isinstance(w, str):
+                vocab_words.add(w)
+                all_text_parts.append(w)
+    haystack = "\n".join(all_text_parts)
+
+    found = [t for t in expected_vocab if t in haystack]
+    missing = [t for t in expected_vocab if t not in haystack]
+
+    return {
+        "actual_sentence_count": actual_count,
+        "expected_sentence_count": expected_count,
+        "sentence_count_match": actual_count == expected_count,
+        "vocab_found": found,
+        "vocab_missing": missing,
+        "vocab_recall": round(len(found) / len(expected_vocab), 4) if expected_vocab else 1.0,
+    }
+
+
 def git_sha() -> str:
     try:
         return subprocess.check_output(
@@ -165,6 +237,49 @@ def run_benchmark(engine: str, provider: str) -> dict:
     results = []
     for fixture_dir in fixtures:
         name = fixture_dir.name
+
+        meta_path = fixture_dir / "meta.json"
+        meta_data: dict = {}
+        if meta_path.exists():
+            try:
+                meta_data = json.loads(meta_path.read_text("utf-8"))
+            except (OSError, json.JSONDecodeError):
+                meta_data = {}
+
+        kind = meta_data.get("kind", "transcription")
+
+        if kind == "breakdown":
+            text_input = find_text_input(fixture_dir)
+            if text_input is None:
+                print(f"  SKIP {name}: no text input (input.md/input.txt) for breakdown fixture")
+                results.append({"fixture": name, "status": "skipped", "reason": "no text input"})
+                continue
+            print(f"  RUN  {name} (breakdown/{provider})...", end=" ", flush=True)
+            try:
+                output = run_breakdown(text_input.read_text("utf-8"), provider)
+            except Exception as e:
+                print(f"ERROR: {e}")
+                results.append({"fixture": name, "status": "error", "error": str(e)})
+                continue
+            evaluation = evaluate_breakdown(output["tool_input"], meta_data)
+            entry: dict = {
+                "fixture": name,
+                "kind": "breakdown",
+                "status": "ok",
+                "duration_ms": output["duration_ms"],
+                "meta": output.get("meta", {}),
+                **evaluation,
+            }
+            ok_mark = "✓" if evaluation["sentence_count_match"] else "✗"
+            print(
+                f"sentences={evaluation['actual_sentence_count']}/"
+                f"{evaluation['expected_sentence_count']} {ok_mark} "
+                f"vocab_recall={evaluation['vocab_recall']:.0%} "
+                f"({output['duration_ms']}ms)"
+            )
+            results.append(entry)
+            continue
+
         input_file = find_input_file(fixture_dir)
         if input_file is None:
             print(f"  SKIP {name}: no input file found")
@@ -174,15 +289,7 @@ def run_benchmark(engine: str, provider: str) -> dict:
         ground_truth_path = GROUND_TRUTH_DIR / f"{name}.md"
         has_ground_truth = ground_truth_path.exists()
 
-        meta_path = fixture_dir / "meta.json"
-        prompt_kind = "page"
-        if meta_path.exists():
-            try:
-                prompt_kind = json.loads(meta_path.read_text("utf-8")).get(
-                    "prompt_kind", "page"
-                )
-            except (OSError, json.JSONDecodeError):
-                pass
+        prompt_kind = meta_data.get("prompt_kind", "page")
 
         print(f"  RUN  {name} ({engine}/{provider}/{prompt_kind})...", end=" ", flush=True)
         try:
@@ -192,7 +299,7 @@ def run_benchmark(engine: str, provider: str) -> dict:
             results.append({"fixture": name, "status": "error", "error": str(e)})
             continue
 
-        entry: dict = {
+        entry = {
             "fixture": name,
             "status": "ok",
             "duration_ms": output["duration_ms"],
@@ -229,6 +336,16 @@ def run_benchmark(engine: str, provider: str) -> dict:
     if ok_results:
         summary["avg_duration_ms"] = round(
             sum(r["duration_ms"] for r in ok_results) / len(ok_results)
+        )
+
+    breakdown_results = [r for r in ok_results if r.get("kind") == "breakdown"]
+    if breakdown_results:
+        summary["breakdown_count"] = len(breakdown_results)
+        summary["breakdown_sentence_count_match"] = sum(
+            1 for r in breakdown_results if r.get("sentence_count_match")
+        )
+        summary["breakdown_avg_vocab_recall"] = round(
+            sum(r["vocab_recall"] for r in breakdown_results) / len(breakdown_results), 4
         )
 
     return {"fixtures": results, "summary": summary}

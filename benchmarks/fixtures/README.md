@@ -40,3 +40,28 @@ region or vocab-list fixture, drop a `meta.json` in the fixture dir:
 ```
 
 Valid `prompt_kind` values: `page` (default), `region`, `vocab_list`.
+
+### Breakdown fixtures (`kind: "breakdown"`)
+
+Breakdown fixtures evaluate the sentence-breakdown tool-use path. The input
+is a transcription text file (`input.md` or `input.txt`), not an image, and
+ground truth lives in `meta.json` rather than a separate file:
+
+```
+fixtures/
+  breakdown-simple-passage/
+    input.md
+    meta.json
+```
+
+```json
+{
+  "kind": "breakdown",
+  "expected_sentence_count": 3,
+  "expected_vocab": ["コーヒー", "犬", "公園"]
+}
+```
+
+The runner reports actual vs expected sentence count and vocab recall (a
+term counts as found if it appears in any sentence's text, gloss, or vocab
+entries).

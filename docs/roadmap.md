@@ -80,10 +80,10 @@ high-priority work (phases 1 and 2 of that plan).
 
 ## Phase 2: Sentence Breakdowns
 
-- [ ] Sentence-by-sentence breakdown (vocab, grammar, gloss) per region
-- [ ] Text-only VLM calls for analysis (no image tokens, cheaper)
-- [ ] Breakdown storage per-region
-- [ ] Breakdown display UI (cards/accordions)
+- [x] Sentence-by-sentence breakdown (vocab, grammar, gloss) per region
+- [x] Text-only VLM calls for analysis (no image tokens, cheaper)
+- [x] Breakdown storage per-region
+- [x] Breakdown display UI (cards/accordions)
 
 ## Phase 3: Central Vocab/Grammar Store
 
