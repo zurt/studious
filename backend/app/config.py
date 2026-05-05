@@ -154,6 +154,88 @@ bulleted or numbered list markers.
 """
 
 
+SENTENCE_BREAKDOWN_PROMPT = """\
+You are a Japanese-language tutor for English-speaking learners. The
+input is the already-transcribed text of a single region from a
+Japanese textbook (a reading passage, grammar example, exercise,
+instruction block, etc.).
+
+<task>
+Produce a sentence-by-sentence study breakdown of the input. Split
+the input into natural sentences using Japanese sentence-ending
+punctuation (。！？) or, for non-narrative content, into individual
+items, headings, or example lines as they appear. For each sentence
+or item, return:
+- text: the original Japanese sentence, copied verbatim from the
+  input. Preserve furigana already written inline as 漢字(かな).
+- vocab: notable vocabulary entries that an intermediate learner
+  would benefit from looking up. Include word, reading (kana), and
+  a short English meaning. Skip trivial particles and basic
+  function words.
+- grammar: grammar patterns demonstrated by the sentence. Give the
+  pattern (e.g. "～を主人公に", "～てしまう") and a short English
+  explanation of when/why it is used.
+- gloss: a concise, natural English translation of the full
+  sentence.
+</task>
+
+<rules>
+- Copy the Japanese text exactly. Do not "correct" the original.
+- Do not invent vocabulary or grammar that is not in the sentence.
+- For purely English content, leave vocab and grammar empty and
+  echo the line in both `text` and `gloss`.
+- If the input contains no parseable sentence (e.g. a heading or
+  pure-numbers line), still return one entry with the line as `text`
+  and a brief `gloss` describing it.
+</rules>
+
+Call the `record_breakdown` tool with your result. Do not return
+prose; return only the tool call.
+"""
+
+
+BREAKDOWN_TOOL_SCHEMA: dict = {
+    "type": "object",
+    "required": ["sentences"],
+    "properties": {
+        "sentences": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["text", "gloss"],
+                "properties": {
+                    "text": {"type": "string"},
+                    "gloss": {"type": "string"},
+                    "vocab": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["word", "meaning"],
+                            "properties": {
+                                "word": {"type": "string"},
+                                "reading": {"type": "string"},
+                                "meaning": {"type": "string"},
+                            },
+                        },
+                    },
+                    "grammar": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["pattern", "explanation"],
+                            "properties": {
+                                "pattern": {"type": "string"},
+                                "explanation": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    },
+}
+
+
 # Per-model pricing in USD per 1M tokens. Keep in sync with Anthropic's
 # published pricing. Image tokens are billed as input tokens by Anthropic
 # and are already included in `usage.input_tokens`, so no separate rate.
