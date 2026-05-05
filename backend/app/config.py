@@ -101,15 +101,21 @@ indices that tie entries back to a reading passage.
 
 <task>
 Transcribe the region into clean Markdown, one vocabulary entry per
-line, in the order printed.
+line, in the order printed. Never use bulleted or numbered lists —
+do not prefix entries with `- `, `*`, or `1.`. Each entry MUST end
+with two trailing spaces followed by a newline (standard Markdown
+hard line break) so entries render on separate lines.
 
 Entry format:
-- With kanji + reading: `term（reading）　gloss1; gloss2`
+- With kanji + reading: `term（reading）gloss1; gloss2`
 - Kana-only or expression with no separate reading: `term　gloss1; gloss2`
 
-Use full-width parentheses （ ） for the reading and a full-width
-ideographic space 　 (U+3000) between the Japanese term and the
-English gloss. Separate multiple English senses with `; `.
+Use full-width parentheses （ ） for the reading. When a reading is
+present, the English gloss MUST butt directly against the closing
+`）` with no space, full-width space, or any other character between
+them. When there is no reading, separate the term from the gloss
+with a single full-width ideographic space 　 (U+3000). Separate
+multiple English senses with `; `.
 
 Preserve item indices exactly as printed at the start of the line:
 plain numbers (`1`, `2`), parenthesized labels (`(1)`, `(4)`),
@@ -141,7 +147,9 @@ decorative characters and page references — for example:
 
 <output_format>
 Return only the Markdown transcription, with no preamble or closing
-remarks. One entry per line; blank line between sections.
+remarks. One entry per line, ending each entry with two trailing
+spaces before the newline; blank line between sections. Never emit
+bulleted or numbered list markers.
 </output_format>
 """
 
