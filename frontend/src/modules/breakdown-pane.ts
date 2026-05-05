@@ -4,6 +4,7 @@ import {
 } from "../api";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
+import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setPaneCollapsed } from "./collapsible";
 
 type Ctx = { docId: string; chapterId: string; region: Region };
 
@@ -21,44 +22,47 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
+  function headerHtml(actionsHtml: string = ""): string {
+    const collapsed = isPaneCollapsed("breakdown");
+    return `
+      <div class="breakdown-pane-header pane-collapsible-header" role="button" tabindex="0" aria-expanded="${!collapsed}">
+        <span class="pane-header-label">${chevronHtml(collapsed)}<span>Sentence breakdown</span></span>
+        ${actionsHtml ? `<span class="breakdown-pane-actions">${actionsHtml}</span>` : ""}
+      </div>`;
+  }
+
   function render() {
     if (destroyed) return;
     if (loading) {
       container.innerHTML = `
-        <div class="breakdown-pane-header">Sentence breakdown</div>
+        ${headerHtml()}
         <div class="region-detail-busy"><span class="spinner"></span> Loading…</div>`;
+      applyPaneCollapsed(container, "breakdown");
       return;
     }
     if (errMsg) {
       container.innerHTML = `
-        <div class="breakdown-pane-header">
-          <span>Sentence breakdown</span>
-          <span class="breakdown-pane-actions">
-            <button type="button" id="bd-retry">Retry</button>
-          </span>
-        </div>
+        ${headerHtml(`<button type="button" id="bd-retry">Retry</button>`)}
         <div class="breakdown-error">${escapeHtml(errMsg)}</div>`;
       container.querySelector<HTMLButtonElement>("#bd-retry")!
-        .addEventListener("click", () => { errMsg = null; void loadExisting(); });
+        .addEventListener("click", (e) => { e.stopPropagation(); errMsg = null; void loadExisting(); });
+      applyPaneCollapsed(container, "breakdown");
       return;
     }
     if (busy) {
       container.innerHTML = `
-        <div class="breakdown-pane-header">Sentence breakdown</div>
+        ${headerHtml()}
         <div class="region-detail-busy"><span class="spinner"></span> Generating breakdown…</div>`;
+      applyPaneCollapsed(container, "breakdown");
       return;
     }
     if (!breakdown) {
       container.innerHTML = `
-        <div class="breakdown-pane-header">
-          <span>Sentence breakdown</span>
-          <span class="breakdown-pane-actions">
-            <button type="button" id="bd-generate">Generate breakdown</button>
-          </span>
-        </div>
+        ${headerHtml(`<button type="button" id="bd-generate">Generate breakdown</button>`)}
         <div class="breakdown-empty">No breakdown yet.</div>`;
       container.querySelector<HTMLButtonElement>("#bd-generate")!
-        .addEventListener("click", () => void generate(false));
+        .addEventListener("click", (e) => { e.stopPropagation(); void generate(false); });
+      applyPaneCollapsed(container, "breakdown");
       return;
     }
 
@@ -88,17 +92,13 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("");
 
     container.innerHTML = `
-      <div class="breakdown-pane-header">
-        <span>Sentence breakdown</span>
-        <span class="breakdown-pane-actions">
-          <button type="button" id="bd-regenerate">Regenerate</button>
-        </span>
-      </div>
+      ${headerHtml(`<button type="button" id="bd-regenerate">Regenerate</button>`)}
       ${metaHtml}
       <div class="breakdown-list">${cards}</div>`;
 
     container.querySelector<HTMLButtonElement>("#bd-regenerate")!
-      .addEventListener("click", async () => {
+      .addEventListener("click", async (e) => {
+        e.stopPropagation();
         const ok = await confirmDialog(
           "Regenerate breakdown?",
           "The existing breakdown will be replaced.",
@@ -106,7 +106,36 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
         );
         if (ok) void generate(true);
       });
+    applyPaneCollapsed(container, "breakdown");
   }
+
+  function toggleCollapsed() {
+    const next = !isPaneCollapsed("breakdown");
+    setPaneCollapsed("breakdown", next);
+    applyPaneCollapsed(container, "breakdown");
+    const header = container.querySelector<HTMLElement>(".pane-collapsible-header");
+    if (header) {
+      header.setAttribute("aria-expanded", String(!next));
+      const chev = header.querySelector(".pane-chevron");
+      if (chev) chev.textContent = next ? "▸" : "▾";
+    }
+  }
+
+  function onClick(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest(".pane-collapsible-header")) return;
+    if (target.closest(".breakdown-pane-actions")) return;
+    toggleCollapsed();
+  }
+  function onKeydown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.classList.contains("pane-collapsible-header")) return;
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    toggleCollapsed();
+  }
+  container.addEventListener("click", onClick);
+  container.addEventListener("keydown", onKeydown);
 
   async function loadExisting() {
     loading = true;
@@ -184,6 +213,8 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   return () => {
     destroyed = true;
     if (closeStream) { closeStream(); closeStream = null; }
+    container.removeEventListener("click", onClick);
+    container.removeEventListener("keydown", onKeydown);
     container.innerHTML = "";
   };
 }

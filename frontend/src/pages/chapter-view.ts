@@ -10,6 +10,7 @@ import { renderRegionList, makeCopyButton } from "../modules/region-list";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { confirmDialog } from "../modules/confirm";
 import { mountBreakdownPane } from "../modules/breakdown-pane";
+import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setPaneCollapsed } from "../modules/collapsible";
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { marked } from "marked";
@@ -400,9 +401,10 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       const metaHtml = meta.length ? `<div class="region-detail-meta">${meta.join(" · ")}</div>` : "";
       const busyHtml = inFlight ? `<div class="region-detail-busy"><span class="spinner"></span> Re-transcribing…</div>` : "";
       const size = getTranscriptionTextSize();
+      const collapsed = isPaneCollapsed("transcription");
       regionDetail.innerHTML = `
-        <div class="region-detail-header">
-          <span>Transcription</span>
+        <div class="region-detail-header pane-collapsible-header" role="button" tabindex="0" aria-expanded="${!collapsed}">
+          <span class="pane-header-label">${chevronHtml(collapsed)}<span>Transcription</span></span>
           <span class="region-detail-actions">
             <span class="text-size-toggle" role="group" aria-label="Text size">
               <button type="button" class="icon-btn text-size-btn size-1${size === 1 ? " active" : ""}" data-size="1" title="100%" aria-label="100%" aria-pressed="${size === 1}">A</button>
@@ -427,12 +429,41 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           renderDetail();
         });
       });
+      applyPaneCollapsed(regionDetail, "transcription");
     } else if (inFlight) {
       regionDetail.innerHTML = `<div class="region-detail-header">Transcribing…</div><div class="region-detail-busy"><span class="spinner"></span> Working on this region.</div>`;
+      regionDetail.classList.remove("is-collapsed");
     } else {
       regionDetail.innerHTML = `<div class="region-detail-header">No transcription yet</div>`;
+      regionDetail.classList.remove("is-collapsed");
     }
   }
+
+  function toggleTranscriptionCollapsed() {
+    const next = !isPaneCollapsed("transcription");
+    setPaneCollapsed("transcription", next);
+    applyPaneCollapsed(regionDetail, "transcription");
+    const header = regionDetail.querySelector<HTMLElement>(".pane-collapsible-header");
+    if (header) {
+      header.setAttribute("aria-expanded", String(!next));
+      const chev = header.querySelector(".pane-chevron");
+      if (chev) chev.textContent = next ? "▸" : "▾";
+    }
+  }
+
+  regionDetail.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest(".pane-collapsible-header")) return;
+    if (target.closest(".region-detail-actions")) return;
+    toggleTranscriptionCollapsed();
+  });
+  regionDetail.addEventListener("keydown", (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.classList.contains("pane-collapsible-header")) return;
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    toggleTranscriptionCollapsed();
+  });
 
   function showTagPopover(bbox: [number, number, number, number]) {
     const bg = document.createElement("div");

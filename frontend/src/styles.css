@@ -309,6 +309,19 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .markdown.text-size-3 h1, .markdown.text-size-3 h2, .markdown.text-size-3 h3 { font-size: inherit; }
 .region-detail-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
 
+/* Collapsible panes */
+.pane-collapsible-header { cursor: pointer; user-select: none; }
+.pane-collapsible-header:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.pane-header-label { display: inline-flex; align-items: center; gap: 6px; }
+.pane-chevron {
+  display: inline-block; width: 12px; text-align: center;
+  font-size: 11px; color: var(--muted);
+}
+.region-detail.is-collapsed > *:not(.region-detail-header) { display: none; }
+.breakdown-pane.is-collapsed > *:not(.breakdown-pane-header) { display: none; }
+.region-detail.is-collapsed { padding-bottom: 0; }
+.breakdown-pane.is-collapsed { padding-bottom: 0; }
+
 /* Breakdown pane */
 .breakdown-pane { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .breakdown-pane-header {
