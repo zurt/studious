@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from ..config import REGION_TRANSCRIBE_PROMPT, get_settings
+from ..config import REGION_TRANSCRIBE_PROMPT, VOCAB_LIST_TRANSCRIBE_PROMPT, get_settings
 from ..jobs import manager
 from ..services import storage
 
@@ -145,6 +145,11 @@ def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
         raise HTTPException(404, "page image not found")
 
     settings = get_settings()
+    prompt = (
+        VOCAB_LIST_TRANSCRIBE_PROMPT
+        if region.get("tag") == "vocab_list"
+        else REGION_TRANSCRIBE_PROMPT
+    )
     payload: dict[str, Any] = {
         "job_type": "transcribe_region",
         "doc_id": doc_id,
@@ -155,7 +160,7 @@ def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
         "engine": "vlm",
         "provider": "anthropic",
         "config": {"model": settings.default_vlm_model},
-        "prompt": REGION_TRANSCRIBE_PROMPT,
+        "prompt": prompt,
     }
     job = manager.submit(payload)
     return {"job_id": job["id"]}

@@ -27,4 +27,16 @@ ground-truth/
 1. Create a directory under `fixtures/` with a descriptive name
 2. Place the source document as `input.png`, `input.jpg`, or `input.pdf`
 3. Create the expected transcription in `ground-truth/<name>.md`
-4. Run `make benchmark` to verify
+4. (Optional) Add `meta.json` to override the prompt for non-page fixtures
+5. Run `make benchmark` to verify
+
+### Selecting a prompt (`meta.json`)
+
+By default fixtures run against the page-level VLM prompt. To benchmark a
+region or vocab-list fixture, drop a `meta.json` in the fixture dir:
+
+```json
+{ "prompt_kind": "vocab_list" }
+```
+
+Valid `prompt_kind` values: `page` (default), `region`, `vocab_list`.

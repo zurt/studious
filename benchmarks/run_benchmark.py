@@ -107,16 +107,30 @@ def git_sha() -> str:
         return "unknown"
 
 
-def run_transcription(image_path: Path, engine: str, provider: str) -> dict:
+def run_transcription(
+    image_path: Path, engine: str, provider: str, prompt_kind: str = "page"
+) -> dict:
     """Run transcription through the Studious pipeline and return results."""
     # Import here to allow running from project root
     sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
-    from app.config import get_settings
+    from app.config import (
+        REGION_TRANSCRIBE_PROMPT,
+        VOCAB_LIST_TRANSCRIBE_PROMPT,
+        get_settings,
+    )
     from app.providers import registry
     from app.services import pdf
 
     registry.bootstrap_default_providers()
     settings = get_settings()
+
+    prompts = {
+        "page": settings.default_vlm_prompt,
+        "region": REGION_TRANSCRIBE_PROMPT,
+        "vocab_list": VOCAB_LIST_TRANSCRIBE_PROMPT,
+    }
+    if prompt_kind not in prompts:
+        raise ValueError(f"unknown prompt_kind: {prompt_kind}")
 
     t0 = time.monotonic()
     if engine == "ocr":
@@ -125,7 +139,7 @@ def run_transcription(image_path: Path, engine: str, provider: str) -> dict:
     elif engine == "vlm":
         prov = registry.get_vlm(provider)
         image_bytes = pdf.prepare_for_vlm(image_path, settings.vlm_max_edge)
-        result = prov.transcribe(image_bytes, settings.default_vlm_prompt, {})
+        result = prov.transcribe(image_bytes, prompts[prompt_kind], {})
     else:
         raise ValueError(f"unknown engine: {engine}")
     duration_ms = int((time.monotonic() - t0) * 1000)
@@ -160,9 +174,19 @@ def run_benchmark(engine: str, provider: str) -> dict:
         ground_truth_path = GROUND_TRUTH_DIR / f"{name}.md"
         has_ground_truth = ground_truth_path.exists()
 
-        print(f"  RUN  {name} ({engine}/{provider})...", end=" ", flush=True)
+        meta_path = fixture_dir / "meta.json"
+        prompt_kind = "page"
+        if meta_path.exists():
+            try:
+                prompt_kind = json.loads(meta_path.read_text("utf-8")).get(
+                    "prompt_kind", "page"
+                )
+            except (OSError, json.JSONDecodeError):
+                pass
+
+        print(f"  RUN  {name} ({engine}/{provider}/{prompt_kind})...", end=" ", flush=True)
         try:
-            output = run_transcription(input_file, engine, provider)
+            output = run_transcription(input_file, engine, provider, prompt_kind)
         except Exception as e:
             print(f"ERROR: {e}")
             results.append({"fixture": name, "status": "error", "error": str(e)})

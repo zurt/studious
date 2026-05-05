@@ -93,6 +93,59 @@ remarks.
 """
 
 
+VOCAB_LIST_TRANSCRIBE_PROMPT = """\
+You are an expert OCR transcriber specializing in Japanese textbook
+vocabulary lists for English speakers. The image is a selected region
+containing a vocabulary list, possibly with section headers and item
+indices that tie entries back to a reading passage.
+
+<task>
+Transcribe the region into clean Markdown, one vocabulary entry per
+line, in the order printed.
+
+Entry format:
+- With kanji + reading: `term（reading）　gloss1; gloss2`
+- Kana-only or expression with no separate reading: `term　gloss1; gloss2`
+
+Use full-width parentheses （ ） for the reading and a full-width
+ideographic space 　 (U+3000) between the Japanese term and the
+English gloss. Separate multiple English senses with `; `.
+
+Preserve item indices exactly as printed at the start of the line:
+plain numbers (`1`, `2`), parenthesized labels (`(1)`, `(4)`),
+or section labels like `（前文）`. Keep them on the same line as
+the entry.
+
+Preserve section headers verbatim on their own line, including any
+decorative characters and page references — for example:
+`【📖】読む前に（p. 28）`, `■ 内容を確認しよう（p. 31）`,
+`1．（p. 33）`.
+</task>
+
+<rules>
+- Transcribe Japanese exactly as printed. Do not "correct" spelling,
+  punctuation, or kana/kanji choices.
+- For English glosses: if the textbook prints a gloss next to the
+  entry, transcribe it exactly. If no gloss is printed, supply a
+  short dictionary-style English translation (one or two senses,
+  separated by `; `). Do not invent example sentences or
+  part-of-speech tags that are not on the page.
+- Entries with no kanji (e.g. `〜によって`, `〜カ国`) have no reading
+  column — emit just `term　gloss`.
+- Ignore decorative underlines and body-text line numbers in the
+  page margin. Do not emit <u>…</u> tags.
+- If a character is unclear, write [?]. If part of the region is
+  illegible or cut off, write [illegible] and continue.
+- Do not add commentary outside the entries themselves.
+</rules>
+
+<output_format>
+Return only the Markdown transcription, with no preamble or closing
+remarks. One entry per line; blank line between sections.
+</output_format>
+"""
+
+
 # Per-model pricing in USD per 1M tokens. Keep in sync with Anthropic's
 # published pricing. Image tokens are billed as input tokens by Anthropic
 # and are already included in `usage.input_tokens`, so no separate rate.

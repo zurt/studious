@@ -43,7 +43,12 @@ Open <http://localhost:5173>.
 1. **Upload** a PDF or image
 2. **Create chapters** — define page ranges within a document
 3. **Draw regions** — select areas of interest on pages (reading passages, vocab lists, grammar points, exercises)
-4. **Transcribe** — run VLM transcription on individual regions
+4. **Transcribe** — run VLM transcription on individual regions. The
+   prompt is selected by region tag: `vocab_list` regions use a
+   vocab-specific prompt that emits `term（reading）　gloss` entries,
+   preserves item indices and section headers, and supplies short
+   English glosses when the textbook does not print them. Other tags
+   use the generic region prompt.
 5. View transcriptions side-by-side with the original page
 
 ## Layout

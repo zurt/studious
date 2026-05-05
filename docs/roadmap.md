@@ -11,6 +11,8 @@
 - [x] Chapter management (create, list, update, delete)
 - [x] Region drawing on page images (canvas overlay with bbox)
 - [x] Region tagging (reading_passage, vocab_list, grammar_points, exercises, etc.)
+- [x] Tag-specific VLM prompt for `vocab_list` (full-width furigana, glosses,
+      preserves item indices and section headers)
 - [x] Region-level VLM transcription (crop to bbox, send to Claude)
 - [x] Vanilla TypeScript frontend (no framework)
 - [x] Map-like zoom/pan page viewer (pinch zoom, two-finger scroll, Cmd+/-, Cmd+0, fit button)
