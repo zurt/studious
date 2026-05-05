@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import logging
+import time
 from typing import Any
 
 import anthropic
@@ -11,9 +14,15 @@ from ..registry import TranscriptionResult
 
 _TEMPERATURE_DEPRECATED_PREFIXES = ("claude-opus-4-7",)
 
+log = logging.getLogger("studious.providers.anthropic")
+
 
 def _model_deprecates_temperature(model: str) -> bool:
     return any(model.startswith(p) for p in _TEMPERATURE_DEPRECATED_PREFIXES)
+
+
+def _prompt_hash(prompt: str) -> str:
+    return hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:8]
 
 
 class AnthropicVlm:
@@ -55,31 +64,77 @@ class AnthropicVlm:
     ) -> TranscriptionResult:
         model = str(config.get("model") or self._default_model)
         max_tokens = int(config.get("max_tokens", 4096))
+        prompt_hash = _prompt_hash(prompt)
+        image_bytes_len = len(image_bytes)
 
         kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens}
         if "temperature" in config and not _model_deprecates_temperature(model):
             kwargs["temperature"] = float(config["temperature"])
 
-        b64 = base64.standard_b64encode(image_bytes).decode("ascii")
-        message = self._client.messages.create(
-            **kwargs,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/png",
-                                "data": b64,
-                            },
-                        },
-                        {"type": "text", "text": prompt},
-                    ],
-                }
-            ],
+        log.info(
+            "vlm_call_start",
+            extra={
+                "provider": self.name,
+                "model": model,
+                "max_tokens": max_tokens,
+                "image_bytes": image_bytes_len,
+                "prompt_hash": prompt_hash,
+            },
         )
+
+        b64 = base64.standard_b64encode(image_bytes).decode("ascii")
+        t0 = time.monotonic()
+        try:
+            message = self._client.messages.create(
+                **kwargs,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/png",
+                                    "data": b64,
+                                },
+                            },
+                            {"type": "text", "text": prompt},
+                        ],
+                    }
+                ],
+            )
+        except anthropic.APIStatusError as exc:
+            log.error(
+                "vlm_call_error",
+                extra={
+                    "provider": self.name,
+                    "model": model,
+                    "status_code": getattr(exc, "status_code", None),
+                    "request_id": getattr(exc, "request_id", None),
+                    "error_class": type(exc).__name__,
+                    "duration_ms": int((time.monotonic() - t0) * 1000),
+                    "prompt_hash": prompt_hash,
+                    "image_bytes": image_bytes_len,
+                },
+            )
+            raise
+        except Exception as exc:
+            log.error(
+                "vlm_call_error",
+                extra={
+                    "provider": self.name,
+                    "model": model,
+                    "error_class": type(exc).__name__,
+                    "duration_ms": int((time.monotonic() - t0) * 1000),
+                    "prompt_hash": prompt_hash,
+                    "image_bytes": image_bytes_len,
+                },
+            )
+            raise
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        request_id = getattr(message, "_request_id", None) or getattr(message, "id", None)
 
         text_chunks = [
             block.text for block in message.content if getattr(block, "type", None) == "text"
@@ -87,11 +142,40 @@ class AnthropicVlm:
         raw = "".join(text_chunks).strip()
 
         usage = getattr(message, "usage", None)
-        meta: dict[str, Any] = {"model": model, "stop_reason": message.stop_reason}
+        usage_dict: dict[str, Any] = {}
         if usage is not None:
-            meta["usage"] = {
+            usage_dict = {
                 "input_tokens": getattr(usage, "input_tokens", None),
                 "output_tokens": getattr(usage, "output_tokens", None),
+                "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", None),
+                "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", None),
             }
+
+        log.info(
+            "vlm_call_done",
+            extra={
+                "provider": self.name,
+                "model": model,
+                "request_id": request_id,
+                "duration_ms": duration_ms,
+                "stop_reason": message.stop_reason,
+                "input_tokens": usage_dict.get("input_tokens"),
+                "output_tokens": usage_dict.get("output_tokens"),
+                "cache_read_tokens": usage_dict.get("cache_read_input_tokens"),
+                "cache_creation_tokens": usage_dict.get("cache_creation_input_tokens"),
+                "prompt_hash": prompt_hash,
+                "image_bytes": image_bytes_len,
+            },
+        )
+
+        meta: dict[str, Any] = {
+            "model": model,
+            "stop_reason": message.stop_reason,
+            "request_id": request_id,
+            "prompt_hash": prompt_hash,
+            "image_bytes": image_bytes_len,
+        }
+        if usage_dict:
+            meta["usage"] = usage_dict
 
         return TranscriptionResult(markdown=raw, raw=raw, meta=meta)

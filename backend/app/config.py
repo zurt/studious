@@ -119,6 +119,7 @@ class Settings(BaseModel):
     default_vlm_prompt: str = DEFAULT_VLM_PROMPT
     vlm_max_edge: int = 1568
     pdf_render_dpi: int = 300
+    log_level: str = "INFO"
 
 
 @lru_cache
@@ -131,6 +132,9 @@ def get_settings() -> Settings:
     dpi_env = os.environ.get("STUDIOUS_PDF_RENDER_DPI")
     if dpi_env:
         overrides["pdf_render_dpi"] = int(dpi_env)
+    log_level_env = os.environ.get("STUDIOUS_LOG_LEVEL")
+    if log_level_env:
+        overrides["log_level"] = log_level_env.upper()
     return Settings(
         data_dir=data_dir,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,

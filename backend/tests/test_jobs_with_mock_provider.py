@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 
 from app.jobs import JobManager
+from app.middleware import correlation_id_var
 from app.providers import registry
 from app.services import llm_audit, storage
 
@@ -231,6 +232,106 @@ async def test_ocr_job_does_not_write_audit_log(isolated_data_dir, mock_ocr_prov
         await mgr.stop()
 
     assert llm_audit.read_all() == []
+
+
+async def test_submit_captures_caller_correlation_id(isolated_data_dir, mock_vlm_provider):
+    """Phase 1.6 #2: a job's audit log carries the request's correlation id,
+    not the empty default that the worker task would otherwise see."""
+    meta = _make_doc_with_pages(1)
+    mgr = JobManager()
+    await mgr.start()
+    token = correlation_id_var.set("trace_xyz")
+    try:
+        job = mgr.submit(
+            {
+                "doc_id": meta["id"],
+                "engine": "vlm",
+                "provider": "mock-vlm",
+                "pages": [1],
+                "config": {"model": "mock-model"},
+                "prompt": "hi",
+                "overwrite": False,
+                "current_page": None,
+            }
+        )
+        # The CID should be persisted on the job payload immediately.
+        persisted = storage.load_job(job["id"])
+        assert persisted["correlation_id"] == "trace_xyz"
+        for _ in range(50):
+            await asyncio.sleep(0.05)
+            current = storage.load_job(job["id"])
+            if current and current.get("status", "").startswith("completed"):
+                break
+    finally:
+        correlation_id_var.reset(token)
+        await mgr.stop()
+
+    entries = llm_audit.read_all()
+    assert len(entries) == 1
+    assert entries[0]["correlation_id"] == "trace_xyz"
+
+
+class _MockVlmWithProvenance:
+    name = "mock-vlm-prov"
+
+    def info(self):
+        return {"name": "mock-vlm-prov", "kind": "vlm"}
+
+    def transcribe(self, image_bytes: bytes, prompt: str, config: dict):
+        return registry.TranscriptionResult(
+            markdown="ok",
+            raw="ok",
+            meta={
+                "model": config.get("model") or "mock-model",
+                "request_id": "req_test_123",
+                "prompt_hash": "abc12345",
+                "image_bytes": len(image_bytes),
+                "usage": {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "cache_read_input_tokens": 2,
+                    "cache_creation_input_tokens": 0,
+                },
+            },
+        )
+
+
+async def test_audit_log_captures_provider_provenance(isolated_data_dir):
+    """Phase 1.6 #4: the audit log gains request_id, prompt_hash, image_bytes,
+    and cache token fields from the provider's `result.meta`."""
+    registry.register_vlm("mock-vlm-prov", lambda: _MockVlmWithProvenance())
+    meta = _make_doc_with_pages(1)
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "doc_id": meta["id"],
+                "engine": "vlm",
+                "provider": "mock-vlm-prov",
+                "pages": [1],
+                "config": {"model": "mock-model"},
+                "prompt": "hi",
+                "overwrite": False,
+                "current_page": None,
+            }
+        )
+        for _ in range(50):
+            await asyncio.sleep(0.05)
+            current = storage.load_job(job["id"])
+            if current and current.get("status", "").startswith("completed"):
+                break
+    finally:
+        await mgr.stop()
+
+    entries = llm_audit.read_all()
+    assert len(entries) == 1
+    e = entries[0]
+    assert e["request_id"] == "req_test_123"
+    assert e["prompt_hash"] == "abc12345"
+    assert e["image_bytes"] > 0
+    assert e["cache_read_tokens"] == 2
+    assert e["cache_creation_tokens"] == 0
 
 
 async def test_overwrite_false_skips_existing(isolated_data_dir, mock_ocr_provider):

@@ -33,14 +33,14 @@ export function mountLibrary(_params: Record<string, string>, container: HTMLEle
     if (!file) return;
     uploadBtn.disabled = true;
     uploadBtn.textContent = "Uploading...";
-    generateCorrelationId();
-    info("Library", "upload_start", { filename: file.name, size: file.size });
+    const cid = generateCorrelationId();
+    info("Library", "upload_start", { filename: file.name, size: file.size, correlation_id: cid });
     try {
-      const doc = await uploadDocument(file);
-      info("Library", "upload_done", { doc_id: doc.id });
+      const doc = await uploadDocument(file, cid);
+      info("Library", "upload_done", { doc_id: doc.id, correlation_id: cid });
       navigate(`/doc/${doc.id}`);
     } catch (e: any) {
-      logError("Library", "upload_error", { error: e.message });
+      logError("Library", "upload_error", { error: e.message, stack: e.stack, correlation_id: cid });
       alert("Upload failed: " + e.message);
     } finally {
       uploadBtn.disabled = false;
@@ -64,6 +64,7 @@ async function loadDocs(grid: HTMLElement) {
       grid.appendChild(createCard(doc));
     }
   } catch (e: any) {
+    logError("Library", "load_docs_failed", { error: e.message, stack: e.stack });
     grid.innerHTML = `<p class="error">Failed to load documents: ${e.message}</p>`;
   }
 }
@@ -179,15 +180,15 @@ async function handleReupload(doc: DocMeta) {
       "Re-upload",
     );
     if (!ok) return;
-    generateCorrelationId();
-    info("Library", "reupload_start", { doc_id: doc.id, filename: file.name });
+    const cid = generateCorrelationId();
+    info("Library", "reupload_start", { doc_id: doc.id, filename: file.name, correlation_id: cid });
     try {
-      await reuploadDocument(doc.id, file);
-      info("Library", "reupload_done", { doc_id: doc.id });
+      await reuploadDocument(doc.id, file, cid);
+      info("Library", "reupload_done", { doc_id: doc.id, correlation_id: cid });
       const grid = document.querySelector<HTMLElement>("#doc-grid");
       if (grid) await loadDocs(grid);
     } catch (e: any) {
-      logError("Library", "reupload_error", { error: e.message });
+      logError("Library", "reupload_error", { error: e.message, stack: e.stack, correlation_id: cid });
       alert("Re-upload failed: " + e.message);
     }
   });
@@ -201,15 +202,15 @@ async function handleDelete(doc: DocMeta) {
     "Delete",
   );
   if (!ok) return;
-  generateCorrelationId();
-  info("Library", "delete_start", { doc_id: doc.id });
+  const cid = generateCorrelationId();
+  info("Library", "delete_start", { doc_id: doc.id, correlation_id: cid });
   try {
-    await deleteDocument(doc.id);
-    info("Library", "delete_done", { doc_id: doc.id });
+    await deleteDocument(doc.id, cid);
+    info("Library", "delete_done", { doc_id: doc.id, correlation_id: cid });
     const grid = document.querySelector<HTMLElement>("#doc-grid");
     if (grid) await loadDocs(grid);
   } catch (e: any) {
-    logError("Library", "delete_error", { error: e.message });
+    logError("Library", "delete_error", { error: e.message, stack: e.stack, correlation_id: cid });
     alert("Delete failed: " + e.message);
   }
 }

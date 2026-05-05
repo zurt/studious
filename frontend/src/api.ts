@@ -1,4 +1,4 @@
-import { getCorrelationId, startTimer } from "./logger";
+import { generateCorrelationId, startTimer } from "./logger";
 
 export type DocMeta = {
   id: string;
@@ -83,24 +83,19 @@ export type JobEvent = {
   data: any;
 };
 
-function correlationHeaders(): Record<string, string> {
-  const cid = getCorrelationId();
-  return cid ? { "x-correlation-id": cid } : {};
-}
-
-async function jget<T>(url: string): Promise<T> {
-  const done = startTimer("api", `GET ${url}`);
-  const r = await fetch(url, { headers: correlationHeaders() });
+async function jget<T>(url: string, cid: string = generateCorrelationId()): Promise<T> {
+  const done = startTimer("api", `GET ${url}`, { correlation_id: cid });
+  const r = await fetch(url, { headers: { "x-correlation-id": cid } });
   done({ status: r.status });
   if (!r.ok) throw new Error(`${url}: ${r.status}`);
   return (await r.json()) as T;
 }
 
-async function jpost<T>(url: string, body?: unknown): Promise<T> {
-  const done = startTimer("api", `POST ${url}`);
+async function jpost<T>(url: string, body?: unknown, cid: string = generateCorrelationId()): Promise<T> {
+  const done = startTimer("api", `POST ${url}`, { correlation_id: cid });
   const r = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...correlationHeaders() },
+    headers: { "Content-Type": "application/json", "x-correlation-id": cid },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   done({ status: r.status });
@@ -108,11 +103,11 @@ async function jpost<T>(url: string, body?: unknown): Promise<T> {
   return (await r.json()) as T;
 }
 
-async function jput<T>(url: string, body: unknown): Promise<T> {
-  const done = startTimer("api", `PUT ${url}`);
+async function jput<T>(url: string, body: unknown, cid: string = generateCorrelationId()): Promise<T> {
+  const done = startTimer("api", `PUT ${url}`, { correlation_id: cid });
   const r = await fetch(url, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...correlationHeaders() },
+    headers: { "Content-Type": "application/json", "x-correlation-id": cid },
     body: JSON.stringify(body),
   });
   done({ status: r.status });
@@ -120,8 +115,8 @@ async function jput<T>(url: string, body: unknown): Promise<T> {
   return (await r.json()) as T;
 }
 
-async function jdelete(url: string): Promise<void> {
-  const r = await fetch(url, { method: "DELETE", headers: correlationHeaders() });
+async function jdelete(url: string, cid: string = generateCorrelationId()): Promise<void> {
+  const r = await fetch(url, { method: "DELETE", headers: { "x-correlation-id": cid } });
   if (!r.ok) throw new Error(`${url}: ${r.status}`);
 }
 
@@ -135,36 +130,36 @@ export async function getDocument(id: string): Promise<DocMeta> {
   return jget(`/api/documents/${id}`);
 }
 
-export async function uploadDocument(file: File): Promise<DocMeta> {
-  const done = startTimer("api", "POST /api/documents (upload)");
+export async function uploadDocument(file: File, cid: string = generateCorrelationId()): Promise<DocMeta> {
+  const done = startTimer("api", "POST /api/documents (upload)", { correlation_id: cid });
   const fd = new FormData();
   fd.append("file", file);
   const r = await fetch("/api/documents", {
     method: "POST",
     body: fd,
-    headers: correlationHeaders(),
+    headers: { "x-correlation-id": cid },
   });
   done({ status: r.status });
   if (!r.ok) throw new Error(`upload failed: ${r.status} ${await r.text()}`);
   return (await r.json()) as DocMeta;
 }
 
-export async function reuploadDocument(docId: string, file: File): Promise<DocMeta> {
-  const done = startTimer("api", `PUT /api/documents/${docId}/file`);
+export async function reuploadDocument(docId: string, file: File, cid: string = generateCorrelationId()): Promise<DocMeta> {
+  const done = startTimer("api", `PUT /api/documents/${docId}/file`, { correlation_id: cid });
   const fd = new FormData();
   fd.append("file", file);
   const r = await fetch(`/api/documents/${docId}/file`, {
     method: "PUT",
     body: fd,
-    headers: correlationHeaders(),
+    headers: { "x-correlation-id": cid },
   });
   done({ status: r.status });
   if (!r.ok) throw new Error(`reupload failed: ${r.status} ${await r.text()}`);
   return (await r.json()) as DocMeta;
 }
 
-export async function deleteDocument(docId: string): Promise<void> {
-  return jdelete(`/api/documents/${docId}`);
+export async function deleteDocument(docId: string, cid?: string): Promise<void> {
+  return jdelete(`/api/documents/${docId}`, cid);
 }
 
 export function pageImageUrl(docId: string, page: number): string {
@@ -173,10 +168,11 @@ export function pageImageUrl(docId: string, page: number): string {
 
 export async function getTranscription(
   docId: string,
-  page: number
+  page: number,
+  cid: string = generateCorrelationId(),
 ): Promise<Transcription | null> {
   const r = await fetch(`/api/documents/${docId}/pages/${page}/transcription`, {
-    headers: correlationHeaders(),
+    headers: { "x-correlation-id": cid },
   });
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`transcription fetch: ${r.status}`);
@@ -289,9 +285,10 @@ export async function moveRegion(
 export async function transcribeRegion(
   docId: string,
   chapterId: string,
-  regionId: string
+  regionId: string,
+  cid?: string,
 ): Promise<{ job_id: string }> {
-  return jpost(`/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/transcribe`);
+  return jpost(`/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/transcribe`, undefined, cid);
 }
 
 // ---------- Transcription Jobs ----------
