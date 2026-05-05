@@ -60,12 +60,12 @@ class AnthropicVlm:
         }
 
     def transcribe(
-        self, image_bytes: bytes, prompt: str, config: dict[str, Any]
+        self, image_bytes: bytes | None, prompt: str, config: dict[str, Any]
     ) -> TranscriptionResult:
         model = str(config.get("model") or self._default_model)
         max_tokens = int(config.get("max_tokens", 4096))
         prompt_hash = _prompt_hash(prompt)
-        image_bytes_len = len(image_bytes)
+        image_bytes_len = len(image_bytes) if image_bytes is not None else 0
 
         kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens}
         if "temperature" in config and not _model_deprecates_temperature(model):
@@ -82,27 +82,28 @@ class AnthropicVlm:
             },
         )
 
-        b64 = base64.standard_b64encode(image_bytes).decode("ascii")
+        content: list[dict[str, Any]]
+        if image_bytes is not None:
+            b64 = base64.standard_b64encode(image_bytes).decode("ascii")
+            content = [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": b64,
+                    },
+                },
+                {"type": "text", "text": prompt},
+            ]
+        else:
+            content = [{"type": "text", "text": prompt}]
+
         t0 = time.monotonic()
         try:
             message = self._client.messages.create(
                 **kwargs,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": "image/png",
-                                    "data": b64,
-                                },
-                            },
-                            {"type": "text", "text": prompt},
-                        ],
-                    }
-                ],
+                messages=[{"role": "user", "content": content}],
             )
         except anthropic.APIStatusError as exc:
             log.error(

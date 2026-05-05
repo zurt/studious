@@ -24,7 +24,7 @@ class VlmProvider(Protocol):
     name: str
 
     def transcribe(
-        self, image_bytes: bytes, prompt: str, config: dict[str, Any]
+        self, image_bytes: bytes | None, prompt: str, config: dict[str, Any]
     ) -> TranscriptionResult: ...
 
     def info(self) -> dict[str, Any]: ...

@@ -147,6 +147,33 @@ def test_logs_start_and_done(vlm, caplog):
     assert hasattr(done_record, "cache_creation_tokens")
 
 
+def test_text_only_call_omits_image_block(vlm):
+    inst, messages, _ = vlm
+    inst.transcribe(None, "analyze this", {"model": "claude-sonnet-4-6"})
+    msg = messages.calls[0]["messages"][0]
+    assert msg["role"] == "user"
+    assert msg["content"] == [{"type": "text", "text": "analyze this"}]
+
+
+def test_text_only_call_records_zero_image_bytes(vlm):
+    inst, _, _ = vlm
+    result = inst.transcribe(None, "p", {"model": "claude-opus-4-7"})
+    assert result.meta["image_bytes"] == 0
+    # Usage extraction still works.
+    assert result.meta["usage"]["input_tokens"] == 7
+    assert result.meta["usage"]["output_tokens"] == 3
+
+
+def test_text_only_logs_image_bytes_zero(vlm, caplog):
+    inst, _, _ = vlm
+    with caplog.at_level(logging.DEBUG, logger="studious.providers.anthropic"):
+        inst.transcribe(None, "p", {"model": "claude-opus-4-7"})
+    start = next(r for r in caplog.records if r.getMessage() == "vlm_call_start")
+    done = next(r for r in caplog.records if r.getMessage() == "vlm_call_done")
+    assert start.image_bytes == 0
+    assert done.image_bytes == 0
+
+
 def test_logs_error_and_reraises(vlm, caplog):
     inst, messages, _ = vlm
 
