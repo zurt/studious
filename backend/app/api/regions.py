@@ -14,7 +14,7 @@ from ..config import (
     get_settings,
 )
 from ..jobs import manager
-from ..services import storage
+from ..services import breakdown_links, storage
 
 log = logging.getLogger("studious.api.regions")
 
@@ -182,6 +182,9 @@ def get_region_breakdown(doc_id: str, chapter_id: str, region_id: str):
     breakdown = storage.load_breakdown(doc_id, chapter_id, region_id)
     if breakdown is None:
         raise HTTPException(404, "breakdown not found")
+    if breakdown_links.needs_links(breakdown):
+        breakdown_links.annotate(breakdown)
+        breakdown = storage.save_breakdown(doc_id, chapter_id, region_id, breakdown)
     return breakdown
 
 

@@ -278,7 +278,8 @@ def test_get_breakdown_returns_stored_payload(isolated_data_dir, tmp_path: Path)
     )
     assert r.status_code == 200
     body = r.json()
-    assert body["sentences"] == [{"text": "本", "gloss": "book"}]
+    # GET lazy-fills `links` for breakdowns saved before the link feature.
+    assert body["sentences"] == [{"text": "本", "gloss": "book", "links": []}]
     assert body["region_id"] == region["id"]
     assert body["model"] == "claude-opus-4-7"
 

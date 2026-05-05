@@ -10,7 +10,7 @@ from typing import Any
 from .config import get_settings
 from .middleware import correlation_id_var
 from .providers import registry
-from .services import llm_audit, pdf, storage
+from .services import breakdown_links, llm_audit, pdf, storage
 
 log = logging.getLogger("studious.jobs")
 
@@ -432,15 +432,12 @@ class JobManager:
         )
         log.info("breakdown_job_done", extra={**job_extra, "duration_ms": duration_ms})
 
-        storage.save_breakdown(
-            doc_id,
-            chapter_id,
-            region_id,
-            {
-                "model": result.meta.get("model"),
-                "sentences": sentences,
-            },
-        )
+        breakdown_payload = {
+            "model": result.meta.get("model"),
+            "sentences": sentences,
+        }
+        breakdown_links.annotate(breakdown_payload)
+        storage.save_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
         storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
         self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
 
