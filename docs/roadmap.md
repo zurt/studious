@@ -85,6 +85,16 @@ high-priority work (phases 1 and 2 of that plan).
 - [x] Breakdown storage per-region
 - [x] Breakdown display UI (cards/accordions)
 
+### Phase 2.1: Inline vocab/grammar links
+
+See `docs/breakdown-vocab-links-plan.md`.
+
+- [x] Iter 1 — Backend vocab linker (exact/reading/stem) + lazy migration on read
+- [x] Iter 2 — Frontend renders linked spans with click-to-open popover (vocab)
+- [ ] Iter 3 — Grammar links via LLM-emitted spans (prompt + schema change)
+- [ ] Iter 4 — Polish: hide linked rows from vocab/grammar tables, telemetry,
+      troubleshooting entries
+
 ## Phase 3: Central Vocab/Grammar Store
 
 - [ ] Global vocab store (JSONL-based, across all textbooks)
