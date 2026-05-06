@@ -64,7 +64,7 @@ def _kanji_run_violation(text: str, start: int, end: int) -> bool:
     return _is_kanji(before) or _is_kanji(after)
 
 
-_PRIORITY = {"exact": 0, "reading": 1, "stem": 2}
+_PRIORITY = {"exact": 0, "reading": 1, "stem": 2, "llm": 3}
 
 
 def _link_for_vocab_entry(
@@ -135,19 +135,54 @@ def _resolve_overlaps(links: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(kept, key=lambda l: l["start"])
 
 
+def _link_for_grammar_entry(
+    text: str, entry: dict[str, Any], idx: int
+) -> dict[str, Any] | None:
+    """Build a grammar link from an LLM-supplied span. Returns None if
+    the span is missing, malformed, or out of range.
+    """
+    span = entry.get("span")
+    if not isinstance(span, dict):
+        return None
+    start = span.get("start")
+    end = span.get("end")
+    if not isinstance(start, int) or not isinstance(end, int):
+        return None
+    if isinstance(start, bool) or isinstance(end, bool):
+        return None
+    if start < 0 or end <= start or end > len(text):
+        return None
+    return {
+        "start": start,
+        "end": end,
+        "kind": "grammar",
+        "index": idx,
+        "match": "llm",
+    }
+
+
 def compute_sentence_links(sentence: dict[str, Any]) -> list[dict[str, Any]]:
     text = sentence.get("text") or ""
     vocab = sentence.get("vocab") or []
-    if not text or not isinstance(vocab, list):
+    grammar = sentence.get("grammar") or []
+    if not text:
         return []
 
     raw: list[dict[str, Any]] = []
-    for idx, entry in enumerate(vocab):
-        if not isinstance(entry, dict):
-            continue
-        link = _link_for_vocab_entry(text, entry, idx)
-        if link is not None:
-            raw.append(link)
+    if isinstance(vocab, list):
+        for idx, entry in enumerate(vocab):
+            if not isinstance(entry, dict):
+                continue
+            link = _link_for_vocab_entry(text, entry, idx)
+            if link is not None:
+                raw.append(link)
+    if isinstance(grammar, list):
+        for idx, entry in enumerate(grammar):
+            if not isinstance(entry, dict):
+                continue
+            link = _link_for_grammar_entry(text, entry, idx)
+            if link is not None:
+                raw.append(link)
     return _resolve_overlaps(raw)
 
 

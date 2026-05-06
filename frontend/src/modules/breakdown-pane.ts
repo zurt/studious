@@ -122,7 +122,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   function sentenceTextHtml(s: BreakdownSentence, sIdx: number): string {
     const text = s.text;
     const raw = (s.links || [])
-      .filter((l) => l.kind === "vocab"
+      .filter((l) => (l.kind === "vocab" || l.kind === "grammar")
         && Number.isInteger(l.start) && Number.isInteger(l.end)
         && l.start >= 0 && l.end <= text.length && l.start < l.end)
       .slice()

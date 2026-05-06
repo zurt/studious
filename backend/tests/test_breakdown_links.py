@@ -121,8 +121,8 @@ def test_needs_links_detects_missing_field():
     assert breakdown_links.needs_links(missing) is True
 
 
-def test_grammar_entries_are_ignored():
-    # Grammar should not be linked in this iteration.
+def test_grammar_without_span_is_ignored():
+    # A grammar entry without a span yields no link.
     sentence = {
         "text": "わたしは毎朝コーヒーを飲みます。",
         "vocab": [],
@@ -130,3 +130,56 @@ def test_grammar_entries_are_ignored():
     }
     links = breakdown_links.compute_sentence_links(sentence)
     assert links == []
+
+
+def test_grammar_with_span_emits_llm_link():
+    text = "わたしは毎朝コーヒーを飲みます。"
+    masu_start = text.index("ます")
+    sentence = {
+        "text": text,
+        "vocab": [],
+        "grammar": [{
+            "pattern": "〜ます",
+            "explanation": "polite non-past",
+            "span": {"start": masu_start, "end": masu_start + 2},
+        }],
+    }
+    links = breakdown_links.compute_sentence_links(sentence)
+    assert len(links) == 1
+    assert links[0]["kind"] == "grammar"
+    assert links[0]["match"] == "llm"
+    assert links[0]["index"] == 0
+    assert text[links[0]["start"]:links[0]["end"]] == "ます"
+
+
+def test_grammar_span_out_of_range_dropped():
+    sentence = {
+        "text": "短い。",
+        "vocab": [],
+        "grammar": [
+            {"pattern": "x", "explanation": "y", "span": {"start": 0, "end": 99}},
+            {"pattern": "x", "explanation": "y", "span": {"start": 5, "end": 6}},
+            {"pattern": "x", "explanation": "y", "span": {"start": 2, "end": 1}},
+        ],
+    }
+    links = breakdown_links.compute_sentence_links(sentence)
+    assert links == []
+
+
+def test_grammar_overlap_with_vocab_keeps_longer():
+    # Grammar span 飲みます (4 chars) overlaps vocab stem 飲 (1 char).
+    text = "コーヒーを飲みます。"
+    g_start = text.index("飲みます")
+    sentence = {
+        "text": text,
+        "vocab": [{"word": "飲む", "reading": "のむ", "meaning": "to drink"}],
+        "grammar": [{
+            "pattern": "〜ます",
+            "explanation": "polite",
+            "span": {"start": g_start, "end": g_start + 4},
+        }],
+    }
+    links = breakdown_links.compute_sentence_links(sentence)
+    assert len(links) == 1
+    assert links[0]["kind"] == "grammar"
+    assert text[links[0]["start"]:links[0]["end"]] == "飲みます"

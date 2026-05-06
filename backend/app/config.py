@@ -173,8 +173,33 @@ or item, return:
   a short English meaning. Skip trivial particles and basic
   function words.
 - grammar: grammar patterns demonstrated by the sentence. Give the
-  pattern (e.g. "～を主人公に", "～てしまう") and a short English
-  explanation of when/why it is used.
+  pattern (e.g. "～を主人公に", "～てしまう"), a short English
+  explanation of when/why it is used, and a `span: {start, end}`
+  giving zero-based, end-exclusive character offsets into `text`
+  for the surface characters of the pattern in this sentence.
+  Span rules:
+  - Mark only the particles, suffixes, or fixed surface chars of
+    the pattern itself. Do NOT include the content words that
+    fill the placeholders, and do NOT include any characters
+    between or after the pattern's anchors.
+  - For single-anchor patterns: mark just the anchor surface.
+    `〜ます` → mark `ます`. `〜ている` → mark `ている` (or `てる`).
+    `〜てください` → mark `てください`.
+  - For range or pair patterns with two anchors (e.g. `〜から〜まで`,
+    `〜ば〜ほど`, `〜たり〜たり`, `〜も〜も`): emit TWO separate
+    grammar entries, one per anchor — same pattern string and
+    explanation, each with its own span covering only that anchor's
+    surface chars. Never emit a single span that bridges from the
+    first anchor to the second; the chars in between belong to
+    other vocab/grammar.
+  - Do not include placeholder dashes or particles that are not
+    present in `text`. `start` must be < `end` and `end` must not
+    exceed the length of `text`.
+
+  Example: for the sentence `子供の時から今までを振り返って`, the
+  pattern `〜から〜まで` produces two entries with spans covering
+  just `から` and just `まで` respectively — not a span from `時`
+  through `振`.
 - gloss: a concise, natural English translation of the full
   sentence.
 </task>
@@ -223,10 +248,18 @@ BREAKDOWN_TOOL_SCHEMA: dict = {
                         "type": "array",
                         "items": {
                             "type": "object",
-                            "required": ["pattern", "explanation"],
+                            "required": ["pattern", "explanation", "span"],
                             "properties": {
                                 "pattern": {"type": "string"},
                                 "explanation": {"type": "string"},
+                                "span": {
+                                    "type": "object",
+                                    "required": ["start", "end"],
+                                    "properties": {
+                                        "start": {"type": "integer", "minimum": 0},
+                                        "end": {"type": "integer", "minimum": 1},
+                                    },
+                                },
                             },
                         },
                     },

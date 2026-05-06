@@ -259,6 +259,17 @@ verified end-to-end.
 | `frontend/src/modules/breakdown-pane.ts` | render linked spans + popover |
 | `frontend/src/styles.css` | dashed underline + popover styles |
 
+## Backlog
+
+- **Rebalance overlap rule for vocab vs. grammar.** The current resolver
+  drops the shorter span on any overlap, which means a 1-char vocab stem
+  (`振` for `振り返る`) loses to a wider grammar span every time. Consider
+  preferring a vocab `exact`/`stem` link when it is fully contained
+  inside a grammar `llm` span — vocab carries higher information for the
+  reader and grammar can still be reached via its non-overlapping anchor
+  chars. Deferred until prompt-side fixes (tight, per-anchor grammar
+  spans) are shown insufficient on real content.
+
 ## Out of scope (for now)
 
 - Cross-sentence links (vocab from sentence 2 highlighting in sentence 5)
