@@ -204,7 +204,7 @@ def test_grammar_repeated_surface_picks_distinct_occurrences():
     assert grammar_links[0]["start"] != grammar_links[1]["start"]
 
 
-def test_grammar_overlap_with_vocab_keeps_longer():
+def test_grammar_overlap_with_vocab_merges_into_extras():
     text = "コーヒーを飲みます。"
     sentence = {
         "text": text,
@@ -217,5 +217,40 @@ def test_grammar_overlap_with_vocab_keeps_longer():
     }
     links = breakdown_links.compute_sentence_links(sentence)
     assert len(links) == 1
-    assert links[0]["kind"] == "grammar"
-    assert text[links[0]["start"]:links[0]["end"]] == "飲みます"
+    primary = links[0]
+    assert primary["kind"] == "grammar"
+    assert text[primary["start"]:primary["end"]] == "飲みます"
+    assert primary["extras"] == [{"kind": "vocab", "index": 0}]
+
+
+def test_overlap_extras_ordered_vocab_first():
+    # Three overlapping links: one vocab + two grammar pointing to the
+    # same wider span. The longer grammar link is primary; its extras
+    # should list the vocab before the secondary grammar.
+    text = "社会文化的な違い"
+    sentence = {
+        "text": text,
+        "vocab": [{"word": "社会文化的", "reading": "", "meaning": "sociocultural"}],
+        "grammar": [
+            {
+                "pattern": "Na-adj +な + Noun",
+                "explanation": "attributive na-adjective",
+                "surfaces": ["社会文化的な"],
+            },
+            {
+                "pattern": "〜的",
+                "explanation": "suffix forming na-adjectives",
+                "surfaces": ["的"],
+            },
+        ],
+    }
+    links = breakdown_links.compute_sentence_links(sentence)
+    assert len(links) == 1
+    primary = links[0]
+    assert primary["kind"] == "grammar"
+    assert primary["index"] == 0
+    assert text[primary["start"]:primary["end"]] == "社会文化的な"
+    assert primary["extras"] == [
+        {"kind": "vocab", "index": 0},
+        {"kind": "grammar", "index": 1},
+    ]

@@ -91,7 +91,8 @@ See `docs/breakdown-vocab-links-plan.md`.
 
 - [x] Iter 1 — Backend vocab linker (exact/reading/stem) + lazy migration on read
 - [x] Iter 2 — Frontend renders linked spans with click-to-open popover (vocab)
-- [ ] Iter 3 — Grammar links via LLM-emitted spans (prompt + schema change)
+- [x] Iter 3 — Grammar links via LLM-emitted surface strings; overlapping
+      vocab + grammar merge into a single popover
 - [ ] Iter 4 — Polish: hide linked rows from vocab/grammar tables, telemetry,
       troubleshooting entries
 

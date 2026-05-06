@@ -115,23 +115,44 @@ def _link_for_vocab_entry(
 
 
 def _resolve_overlaps(links: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Drop links that overlap a stronger neighbour.
+    """Merge overlapping links: longer span owns the rendered underline,
+    shorter overlappers ride along as `extras` so the popover can show
+    both entries.
 
-    Longer span wins; on equal length, higher-priority match wins
-    (exact > reading > stem).
+    Sort order is longer-first, then by match priority
+    (exact > reading > stem > llm). The first link that claims a region
+    is the rendered primary; any later link overlapping it is appended
+    to its `extras` list with just `{kind, index}` — no start/end since
+    the span isn't drawn separately.
+
+    Extras are ordered vocab-before-grammar so the popover always
+    shows the vocab section first.
     """
     kept: list[dict[str, Any]] = []
-    # Sort: longer first, then by priority.
     ordered = sorted(
         links,
         key=lambda l: (-(l["end"] - l["start"]), _PRIORITY.get(l["match"], 99)),
     )
     for link in ordered:
-        overlaps_existing = any(
-            link["start"] < k["end"] and k["start"] < link["end"] for k in kept
-        )
-        if not overlaps_existing:
+        target: dict[str, Any] | None = None
+        for k in kept:
+            if link["start"] < k["end"] and k["start"] < link["end"]:
+                target = k
+                break
+        if target is None:
             kept.append(link)
+            continue
+        # Avoid duplicating the primary itself in extras.
+        if target["kind"] == link["kind"] and target["index"] == link["index"]:
+            continue
+        extras = target.setdefault("extras", [])
+        if not any(
+            e["kind"] == link["kind"] and e["index"] == link["index"] for e in extras
+        ):
+            extras.append({"kind": link["kind"], "index": link["index"]})
+    for k in kept:
+        if "extras" in k:
+            k["extras"].sort(key=lambda e: 0 if e["kind"] == "vocab" else 1)
     return sorted(kept, key=lambda l: l["start"])
 
 
@@ -171,16 +192,23 @@ def _links_for_grammar_entry(
 
 
 def _find_unused(text: str, needle: str, used: list[tuple[int, int]]) -> int:
-    """Return the first index of `needle` in `text` whose span doesn't
-    overlap any (start, end) in `used`; -1 if no such occurrence exists.
+    """Return the first index of `needle` in `text` not already claimed
+    at that exact span; -1 if no such occurrence exists.
+
+    "Exact span" rather than "any overlap" so a short surface like `的`
+    can still anchor inside a longer surface like `社会文化的な` — those
+    are legitimate overlaps that should both surface in the popover.
+    The exact-span check still prevents two identical surfaces from
+    landing on the same occurrence.
     """
     start = 0
+    needle_len = len(needle)
+    used_set = {(s, e) for s, e in used}
     while True:
         pos = text.find(needle, start)
         if pos < 0:
             return -1
-        end = pos + len(needle)
-        if not any(pos < u_end and u_start < end for u_start, u_end in used):
+        if (pos, pos + needle_len) not in used_set:
             return pos
         start = pos + 1
 

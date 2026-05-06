@@ -379,6 +379,10 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   font-size: 13px;
 }
 .bd-link-popover[hidden] { display: none; }
+.bd-popover-section { display: flex; flex-direction: column; gap: 4px; }
+.bd-popover-divider {
+  height: 1px; background: var(--border); margin: 4px -12px;
+}
 .bd-popover-word, .bd-popover-pattern {
   font-size: 16px; font-weight: 600;
   font-family: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", system-ui, sans-serif;

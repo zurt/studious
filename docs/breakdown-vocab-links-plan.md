@@ -37,9 +37,12 @@ Extend each sentence in the breakdown JSON with a `links` array:
   "text": "わたしは毎朝コーヒーを飲みます。",
   "gloss": "I drink coffee every morning.",
   "vocab": [{ "word": "コーヒー", "reading": "", "meaning": "coffee" }],
-  "grammar": [{ "pattern": "〜ます", "explanation": "polite non-past" }],
+  "grammar": [
+    { "pattern": "〜ます", "explanation": "polite non-past", "surfaces": ["ます"] }
+  ],
   "links": [
-    { "start": 4, "end": 8, "kind": "vocab", "index": 0, "match": "exact" }
+    { "start": 4, "end": 8, "kind": "vocab", "index": 0, "match": "exact" },
+    { "start": 11, "end": 13, "kind": "grammar", "index": 0, "match": "llm" }
   ]
 }
 ```
@@ -49,12 +52,13 @@ Extend each sentence in the breakdown JSON with a `links` array:
   characters are surrogate pairs in practice, but document the choice).
 - `kind` + `index` point back into the sentence's `vocab` or `grammar`
   arrays — the same sentence holds the entry, so no cross-sentence refs.
-  Iter 1–2 only ever emit `kind="vocab"`; `kind="grammar"` is reserved
-  for the LLM-span iteration.
-- `match` records how the link was found (`exact` | `stem` | `reading`,
-  plus `llm` once the LLM-span path lands).
-  Useful for debugging and for the UI to optionally style low-confidence
-  matches differently later.
+- `match` records how the link was found (`exact` | `stem` | `reading`
+  for vocab; `llm` for grammar). Useful for debugging and for the UI
+  to optionally style low-confidence matches differently later.
+- `extras` (optional): when a shorter overlapping link has been merged
+  into this one, each entry is `{kind, index}` referring back into
+  the sentence's vocab/grammar arrays. The popover renders the
+  primary plus each extra in vocab-then-grammar order.
 
 Backward compatibility: `links` is optional; absence means "not yet
 computed" (the on-the-fly path will handle that).
@@ -219,10 +223,15 @@ iteration moves the source of truth to the LLM.
   produce one surface (`〜ます` → `["ます"]`), range/pair patterns
   produce one per anchor (`〜から〜まで` → `["から", "まで"]`).
 - Linker emits one `kind="grammar"` link per surface with
-  `match="llm"`. Same overlap rule as vocab (longer span wins; on
-  tie, `exact` > `reading` > `stem` > `llm`). Repeated surfaces in
-  the sentence are disambiguated by skipping occurrences already
-  claimed by earlier grammar links in the same breakdown.
+  `match="llm"`. Repeated identical surfaces in the sentence are
+  disambiguated by skipping occurrences already claimed at the
+  exact same span by earlier grammar links — different surfaces
+  (e.g., `的` inside `社会文化的な`) are allowed to overlap.
+- Overlap merging: when two links cover overlapping ranges, the
+  longer/higher-priority one renders the underline; the loser is
+  attached as `extras: [{kind, index}]` on the primary link so the
+  popover can show both. Extras are sorted vocab-before-grammar so
+  the popover always opens with the vocab section.
 - Frontend reuses the popover; grammar content shows pattern +
   explanation as already specified.
 - Run `make benchmark` — this touches the prompt, so the benchmark
@@ -259,17 +268,6 @@ verified end-to-end.
 | `backend/tests/test_breakdown_links.py` | new — unit tests |
 | `frontend/src/modules/breakdown-pane.ts` | render linked spans + popover |
 | `frontend/src/styles.css` | dashed underline + popover styles |
-
-## Backlog
-
-- **Rebalance overlap rule for vocab vs. grammar.** The current resolver
-  drops the shorter span on any overlap, which means a 1-char vocab stem
-  (`振` for `振り返る`) loses to a wider grammar span every time. Consider
-  preferring a vocab `exact`/`stem` link when it is fully contained
-  inside a grammar `llm` span — vocab carries higher information for the
-  reader and grammar can still be reached via its non-overlapping anchor
-  chars. Deferred until prompt-side fixes (tight, per-anchor grammar
-  spans) are shown insufficient on real content.
 
 ## Out of scope (for now)
 

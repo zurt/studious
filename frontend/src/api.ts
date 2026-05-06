@@ -51,12 +51,14 @@ export type Region = {
 
 export type BreakdownVocab = { word: string; reading?: string; meaning: string };
 export type BreakdownGrammar = { pattern: string; explanation: string };
+export type BreakdownLinkRef = { kind: "vocab" | "grammar"; index: number };
 export type BreakdownLink = {
   start: number;
   end: number;
   kind: "vocab" | "grammar";
   index: number;
   match: "exact" | "stem" | "reading" | "llm";
+  extras?: BreakdownLinkRef[];
 };
 export type BreakdownSentence = {
   text: string;

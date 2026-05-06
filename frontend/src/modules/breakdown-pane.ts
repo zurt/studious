@@ -35,32 +35,46 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   function openPopover(btn: HTMLButtonElement) {
     if (!breakdown) return;
     const sIdx = Number(btn.dataset.sIdx);
-    const kind = btn.dataset.kind;
+    const kind = btn.dataset.kind as "vocab" | "grammar" | undefined;
     const idx = Number(btn.dataset.idx);
+    const start = Number(btn.dataset.start);
     const s = breakdown.sentences[sIdx];
-    if (!s) return;
-    let html = "";
-    let label = "";
-    if (kind === "vocab") {
-      const v = s.vocab?.[idx];
-      if (!v) return;
-      label = v.word;
-      html = `
-        <div class="bd-popover-word" lang="ja">${escapeHtml(v.word)}</div>
-        ${v.reading ? `<div class="bd-popover-reading" lang="ja">${escapeHtml(v.reading)}</div>` : ""}
-        <div class="bd-popover-meaning">${escapeHtml(v.meaning)}</div>`;
-    } else if (kind === "grammar") {
-      const g = s.grammar?.[idx];
-      if (!g) return;
-      label = g.pattern;
-      html = `
-        <div class="bd-popover-pattern" lang="ja">${escapeHtml(g.pattern)}</div>
-        <div class="bd-popover-meaning">${escapeHtml(g.explanation)}</div>`;
-    } else {
-      return;
+    if (!s || !kind) return;
+    const link = (s.links || []).find(
+      (l) => l.kind === kind && l.index === idx && l.start === start,
+    );
+    const refs: { kind: "vocab" | "grammar"; index: number }[] = [
+      { kind, index: idx },
+      ...((link?.extras as { kind: "vocab" | "grammar"; index: number }[] | undefined) || []),
+    ];
+    refs.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "vocab" ? -1 : 1));
+    const sections: string[] = [];
+    const labels: string[] = [];
+    for (const r of refs) {
+      if (r.kind === "vocab") {
+        const v = s.vocab?.[r.index];
+        if (!v) continue;
+        labels.push(`vocab: ${v.word}`);
+        sections.push(`
+          <div class="bd-popover-section" data-kind="vocab">
+            <div class="bd-popover-word" lang="ja">${escapeHtml(v.word)}</div>
+            ${v.reading ? `<div class="bd-popover-reading" lang="ja">${escapeHtml(v.reading)}</div>` : ""}
+            <div class="bd-popover-meaning">${escapeHtml(v.meaning)}</div>
+          </div>`);
+      } else {
+        const g = s.grammar?.[r.index];
+        if (!g) continue;
+        labels.push(`grammar: ${g.pattern}`);
+        sections.push(`
+          <div class="bd-popover-section" data-kind="grammar">
+            <div class="bd-popover-pattern" lang="ja">${escapeHtml(g.pattern)}</div>
+            <div class="bd-popover-meaning">${escapeHtml(g.explanation)}</div>
+          </div>`);
+      }
     }
-    popover.innerHTML = html;
-    popover.setAttribute("aria-label", `${kind}: ${label}`);
+    if (!sections.length) return;
+    popover.innerHTML = sections.join('<div class="bd-popover-divider" role="separator"></div>');
+    popover.setAttribute("aria-label", labels.join(" · "));
     const card = btn.closest(".breakdown-card") as HTMLElement | null;
     const parent = card || container;
     parent.appendChild(popover);
@@ -141,7 +155,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       if (l.start > i) out.push(escapeHtml(text.slice(i, l.start)));
       const span = text.slice(l.start, l.end);
       out.push(
-        `<button type="button" class="bd-link" data-s-idx="${sIdx}" data-kind="${l.kind}" data-idx="${l.index}">${escapeHtml(span)}</button>`,
+        `<button type="button" class="bd-link" data-s-idx="${sIdx}" data-kind="${l.kind}" data-idx="${l.index}" data-start="${l.start}">${escapeHtml(span)}</button>`,
       );
       i = l.end;
     }
