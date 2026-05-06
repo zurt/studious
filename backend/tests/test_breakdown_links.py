@@ -121,8 +121,8 @@ def test_needs_links_detects_missing_field():
     assert breakdown_links.needs_links(missing) is True
 
 
-def test_grammar_without_span_is_ignored():
-    # A grammar entry without a span yields no link.
+def test_grammar_without_surfaces_is_ignored():
+    # A grammar entry without a surfaces list yields no link.
     sentence = {
         "text": "わたしは毎朝コーヒーを飲みます。",
         "vocab": [],
@@ -132,51 +132,87 @@ def test_grammar_without_span_is_ignored():
     assert links == []
 
 
-def test_grammar_with_span_emits_llm_link():
+def test_grammar_surface_locates_substring():
     text = "わたしは毎朝コーヒーを飲みます。"
-    masu_start = text.index("ます")
     sentence = {
         "text": text,
         "vocab": [],
         "grammar": [{
             "pattern": "〜ます",
             "explanation": "polite non-past",
-            "span": {"start": masu_start, "end": masu_start + 2},
+            "surfaces": ["ます"],
         }],
     }
     links = breakdown_links.compute_sentence_links(sentence)
     assert len(links) == 1
     assert links[0]["kind"] == "grammar"
     assert links[0]["match"] == "llm"
-    assert links[0]["index"] == 0
     assert text[links[0]["start"]:links[0]["end"]] == "ます"
 
 
-def test_grammar_span_out_of_range_dropped():
+def test_grammar_range_pattern_emits_two_links():
+    text = "子供の時から今までを振り返って書いてください。"
+    sentence = {
+        "text": text,
+        "vocab": [],
+        "grammar": [{
+            "pattern": "〜から〜まで",
+            "explanation": "from X to Y",
+            "surfaces": ["から", "まで"],
+        }],
+    }
+    links = breakdown_links.compute_sentence_links(sentence)
+    grammar_links = [l for l in links if l["kind"] == "grammar"]
+    assert len(grammar_links) == 2
+    spans = sorted((l["start"], l["end"]) for l in grammar_links)
+    assert text[spans[0][0]:spans[0][1]] == "から"
+    assert text[spans[1][0]:spans[1][1]] == "まで"
+    # Both reference the same grammar entry.
+    assert all(l["index"] == 0 for l in grammar_links)
+
+
+def test_grammar_surface_not_in_text_is_dropped():
     sentence = {
         "text": "短い。",
         "vocab": [],
-        "grammar": [
-            {"pattern": "x", "explanation": "y", "span": {"start": 0, "end": 99}},
-            {"pattern": "x", "explanation": "y", "span": {"start": 5, "end": 6}},
-            {"pattern": "x", "explanation": "y", "span": {"start": 2, "end": 1}},
-        ],
+        "grammar": [{
+            "pattern": "x",
+            "explanation": "y",
+            "surfaces": ["nope", "missing"],
+        }],
     }
     links = breakdown_links.compute_sentence_links(sentence)
     assert links == []
 
 
+def test_grammar_repeated_surface_picks_distinct_occurrences():
+    # Two ます in the sentence; two grammar entries each marking ます.
+    text = "本を読みます。コーヒーを飲みます。"
+    sentence = {
+        "text": text,
+        "vocab": [],
+        "grammar": [
+            {"pattern": "〜ます", "explanation": "polite", "surfaces": ["ます"]},
+            {"pattern": "〜ます", "explanation": "polite", "surfaces": ["ます"]},
+        ],
+    }
+    links = breakdown_links.compute_sentence_links(sentence)
+    grammar_links = sorted(
+        [l for l in links if l["kind"] == "grammar"], key=lambda l: l["start"]
+    )
+    assert len(grammar_links) == 2
+    assert grammar_links[0]["start"] != grammar_links[1]["start"]
+
+
 def test_grammar_overlap_with_vocab_keeps_longer():
-    # Grammar span 飲みます (4 chars) overlaps vocab stem 飲 (1 char).
     text = "コーヒーを飲みます。"
-    g_start = text.index("飲みます")
     sentence = {
         "text": text,
         "vocab": [{"word": "飲む", "reading": "のむ", "meaning": "to drink"}],
         "grammar": [{
             "pattern": "〜ます",
             "explanation": "polite",
-            "span": {"start": g_start, "end": g_start + 4},
+            "surfaces": ["飲みます"],
         }],
     }
     links = breakdown_links.compute_sentence_links(sentence)

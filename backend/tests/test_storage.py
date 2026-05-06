@@ -156,10 +156,11 @@ def test_breakdown_tool_schema_shape():
         assert key in props
     assert props["vocab"]["type"] == "array"
     assert set(props["vocab"]["items"]["required"]) == {"word", "meaning"}
-    assert set(props["grammar"]["items"]["required"]) == {"pattern", "explanation", "span"}
-    span_props = props["grammar"]["items"]["properties"]["span"]
-    assert span_props["type"] == "object"
-    assert set(span_props["required"]) == {"start", "end"}
+    assert set(props["grammar"]["items"]["required"]) == {"pattern", "explanation", "surfaces"}
+    surfaces = props["grammar"]["items"]["properties"]["surfaces"]
+    assert surfaces["type"] == "array"
+    assert surfaces["minItems"] == 1
+    assert surfaces["items"]["type"] == "string"
 
 
 def test_jobs_round_trip(isolated_data_dir):

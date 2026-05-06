@@ -135,30 +135,54 @@ def _resolve_overlaps(links: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(kept, key=lambda l: l["start"])
 
 
-def _link_for_grammar_entry(
-    text: str, entry: dict[str, Any], idx: int
-) -> dict[str, Any] | None:
-    """Build a grammar link from an LLM-supplied span. Returns None if
-    the span is missing, malformed, or out of range.
+def _links_for_grammar_entry(
+    text: str, entry: dict[str, Any], idx: int, used_spans: list[tuple[int, int]]
+) -> list[dict[str, Any]]:
+    """Locate each LLM-supplied surface string inside the sentence text.
+
+    The model emits literal substrings rather than offsets because span
+    arithmetic on long sentences is unreliable. Each surface is
+    substring-searched; if the same surface appears more than once
+    (e.g., the sentence has two ます), prefer the first occurrence not
+    already claimed by a previously-emitted grammar link for this
+    entry. Surfaces missing from the text are dropped silently.
     """
-    span = entry.get("span")
-    if not isinstance(span, dict):
-        return None
-    start = span.get("start")
-    end = span.get("end")
-    if not isinstance(start, int) or not isinstance(end, int):
-        return None
-    if isinstance(start, bool) or isinstance(end, bool):
-        return None
-    if start < 0 or end <= start or end > len(text):
-        return None
-    return {
-        "start": start,
-        "end": end,
-        "kind": "grammar",
-        "index": idx,
-        "match": "llm",
-    }
+    surfaces = entry.get("surfaces")
+    if not isinstance(surfaces, list):
+        return []
+    out: list[dict[str, Any]] = []
+    local_used: list[tuple[int, int]] = list(used_spans)
+    for surface in surfaces:
+        if not isinstance(surface, str) or not surface:
+            continue
+        pos = _find_unused(text, surface, local_used)
+        if pos < 0:
+            continue
+        end = pos + len(surface)
+        out.append({
+            "start": pos,
+            "end": end,
+            "kind": "grammar",
+            "index": idx,
+            "match": "llm",
+        })
+        local_used.append((pos, end))
+    return out
+
+
+def _find_unused(text: str, needle: str, used: list[tuple[int, int]]) -> int:
+    """Return the first index of `needle` in `text` whose span doesn't
+    overlap any (start, end) in `used`; -1 if no such occurrence exists.
+    """
+    start = 0
+    while True:
+        pos = text.find(needle, start)
+        if pos < 0:
+            return -1
+        end = pos + len(needle)
+        if not any(pos < u_end and u_start < end for u_start, u_end in used):
+            return pos
+        start = pos + 1
 
 
 def compute_sentence_links(sentence: dict[str, Any]) -> list[dict[str, Any]]:
@@ -177,12 +201,13 @@ def compute_sentence_links(sentence: dict[str, Any]) -> list[dict[str, Any]]:
             if link is not None:
                 raw.append(link)
     if isinstance(grammar, list):
+        used_grammar_spans: list[tuple[int, int]] = []
         for idx, entry in enumerate(grammar):
             if not isinstance(entry, dict):
                 continue
-            link = _link_for_grammar_entry(text, entry, idx)
-            if link is not None:
+            for link in _links_for_grammar_entry(text, entry, idx, used_grammar_spans):
                 raw.append(link)
+                used_grammar_spans.append((link["start"], link["end"]))
     return _resolve_overlaps(raw)
 
 

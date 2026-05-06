@@ -208,20 +208,21 @@ Rule-based matching cannot reliably identify grammar spans, so this
 iteration moves the source of truth to the LLM.
 
 - Extend `BREAKDOWN_TOOL_SCHEMA` so each grammar entry includes a
-  required `span: {start, end}` referring to character offsets in
-  `sentence.text`. Optionally extend vocab entries with the same
-  field as a quality upgrade — vocab can fall back to the stemmer
-  when the model omits a span, but grammar cannot fall back at all.
-- Update the breakdown prompt to instruct the model to return spans,
-  with examples that show how to mark `〜ます`, `〜ている`,
-  template patterns with placeholders (mark only the surface chars
-  actually present), and discontinuous patterns (mark the primary
-  anchor; document the choice).
-- Linker emits `kind="grammar"` links from those spans with
-  `match="llm"`. Validate offsets are in-range and non-overlapping
-  with vocab links per the existing overlap rule (longer span wins;
-  on tie, `exact` > `reading` > `stem` > `llm` for vocab, and
-  `llm` always wins for grammar since there's no alternative).
+  required `surfaces: string[]` — literal substrings of `text` that
+  anchor the pattern. We tried character offsets first; the model
+  cannot count CJK code-points reliably across long sentences and
+  produced spans off by 5+ chars. Surfaces sidestep counting: the
+  model copies short substrings (which it does well) and the
+  linker locates them via `text.find`.
+- Update the breakdown prompt to instruct the model to emit
+  `surfaces` for each grammar entry — single-anchor patterns
+  produce one surface (`〜ます` → `["ます"]`), range/pair patterns
+  produce one per anchor (`〜から〜まで` → `["から", "まで"]`).
+- Linker emits one `kind="grammar"` link per surface with
+  `match="llm"`. Same overlap rule as vocab (longer span wins; on
+  tie, `exact` > `reading` > `stem` > `llm`). Repeated surfaces in
+  the sentence are disambiguated by skipping occurrences already
+  claimed by earlier grammar links in the same breakdown.
 - Frontend reuses the popover; grammar content shows pattern +
   explanation as already specified.
 - Run `make benchmark` — this touches the prompt, so the benchmark
