@@ -26,6 +26,21 @@ root.querySelector<HTMLAnchorElement>("#home-link")!.addEventListener("click", (
   navigate("/");
 });
 
+const appEl = document.getElementById("app")!;
+const floatingControls = root.querySelector<HTMLElement>(".floating-controls")!;
+
+function relocateFloatingControls() {
+  const fs = !!document.fullscreenElement;
+  const pageTopbar = document.querySelector<HTMLElement>("#page-container .topbar");
+  if (fs && pageTopbar) {
+    if (floatingControls.parentElement !== pageTopbar) pageTopbar.appendChild(floatingControls);
+    floatingControls.classList.add("inline");
+  } else {
+    if (floatingControls.parentElement !== appEl) appEl.appendChild(floatingControls);
+    floatingControls.classList.remove("inline");
+  }
+}
+
 // Fullscreen toggle
 const fsBtn = root.querySelector<HTMLButtonElement>("#fullscreen-btn")!;
 fsBtn.addEventListener("click", () => {
@@ -36,7 +51,8 @@ fsBtn.addEventListener("click", () => {
   }
 });
 document.addEventListener("fullscreenchange", () => {
-  fsBtn.textContent = document.fullscreenElement ? "\u2716" : "\u26F6";
+  fsBtn.textContent = document.fullscreenElement ? "✖" : "⛶";
+  relocateFloatingControls();
 });
 
 root.querySelector<HTMLButtonElement>("#settings-btn")!.addEventListener("click", () => {
@@ -50,6 +66,12 @@ initRouter(pageContainer, [
   { pattern: "/doc/:id", mount: mountDocumentView },
   { pattern: "/doc/:id/chapter/:chapterId", mount: mountChapterView },
 ]);
+
+// When the page changes while in fullscreen, ensure controls land in the new page's topbar.
+const pageObserver = new MutationObserver(() => {
+  if (document.fullscreenElement) relocateFloatingControls();
+});
+pageObserver.observe(pageContainer, { childList: true });
 
 window.addEventListener("popstate", syncSettingsModalFromUrl);
 syncSettingsModalFromUrl();

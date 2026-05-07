@@ -569,6 +569,9 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   position: fixed; top: 4px; right: 8px; z-index: 9;
   display: flex; gap: 4px;
 }
+.floating-controls.inline {
+  position: static; margin-left: 4px;
+}
 
 /* Settings modal */
 .settings-modal {
