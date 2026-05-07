@@ -11,6 +11,8 @@
 - [x] Chapter management (create, list, update, delete)
 - [x] Region drawing on page images (canvas overlay with bbox)
 - [x] Region tagging (reading_passage, vocab_list, grammar_points, exercises, etc.)
+- [x] Tag-specific VLM prompt for `vocab_list` (full-width furigana, glosses,
+      preserves item indices and section headers)
 - [x] Region-level VLM transcription (crop to bbox, send to Claude)
 - [x] Vanilla TypeScript frontend (no framework)
 - [x] Map-like zoom/pan page viewer (pinch zoom, two-finger scroll, Cmd+/-, Cmd+0, fit button)
@@ -19,12 +21,17 @@
 - [x] Current chapter indicator banner in document view
 - [x] Region transcription tracker widget in chapter view (pending count, batch transcribe)
 - [x] Resizable split panes with collapse affordance (drag splitter, collapse left/right, persists in localStorage)
+- [x] Copy-to-clipboard buttons on region cards and transcription detail view
+- [x] Text size toggle (100/150/200%) in transcription detail view
+- [x] Auto-select region on page navigation, remembering last selection per page
+- [x] Region hover highlight with fade-out (replaces persistent shading)
 
 ## Phase 1.5: UX Safety + LLM Observability
 
 - [x] Confirmation dialog utility + wired into region, chapter, and document delete
 - [x] LLM audit log (append-only JSONL with provider, model, tokens, duration, context)
-- [ ] Cost tracking estimation (per-model token pricing, cost-per-request, summary API)
+- [x] Cost tracking estimation (per-model token pricing, cost-per-request, summary API)
+- [x] Settings modal (general + usage sections) with floating gear/fullscreen controls and cost summary UI
 
 ## Phase 1.6: Logging & Observability Improvements
 
@@ -33,22 +40,22 @@ Items 1–4 are the highest-leverage and should ship together; 5–8 are the nex
 batch; 9–12 are polish.
 
 P0 — correctness fixes:
-- [ ] 1. Stop dropping `extra=` fields in `StructuredFormatter` (allowlist → denylist)
-- [ ] 2. Propagate `correlation_id` from request middleware into `JobManager` workers
-- [ ] 3. Log every Anthropic VLM call from the provider (start/done/error, request_id, cache fields)
-- [ ] 4. Enrich audit-log entries with `request_id`, `prompt_hash`, `image_bytes`, cache tokens
+- [x] 1. Stop dropping `extra=` fields in `StructuredFormatter` (allowlist → denylist)
+- [x] 2. Propagate `correlation_id` from request middleware into `JobManager` workers
+- [x] 3. Log every Anthropic VLM call from the provider (start/done/error, request_id, cache fields)
+- [x] 4. Enrich audit-log entries with `request_id`, `prompt_hash`, `image_bytes`, cache tokens
 
 P1 — frontend correctness & DX:
-- [ ] 5. Replace frontend `_activeCorrelationId` module global with per-request CIDs
-- [ ] 6. Wire `logError` into every frontend `catch` block (currently `alert()` only)
-- [ ] 7. Add `STUDIOUS_LOG_LEVEL` env var; demote `page_done` to DEBUG
-- [ ] 8. Add `/api/costs/summary` and `/api/costs/audit` endpoints (foundation for cost UI)
+- [x] 5. Replace frontend `_activeCorrelationId` module global with per-request CIDs
+- [x] 6. Wire `logError` into every frontend `catch` block (currently `alert()` only)
+- [x] 7. Add `STUDIOUS_LOG_LEVEL` env var; demote `page_done` to DEBUG
+- [x] 8. Add `/api/costs/summary` and `/api/costs/audit` endpoints (foundation for cost UI)
 
 P2 — polish:
-- [ ] 9. `make logs` / `make audit-log` targets (`tail -F | jq -C .`)
-- [ ] 10. Drop `duration_ms` from transcription file payload (audit log is canonical)
-- [ ] 11. `tests/test_logging.py` to lock in formatter behaviour (regression guard for #1)
-- [ ] 12. Rotate `llm_audit.jsonl` monthly + maintain summary cache
+- [x] 9. `make logs` / `make audit-log` targets (`tail -F | jq -C .`)
+- [x] 10. Drop `duration_ms` from transcription file payload (audit log is canonical)
+- [x] 11. `tests/test_logging.py` to lock in formatter behaviour (regression guard for #1)
+- [x] 12. Rotate `llm_audit.jsonl` monthly + maintain summary cache
 
 ## Phase 1.7: Test Coverage
 
@@ -73,10 +80,21 @@ high-priority work (phases 1 and 2 of that plan).
 
 ## Phase 2: Sentence Breakdowns
 
-- [ ] Sentence-by-sentence breakdown (vocab, grammar, gloss) per region
-- [ ] Text-only VLM calls for analysis (no image tokens, cheaper)
-- [ ] Breakdown storage per-region
-- [ ] Breakdown display UI (cards/accordions)
+- [x] Sentence-by-sentence breakdown (vocab, grammar, gloss) per region
+- [x] Text-only VLM calls for analysis (no image tokens, cheaper)
+- [x] Breakdown storage per-region
+- [x] Breakdown display UI (cards/accordions)
+
+### Phase 2.1: Inline vocab/grammar links
+
+See `docs/breakdown-vocab-links-plan.md`.
+
+- [x] Iter 1 — Backend vocab linker (exact/reading/stem) + lazy migration on read
+- [x] Iter 2 — Frontend renders linked spans with click-to-open popover (vocab)
+- [x] Iter 3 — Grammar links via LLM-emitted surface strings; overlapping
+      vocab + grammar merge into a single popover
+- [ ] Iter 4 — Polish: hide linked rows from vocab/grammar tables, telemetry,
+      troubleshooting entries
 
 ## Phase 3: Central Vocab/Grammar Store
 

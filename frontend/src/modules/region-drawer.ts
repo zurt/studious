@@ -24,13 +24,13 @@ export type RegionDrawerOptions = {
   onSelect?: (regionId: string) => void;
 };
 
-const TAG_COLORS: Record<string, string> = {
-  reading_passage: "rgba(37, 99, 235, 0.25)",
-  vocab_list: "rgba(22, 163, 74, 0.25)",
-  grammar_points: "rgba(168, 85, 247, 0.25)",
-  exercises: "rgba(234, 88, 12, 0.25)",
-  instructions: "rgba(107, 114, 128, 0.25)",
-  other: "rgba(107, 114, 128, 0.15)",
+const TAG_RGB: Record<string, string> = {
+  reading_passage: "37, 99, 235",
+  vocab_list: "22, 163, 74",
+  grammar_points: "168, 85, 247",
+  exercises: "234, 88, 12",
+  instructions: "107, 114, 128",
+  other: "107, 114, 128",
 };
 
 const TAG_BORDERS: Record<string, string> = {
@@ -41,6 +41,10 @@ const TAG_BORDERS: Record<string, string> = {
   instructions: "rgba(107, 114, 128, 0.7)",
   other: "rgba(107, 114, 128, 0.5)",
 };
+
+const HOVER_FILL_ALPHA = 0.25;
+const FLASH_DURATION_MS = 500;
+function easeOut(t: number): number { return 1 - (1 - t) * (1 - t); }
 
 export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOptions) {
   const canvas = document.createElement("canvas");
@@ -59,6 +63,9 @@ export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOpti
   wrapper.appendChild(canvas);
 
   let regions = opts.regions || [];
+  let hoverId: string | null = null;
+  let flashState: { id: string; startedAt: number } | null = null;
+  let flashFrame: number | null = null;
   let drawing = false;
   let startX = 0;
   let startY = 0;
@@ -82,6 +89,14 @@ export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOpti
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
+    // Compute fade-out alpha for the most-recently-hovered region (ease-out 1 → 0 over FLASH_DURATION_MS).
+    let fadeAlpha = 0;
+    if (flashState) {
+      const t = (performance.now() - flashState.startedAt) / FLASH_DURATION_MS;
+      if (t >= 1) flashState = null;
+      else fadeAlpha = 1 - easeOut(t);
+    }
+
     // Draw existing regions
     for (const r of regions) {
       const [x1, y1, x2, y2] = r.bbox;
@@ -90,8 +105,13 @@ export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOpti
       const rw = (x2 - x1) * w;
       const rh = (y2 - y1) * h;
 
-      ctx.fillStyle = TAG_COLORS[r.tag] || TAG_COLORS.other;
-      ctx.fillRect(rx, ry, rw, rh);
+      let fillAlpha = 0;
+      if (r.id === hoverId) fillAlpha = HOVER_FILL_ALPHA;
+      else if (flashState && flashState.id === r.id) fillAlpha = HOVER_FILL_ALPHA * fadeAlpha;
+      if (fillAlpha > 0) {
+        ctx.fillStyle = `rgba(${TAG_RGB[r.tag] || TAG_RGB.other}, ${fillAlpha})`;
+        ctx.fillRect(rx, ry, rw, rh);
+      }
 
       ctx.strokeStyle = r.selected
         ? "rgba(255, 200, 0, 0.9)"
@@ -194,12 +214,31 @@ export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOpti
   const resizeObserver = new ResizeObserver(syncSize);
   resizeObserver.observe(img);
 
+  function tickFlash() {
+    redraw();
+    if (flashState) flashFrame = requestAnimationFrame(tickFlash);
+    else flashFrame = null;
+  }
+
   return {
     setRegions(newRegions: DrawableRegion[]) {
       regions = newRegions;
       redraw();
     },
+    setHover(id: string | null) {
+      if (hoverId === id) return;
+      const prev = hoverId;
+      hoverId = id;
+      // Whenever hover leaves a region, start a fade-out for it — even if
+      // hover moves directly onto a different region.
+      if (prev && prev !== id) {
+        flashState = { id: prev, startedAt: performance.now() };
+        if (flashFrame == null) tickFlash();
+      }
+      redraw();
+    },
     destroy() {
+      if (flashFrame != null) cancelAnimationFrame(flashFrame);
       canvas.removeEventListener("mousedown", onMouseDown);
       canvas.removeEventListener("mousemove", onMouseMove);
       canvas.removeEventListener("mouseup", onMouseUp);

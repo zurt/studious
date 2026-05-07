@@ -3,12 +3,18 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from ..config import REGION_TRANSCRIBE_PROMPT, get_settings
+from ..config import (
+    BREAKDOWN_TOOL_SCHEMA,
+    REGION_TRANSCRIBE_PROMPT,
+    SENTENCE_BREAKDOWN_PROMPT,
+    VOCAB_LIST_TRANSCRIBE_PROMPT,
+    get_settings,
+)
 from ..jobs import manager
-from ..services import storage
+from ..services import breakdown_links, storage
 
 log = logging.getLogger("studious.api.regions")
 
@@ -145,6 +151,11 @@ def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
         raise HTTPException(404, "page image not found")
 
     settings = get_settings()
+    prompt = (
+        VOCAB_LIST_TRANSCRIBE_PROMPT
+        if region.get("tag") == "vocab_list"
+        else REGION_TRANSCRIBE_PROMPT
+    )
     payload: dict[str, Any] = {
         "job_type": "transcribe_region",
         "doc_id": doc_id,
@@ -155,7 +166,64 @@ def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
         "engine": "vlm",
         "provider": "anthropic",
         "config": {"model": settings.default_vlm_model},
-        "prompt": REGION_TRANSCRIBE_PROMPT,
+        "prompt": prompt,
     }
     job = manager.submit(payload)
+    return {"job_id": job["id"]}
+
+
+class BreakdownRequest(BaseModel):
+    overwrite: bool = False
+
+
+@router.get("/{region_id}/breakdown")
+def get_region_breakdown(doc_id: str, chapter_id: str, region_id: str):
+    _require_chapter(doc_id, chapter_id)
+    breakdown = storage.load_breakdown(doc_id, chapter_id, region_id)
+    if breakdown is None:
+        raise HTTPException(404, "breakdown not found")
+    if breakdown_links.needs_links(breakdown):
+        breakdown_links.annotate(breakdown)
+        breakdown = storage.save_breakdown(doc_id, chapter_id, region_id, breakdown)
+    return breakdown
+
+
+@router.post("/{region_id}/breakdown")
+def request_region_breakdown(
+    doc_id: str,
+    chapter_id: str,
+    region_id: str,
+    response: Response,
+    body: BreakdownRequest = BreakdownRequest(),
+):
+    _require_chapter(doc_id, chapter_id)
+    region = storage.load_region(doc_id, chapter_id, region_id)
+    if region is None:
+        raise HTTPException(404, "region not found")
+    if region.get("tag") == "vocab_list":
+        raise HTTPException(400, "breakdowns are not available on vocab_list regions")
+    if not region.get("transcription_md"):
+        raise HTTPException(409, "region has no transcription")
+    if (
+        not body.overwrite
+        and storage.load_breakdown(doc_id, chapter_id, region_id) is not None
+    ):
+        raise HTTPException(409, "breakdown already exists; pass overwrite=true to regenerate")
+
+    settings = get_settings()
+    payload: dict[str, Any] = {
+        "job_type": "breakdown_region",
+        "doc_id": doc_id,
+        "chapter_id": chapter_id,
+        "region_id": region_id,
+        "page": region["page"],
+        "engine": "vlm",
+        "provider": "anthropic",
+        "config": {"model": settings.default_vlm_model, "max_tokens": 8192},
+        "prompt": SENTENCE_BREAKDOWN_PROMPT,
+        "tool_name": "record_breakdown",
+        "tool_schema": BREAKDOWN_TOOL_SCHEMA,
+    }
+    job = manager.submit(payload)
+    response.status_code = 202
     return {"job_id": job["id"]}

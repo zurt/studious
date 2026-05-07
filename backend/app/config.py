@@ -93,6 +93,190 @@ remarks.
 """
 
 
+VOCAB_LIST_TRANSCRIBE_PROMPT = """\
+You are an expert OCR transcriber specializing in Japanese textbook
+vocabulary lists for English speakers. The image is a selected region
+containing a vocabulary list, possibly with section headers and item
+indices that tie entries back to a reading passage.
+
+<task>
+Transcribe the region into clean Markdown, one vocabulary entry per
+line, in the order printed. Never use bulleted or numbered lists —
+do not prefix entries with `- `, `*`, or `1.`. Each entry MUST end
+with two trailing spaces followed by a newline (standard Markdown
+hard line break) so entries render on separate lines.
+
+Entry format:
+- With kanji + reading: `term（reading）gloss1; gloss2`
+- Kana-only or expression with no separate reading: `term　gloss1; gloss2`
+
+Use full-width parentheses （ ） for the reading. When a reading is
+present, the English gloss MUST butt directly against the closing
+`）` with no space, full-width space, or any other character between
+them. When there is no reading, separate the term from the gloss
+with a single full-width ideographic space 　 (U+3000). Separate
+multiple English senses with `; `.
+
+Preserve item indices exactly as printed at the start of the line:
+plain numbers (`1`, `2`), parenthesized labels (`(1)`, `(4)`),
+or section labels like `（前文）`. Keep them on the same line as
+the entry.
+
+Preserve section headers verbatim on their own line, including any
+decorative characters and page references — for example:
+`【📖】読む前に（p. 28）`, `■ 内容を確認しよう（p. 31）`,
+`1．（p. 33）`.
+</task>
+
+<rules>
+- Transcribe Japanese exactly as printed. Do not "correct" spelling,
+  punctuation, or kana/kanji choices.
+- For English glosses: if the textbook prints a gloss next to the
+  entry, transcribe it exactly. If no gloss is printed, supply a
+  short dictionary-style English translation (one or two senses,
+  separated by `; `). Do not invent example sentences or
+  part-of-speech tags that are not on the page.
+- Entries with no kanji (e.g. `〜によって`, `〜カ国`) have no reading
+  column — emit just `term　gloss`.
+- Ignore decorative underlines and body-text line numbers in the
+  page margin. Do not emit <u>…</u> tags.
+- If a character is unclear, write [?]. If part of the region is
+  illegible or cut off, write [illegible] and continue.
+- Do not add commentary outside the entries themselves.
+</rules>
+
+<output_format>
+Return only the Markdown transcription, with no preamble or closing
+remarks. One entry per line, ending each entry with two trailing
+spaces before the newline; blank line between sections. Never emit
+bulleted or numbered list markers.
+</output_format>
+"""
+
+
+SENTENCE_BREAKDOWN_PROMPT = """\
+You are a Japanese-language tutor for English-speaking learners. The
+input is the already-transcribed text of a single region from a
+Japanese textbook (a reading passage, grammar example, exercise,
+instruction block, etc.).
+
+<task>
+Produce a sentence-by-sentence study breakdown of the input. Split
+the input into natural sentences using Japanese sentence-ending
+punctuation (。！？) or, for non-narrative content, into individual
+items, headings, or example lines as they appear. For each sentence
+or item, return:
+- text: the original Japanese sentence, copied verbatim from the
+  input. Preserve furigana already written inline as 漢字(かな).
+- vocab: notable vocabulary entries that an intermediate learner
+  would benefit from looking up. Include word, reading (kana), and
+  a short English meaning. Skip trivial particles and basic
+  function words.
+- grammar: grammar patterns demonstrated by the sentence. Give the
+  pattern (e.g. "～を主人公に", "～てしまう"), a short English
+  explanation of when/why it is used, and `surfaces`: a non-empty
+  list of literal substrings copied verbatim from `text` that
+  anchor the pattern in this sentence.
+  Surface rules:
+  - Each surface must appear in `text` exactly as written; do not
+    paraphrase, romanize, or substitute kana for kanji.
+  - Include only the particles, suffixes, or fixed surface chars
+    of the pattern itself — not the content words that fill the
+    placeholders and not characters between anchors.
+  - Single-anchor patterns get one surface. `〜ます` → `["ます"]`.
+    `〜ている` → `["ている"]` (or `["てる"]` if that's what's in
+    the sentence). `〜てください` → `["てください"]`.
+  - Range or pair patterns with two anchors (`〜から〜まで`,
+    `〜ば〜ほど`, `〜たり〜たり`, `〜も〜も`) get two surfaces, one
+    per anchor — `["から", "まで"]`, never a single span bridging
+    them.
+  - Omit the leading/trailing `〜` placeholder marker from each
+    surface — it is not in `text`.
+- gloss: a concise, natural English translation of the full
+  sentence.
+</task>
+
+<rules>
+- Copy the Japanese text exactly. Do not "correct" the original.
+- Do not invent vocabulary or grammar that is not in the sentence.
+- For purely English content, leave vocab and grammar empty and
+  echo the line in both `text` and `gloss`.
+- If the input contains no parseable sentence (e.g. a heading or
+  pure-numbers line), still return one entry with the line as `text`
+  and a brief `gloss` describing it.
+</rules>
+
+Call the `record_breakdown` tool with your result. Do not return
+prose; return only the tool call.
+"""
+
+
+BREAKDOWN_TOOL_SCHEMA: dict = {
+    "type": "object",
+    "required": ["sentences"],
+    "properties": {
+        "sentences": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["text", "gloss"],
+                "properties": {
+                    "text": {"type": "string"},
+                    "gloss": {"type": "string"},
+                    "vocab": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["word", "meaning"],
+                            "properties": {
+                                "word": {"type": "string"},
+                                "reading": {"type": "string"},
+                                "meaning": {"type": "string"},
+                            },
+                        },
+                    },
+                    "grammar": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["pattern", "explanation", "surfaces"],
+                            "properties": {
+                                "pattern": {"type": "string"},
+                                "explanation": {"type": "string"},
+                                "surfaces": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "items": {"type": "string", "minLength": 1},
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    },
+}
+
+
+# Per-model pricing in USD per 1M tokens. Keep in sync with Anthropic's
+# published pricing. Image tokens are billed as input tokens by Anthropic
+# and are already included in `usage.input_tokens`, so no separate rate.
+MODEL_PRICING: dict[str, dict[str, float]] = {
+    # Claude 4 family
+    "claude-opus-4-7": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-6": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-5": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-1": {"input": 15.0, "output": 75.0},
+    "claude-opus-4-20250514": {"input": 15.0, "output": 75.0},
+    "claude-sonnet-4-6": {"input": 3.0, "output": 15.0},
+    "claude-sonnet-4-5": {"input": 3.0, "output": 15.0},
+    "claude-sonnet-4-20250514": {"input": 3.0, "output": 15.0},
+    "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
+    "claude-haiku-4-5": {"input": 1.0, "output": 5.0},
+}
+
+
 class Settings(BaseModel):
     data_dir: Path
     anthropic_api_key: str | None
@@ -100,7 +284,10 @@ class Settings(BaseModel):
     default_vlm_model: str = "claude-opus-4-7"
     default_vlm_prompt: str = DEFAULT_VLM_PROMPT
     vlm_max_edge: int = 1568
+    vlm_effort_transcription: str = "high"
+    vlm_effort_breakdown: str = "xhigh"
     pdf_render_dpi: int = 300
+    log_level: str = "INFO"
 
 
 @lru_cache
@@ -113,6 +300,15 @@ def get_settings() -> Settings:
     dpi_env = os.environ.get("STUDIOUS_PDF_RENDER_DPI")
     if dpi_env:
         overrides["pdf_render_dpi"] = int(dpi_env)
+    log_level_env = os.environ.get("STUDIOUS_LOG_LEVEL")
+    if log_level_env:
+        overrides["log_level"] = log_level_env.upper()
+    transcription_effort_env = os.environ.get("STUDIOUS_VLM_EFFORT_TRANSCRIPTION")
+    if transcription_effort_env:
+        overrides["vlm_effort_transcription"] = transcription_effort_env.lower()
+    breakdown_effort_env = os.environ.get("STUDIOUS_VLM_EFFORT_BREAKDOWN")
+    if breakdown_effort_env:
+        overrides["vlm_effort_breakdown"] = breakdown_effort_env.lower()
     return Settings(
         data_dir=data_dir,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,

@@ -1,0 +1,5 @@
+{
+  "kind": "breakdown",
+  "expected_sentence_count": 3,
+  "expected_vocab": ["コーヒー", "犬", "公園", "散歩", "新聞"]
+}

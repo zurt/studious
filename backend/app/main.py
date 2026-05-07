@@ -6,15 +6,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import chapters, documents, jobs, providers, regions, transcribe
+from .api import chapters, costs, documents, jobs, providers, regions, transcribe
+from .config import get_settings
 from .jobs import manager
 from .middleware import CorrelationMiddleware, StructuredFormatter
 from .providers import registry
 
-# Structured JSON logging
+# Structured JSON logging. Level is configurable via STUDIOUS_LOG_LEVEL.
 _handler = logging.StreamHandler()
 _handler.setFormatter(StructuredFormatter())
-logging.basicConfig(level=logging.INFO, handlers=[_handler])
+_level = logging.getLevelName(get_settings().log_level)
+logging.basicConfig(
+    level=_level if isinstance(_level, int) else logging.INFO,
+    handlers=[_handler],
+)
 
 
 @asynccontextmanager
@@ -43,6 +48,7 @@ app.include_router(regions.router)
 app.include_router(transcribe.router)
 app.include_router(jobs.router)
 app.include_router(providers.router)
+app.include_router(costs.router)
 
 
 @app.get("/api/health")

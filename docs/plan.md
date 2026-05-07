@@ -173,6 +173,8 @@ Replace the React frontend with vanilla TypeScript + Vite. Keep the same Vite co
 
 ## Phase 2: Sentence Breakdowns + Vocab/Grammar Extraction
 
+**Status:** ✅ Shipped (2026-05-05). See `docs/sentence-breakdowns-plan.md` for the iteration log.
+
 **Goal:** Generate structured study content from transcribed regions — sentence-by-sentence breakdowns with vocab, grammar, and gloss.
 
 ### Backend

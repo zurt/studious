@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from fastapi.testclient import TestClient
+
+from app.config import REGION_TRANSCRIBE_PROMPT, VOCAB_LIST_TRANSCRIBE_PROMPT
+from app.main import app
 from app.services import storage
 
 
@@ -136,6 +140,149 @@ def test_move_region_missing_returns_none(isolated_data_dir, tmp_path: Path):
     src = storage.create_chapter(doc_id, title="Src", page_start=1, page_end=3)
     dst = storage.create_chapter(doc_id, title="Dst", page_start=4, page_end=8)
     assert storage.move_region(doc_id, src["id"], "nope", dst["id"]) is None
+
+
+def test_transcribe_region_picks_prompt_by_tag(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+
+    img_path = storage.page_image_path(doc_id, 2)
+    img_path.parent.mkdir(parents=True, exist_ok=True)
+    img_path.write_bytes(b"fake-png")
+
+    vocab = storage.create_region(
+        doc_id, ch["id"], page=2, bbox=[0, 0, 1, 1], tag="vocab_list"
+    )
+    passage = storage.create_region(
+        doc_id, ch["id"], page=2, bbox=[0, 0, 1, 1], tag="reading_passage"
+    )
+
+    client = TestClient(app)
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/regions/{vocab['id']}/transcribe"
+    )
+    assert r.status_code == 200
+    job = storage.load_job(r.json()["job_id"])
+    assert job["prompt"] == VOCAB_LIST_TRANSCRIBE_PROMPT
+
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/regions/{passage['id']}/transcribe"
+    )
+    assert r.status_code == 200
+    job = storage.load_job(r.json()["job_id"])
+    assert job["prompt"] == REGION_TRANSCRIBE_PROMPT
+
+
+def test_breakdown_endpoints_request_validation(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    client = TestClient(app)
+
+    # 404 when no breakdown exists yet
+    untouched = storage.create_region(
+        doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage"
+    )
+    r = client.get(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/regions/{untouched['id']}/breakdown"
+    )
+    assert r.status_code == 404
+
+    # 400 on vocab_list
+    vocab = storage.create_region(
+        doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="vocab_list"
+    )
+    storage.update_region(
+        doc_id, ch["id"], vocab["id"], transcription_md="本（ほん）book"
+    )
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/regions/{vocab['id']}/breakdown"
+    )
+    assert r.status_code == 400
+
+    # 409 when no transcription
+    no_tx = storage.create_region(
+        doc_id, ch["id"], page=2, bbox=[0, 0, 1, 1], tag="reading_passage"
+    )
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/regions/{no_tx['id']}/breakdown"
+    )
+    assert r.status_code == 409
+
+    # 404 region not found
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/regions/missing/breakdown"
+    )
+    assert r.status_code == 404
+
+
+def test_breakdown_post_overwrite_semantics(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    region = storage.create_region(
+        doc_id, ch["id"], page=2, bbox=[0, 0, 1, 1], tag="reading_passage"
+    )
+    storage.update_region(
+        doc_id, ch["id"], region["id"], transcription_md="一文目。二文目。"
+    )
+    # Pre-existing breakdown
+    storage.save_breakdown(
+        doc_id,
+        ch["id"],
+        region["id"],
+        {"sentences": [{"text": "一文目。", "gloss": "first"}]},
+    )
+
+    client = TestClient(app)
+
+    # Without overwrite → 409
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/regions/{region['id']}/breakdown"
+    )
+    assert r.status_code == 409
+
+    # With overwrite → 202 + job submitted with the breakdown prompt + schema
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/regions/{region['id']}/breakdown",
+        json={"overwrite": True},
+    )
+    assert r.status_code == 202
+    job = storage.load_job(r.json()["job_id"])
+    assert job["job_type"] == "breakdown_region"
+    assert job["tool_name"] == "record_breakdown"
+    assert job["config"]["max_tokens"] == 8192
+    assert job["tool_schema"]["type"] == "object"
+    assert "sentences" in job["tool_schema"]["required"]
+
+
+def test_get_breakdown_returns_stored_payload(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    region = storage.create_region(
+        doc_id, ch["id"], page=2, bbox=[0, 0, 1, 1], tag="reading_passage"
+    )
+    storage.save_breakdown(
+        doc_id,
+        ch["id"],
+        region["id"],
+        {
+            "model": "claude-opus-4-7",
+            "sentences": [{"text": "本", "gloss": "book"}],
+        },
+    )
+    client = TestClient(app)
+    r = client.get(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/regions/{region['id']}/breakdown"
+    )
+    assert r.status_code == 200
+    body = r.json()
+    # GET lazy-fills `links` for breakdowns saved before the link feature.
+    assert body["sentences"] == [{"text": "本", "gloss": "book", "links": []}]
+    assert body["region_id"] == region["id"]
+    assert body["model"] == "claude-opus-4-7"
 
 
 def test_delete_chapter_cascades_regions(isolated_data_dir, tmp_path: Path):

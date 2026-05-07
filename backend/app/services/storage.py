@@ -261,6 +261,50 @@ def delete_region(doc_id: str, chapter_id: str, region_id: str) -> bool:
     if not p.exists():
         return False
     p.unlink()
+    delete_breakdown(doc_id, chapter_id, region_id)
+    return True
+
+
+def _breakdowns_dir(doc_id: str, chapter_id: str) -> Path:
+    return _chapters_dir(doc_id) / chapter_id / "breakdowns"
+
+
+def breakdown_path(doc_id: str, chapter_id: str, region_id: str) -> Path:
+    return _breakdowns_dir(doc_id, chapter_id) / f"{region_id}.json"
+
+
+def save_breakdown(
+    doc_id: str, chapter_id: str, region_id: str, payload: dict[str, Any]
+) -> dict[str, Any]:
+    existing = load_breakdown(doc_id, chapter_id, region_id)
+    now = _now_iso()
+    record = {
+        **payload,
+        "region_id": region_id,
+        "created_at": existing["created_at"] if existing else now,
+        "updated_at": now,
+    }
+    _atomic_write_text(
+        breakdown_path(doc_id, chapter_id, region_id),
+        json.dumps(record, indent=2, ensure_ascii=False),
+    )
+    return record
+
+
+def load_breakdown(
+    doc_id: str, chapter_id: str, region_id: str
+) -> dict[str, Any] | None:
+    p = breakdown_path(doc_id, chapter_id, region_id)
+    if not p.exists():
+        return None
+    return json.loads(p.read_text("utf-8"))
+
+
+def delete_breakdown(doc_id: str, chapter_id: str, region_id: str) -> bool:
+    p = breakdown_path(doc_id, chapter_id, region_id)
+    if not p.exists():
+        return False
+    p.unlink()
     return True
 
 

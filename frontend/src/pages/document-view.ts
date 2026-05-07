@@ -3,7 +3,7 @@ import {
   deleteChapter, listRegions, moveRegion, deleteRegion,
   type DocMeta, type Transcription, type Chapter, type Region,
 } from "../api";
-import { generateCorrelationId } from "../logger";
+import { error as logError } from "../logger";
 import { navigate, replaceQuery } from "../router";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { attachPageInput } from "../modules/page-input";
@@ -13,7 +13,6 @@ import { marked } from "marked";
 
 export function mountDocumentView(params: Record<string, string>, container: HTMLElement) {
   const docId = params.id;
-  generateCorrelationId();
 
   container.innerHTML = `
     <div class="viewer">
@@ -450,6 +449,12 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
           navigate(`/doc/${docId}/chapter/${ch.id}`);
         }
       } catch (e: any) {
+        logError("DocumentView", "chapter_save_failed", {
+          doc_id: docId,
+          mode: opts.mode,
+          error: e.message,
+          stack: e.stack,
+        });
         errEl.textContent = e.message;
       }
     });

@@ -43,7 +43,12 @@ Open <http://localhost:5173>.
 1. **Upload** a PDF or image
 2. **Create chapters** — define page ranges within a document
 3. **Draw regions** — select areas of interest on pages (reading passages, vocab lists, grammar points, exercises)
-4. **Transcribe** — run VLM transcription on individual regions
+4. **Transcribe** — run VLM transcription on individual regions. The
+   prompt is selected by region tag: `vocab_list` regions use a
+   vocab-specific prompt that emits `term（reading）　gloss` entries,
+   preserves item indices and section headers, and supplies short
+   English glosses when the textbook does not print them. Other tags
+   use the generic region prompt.
 5. View transcriptions side-by-side with the original page
 
 ## Layout
@@ -51,10 +56,34 @@ Open <http://localhost:5173>.
 - `backend/` — FastAPI app (Python 3.11+), file-based storage.
 - `frontend/` — Vite + vanilla TypeScript (no framework).
 - `data/` — uploaded documents, rasterized pages, transcriptions, chapters,
-  regions, and `llm_audit.jsonl` (append-only log of VLM calls; gitignored).
-  Override with `STUDIOUS_DATA_DIR`.
+  regions, and monthly-rotated `llm_audit.YYYY-MM.jsonl` (append-only log of
+  VLM calls; gitignored). Override the data root with `STUDIOUS_DATA_DIR`.
 - `benchmarks/` — quality benchmarking tools for tracking extraction accuracy.
 - `docs/` — project description, roadmap, and architecture documentation.
+
+## Configuration
+
+Environment variables (read at startup, `.env` supported):
+
+- `ANTHROPIC_API_KEY` — required for the Anthropic VLM provider.
+- `STUDIOUS_DATA_DIR` — data root (default `./data`).
+- `STUDIOUS_PDF_RENDER_DPI` — page raster DPI (default `300`).
+- `STUDIOUS_LOG_LEVEL` — backend log level (default `INFO`; set `DEBUG` for
+  verbose per-page events).
+- `TESSERACT_CMD` — path to the Tesseract binary if not on `$PATH`.
+- `STUDIOUS_VLM_EFFORT_TRANSCRIPTION` — effort level for VLM transcription
+  calls (default `high`). Maps to Anthropic's `output_config.effort`.
+- `STUDIOUS_VLM_EFFORT_BREAKDOWN` — effort level for sentence-breakdown tool
+  calls (default `xhigh` — these are harder reasoning tasks).
+
+Valid effort values are `low`, `medium`, `high`, `xhigh`, `max`. Effort and
+adaptive thinking only apply to models that support them (Opus 4.5+ and
+Sonnet 4.6); on Haiku 4.5 they are silently omitted. The `temperature`
+config field is silently dropped on Claude Opus 4.7 (which removed it).
+
+VLM requests use ephemeral prompt caching on the text/tool-schema portion
+of the request, so repeated calls with the same prompt see cache hits
+(visible as `cache_read_tokens` in the audit log).
 
 ## Tests
 

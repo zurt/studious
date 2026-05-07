@@ -65,26 +65,106 @@ def test_read_all_empty_when_no_file(isolated_data_dir):
     assert llm_audit.read_all() == []
 
 
+def test_record_writes_to_current_month_file(isolated_data_dir):
+    """Phase 1.6 #12: writes go to llm_audit.YYYY-MM.jsonl."""
+    llm_audit.record(provider="x", model="m", job_type="transcribe_pages", status="success", duration_ms=1)
+    current = llm_audit.audit_log_path()
+    assert current.exists()
+    assert current.name.startswith("llm_audit.")
+    assert current.name.endswith(".jsonl")
+    # Must NOT have created the legacy un-rotated file.
+    assert not (isolated_data_dir / "llm_audit.jsonl").exists()
+
+
+def test_read_all_concatenates_legacy_and_monthly_files(isolated_data_dir):
+    """Legacy llm_audit.jsonl from before rotation is still readable."""
+    legacy = isolated_data_dir / "llm_audit.jsonl"
+    legacy.write_text(
+        json.dumps({"id": "old1", "provider": "old", "model": "m", "job_type": "transcribe_pages", "status": "success"}) + "\n",
+        encoding="utf-8",
+    )
+    archive = isolated_data_dir / "llm_audit.2024-01.jsonl"
+    archive.write_text(
+        json.dumps({"id": "arch1", "provider": "arch", "model": "m", "job_type": "transcribe_pages", "status": "success"}) + "\n",
+        encoding="utf-8",
+    )
+    llm_audit.record(provider="now", model="m", job_type="transcribe_pages", status="success", duration_ms=1)
+
+    entries = llm_audit.read_all()
+    providers = [e["provider"] for e in entries]
+    assert "old" in providers
+    assert "arch" in providers
+    assert "now" in providers
+    # Legacy entries come first.
+    assert providers[0] == "old"
+
+
+def test_summary_cache_round_trip(isolated_data_dir):
+    cache = {"2024-01": {"total_requests": 17, "by_model": {"m": {"requests": 17}}}}
+    llm_audit.save_summary_cache(cache)
+    assert llm_audit.load_summary_cache() == cache
+
+
+def test_summary_cache_missing_file_returns_empty(isolated_data_dir):
+    assert llm_audit.load_summary_cache() == {}
+
+
 def test_extract_usage_pulls_token_fields():
-    meta = {"usage": {"input_tokens": 1500, "output_tokens": 800, "image_tokens": 2400}}
+    meta = {
+        "usage": {
+            "input_tokens": 1500,
+            "output_tokens": 800,
+            "image_tokens": 2400,
+            "cache_read_input_tokens": 100,
+            "cache_creation_input_tokens": 50,
+        }
+    }
     assert llm_audit.extract_usage(meta) == {
         "input_tokens": 1500,
         "output_tokens": 800,
         "image_tokens": 2400,
+        "cache_read_tokens": 100,
+        "cache_creation_tokens": 50,
     }
 
 
 def test_extract_usage_handles_missing():
-    assert llm_audit.extract_usage(None) == {
+    expected_empty = {
         "input_tokens": None,
         "output_tokens": None,
         "image_tokens": None,
+        "cache_read_tokens": None,
+        "cache_creation_tokens": None,
     }
-    assert llm_audit.extract_usage({}) == {
-        "input_tokens": None,
-        "output_tokens": None,
-        "image_tokens": None,
+    assert llm_audit.extract_usage(None) == expected_empty
+    assert llm_audit.extract_usage({}) == expected_empty
+
+
+def test_extract_provenance_pulls_request_metadata():
+    meta = {
+        "request_id": "req_abc",
+        "prompt_hash": "deadbeef",
+        "image_bytes": 12345,
+        "stop_reason": "tool_use",
+        "other": "ignored",
     }
+    assert llm_audit.extract_provenance(meta) == {
+        "request_id": "req_abc",
+        "prompt_hash": "deadbeef",
+        "image_bytes": 12345,
+        "stop_reason": "tool_use",
+    }
+
+
+def test_extract_provenance_handles_missing():
+    expected_empty = {
+        "request_id": None,
+        "prompt_hash": None,
+        "image_bytes": None,
+        "stop_reason": None,
+    }
+    assert llm_audit.extract_provenance(None) == expected_empty
+    assert llm_audit.extract_provenance({}) == expected_empty
 
 
 # ---------- Job integration tests ----------
