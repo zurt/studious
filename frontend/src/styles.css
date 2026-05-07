@@ -579,6 +579,13 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 }
 .tracker-status.done { background: rgba(22,163,74,0.12); color: #16a34a; }
 .tracker-status.pending { background: rgba(234,88,12,0.12); color: #ea580c; }
+.tracker-status.transcribing { background: rgba(37,99,235,0.12); color: #2563eb; display: inline-flex; align-items: center; gap: 4px; }
+.tracker-item.is-transcribing { background: rgba(37,99,235,0.04); }
+.spinner.spinner-xs { width: 9px; height: 9px; border-width: 1.5px; vertical-align: 0; }
+.tracker-progress { padding: 6px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+.tracker-progress-text { font-size: 11px; color: var(--muted); }
+.tracker-progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.tracker-progress-fill { height: 100%; background: var(--accent, #2563eb); transition: width 0.2s ease; }
 
 /* Floating top-right controls — always visible, including in fullscreen */
 .floating-controls {

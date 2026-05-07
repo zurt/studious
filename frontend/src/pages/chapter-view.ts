@@ -122,6 +122,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   let drawer: ReturnType<typeof createRegionDrawer> | null = null;
   let trackerOpen = false;
   const transcribingIds = new Set<string>();
+  let batchInFlight = false;
+  let batchTotalCount = 0;
+  let batchDoneCount = 0;
 
   function syncUrl() {
     replaceQuery({ page: String(page), region: selectedRegionId });
@@ -167,26 +170,44 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     );
     const pending = sorted.filter((r) => !r.transcription_md);
     const done = sorted.filter((r) => r.transcription_md);
+    const batchTotal = batchInFlight ? batchTotalCount : 0;
+    const batchDone = batchInFlight ? batchDoneCount : 0;
+    const progressPct = batchTotal > 0 ? Math.round((batchDone / batchTotal) * 100) : 0;
+    const batchProgressHtml = batchInFlight ? `
+      <div class="tracker-progress">
+        <div class="tracker-progress-text">Transcribing ${batchDone}/${batchTotal}…</div>
+        <div class="tracker-progress-bar"><div class="tracker-progress-fill" style="width:${progressPct}%"></div></div>
+      </div>` : "";
+    const batchBtnHtml = pending.length > 0
+      ? `<button id="batch-transcribe-btn"${batchInFlight ? " disabled" : ""}>${batchInFlight ? `Transcribing ${batchDone}/${batchTotal}…` : "Transcribe all"}</button>`
+      : "";
     trackerPopover.innerHTML = `
       <div class="tracker-header">
         <span>Regions</span>
         <span style="font-size:11px;color:var(--muted)">${done.length}/${regions.length} transcribed</span>
         <div class="grow"></div>
-        ${pending.length > 0 ? `<button id="batch-transcribe-btn">Transcribe all</button>` : ""}
+        ${batchBtnHtml}
       </div>
+      ${batchProgressHtml}
       <div class="tracker-list">
         ${sorted.length === 0 ? '<div class="sidebar-empty">No regions yet</div>' : ""}
-        ${sorted.map((r) => `
-          <div class="tracker-item" data-page="${r.page}" data-id="${r.id}">
+        ${sorted.map((r) => {
+          const isTranscribing = transcribingIds.has(r.id);
+          const statusClass = r.transcription_md ? "done" : (isTranscribing ? "transcribing" : "pending");
+          const statusLabel = r.transcription_md
+            ? "done"
+            : isTranscribing
+              ? `<span class="spinner spinner-xs"></span> transcribing`
+              : "pending";
+          return `
+          <div class="tracker-item${isTranscribing ? " is-transcribing" : ""}" data-page="${r.page}" data-id="${r.id}">
             <div class="tracker-item-info">
               <div class="tracker-item-title">${r.label || r.tag.replace("_", " ")}</div>
               <div class="tracker-item-meta">p. ${r.page} &middot; ${r.tag.replace("_", " ")}</div>
             </div>
-            <span class="tracker-status ${r.transcription_md ? "done" : "pending"}">
-              ${r.transcription_md ? "done" : "pending"}
-            </span>
-          </div>
-        `).join("")}
+            <span class="tracker-status ${statusClass}">${statusLabel}</span>
+          </div>`;
+        }).join("")}
       </div>
     `;
 
@@ -213,13 +234,22 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   async function handleBatchTranscribe() {
+    if (batchInFlight) return;
     const pending = regions.filter((r) => !r.transcription_md);
     if (pending.length === 0) return;
 
     const batchCid = generateCorrelationId();
     info("ChapterView", "batch_transcribe_started", { count: pending.length, correlation_id: batchCid });
 
+    batchInFlight = true;
+    batchTotalCount = pending.length;
+    batchDoneCount = 0;
+    renderTracker();
+
     for (const region of pending) {
+      transcribingIds.add(region.id);
+      renderTracker();
+      refreshRegionUI();
       try {
         const { job_id } = await transcribeRegion(docId, chapterId, region.id, batchCid);
         await new Promise<void>((resolve) => {
@@ -237,9 +267,19 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           correlation_id: batchCid,
         });
       }
+      transcribingIds.delete(region.id);
+      batchDoneCount += 1;
+      try {
+        regions = await listRegions(docId, chapterId);
+      } catch {
+        /* ignore — final reload below will retry */
+      }
+      updateTrackerBtn();
+      renderTracker();
+      refreshRegionUI();
     }
 
-    // Reload all regions after batch completes
+    batchInFlight = false;
     regions = await listRegions(docId, chapterId);
     updateTrackerBtn();
     renderTracker();
