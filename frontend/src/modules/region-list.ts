@@ -97,6 +97,17 @@ export function renderRegionList(
 
     const inFlight = opts.transcribingIds?.has(region.id);
 
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn btn-danger";
+    deleteBtn.title = "Delete";
+    deleteBtn.setAttribute("aria-label", "Delete");
+    deleteBtn.innerHTML = ICON_TRASH;
+    deleteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      opts.onDelete(region);
+    });
+    actions.appendChild(deleteBtn);
+
     if (!region.transcription_md) {
       const transcribeBtn = document.createElement("button");
       if (inFlight) {
@@ -112,9 +123,6 @@ export function renderRegionList(
       }
       actions.appendChild(transcribeBtn);
     } else {
-      const copyBtn = makeCopyButton(() => region.transcription_md || "");
-      actions.appendChild(copyBtn);
-
       const retranscribeBtn = document.createElement("button");
       retranscribeBtn.className = "icon-btn";
       retranscribeBtn.title = "Re-transcribe";
@@ -132,18 +140,10 @@ export function renderRegionList(
         });
       }
       actions.appendChild(retranscribeBtn);
-    }
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "icon-btn btn-danger";
-    deleteBtn.title = "Delete";
-    deleteBtn.setAttribute("aria-label", "Delete");
-    deleteBtn.innerHTML = ICON_TRASH;
-    deleteBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      opts.onDelete(region);
-    });
-    actions.appendChild(deleteBtn);
+      const copyBtn = makeCopyButton(() => region.transcription_md || "");
+      actions.appendChild(copyBtn);
+    }
 
     card.appendChild(actions);
     container.appendChild(card);

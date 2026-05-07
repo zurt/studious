@@ -9,7 +9,10 @@ points; Python string indexing is code-point based).
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Iterable
+
+log = logging.getLogger("studious.breakdown_links")
 
 # Hiragana block (U+3040–U+309F). Trailing hiragana is dropped to obtain
 # a stem like 飲む -> 飲.
@@ -242,10 +245,35 @@ def compute_sentence_links(sentence: dict[str, Any]) -> list[dict[str, Any]]:
 def annotate(breakdown: dict[str, Any]) -> dict[str, Any]:
     """Mutate the breakdown in place, adding a `links` array per sentence."""
     sentences: Iterable[Any] = breakdown.get("sentences") or []
+    sentence_count = 0
+    counts: dict[str, int] = {
+        "vocab_exact": 0, "vocab_reading": 0, "vocab_stem": 0,
+        "grammar_llm": 0, "extras": 0,
+    }
+    vocab_total = 0
+    grammar_total = 0
     for sentence in sentences:
         if not isinstance(sentence, dict):
             continue
-        sentence["links"] = compute_sentence_links(sentence)
+        sentence_count += 1
+        vocab_total += len(sentence.get("vocab") or [])
+        grammar_total += len(sentence.get("grammar") or [])
+        links = compute_sentence_links(sentence)
+        sentence["links"] = links
+        for link in links:
+            key = f"{link['kind']}_{link['match']}"
+            if key in counts:
+                counts[key] += 1
+            counts["extras"] += len(link.get("extras") or [])
+    log.info(
+        "breakdown_links_annotated",
+        extra={
+            "sentences": sentence_count,
+            "vocab_entries": vocab_total,
+            "grammar_entries": grammar_total,
+            **counts,
+        },
+    )
     return breakdown
 
 

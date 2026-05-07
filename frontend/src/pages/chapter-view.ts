@@ -10,7 +10,7 @@ import { renderRegionList, makeCopyButton } from "../modules/region-list";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { confirmDialog } from "../modules/confirm";
 import { mountBreakdownPane } from "../modules/breakdown-pane";
-import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setPaneCollapsed } from "../modules/collapsible";
+import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "../modules/collapsible";
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { marked } from "marked";
@@ -122,6 +122,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   let drawer: ReturnType<typeof createRegionDrawer> | null = null;
   let trackerOpen = false;
   const transcribingIds = new Set<string>();
+  let batchInFlight = false;
+  let batchTotalCount = 0;
+  let batchDoneCount = 0;
 
   function syncUrl() {
     replaceQuery({ page: String(page), region: selectedRegionId });
@@ -167,26 +170,44 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     );
     const pending = sorted.filter((r) => !r.transcription_md);
     const done = sorted.filter((r) => r.transcription_md);
+    const batchTotal = batchInFlight ? batchTotalCount : 0;
+    const batchDone = batchInFlight ? batchDoneCount : 0;
+    const progressPct = batchTotal > 0 ? Math.round((batchDone / batchTotal) * 100) : 0;
+    const batchProgressHtml = batchInFlight ? `
+      <div class="tracker-progress">
+        <div class="tracker-progress-text">Transcribing ${batchDone}/${batchTotal}…</div>
+        <div class="tracker-progress-bar"><div class="tracker-progress-fill" style="width:${progressPct}%"></div></div>
+      </div>` : "";
+    const batchBtnHtml = pending.length > 0
+      ? `<button id="batch-transcribe-btn"${batchInFlight ? " disabled" : ""}>${batchInFlight ? `Transcribing ${batchDone}/${batchTotal}…` : "Transcribe all"}</button>`
+      : "";
     trackerPopover.innerHTML = `
       <div class="tracker-header">
         <span>Regions</span>
         <span style="font-size:11px;color:var(--muted)">${done.length}/${regions.length} transcribed</span>
         <div class="grow"></div>
-        ${pending.length > 0 ? `<button id="batch-transcribe-btn">Transcribe all</button>` : ""}
+        ${batchBtnHtml}
       </div>
+      ${batchProgressHtml}
       <div class="tracker-list">
         ${sorted.length === 0 ? '<div class="sidebar-empty">No regions yet</div>' : ""}
-        ${sorted.map((r) => `
-          <div class="tracker-item" data-page="${r.page}" data-id="${r.id}">
+        ${sorted.map((r) => {
+          const isTranscribing = transcribingIds.has(r.id);
+          const statusClass = r.transcription_md ? "done" : (isTranscribing ? "transcribing" : "pending");
+          const statusLabel = r.transcription_md
+            ? "done"
+            : isTranscribing
+              ? `<span class="spinner spinner-xs"></span> transcribing`
+              : "pending";
+          return `
+          <div class="tracker-item${isTranscribing ? " is-transcribing" : ""}" data-page="${r.page}" data-id="${r.id}">
             <div class="tracker-item-info">
               <div class="tracker-item-title">${r.label || r.tag.replace("_", " ")}</div>
               <div class="tracker-item-meta">p. ${r.page} &middot; ${r.tag.replace("_", " ")}</div>
             </div>
-            <span class="tracker-status ${r.transcription_md ? "done" : "pending"}">
-              ${r.transcription_md ? "done" : "pending"}
-            </span>
-          </div>
-        `).join("")}
+            <span class="tracker-status ${statusClass}">${statusLabel}</span>
+          </div>`;
+        }).join("")}
       </div>
     `;
 
@@ -213,13 +234,22 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   async function handleBatchTranscribe() {
+    if (batchInFlight) return;
     const pending = regions.filter((r) => !r.transcription_md);
     if (pending.length === 0) return;
 
     const batchCid = generateCorrelationId();
     info("ChapterView", "batch_transcribe_started", { count: pending.length, correlation_id: batchCid });
 
+    batchInFlight = true;
+    batchTotalCount = pending.length;
+    batchDoneCount = 0;
+    renderTracker();
+
     for (const region of pending) {
+      transcribingIds.add(region.id);
+      renderTracker();
+      refreshRegionUI();
       try {
         const { job_id } = await transcribeRegion(docId, chapterId, region.id, batchCid);
         await new Promise<void>((resolve) => {
@@ -237,9 +267,19 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           correlation_id: batchCid,
         });
       }
+      transcribingIds.delete(region.id);
+      batchDoneCount += 1;
+      try {
+        regions = await listRegions(docId, chapterId);
+      } catch {
+        /* ignore — final reload below will retry */
+      }
+      updateTrackerBtn();
+      renderTracker();
+      refreshRegionUI();
     }
 
-    // Reload all regions after batch completes
+    batchInFlight = false;
     regions = await listRegions(docId, chapterId);
     updateTrackerBtn();
     renderTracker();
@@ -398,13 +438,14 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       const meta: string[] = [];
       if (region.transcribed_model) meta.push(region.transcribed_model);
       if (region.transcribed_at) meta.push(new Date(region.transcribed_at).toLocaleString());
-      const metaHtml = meta.length ? `<div class="region-detail-meta">${meta.join(" · ")}</div>` : "";
+      const metaInline = meta.length ? `<span class="region-detail-meta is-hidden" data-meta-target="transcription">${meta.join(" · ")}</span>` : "";
+      const infoBtnHtml = meta.length ? `<button type="button" class="pane-info-btn" data-meta-toggle="transcription" title="Model details" aria-label="Model details" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button>${metaInline}` : "";
       const busyHtml = inFlight ? `<div class="region-detail-busy"><span class="spinner"></span> Re-transcribing…</div>` : "";
       const size = getTranscriptionTextSize();
       const collapsed = isPaneCollapsed("transcription");
       regionDetail.innerHTML = `
         <div class="region-detail-header pane-collapsible-header" role="button" tabindex="0" aria-expanded="${!collapsed}">
-          <span class="pane-header-label">${chevronHtml(collapsed)}<span>Transcription</span></span>
+          <span class="pane-header-label">${chevronHtml(collapsed)}<span>Transcription</span>${infoBtnHtml}</span>
           <span class="region-detail-actions">
             <span class="text-size-toggle" role="group" aria-label="Text size">
               <button type="button" class="icon-btn text-size-btn size-1${size === 1 ? " active" : ""}" data-size="1" title="100%" aria-label="100%" aria-pressed="${size === 1}">A</button>
@@ -413,13 +454,21 @@ export function mountChapterView(params: Record<string, string>, container: HTML
             </span>
           </span>
         </div>
-        ${metaHtml}
         ${busyHtml}
         <div class="markdown text-size-${size}">${marked.parse(region.transcription_md)}</div>
       `;
       const detailActions = regionDetail.querySelector(".region-detail-actions");
       if (detailActions) {
-        detailActions.prepend(makeCopyButton(() => region.transcription_md || ""));
+        detailActions.appendChild(makeCopyButton(() => region.transcription_md || ""));
+      }
+      const infoBtn = regionDetail.querySelector<HTMLButtonElement>('.pane-info-btn[data-meta-toggle="transcription"]');
+      const metaEl = regionDetail.querySelector<HTMLElement>('.region-detail-meta[data-meta-target="transcription"]');
+      if (infoBtn && metaEl) {
+        infoBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const hidden = metaEl.classList.toggle("is-hidden");
+          infoBtn.setAttribute("aria-pressed", String(!hidden));
+        });
       }
       regionDetail.querySelectorAll<HTMLButtonElement>(".text-size-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -446,8 +495,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     const header = regionDetail.querySelector<HTMLElement>(".pane-collapsible-header");
     if (header) {
       header.setAttribute("aria-expanded", String(!next));
-      const chev = header.querySelector(".pane-chevron");
-      if (chev) chev.textContent = next ? "▸" : "▾";
+      const chev = header.querySelector<HTMLElement>(".pane-chevron");
+      if (chev) setChevronCollapsed(chev, next);
     }
   }
 
@@ -455,6 +504,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     const target = e.target as HTMLElement;
     if (!target.closest(".pane-collapsible-header")) return;
     if (target.closest(".region-detail-actions")) return;
+    if (target.closest(".pane-info-btn")) return;
     toggleTranscriptionCollapsed();
   });
   regionDetail.addEventListener("keydown", (e) => {

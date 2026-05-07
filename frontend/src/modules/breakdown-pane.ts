@@ -4,7 +4,7 @@ import {
 } from "../api";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
-import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setPaneCollapsed } from "./collapsible";
+import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "./collapsible";
 import { makeCopyButton } from "./region-list";
 
 type Ctx = { docId: string; chapterId: string; region: Region };
@@ -163,11 +163,12 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     return out.join("");
   }
 
-  function headerHtml(actionsHtml: string = ""): string {
+  function headerHtml(actionsHtml: string = "", metaText: string = ""): string {
     const collapsed = isPaneCollapsed("breakdown");
+    const infoBtn = metaText ? `<button type="button" class="pane-info-btn" data-meta-toggle="breakdown" title="Model details" aria-label="Model details" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button><span class="region-detail-meta is-hidden" data-meta-target="breakdown">${escapeHtml(metaText)}</span>` : "";
     return `
       <div class="breakdown-pane-header pane-collapsible-header" role="button" tabindex="0" aria-expanded="${!collapsed}">
-        <span class="pane-header-label">${chevronHtml(collapsed)}<span>Sentence breakdown</span></span>
+        <span class="pane-header-label">${chevronHtml(collapsed)}<span>Sentence breakdown</span>${infoBtn}</span>
         ${actionsHtml ? `<span class="breakdown-pane-actions">${actionsHtml}</span>` : ""}
       </div>`;
   }
@@ -211,9 +212,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     const meta: string[] = [];
     if (breakdown.model) meta.push(breakdown.model);
     if (breakdown.updated_at) meta.push(new Date(breakdown.updated_at).toLocaleString());
-    const metaHtml = meta.length
-      ? `<div class="region-detail-meta">${meta.map(escapeHtml).join(" · ")}</div>`
-      : "";
+    const metaText = meta.join(" · ");
 
     const cards = breakdown.sentences.map((s, i) => {
       const vocab = (s.vocab || []).map((v) => `
@@ -223,15 +222,25 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
           <td class="bd-vocab-meaning">${escapeHtml(v.meaning)}</td>
         </tr>`).join("");
       const grammar = (s.grammar || []).map((g) => `
-        <li><span class="bd-grammar-pattern">${escapeHtml(g.pattern)}</span> — ${escapeHtml(g.explanation)}</li>`).join("");
+        <li><span class="bd-grammar-pattern">${escapeHtml(g.pattern)}</span> — <span class="bd-grammar-explanation">${escapeHtml(g.explanation)}</span></li>`).join("");
+      const hasAnswers = !!(vocab || grammar);
+      const answersToggle = hasAnswers ? `
+        <button type="button" class="icon-btn breakdown-answers-toggle" data-answers-toggle="${i}" title="Show vocab and grammar" aria-label="Show vocab and grammar" aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>` : "";
+      const answersBlock = hasAnswers ? `
+        <div class="breakdown-answers">
+          ${answersToggle}
+          ${vocab ? `<table class="breakdown-vocab"><tbody>${vocab}</tbody></table>` : ""}
+          ${grammar ? `<ul class="breakdown-grammar">${grammar}</ul>` : ""}
+        </div>` : "";
       return `
-        <div class="breakdown-card" data-idx="${i}">
+        <div class="breakdown-card${hasAnswers ? " answers-hidden" : ""}" data-idx="${i}">
           <div class="breakdown-card-header">
             <div class="breakdown-text" lang="ja">${sentenceTextHtml(s, i)}</div>
             <span class="breakdown-card-actions" data-copy-slot="${i}"></span>
           </div>
-          ${vocab ? `<table class="breakdown-vocab"><tbody>${vocab}</tbody></table>` : ""}
-          ${grammar ? `<ul class="breakdown-grammar">${grammar}</ul>` : ""}
+          ${answersBlock}
           <div class="breakdown-gloss-row">
             <div class="breakdown-gloss is-blurred">${escapeHtml(s.gloss)}</div>
             <button type="button" class="icon-btn breakdown-gloss-toggle" data-gloss-toggle="${i}" title="Show gloss" aria-label="Show gloss" aria-pressed="false">
@@ -242,8 +251,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("");
 
     container.innerHTML = `
-      ${headerHtml(`<span class="breakdown-copy-all-slot"></span><button type="button" id="bd-regenerate">Regenerate</button>`)}
-      ${metaHtml}
+      ${headerHtml(`<button type="button" id="bd-regenerate">Regenerate</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
       <div class="breakdown-list">${cards}</div>`;
 
     const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
@@ -284,6 +292,30 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       });
     });
 
+    container.querySelectorAll<HTMLElement>(".breakdown-card").forEach((card) => {
+      const btn = card.querySelector<HTMLButtonElement>("[data-answers-toggle]");
+      if (!btn) return;
+      const sync = () => {
+        const hidden = card.classList.contains("answers-hidden");
+        btn.setAttribute("aria-pressed", String(!hidden));
+        btn.title = hidden ? "Show vocab and grammar" : "Hide vocab and grammar";
+        btn.setAttribute("aria-label", btn.title);
+      };
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        card.classList.toggle("answers-hidden");
+        sync();
+      });
+      card.addEventListener("click", (e) => {
+        if (!card.classList.contains("answers-hidden")) return;
+        const target = e.target as HTMLElement;
+        if (!target.closest(".bd-vocab-reading, .bd-vocab-meaning, .bd-grammar-explanation")) return;
+        e.stopPropagation();
+        card.classList.remove("answers-hidden");
+        sync();
+      });
+    });
+
     container.querySelector<HTMLButtonElement>("#bd-regenerate")!
       .addEventListener("click", async (e) => {
         e.stopPropagation();
@@ -304,8 +336,8 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     const header = container.querySelector<HTMLElement>(".pane-collapsible-header");
     if (header) {
       header.setAttribute("aria-expanded", String(!next));
-      const chev = header.querySelector(".pane-chevron");
-      if (chev) chev.textContent = next ? "▸" : "▾";
+      const chev = header.querySelector<HTMLElement>(".pane-chevron");
+      if (chev) setChevronCollapsed(chev, next);
     }
   }
 
@@ -318,6 +350,16 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
         closePopover(true);
       } else {
         openPopover(linkBtn);
+      }
+      return;
+    }
+    const infoBtn = target.closest('.pane-info-btn[data-meta-toggle="breakdown"]') as HTMLButtonElement | null;
+    if (infoBtn) {
+      e.stopPropagation();
+      const metaEl = container.querySelector<HTMLElement>('.region-detail-meta[data-meta-target="breakdown"]');
+      if (metaEl) {
+        const hidden = metaEl.classList.toggle("is-hidden");
+        infoBtn.setAttribute("aria-pressed", String(!hidden));
       }
       return;
     }
