@@ -284,6 +284,8 @@ class Settings(BaseModel):
     default_vlm_model: str = "claude-opus-4-7"
     default_vlm_prompt: str = DEFAULT_VLM_PROMPT
     vlm_max_edge: int = 1568
+    vlm_effort_transcription: str = "high"
+    vlm_effort_breakdown: str = "xhigh"
     pdf_render_dpi: int = 300
     log_level: str = "INFO"
 
@@ -301,6 +303,12 @@ def get_settings() -> Settings:
     log_level_env = os.environ.get("STUDIOUS_LOG_LEVEL")
     if log_level_env:
         overrides["log_level"] = log_level_env.upper()
+    transcription_effort_env = os.environ.get("STUDIOUS_VLM_EFFORT_TRANSCRIPTION")
+    if transcription_effort_env:
+        overrides["vlm_effort_transcription"] = transcription_effort_env.lower()
+    breakdown_effort_env = os.environ.get("STUDIOUS_VLM_EFFORT_BREAKDOWN")
+    if breakdown_effort_env:
+        overrides["vlm_effort_breakdown"] = breakdown_effort_env.lower()
     return Settings(
         data_dir=data_dir,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,

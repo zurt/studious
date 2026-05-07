@@ -61,6 +61,30 @@ Open <http://localhost:5173>.
 - `benchmarks/` — quality benchmarking tools for tracking extraction accuracy.
 - `docs/` — project description, roadmap, and architecture documentation.
 
+## Configuration
+
+Environment variables (read at startup, `.env` supported):
+
+- `ANTHROPIC_API_KEY` — required for the Anthropic VLM provider.
+- `STUDIOUS_DATA_DIR` — data root (default `./data`).
+- `STUDIOUS_PDF_RENDER_DPI` — page raster DPI (default `300`).
+- `STUDIOUS_LOG_LEVEL` — backend log level (default `INFO`; set `DEBUG` for
+  verbose per-page events).
+- `TESSERACT_CMD` — path to the Tesseract binary if not on `$PATH`.
+- `STUDIOUS_VLM_EFFORT_TRANSCRIPTION` — effort level for VLM transcription
+  calls (default `high`). Maps to Anthropic's `output_config.effort`.
+- `STUDIOUS_VLM_EFFORT_BREAKDOWN` — effort level for sentence-breakdown tool
+  calls (default `xhigh` — these are harder reasoning tasks).
+
+Valid effort values are `low`, `medium`, `high`, `xhigh`, `max`. Effort and
+adaptive thinking only apply to models that support them (Opus 4.5+ and
+Sonnet 4.6); on Haiku 4.5 they are silently omitted. The `temperature`
+config field is silently dropped on Claude Opus 4.7 (which removed it).
+
+VLM requests use ephemeral prompt caching on the text/tool-schema portion
+of the request, so repeated calls with the same prompt see cache hits
+(visible as `cache_read_tokens` in the audit log).
+
 ## Tests
 
 ```bash

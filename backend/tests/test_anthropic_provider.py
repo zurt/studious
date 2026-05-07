@@ -104,7 +104,11 @@ def test_message_envelope_shape(vlm):
     assert image_block["type"] == "image"
     assert image_block["source"]["type"] == "base64"
     assert image_block["source"]["media_type"] == "image/png"
-    assert text_block == {"type": "text", "text": "describe"}
+    assert text_block == {
+        "type": "text",
+        "text": "describe",
+        "cache_control": {"type": "ephemeral"},
+    }
 
 
 def test_meta_has_provenance_fields(vlm):
@@ -152,7 +156,9 @@ def test_text_only_call_omits_image_block(vlm):
     inst.transcribe(None, "analyze this", {"model": "claude-sonnet-4-6"})
     msg = messages.calls[0]["messages"][0]
     assert msg["role"] == "user"
-    assert msg["content"] == [{"type": "text", "text": "analyze this"}]
+    assert msg["content"] == [
+        {"type": "text", "text": "analyze this", "cache_control": {"type": "ephemeral"}}
+    ]
 
 
 def test_text_only_call_records_zero_image_bytes(vlm):
@@ -210,7 +216,9 @@ def test_call_tool_returns_parsed_tool_input(vlm):
     assert call["tools"][0]["name"] == "record_breakdown"
     assert call["tool_choice"] == {"type": "tool", "name": "record_breakdown"}
     msg = call["messages"][0]
-    assert msg["content"] == [{"type": "text", "text": "prompt"}]
+    assert msg["content"] == [
+        {"type": "text", "text": "prompt", "cache_control": {"type": "ephemeral"}}
+    ]
 
 
 def test_call_tool_raises_when_no_tool_use_block(vlm):

@@ -48,6 +48,17 @@ A pre-rotation `llm_audit.jsonl` (no date suffix) is still read by `read_all()`.
 
 The log is written via `app.services.llm_audit.record(...)` from `app/jobs.py` after every VLM call (success or failure).
 
+### Prompt cache hits / misses
+The Anthropic VLM provider sets `cache_control: ephemeral` on the prompt
+text (and tool schema, for breakdown calls). Expect the first call with a
+given prompt to show non-zero `cache_creation_tokens` (one-time write at
+~1.25× cost) and subsequent calls within the 5-minute TTL to show
+`cache_read_tokens` (~0.1× cost). If `cache_read_tokens` stays zero across
+repeated calls, something is invalidating the prefix — most likely the
+prompt text changed, the model changed, or more than 5 minutes elapsed
+between calls. Effort changes (`STUDIOUS_VLM_EFFORT_*`) do not invalidate
+the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
+
 ### Cost estimates
 `GET /api/costs/summary` — totals plus breakdown by model and by document, derived from `llm_audit.jsonl` and the `MODEL_PRICING` table in `backend/app/config.py`. `GET /api/costs/audit?limit=&offset=` returns paginated audit entries (newest first) annotated with `estimated_cost_usd`. Models not in the pricing table appear in `unknown_models` and contribute `null` cost — add them to `MODEL_PRICING` when you start using a new model. Estimates ignore prompt-cache discounts.
 
