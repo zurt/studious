@@ -242,10 +242,19 @@ inline in the sentence and clicking them opens the explanation.
 
 ### Iter 4 — Polish
 
-- Don't render the vocab/grammar table rows for entries that
-  successfully linked — the popover is the canonical view. Keep
-  rows for entries that didn't link (so nothing is hidden). Toggle:
-  a small "show all" button if a user wants the table back.
+- Always render every vocab/grammar entry (linked or not), but
+  hide the answer content behind a per-card show/hide toggle that
+  defaults to **hidden**. Goal: the reader should try the sentence
+  first using the inline links, not pre-read the table. The
+  popover remains the primary lookup affordance; the table is the
+  reveal-everything view.
+- Hiding must not collapse layout — that would shift the page when
+  toggled and make the toggle itself move under the cursor. Keep
+  the rows in the DOM at full height and mask their content
+  instead (e.g. `visibility: hidden` on the reading/meaning cells,
+  or a same-height blurred/blanked overlay). The row's word/pattern
+  column stays visible so the table still reads as a list of items
+  to look up.
 - Telemetry/log at `INFO` level: count of links per sentence broken
   down by kind and match strategy (`exact`/`reading`/`stem`/`llm`).
   Helps decide whether to extend LLM spans to vocab.

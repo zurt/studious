@@ -223,15 +223,25 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
           <td class="bd-vocab-meaning">${escapeHtml(v.meaning)}</td>
         </tr>`).join("");
       const grammar = (s.grammar || []).map((g) => `
-        <li><span class="bd-grammar-pattern">${escapeHtml(g.pattern)}</span> — ${escapeHtml(g.explanation)}</li>`).join("");
+        <li><span class="bd-grammar-pattern">${escapeHtml(g.pattern)}</span> — <span class="bd-grammar-explanation">${escapeHtml(g.explanation)}</span></li>`).join("");
+      const hasAnswers = !!(vocab || grammar);
+      const answersToggle = hasAnswers ? `
+        <button type="button" class="icon-btn breakdown-answers-toggle" data-answers-toggle="${i}" title="Show vocab and grammar" aria-label="Show vocab and grammar" aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>` : "";
+      const answersBlock = hasAnswers ? `
+        <div class="breakdown-answers">
+          ${answersToggle}
+          ${vocab ? `<table class="breakdown-vocab"><tbody>${vocab}</tbody></table>` : ""}
+          ${grammar ? `<ul class="breakdown-grammar">${grammar}</ul>` : ""}
+        </div>` : "";
       return `
-        <div class="breakdown-card" data-idx="${i}">
+        <div class="breakdown-card${hasAnswers ? " answers-hidden" : ""}" data-idx="${i}">
           <div class="breakdown-card-header">
             <div class="breakdown-text" lang="ja">${sentenceTextHtml(s, i)}</div>
             <span class="breakdown-card-actions" data-copy-slot="${i}"></span>
           </div>
-          ${vocab ? `<table class="breakdown-vocab"><tbody>${vocab}</tbody></table>` : ""}
-          ${grammar ? `<ul class="breakdown-grammar">${grammar}</ul>` : ""}
+          ${answersBlock}
           <div class="breakdown-gloss-row">
             <div class="breakdown-gloss is-blurred">${escapeHtml(s.gloss)}</div>
             <button type="button" class="icon-btn breakdown-gloss-toggle" data-gloss-toggle="${i}" title="Show gloss" aria-label="Show gloss" aria-pressed="false">
@@ -280,6 +290,30 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
         if (!gloss.classList.contains("is-blurred")) return;
         e.stopPropagation();
         gloss.classList.remove("is-blurred");
+        sync();
+      });
+    });
+
+    container.querySelectorAll<HTMLElement>(".breakdown-card").forEach((card) => {
+      const btn = card.querySelector<HTMLButtonElement>("[data-answers-toggle]");
+      if (!btn) return;
+      const sync = () => {
+        const hidden = card.classList.contains("answers-hidden");
+        btn.setAttribute("aria-pressed", String(!hidden));
+        btn.title = hidden ? "Show vocab and grammar" : "Hide vocab and grammar";
+        btn.setAttribute("aria-label", btn.title);
+      };
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        card.classList.toggle("answers-hidden");
+        sync();
+      });
+      card.addEventListener("click", (e) => {
+        if (!card.classList.contains("answers-hidden")) return;
+        const target = e.target as HTMLElement;
+        if (!target.closest(".bd-vocab-reading, .bd-vocab-meaning, .bd-grammar-explanation")) return;
+        e.stopPropagation();
+        card.classList.remove("answers-hidden");
         sync();
       });
     });
