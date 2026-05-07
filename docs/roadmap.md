@@ -59,24 +59,57 @@ P2 — polish:
 
 ## Phase 1.7: Test Coverage
 
-See `docs/test-coverage-plan.md` for the full phased plan. Items below are the
-high-priority work (phases 1 and 2 of that plan).
+See `docs/test-coverage-plan.md` for the full phased plan.
 
-- [ ] FastAPI handler tests via `TestClient` covering documents, chapters,
-      regions, transcribe, jobs (SSE), and providers routes
-- [ ] `JobManager` coverage for VLM engine path, region jobs, unknown engine,
-      per-page errors → `completed_with_errors`, missing page image,
-      `overwrite=True`, SSE subscribe/unsubscribe, sequential ordering
-- [ ] `CorrelationMiddleware` and `StructuredFormatter` tests
-- [ ] `services/pdf.py` tests for `render_pdf_to_pages`, `copy_image_as_page`,
+Done since the phase was opened:
+- [x] `CorrelationMiddleware` + `StructuredFormatter` regression tests
+      (`tests/test_logging.py`)
+- [x] `JobManager` VLM engine path, region jobs, per-page errors →
+      `completed_with_errors`, `overwrite=True/False`, sequential ordering
+      (`tests/test_jobs_with_mock_provider.py`)
+- [x] Anthropic VLM with mocked SDK — temperature deprecation for
+      `claude-opus-4-7`, default-model fallback, message envelope, usage
+      extraction, start/done logging (`tests/test_anthropic_provider.py`)
+- [x] Chapter + region API handlers, cost endpoints, breakdown endpoints
+      (`tests/test_chapters_regions.py`, `tests/test_costs.py`,
+      `tests/test_breakdown_links.py`)
+- [x] Storage: `list_documents` recent-first, Japanese-string round-trip
+      (`tests/test_storage.py`, `tests/test_logging.py`)
+
+Outstanding:
+- [ ] FastAPI handler tests for documents (POST/PUT/DELETE/GET),
+      `/api/transcribe`, `/api/jobs/{id}/events` (SSE), `/api/providers`
+- [ ] `JobManager`: unknown engine → `failed`, missing page image → page
+      error (not job failure), SSE `subscribe`/`unsubscribe` lifecycle
+- [ ] `services/pdf.py`: `render_pdf_to_pages`, `copy_image_as_page`,
       `prepare_for_vlm`
-- [ ] Provider registry tests + Anthropic VLM tests with mocked SDK
-      (temperature deprecation for `claude-opus-4-7`, model default, message
-      envelope, usage extraction)
-- [ ] Storage edge cases: atomic write crash safety, `list_documents`
-      ordering, Japanese-string round-trip, `update_job` missing id
+- [ ] Provider registry: `register`/`get`/`list`, unknown name raises,
+      `bootstrap_default_providers` idempotent; OCR `_to_markdown` paragraph
+      splitting
+- [ ] Storage edges: `_atomic_write_text` crash safety, `update_job` missing
+      id raises `KeyError`
 - [ ] `pytest --cov=app` wired into `make test` with ≥75% on `app/api/`,
       `app/jobs.py`, `app/middleware.py`
+
+## Phase 1.8: Frontend Test Coverage
+
+Frontend currently has **no tests, no test runner**. See the frontend section
+of `docs/test-coverage-plan.md` for the detailed plan.
+
+- [ ] Stand up Vitest + jsdom (respect 7-day cooldown in `frontend/.npmrc`);
+      add `test` and `test:coverage` scripts; wire `make test` to run both
+      suites
+- [ ] `api.ts` — fetch wrapper tests with mocked `fetch` (correlation header
+      injection, non-2xx throws, `getTranscription` 404 → `null`)
+- [ ] `logger.ts` — correlation id generation/format, `startTimer` duration
+- [ ] `router.ts` — pattern compile, parameter extraction, hash dispatch
+- [ ] `modules/region-drawer.ts` — image-coords ↔ normalized-bbox math,
+      click-vs-drag selection threshold
+- [ ] `modules/zoom-pan.ts` — transform math, clamping
+- [ ] `modules/pane-splitter.ts` — ratio clamping, localStorage round-trip
+- [ ] `modules/page-input.ts` — Enter/Esc/blur behaviour, min/max clamping
+- [ ] Coverage target: ≥70% line on `frontend/src/modules/` plus
+      `api.ts`/`logger.ts`/`router.ts`
 
 ## Phase 2: Sentence Breakdowns
 

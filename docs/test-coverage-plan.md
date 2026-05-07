@@ -122,29 +122,77 @@ implicitly:
 ## Phase 3 — Frontend test runner and pure-logic modules
 
 Stand up Vitest and cover the modules whose logic is reasonable to test
-without a real browser.
+without a real browser. Frontend currently has zero tests and no runner —
+`frontend/package.json` only has `dev`, `build`, `preview`, `typecheck`.
 
 ### 3.1 Tooling
 
-- Add `vitest`, `@testing-library/dom`, `jsdom` as devDependencies (respect
-  the 7-day cooldown in `frontend/.npmrc`).
-- Add `test` and `test:coverage` scripts to `package.json`.
-- Wire `make test` to run both backend and frontend suites.
+- Add `vitest`, `@testing-library/dom`, `jsdom` as devDependencies. Respect
+  the 7-day cooldown in `frontend/.npmrc` — if any version is fresher, pin
+  one published before the cooldown window.
+- Add `test`, `test:watch`, and `test:coverage` scripts to
+  `frontend/package.json`.
+- Add `frontend/vitest.config.ts` with `environment: "jsdom"` and a
+  `setupFiles` entry that polyfills/seeds anything the modules depend on
+  (e.g. `crypto.randomUUID` for `logger.generateCorrelationId`).
+- Update the root `Makefile`: `test` should depend on `test-backend` and a
+  new `test-frontend` target (`cd frontend && npm test`).
 
-### 3.2 Modules
+### 3.2 Modules and what to assert
 
-- `modules/region-drawer.ts` — image-coords ↔ normalized-bbox math,
-  `setRegions` rerender, click-vs-drag selection threshold.
-- `modules/zoom-pan.ts` and `modules/pane-splitter.ts` — transform math and
-  clamping; both are pure enough to test under jsdom.
-- `modules/page-input.ts` — input parsing (must match backend
-  `range_parser` semantics; see phase 4 contract test).
-- `router.ts` — hash → page dispatch.
-- `api.ts` — with `vi.fn()` mocking `fetch`: correlation header injection,
-  error throw on non-2xx, `getTranscription` returns `null` on 404.
-- `logger.ts` — correlation id propagation across `startTimer`.
+Priority order — start at the top, each row is one test file:
 
-**Exit criteria:** Vitest runs in CI; ≥70% line coverage on `frontend/src/modules/`.
+1. `src/logger.ts` → `tests/logger.test.ts`
+   - `generateCorrelationId()` returns the documented format (match the
+     backend `CorrelationMiddleware` length/charset)
+   - `info`/`warn`/`error` emit valid JSON with the active correlation id
+   - `startTimer().end()` records monotonic duration (mock `performance.now`)
+
+2. `src/api.ts` → `tests/api.test.ts`
+   - `vi.fn()`-mock `fetch`; assert correlation header on every request
+   - 4xx/5xx responses throw with body in the message
+   - `getTranscription` resolves `null` on 404 (special-case)
+   - `pageImageUrl(docId, page)` builds the right path
+
+3. `src/router.ts` → `tests/router.test.ts`
+   - Pattern compilation: `/doc/:id` matches `/doc/abc` with
+     `params.id === "abc"`; literal segments don't match params
+   - `navigate("/x")` updates `location.hash` and triggers the right route
+   - `replaceQuery({k: "v"})` preserves the path
+
+4. `src/modules/pane-splitter.ts` → `tests/pane-splitter.test.ts`
+   - Ratio clamps to `[MIN_RATIO, MAX_RATIO]`
+   - localStorage round-trip survives a remount (state persists)
+   - Collapse/expand toggles the right CSS class
+
+5. `src/modules/region-drawer.ts` → `tests/region-drawer.test.ts`
+   - `imageToNorm`/`normToImage` round-trip within FP tolerance
+   - Click below the drag threshold selects the region under the pointer
+   - Drag above the threshold creates a new bbox with normalized coords in
+     `[0, 1]` and `x1 < x2`, `y1 < y2`
+   - `setRegions(arr)` rerenders — each region has a corresponding handle
+
+6. `src/modules/zoom-pan.ts` → `tests/zoom-pan.test.ts`
+   - Wheel + Cmd zooms about the cursor (transform math)
+   - Pan clamps so the image cannot leave the viewport entirely
+   - `fit()` resets transform to the documented baseline
+
+7. `src/modules/page-input.ts` → `tests/page-input.test.ts`
+   - Click swaps span → input; Enter commits with
+     `Math.min(max, Math.max(min, value))`
+   - Esc/blur restores prior text and does not call `onCommit`
+   - Non-finite input (e.g. empty) restores without committing
+
+### 3.3 Out of scope for Phase 3
+
+- E2E (Playwright/Cypress) — separate phase if/when needed
+- Visual regression — manual review for now
+- `breakdown-pane.ts`, `region-list.ts`, `settings-modal.ts` are heavily
+  DOM-bound; defer until the pure-logic modules above are green and we
+  have the conventions down
+
+**Exit criteria:** `make test` runs both suites; Vitest reports ≥70% line
+coverage on `frontend/src/modules/`, `api.ts`, `logger.ts`, `router.ts`.
 
 ---
 
@@ -156,11 +204,13 @@ without a real browser.
 - Set a soft floor (start with 70% on `app/services/` and `app/jobs.py`) once a
   baseline exists. Tighten after each phase.
 
-### 4.2 Frontend↔backend page-spec contract test
+### 4.2 Page-spec parser
 
-The page-range mini-language is parsed in two places (`services/range_parser.py`
-and `modules/page-input.ts`). Add a shared `tests/fixtures/page_specs.json`
-consumed by both pytest and vitest so divergence breaks CI.
+The page-range mini-language is parsed in `services/range_parser.py` only —
+the frontend (`modules/page-input.ts`) is a single-number input that posts
+the raw string to the backend. No frontend parser exists, so no contract
+test is needed. If a frontend parser is ever added, mirror the backend
+fixtures so divergence breaks CI.
 
 ### 4.3 Integration smoke test
 
