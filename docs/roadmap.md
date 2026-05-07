@@ -93,8 +93,10 @@ See `docs/breakdown-vocab-links-plan.md`.
 - [x] Iter 2 — Frontend renders linked spans with click-to-open popover (vocab)
 - [x] Iter 3 — Grammar links via LLM-emitted surface strings; overlapping
       vocab + grammar merge into a single popover
-- [ ] Iter 4 — Polish: hide linked rows from vocab/grammar tables, telemetry,
-      troubleshooting entries
+- [x] Iter 4 — Polish: hide-by-default vocab/grammar answers behind a
+      per-card eye toggle (gray-bar overlay, no layout shift),
+      `breakdown_links_annotated` INFO log with per-region match-strategy
+      counts, troubleshooting entries for linker miss modes
 
 ## Phase 3: Central Vocab/Grammar Store
 
