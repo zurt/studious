@@ -163,11 +163,12 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     return out.join("");
   }
 
-  function headerHtml(actionsHtml: string = ""): string {
+  function headerHtml(actionsHtml: string = "", metaText: string = ""): string {
     const collapsed = isPaneCollapsed("breakdown");
+    const infoBtn = metaText ? `<button type="button" class="pane-info-btn" data-meta-toggle="breakdown" title="Model details" aria-label="Model details" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button><span class="region-detail-meta is-hidden" data-meta-target="breakdown">${escapeHtml(metaText)}</span>` : "";
     return `
       <div class="breakdown-pane-header pane-collapsible-header" role="button" tabindex="0" aria-expanded="${!collapsed}">
-        <span class="pane-header-label">${chevronHtml(collapsed)}<span>Sentence breakdown</span></span>
+        <span class="pane-header-label">${chevronHtml(collapsed)}<span>Sentence breakdown</span>${infoBtn}</span>
         ${actionsHtml ? `<span class="breakdown-pane-actions">${actionsHtml}</span>` : ""}
       </div>`;
   }
@@ -211,9 +212,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     const meta: string[] = [];
     if (breakdown.model) meta.push(breakdown.model);
     if (breakdown.updated_at) meta.push(new Date(breakdown.updated_at).toLocaleString());
-    const metaHtml = meta.length
-      ? `<div class="region-detail-meta">${meta.map(escapeHtml).join(" · ")}</div>`
-      : "";
+    const metaText = meta.join(" · ");
 
     const cards = breakdown.sentences.map((s, i) => {
       const vocab = (s.vocab || []).map((v) => `
@@ -252,8 +251,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("");
 
     container.innerHTML = `
-      ${headerHtml(`<span class="breakdown-copy-all-slot"></span><button type="button" id="bd-regenerate">Regenerate</button>`)}
-      ${metaHtml}
+      ${headerHtml(`<span class="breakdown-copy-all-slot"></span><button type="button" id="bd-regenerate">Regenerate</button>`, metaText)}
       <div class="breakdown-list">${cards}</div>`;
 
     const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
@@ -352,6 +350,16 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
         closePopover(true);
       } else {
         openPopover(linkBtn);
+      }
+      return;
+    }
+    const infoBtn = target.closest('.pane-info-btn[data-meta-toggle="breakdown"]') as HTMLButtonElement | null;
+    if (infoBtn) {
+      e.stopPropagation();
+      const metaEl = container.querySelector<HTMLElement>('.region-detail-meta[data-meta-target="breakdown"]');
+      if (metaEl) {
+        const hidden = metaEl.classList.toggle("is-hidden");
+        infoBtn.setAttribute("aria-pressed", String(!hidden));
       }
       return;
     }

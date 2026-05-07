@@ -398,13 +398,14 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       const meta: string[] = [];
       if (region.transcribed_model) meta.push(region.transcribed_model);
       if (region.transcribed_at) meta.push(new Date(region.transcribed_at).toLocaleString());
-      const metaHtml = meta.length ? `<div class="region-detail-meta">${meta.join(" · ")}</div>` : "";
+      const metaInline = meta.length ? `<span class="region-detail-meta is-hidden" data-meta-target="transcription">${meta.join(" · ")}</span>` : "";
+      const infoBtnHtml = meta.length ? `<button type="button" class="pane-info-btn" data-meta-toggle="transcription" title="Model details" aria-label="Model details" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button>${metaInline}` : "";
       const busyHtml = inFlight ? `<div class="region-detail-busy"><span class="spinner"></span> Re-transcribing…</div>` : "";
       const size = getTranscriptionTextSize();
       const collapsed = isPaneCollapsed("transcription");
       regionDetail.innerHTML = `
         <div class="region-detail-header pane-collapsible-header" role="button" tabindex="0" aria-expanded="${!collapsed}">
-          <span class="pane-header-label">${chevronHtml(collapsed)}<span>Transcription</span></span>
+          <span class="pane-header-label">${chevronHtml(collapsed)}<span>Transcription</span>${infoBtnHtml}</span>
           <span class="region-detail-actions">
             <span class="text-size-toggle" role="group" aria-label="Text size">
               <button type="button" class="icon-btn text-size-btn size-1${size === 1 ? " active" : ""}" data-size="1" title="100%" aria-label="100%" aria-pressed="${size === 1}">A</button>
@@ -413,13 +414,21 @@ export function mountChapterView(params: Record<string, string>, container: HTML
             </span>
           </span>
         </div>
-        ${metaHtml}
         ${busyHtml}
         <div class="markdown text-size-${size}">${marked.parse(region.transcription_md)}</div>
       `;
       const detailActions = regionDetail.querySelector(".region-detail-actions");
       if (detailActions) {
         detailActions.prepend(makeCopyButton(() => region.transcription_md || ""));
+      }
+      const infoBtn = regionDetail.querySelector<HTMLButtonElement>('.pane-info-btn[data-meta-toggle="transcription"]');
+      const metaEl = regionDetail.querySelector<HTMLElement>('.region-detail-meta[data-meta-target="transcription"]');
+      if (infoBtn && metaEl) {
+        infoBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const hidden = metaEl.classList.toggle("is-hidden");
+          infoBtn.setAttribute("aria-pressed", String(!hidden));
+        });
       }
       regionDetail.querySelectorAll<HTMLButtonElement>(".text-size-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -455,6 +464,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     const target = e.target as HTMLElement;
     if (!target.closest(".pane-collapsible-header")) return;
     if (target.closest(".region-detail-actions")) return;
+    if (target.closest(".pane-info-btn")) return;
     toggleTranscriptionCollapsed();
   });
   regionDetail.addEventListener("keydown", (e) => {

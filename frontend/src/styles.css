@@ -317,7 +317,12 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .markdown.text-size-2 h1, .markdown.text-size-2 h2, .markdown.text-size-2 h3 { font-size: inherit; }
 .markdown.text-size-3 { font-size: 200%; }
 .markdown.text-size-3 h1, .markdown.text-size-3 h2, .markdown.text-size-3 h3 { font-size: inherit; }
-.region-detail-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.region-detail-meta { font-size: 11px; color: var(--muted); font-weight: 400; text-transform: none; }
+.pane-header-label .region-detail-meta { margin-left: 4px; }
+.region-detail-meta.is-hidden { display: none; }
+.pane-info-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; border-radius: 50%; }
+.pane-info-btn:hover { color: var(--text); background: var(--hover-bg, rgba(127,127,127,0.15)); }
+.pane-info-btn[aria-pressed="true"] { color: var(--accent); }
 
 /* Collapsible panes */
 .pane-collapsible-header { cursor: pointer; user-select: none; }
