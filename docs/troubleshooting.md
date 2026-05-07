@@ -86,5 +86,20 @@ The breakdown job (`job_type=breakdown_region`) requires the region to have `tra
 ### Sentence breakdown fails with "tool response missing non-empty `sentences`"
 The VLM tool-use call returned, but the model's tool input either omitted `sentences` or sent an empty array. This is logged in `llm_audit.YYYY-MM.jsonl` with `job_type=breakdown_region`, `status=error`, and the full token usage so the call still counts toward cost. The breakdown schema requires `sentences`, sets `minItems: 1`, and breakdown requests use `max_tokens: 8192`. If `stop_reason=max_tokens`, the response was truncated before the tool input completed; split the region smaller or make the prompt/output less verbose. Otherwise, inspect the audit entry's `request_id` to pull the raw call from Anthropic logs and confirm whether the provider ignored the constraint. Regenerate the breakdown after the backend reloads; the operation is idempotent and overwrites stale state when `overwrite=true`.
 
+### Vocab term in the breakdown table doesn't underline in the sentence
+The sentence-link computer (`backend/app/services/breakdown_links.py`) tries three strategies in order: exact-substring of `word`, exact-substring of `reading`, then a "drop trailing hiragana" stem. All three can miss legitimately:
+- Pure-hiragana inflected adjectives (e.g., `おいしい` vs `おいしかった`) — the stem is too short to risk and is rejected.
+- Stems that would land inside a longer kanji run (e.g., `行` inside `銀行` when vocab is `行く`) — rejected on purpose to avoid false positives.
+- Compound vocab the model split into pieces — usually still links each piece, but adjacent splits can lose one if their stems collide.
+
+To confirm what happened, look up the region's breakdown JSON on disk (`backend/data/documents/<doc>/chapters/<chapter>/regions/<region>.json` → `breakdown.sentences[i].links`); a missing link for a vocab index means none of the three strategies matched. The vocab row still renders in the table — the linker only suppresses the *inline* underline. The `breakdown_links_annotated` log line gives per-region totals by match strategy if you want to track drift over time.
+
+### Grammar pattern doesn't underline in the sentence
+Grammar links come from `surfaces` in the model's tool response — literal substrings of the sentence text that anchor each pattern (we tried offsets first; the model couldn't count CJK code-points reliably). If a pattern doesn't link, either:
+- The model omitted `surfaces` for that entry. Inspect the breakdown JSON (`grammar[i].surfaces`); regenerating the breakdown often produces a complete set on the next call.
+- The surface string isn't actually a substring of `text` (model paraphrased rather than copying). Same fix — regenerate.
+
+Multiple identical surfaces (e.g., two ます in one sentence) are linked to *different* occurrences automatically. Surfaces shared across patterns (e.g., `的` inside `社会文化的な`) are allowed to overlap — the popover stacks both entries.
+
 ### Benchmark CER spikes or line accuracy collapses
 Before assuming a model/prompt regression: check whether the **ground truth** matches the format the current prompt is producing. CER and line-accuracy are computed character- and line-exact — markdown structure (`#`, `**`, `<u>`), fullwidth vs halfwidth punctuation, paragraph wrapping, and inline annotations like `[?N]` all count as differences. If you change the default VLM prompt's output style, the existing GT will need to be regenerated (or normalized before scoring). Rule of thumb: if line accuracy is in single digits while the body text reads correctly side-by-side, it's a format mismatch, not a regression.

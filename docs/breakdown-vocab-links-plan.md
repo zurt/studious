@@ -255,9 +255,11 @@ inline in the sentence and clicking them opens the explanation.
   or a same-height blurred/blanked overlay). The row's word/pattern
   column stays visible so the table still reads as a list of items
   to look up.
-- Telemetry/log at `INFO` level: count of links per sentence broken
-  down by kind and match strategy (`exact`/`reading`/`stem`/`llm`).
-  Helps decide whether to extend LLM spans to vocab.
+- Telemetry/log at `INFO` level: per-region link counts broken
+  down by kind and match strategy (`vocab_exact`/`vocab_reading`/
+  `vocab_stem`/`grammar_llm`/`extras`), emitted as
+  `breakdown_links_annotated`. Helps decide whether to extend LLM
+  spans to vocab.
 - Update `troubleshooting.md` with entries for "vocab term doesn't
   link in the sentence" (stemmer limits) and "grammar term doesn't
   link" (model omitted a span / span out of range).
