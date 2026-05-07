@@ -10,7 +10,7 @@ import { renderRegionList, makeCopyButton } from "../modules/region-list";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { confirmDialog } from "../modules/confirm";
 import { mountBreakdownPane } from "../modules/breakdown-pane";
-import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setPaneCollapsed } from "../modules/collapsible";
+import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "../modules/collapsible";
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { marked } from "marked";
@@ -459,7 +459,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       `;
       const detailActions = regionDetail.querySelector(".region-detail-actions");
       if (detailActions) {
-        detailActions.prepend(makeCopyButton(() => region.transcription_md || ""));
+        detailActions.appendChild(makeCopyButton(() => region.transcription_md || ""));
       }
       const infoBtn = regionDetail.querySelector<HTMLButtonElement>('.pane-info-btn[data-meta-toggle="transcription"]');
       const metaEl = regionDetail.querySelector<HTMLElement>('.region-detail-meta[data-meta-target="transcription"]');
@@ -495,8 +495,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     const header = regionDetail.querySelector<HTMLElement>(".pane-collapsible-header");
     if (header) {
       header.setAttribute("aria-expanded", String(!next));
-      const chev = header.querySelector(".pane-chevron");
-      if (chev) chev.textContent = next ? "▸" : "▾";
+      const chev = header.querySelector<HTMLElement>(".pane-chevron");
+      if (chev) setChevronCollapsed(chev, next);
     }
   }
 

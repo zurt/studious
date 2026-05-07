@@ -45,7 +45,7 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
   fitBtn.className = "zp-fit-btn";
   fitBtn.title = "Zoom to fit";
   fitBtn.setAttribute("aria-label", "Zoom to fit");
-  fitBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"/></svg>`;
+  fitBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5"/><rect x="4.5" y="5.5" width="7" height="5" rx="0.5"/></svg>`;
 
   const fitWidthBtn = document.createElement("button");
   fitWidthBtn.className = "zp-fit-btn";

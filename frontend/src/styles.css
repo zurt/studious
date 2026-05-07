@@ -327,11 +327,12 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 /* Collapsible panes */
 .pane-collapsible-header { cursor: pointer; user-select: none; }
 .pane-collapsible-header:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-.pane-header-label { display: inline-flex; align-items: center; gap: 6px; }
+.pane-header-label { display: inline-flex; align-items: center; gap: 4px; }
 .pane-chevron {
-  display: inline-block; width: 24px; text-align: center;
-  font-size: 22px; line-height: 1; color: var(--muted);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; color: var(--muted);
 }
+.pane-chevron svg { display: block; }
 .region-detail.is-collapsed > *:not(.region-detail-header) { display: none; }
 .breakdown-pane.is-collapsed > *:not(.breakdown-pane-header) { display: none; }
 .region-detail.is-collapsed { padding-bottom: 0; }
@@ -345,6 +346,10 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   justify-content: space-between; gap: 8px;
 }
 .breakdown-pane-actions { display: flex; gap: 6px; align-items: center; }
+.breakdown-pane-actions .icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px; line-height: 0; }
+.breakdown-pane-actions .icon-btn svg { display: block; }
+.breakdown-card-actions .icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px; line-height: 0; }
+.breakdown-card-actions .icon-btn svg { display: block; }
 .breakdown-empty, .breakdown-error {
   font-size: 13px; color: var(--muted); padding: 8px 0;
 }
@@ -396,9 +401,12 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .bd-popover-meaning { font-size: 13px; line-height: 1.4; }
 .breakdown-card-header {
   display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;
+  padding-right: 28px;
 }
 .breakdown-card-header .breakdown-text { margin-bottom: 0; flex: 1; }
-.breakdown-card-actions { flex: 0 0 auto; }
+.breakdown-card-actions {
+  position: absolute; top: 8px; right: 8px;
+}
 .breakdown-text {
   font-size: 17px; line-height: 1.55; margin-bottom: 8px;
   font-family: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", system-ui, sans-serif;
@@ -430,7 +438,7 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .breakdown-gloss.is-blurred {
   filter: blur(5px); opacity: 0.5; cursor: pointer; user-select: none;
 }
-.breakdown-copy-all-slot { display: inline-flex; margin-right: 4px; }
+.breakdown-copy-all-slot { display: inline-flex; }
 .breakdown-card-actions { display: inline-flex; align-items: center; gap: 2px; }
 .breakdown-answers { position: relative; }
 .breakdown-answers-toggle {
@@ -478,8 +486,10 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .icon-btn {
   background: none; border: none; font-size: 20px; padding: 4px 8px;
   cursor: pointer; color: var(--muted); line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .icon-btn:hover { color: var(--fg); border: none; }
+.floating-controls .icon-btn svg { display: block; width: 18px; height: 18px; }
 
 /* Chapter banner */
 .chapter-banner {

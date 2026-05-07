@@ -4,7 +4,7 @@ import {
 } from "../api";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
-import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setPaneCollapsed } from "./collapsible";
+import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "./collapsible";
 import { makeCopyButton } from "./region-list";
 
 type Ctx = { docId: string; chapterId: string; region: Region };
@@ -251,7 +251,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("");
 
     container.innerHTML = `
-      ${headerHtml(`<span class="breakdown-copy-all-slot"></span><button type="button" id="bd-regenerate">Regenerate</button>`, metaText)}
+      ${headerHtml(`<button type="button" id="bd-regenerate">Regenerate</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
       <div class="breakdown-list">${cards}</div>`;
 
     const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
@@ -336,8 +336,8 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     const header = container.querySelector<HTMLElement>(".pane-collapsible-header");
     if (header) {
       header.setAttribute("aria-expanded", String(!next));
-      const chev = header.querySelector(".pane-chevron");
-      if (chev) chev.textContent = next ? "▸" : "▾";
+      const chev = header.querySelector<HTMLElement>(".pane-chevron");
+      if (chev) setChevronCollapsed(chev, next);
     }
   }
 
