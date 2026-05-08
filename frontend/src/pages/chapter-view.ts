@@ -83,7 +83,10 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   `;
 
   const backLink = container.querySelector<HTMLAnchorElement>("#back-link")!;
-  backLink.addEventListener("click", (e) => { e.preventDefault(); navigate(`/doc/${docId}`); });
+  backLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    navigate(page > 0 ? `/doc/${docId}?page=${page}` : `/doc/${docId}`);
+  });
 
   const chapterTitle = container.querySelector<HTMLElement>("#chapter-title")!;
   const pageInfo = container.querySelector<HTMLElement>("#page-info")!;
