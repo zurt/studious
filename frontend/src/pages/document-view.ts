@@ -337,11 +337,9 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
         </div>
         <div class="row chapter-thumbs">
           <div class="chapter-thumb grow">
-            <div class="chapter-thumb-label">Start</div>
             <img id="ch-start-thumb" alt="" />
           </div>
           <div class="chapter-thumb grow">
-            <div class="chapter-thumb-label">End</div>
             <img id="ch-end-thumb" alt="" />
           </div>
         </div>
@@ -391,6 +389,9 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
     startInput.addEventListener("input", onStartChange);
     endInput.addEventListener("input", onEndChange);
     updateThumbs();
+
+    attachThumbHoverZoom(startThumb);
+    attachThumbHoverZoom(endThumb);
 
     bg.querySelector("#ch-cancel")!.addEventListener("click", () => bg.remove());
     bg.addEventListener("click", (e) => { if (e.target === bg) bg.remove(); });
@@ -497,4 +498,30 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
     document.removeEventListener("click", onDocClick);
     viewer.destroy();
   };
+}
+
+function attachThumbHoverZoom(img: HTMLImageElement) {
+  const ZOOM = 4;
+  const host = img.parentElement;
+  if (!host) return;
+  img.style.pointerEvents = "none";
+  const onMove = (e: MouseEvent) => {
+    const rect = img.getBoundingClientRect();
+    const ix = e.clientX - rect.left;
+    const iy = e.clientY - rect.top;
+    if (ix < 0 || iy < 0 || ix > rect.width || iy > rect.height) {
+      img.style.transform = "";
+      return;
+    }
+    const x = (ix / rect.width) * 100;
+    const y = (iy / rect.height) * 100;
+    img.style.transformOrigin = `${x}% ${y}%`;
+    img.style.transform = `scale(${ZOOM})`;
+  };
+  const onLeave = () => {
+    img.style.transform = "";
+    img.style.transformOrigin = "";
+  };
+  host.addEventListener("mousemove", onMove);
+  host.addEventListener("mouseleave", onLeave);
 }
