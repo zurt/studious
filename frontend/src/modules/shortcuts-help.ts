@@ -1,9 +1,6 @@
 type Shortcut = { keys: string[]; desc: string };
 type Group = { title: string; items: Shortcut[] };
 
-const isMac = navigator.platform.toUpperCase().includes("MAC");
-const MOD = isMac ? "⌘" : "Ctrl";
-
 const GROUPS: Group[] = [
   {
     title: "General",
@@ -22,9 +19,6 @@ const GROUPS: Group[] = [
   {
     title: "Page viewer (zoom & pan)",
     items: [
-      { keys: [`${MOD}`, "+"], desc: "Zoom in" },
-      { keys: [`${MOD}`, "−"], desc: "Zoom out" },
-      { keys: [`${MOD}`, "0"], desc: "Actual size (100%)" },
       { keys: ["Trackpad pinch"], desc: "Zoom" },
       { keys: ["Two-finger scroll"], desc: "Pan" },
     ],

@@ -3,7 +3,6 @@
  *
  * - Pinch-to-zoom on trackpad
  * - Two-finger scroll to pan
- * - Cmd+/- to zoom, Cmd+0 for actual size
  * - Zoom-to-fit and fit-width buttons
  * - Min/max zoom limits
  */
@@ -119,16 +118,6 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
     applyTransform();
   }
 
-  function zoomActualSize() {
-    if (!img.naturalWidth) return;
-    const vw = viewport.clientWidth;
-    const vh = viewport.clientHeight;
-    scale = 1;
-    translateX = (vw - img.naturalWidth) / 2;
-    translateY = (vh - img.naturalHeight) / 2;
-    applyTransform();
-  }
-
   function zoomBy(factor: number, cx: number, cy: number) {
     const newScale = clampScale(scale * factor);
     if (newScale === scale) return;
@@ -158,27 +147,7 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
     }
   }
 
-  // Keyboard: Cmd+/-, Cmd+0
-  function onKey(e: KeyboardEvent) {
-    if (!e.metaKey && !e.ctrlKey) return;
-    const vw = viewport.clientWidth;
-    const vh = viewport.clientHeight;
-    const cx = vw / 2;
-    const cy = vh / 2;
-    if (e.key === "=" || e.key === "+") {
-      e.preventDefault();
-      zoomBy(1.25, cx, cy);
-    } else if (e.key === "-") {
-      e.preventDefault();
-      zoomBy(0.8, cx, cy);
-    } else if (e.key === "0") {
-      e.preventDefault();
-      zoomActualSize();
-    }
-  }
-
   viewport.addEventListener("wheel", onWheel, { passive: false });
-  document.addEventListener("keydown", onKey);
   fitBtn.addEventListener("click", zoomToFit);
   fitWidthBtn.addEventListener("click", zoomToFitWidth);
 
@@ -198,7 +167,6 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
     zoomToFitWidth,
     destroy() {
       viewport.removeEventListener("wheel", onWheel);
-      document.removeEventListener("keydown", onKey);
       container.remove();
     },
   };
