@@ -77,19 +77,23 @@ Done since the phase was opened:
       (`tests/test_storage.py`, `tests/test_logging.py`)
 
 Outstanding:
-- [ ] FastAPI handler tests for documents (POST/PUT/DELETE/GET),
+- [x] FastAPI handler tests for documents (POST/PUT/DELETE/GET),
       `/api/transcribe`, `/api/jobs/{id}/events` (SSE), `/api/providers`
-- [ ] `JobManager`: unknown engine → `failed`, missing page image → page
-      error (not job failure), SSE `subscribe`/`unsubscribe` lifecycle
-- [ ] `services/pdf.py`: `render_pdf_to_pages`, `copy_image_as_page`,
-      `prepare_for_vlm`
-- [ ] Provider registry: `register`/`get`/`list`, unknown name raises,
+      (`tests/test_api_documents.py`, `tests/test_api_transcribe.py`,
+      `tests/test_api_jobs_sse.py`, `tests/test_api_providers.py`)
+- [x] `JobManager`: unknown engine → `failed`, missing page image → page
+      error (not job failure), SSE `subscribe`/`unsubscribe` lifecycle,
+      sequential ordering (`tests/test_jobs_lifecycle.py`)
+- [x] `services/pdf.py`: `render_pdf_to_pages`, `copy_image_as_page`,
+      `prepare_for_vlm` (`tests/test_pdf_service.py`)
+- [x] Provider registry: `register`/`get`/`list`, unknown name raises,
       `bootstrap_default_providers` idempotent; OCR `_to_markdown` paragraph
-      splitting
-- [ ] Storage edges: `_atomic_write_text` crash safety, `update_job` missing
-      id raises `KeyError`
-- [ ] `pytest --cov=app` wired into `make test` with ≥75% on `app/api/`,
-      `app/jobs.py`, `app/middleware.py`
+      splitting (`tests/test_provider_registry.py`)
+- [x] Storage edges: `_atomic_write_text` crash safety, `update_job` missing
+      id raises `KeyError` (`tests/test_storage_edges.py`)
+- [x] `pytest --cov=app --cov-fail-under=75` wired into `make test`;
+      coverage on `app/api/`, `app/jobs.py`, `app/middleware.py` all ≥75%
+      (current total: 89%)
 
 ## Phase 1.8: Frontend Test Coverage
 

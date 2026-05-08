@@ -21,7 +21,7 @@ dev:
 	@echo "Run 'make dev-backend' and 'make dev-frontend' in two terminals."
 
 dev-backend:
-	cd backend && . .venv/bin/activate && uvicorn app.main:app --reload --port 8000
+	cd backend && uv run uvicorn app.main:app --reload --port 8000
 
 dev-frontend:
 	cd frontend && npm run dev
@@ -29,14 +29,17 @@ dev-frontend:
 test: test-backend
 
 test-backend:
-	cd backend && . .venv/bin/activate && pytest
+	cd backend && uv run pytest \
+		--cov=app \
+		--cov-report=term-missing \
+		--cov-fail-under=75
 
 audit:
 	@echo "==> npm audit"
 	cd frontend && npm audit --omit=dev || true
 	@echo ""
 	@echo "==> pip-audit"
-	cd backend && . .venv/bin/activate && pip-audit || true
+	cd backend && uv run pip-audit || true
 
 # Tail backend log assuming it was started with
 #   make dev-backend 2>&1 | tee /tmp/studious-backend.log
@@ -48,7 +51,7 @@ audit-log:
 	tail -F backend/data/llm_audit.jsonl | jq -C .
 
 benchmark:
-	. backend/.venv/bin/activate && python -m benchmarks.run_benchmark
+	uv run --project backend python -m benchmarks.run_benchmark
 
 clean:
 	rm -rf backend/.venv backend/.pytest_cache backend/**/__pycache__ frontend/node_modules frontend/dist
