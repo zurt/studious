@@ -5,6 +5,15 @@ select regions of interest on pages, and transcribe them with a Vision-LLM
 (Anthropic Claude). View transcriptions side-by-side with the original page
 images.
 
+Reading-passage regions can be expanded into a **sentence breakdown** —
+each sentence is split out with an English gloss and per-sentence vocab
+and grammar entries. **Vocab list** regions use a dedicated prompt that
+emits structured `term（reading）　gloss` entries, preserving item indices
+and section headers and supplying short English glosses where the
+textbook does not print them. Vocab items detected in a sentence
+breakdown are linked inline back to their entry in the chapter's vocab
+list, so clicking a word in a sentence opens its reading and meaning.
+
 Built to replace a manual ChatGPT-based study workflow with persistent storage,
 chapter organization, and region-level transcription.
 
@@ -50,6 +59,10 @@ Open <http://localhost:5173>.
    English glosses when the textbook does not print them. Other tags
    use the generic region prompt.
 5. View transcriptions side-by-side with the original page
+6. **Break down sentences** — for reading-passage regions, generate a
+   per-sentence breakdown with English glosses and per-sentence vocab
+   and grammar. Vocab items are linked inline to the chapter's vocab
+   list so clicking a word reveals its reading and meaning.
 
 ## Layout
 
