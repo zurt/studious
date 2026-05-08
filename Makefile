@@ -29,7 +29,10 @@ dev-frontend:
 test: test-backend
 
 test-backend:
-	cd backend && . .venv/bin/activate && pytest
+	cd backend && . .venv/bin/activate && pytest \
+		--cov=app \
+		--cov-report=term-missing \
+		--cov-fail-under=75
 
 audit:
 	@echo "==> npm audit"
