@@ -691,3 +691,35 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   padding: 24px; text-align: center;
 }
 .usage-empty-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+
+.shortcuts-help {
+  width: min(520px, 92vw);
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.shortcuts-help-body {
+  padding: 18px;
+  display: flex; flex-direction: column; gap: 18px;
+  overflow: auto;
+}
+.shortcuts-group h3 {
+  margin: 0 0 8px 0; font-size: 13px; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.shortcuts-group dl {
+  display: grid; grid-template-columns: max-content 1fr;
+  gap: 8px 16px; margin: 0;
+}
+.shortcuts-group dt {
+  display: flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.shortcuts-group dd { margin: 0; align-self: center; font-size: 13px; }
+.shortcuts-group kbd {
+  display: inline-block; min-width: 20px; padding: 2px 6px;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--bg-soft); border: 1px solid var(--border);
+  border-bottom-width: 2px; border-radius: 4px;
+  text-align: center; color: inherit;
+}
+.shortcut-plus { color: var(--muted); font-size: 11px; }

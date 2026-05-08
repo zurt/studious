@@ -4,6 +4,12 @@ import { mountLibrary } from "./pages/library";
 import { mountDocumentView } from "./pages/document-view";
 import { mountChapterView } from "./pages/chapter-view";
 import { openSettingsModal, syncSettingsModalFromUrl } from "./modules/settings-modal";
+import {
+  openShortcutsHelp,
+  closeShortcutsHelp,
+  isShortcutsHelpOpen,
+  isTypingTarget,
+} from "./modules/shortcuts-help";
 
 const root = document.getElementById("root")!;
 
@@ -15,6 +21,7 @@ root.innerHTML = `
     </div>
     <div id="page-container" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
     <div class="floating-controls">
+      <button id="help-btn" class="icon-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
       <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
       <button id="fullscreen-btn" class="icon-btn" title="Toggle fullscreen" aria-label="Toggle fullscreen"></button>
     </div>
@@ -64,6 +71,23 @@ document.addEventListener("fullscreenchange", () => {
 
 root.querySelector<HTMLButtonElement>("#settings-btn")!.addEventListener("click", () => {
   openSettingsModal();
+});
+
+root.querySelector<HTMLButtonElement>("#help-btn")!.addEventListener("click", () => {
+  openShortcutsHelp();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && isShortcutsHelpOpen()) {
+    closeShortcutsHelp();
+    return;
+  }
+  if (e.key !== "?") return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (isTypingTarget(e.target)) return;
+  e.preventDefault();
+  if (isShortcutsHelpOpen()) closeShortcutsHelp();
+  else openShortcutsHelp();
 });
 
 const pageContainer = root.querySelector<HTMLElement>("#page-container")!;
