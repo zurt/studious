@@ -10,6 +10,7 @@
 
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 5.0;
+const PAN_MARGIN = 40;
 
 export type ZoomPanViewer = {
   container: HTMLElement;
@@ -65,7 +66,28 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
   let translateX = 0;
   let translateY = 0;
 
+  function clampTranslation() {
+    if (!img.naturalWidth) return;
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    const iw = img.naturalWidth * scale;
+    const ih = img.naturalHeight * scale;
+    const marginX = Math.min(PAN_MARGIN, iw, vw);
+    const marginY = Math.min(PAN_MARGIN, ih, vh);
+    const aX = marginX - iw;
+    const bX = vw - marginX;
+    const aY = marginY - ih;
+    const bY = vh - marginY;
+    const minX = Math.min(aX, bX);
+    const maxX = Math.max(aX, bX);
+    const minY = Math.min(aY, bY);
+    const maxY = Math.max(aY, bY);
+    translateX = Math.min(maxX, Math.max(minX, translateX));
+    translateY = Math.min(maxY, Math.max(minY, translateY));
+  }
+
   function applyTransform() {
+    clampTranslation();
     content.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
   }
 
