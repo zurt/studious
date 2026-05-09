@@ -116,6 +116,22 @@ Vitest + jsdom now run as part of `make test`. See the frontend section of
       `api.ts`/`logger.ts`/`router.ts` (achieved: 90.6% line overall;
       api.ts 97%, router.ts 100%, modules dir 87.7%)
 
+## Phase 1.9: Supply Chain Hardening
+
+See `docs/supply-chain-plan.md` for full details.
+
+Priority 1:
+- [ ] Frozen installs in CI (`uv sync --frozen`, `npm ci`)
+- [ ] `make audit` runs on every PR; fails on high/critical
+- [ ] Dependabot config with 7-day cooldown (pip + npm + actions)
+
+Priority 2 (second pass, bundled):
+- [ ] Pin GitHub Actions by SHA
+- [ ] Enable GitHub secret scanning + push protection
+- [ ] Prune unused deps (`depcheck`, `deptry`)
+- [ ] SBOM on release tags
+- [ ] Document API key rotation; sandbox PDF rendering
+
 ## Phase 2: Sentence Breakdowns
 
 - [x] Sentence-by-sentence breakdown (vocab, grammar, gloss) per region
