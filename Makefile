@@ -38,11 +38,11 @@ test-frontend:
 	cd frontend && npm test
 
 audit:
-	@echo "==> npm audit"
-	cd frontend && npm audit --omit=dev || true
+	@echo "==> npm audit (fail on high+critical)"
+	cd frontend && npm audit --omit=dev --audit-level=high
 	@echo ""
 	@echo "==> pip-audit"
-	cd backend && uv run pip-audit || true
+	cd backend && uv run pip-audit
 
 # Tail backend log assuming it was started with
 #   make dev-backend 2>&1 | tee /tmp/studious-backend.log
