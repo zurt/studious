@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend audit audit-log logs clean benchmark
+.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend audit audit-log logs clean benchmark
 
 install: install-backend install-frontend
 	@echo ""
@@ -26,13 +26,16 @@ dev-backend:
 dev-frontend:
 	cd frontend && npm run dev
 
-test: test-backend
+test: test-backend test-frontend
 
 test-backend:
 	cd backend && uv run pytest \
 		--cov=app \
 		--cov-report=term-missing \
 		--cov-fail-under=75
+
+test-frontend:
+	cd frontend && npm test
 
 audit:
 	@echo "==> npm audit"

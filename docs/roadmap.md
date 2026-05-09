@@ -97,23 +97,24 @@ Outstanding:
 
 ## Phase 1.8: Frontend Test Coverage
 
-Frontend currently has **no tests, no test runner**. See the frontend section
-of `docs/test-coverage-plan.md` for the detailed plan.
+Vitest + jsdom now run as part of `make test`. See the frontend section of
+`docs/test-coverage-plan.md` for the original plan.
 
-- [ ] Stand up Vitest + jsdom (respect 7-day cooldown in `frontend/.npmrc`);
+- [x] Stand up Vitest + jsdom (respect 7-day cooldown in `frontend/.npmrc`);
       add `test` and `test:coverage` scripts; wire `make test` to run both
       suites
-- [ ] `api.ts` — fetch wrapper tests with mocked `fetch` (correlation header
+- [x] `api.ts` — fetch wrapper tests with mocked `fetch` (correlation header
       injection, non-2xx throws, `getTranscription` 404 → `null`)
-- [ ] `logger.ts` — correlation id generation/format, `startTimer` duration
-- [ ] `router.ts` — pattern compile, parameter extraction, hash dispatch
-- [ ] `modules/region-drawer.ts` — image-coords ↔ normalized-bbox math,
+- [x] `logger.ts` — correlation id generation/format, `startTimer` duration
+- [x] `router.ts` — pattern compile, parameter extraction, route dispatch
+- [x] `modules/region-drawer.ts` — image-coords ↔ normalized-bbox math,
       click-vs-drag selection threshold
-- [ ] `modules/zoom-pan.ts` — transform math, clamping
-- [ ] `modules/pane-splitter.ts` — ratio clamping, localStorage round-trip
-- [ ] `modules/page-input.ts` — Enter/Esc/blur behaviour, min/max clamping
-- [ ] Coverage target: ≥70% line on `frontend/src/modules/` plus
-      `api.ts`/`logger.ts`/`router.ts`
+- [x] `modules/zoom-pan.ts` — transform math, clamping
+- [x] `modules/pane-splitter.ts` — ratio clamping, localStorage round-trip
+- [x] `modules/page-input.ts` — Enter/Esc/blur behaviour, min/max clamping
+- [x] Coverage target: ≥70% line on `frontend/src/modules/` plus
+      `api.ts`/`logger.ts`/`router.ts` (achieved: 90.6% line overall;
+      api.ts 97%, router.ts 100%, modules dir 87.7%)
 
 ## Phase 2: Sentence Breakdowns
 

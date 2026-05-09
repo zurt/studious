@@ -101,8 +101,14 @@ of the request, so repeated calls with the same prompt see cache hits
 ## Tests
 
 ```bash
-make test
+make test            # backend (pytest + coverage) and frontend (vitest)
+make test-backend    # pytest only
+make test-frontend   # vitest only
 ```
+
+Backend coverage runs under pytest-cov with a 75% floor. Frontend uses
+Vitest + jsdom; run `cd frontend && npm run test:coverage` for a v8
+coverage report.
 
 ## Security
 
