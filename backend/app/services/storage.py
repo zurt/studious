@@ -308,6 +308,43 @@ def delete_breakdown(doc_id: str, chapter_id: str, region_id: str) -> bool:
     return True
 
 
+def grammar_guide_path(doc_id: str, chapter_id: str) -> Path:
+    return _chapters_dir(doc_id) / chapter_id / "grammar_guide.json"
+
+
+def save_grammar_guide(
+    doc_id: str, chapter_id: str, payload: dict[str, Any]
+) -> dict[str, Any]:
+    existing = load_grammar_guide(doc_id, chapter_id)
+    now = _now_iso()
+    record = {
+        **payload,
+        "chapter_id": chapter_id,
+        "created_at": existing["created_at"] if existing else now,
+        "updated_at": now,
+    }
+    _atomic_write_text(
+        grammar_guide_path(doc_id, chapter_id),
+        json.dumps(record, indent=2, ensure_ascii=False),
+    )
+    return record
+
+
+def load_grammar_guide(doc_id: str, chapter_id: str) -> dict[str, Any] | None:
+    p = grammar_guide_path(doc_id, chapter_id)
+    if not p.exists():
+        return None
+    return json.loads(p.read_text("utf-8"))
+
+
+def delete_grammar_guide(doc_id: str, chapter_id: str) -> bool:
+    p = grammar_guide_path(doc_id, chapter_id)
+    if not p.exists():
+        return False
+    p.unlink()
+    return True
+
+
 def move_region(
     doc_id: str, src_chapter_id: str, region_id: str, dst_chapter_id: str
 ) -> dict[str, Any] | None:

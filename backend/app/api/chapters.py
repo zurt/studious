@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
-from ..services import storage
+from ..config import GRAMMAR_GUIDE_PROMPT, GRAMMAR_GUIDE_TOOL_SCHEMA, get_settings
+from ..jobs import manager
+from ..services import grammar_guide, storage
 
 log = logging.getLogger("studious.api.chapters")
 
@@ -65,6 +69,7 @@ def get_chapter(doc_id: str, chapter_id: str):
         raise HTTPException(404, "chapter not found")
     chapter = dict(chapter)
     chapter["regions"] = storage.list_regions(doc_id, chapter_id)
+    chapter["has_grammar_guide"] = storage.load_grammar_guide(doc_id, chapter_id) is not None
     return chapter
 
 
@@ -87,4 +92,81 @@ def delete_chapter(doc_id: str, chapter_id: str):
     if not storage.delete_chapter(doc_id, chapter_id):
         raise HTTPException(404, "chapter not found")
     log.info("chapter_deleted", extra={"doc_id": doc_id, "chapter_id": chapter_id})
+    return {"ok": True}
+
+
+class GrammarGuideRequest(BaseModel):
+    overwrite: bool = False
+
+
+def _annotate_guide_status(
+    doc_id: str, chapter_id: str, guide: dict[str, Any]
+) -> dict[str, Any]:
+    current = grammar_guide.fingerprint(grammar_guide.grammar_regions(doc_id, chapter_id))
+    stored = guide.get("source_fingerprint") or []
+    out = dict(guide)
+    out["is_stale"] = current != stored
+    return out
+
+
+@router.get("/{chapter_id}/grammar-guide")
+def get_grammar_guide(doc_id: str, chapter_id: str):
+    _require_doc(doc_id)
+    if storage.load_chapter(doc_id, chapter_id) is None:
+        raise HTTPException(404, "chapter not found")
+    guide = storage.load_grammar_guide(doc_id, chapter_id)
+    if guide is None:
+        raise HTTPException(404, "grammar guide not found")
+    return _annotate_guide_status(doc_id, chapter_id, guide)
+
+
+@router.post("/{chapter_id}/grammar-guide")
+def request_grammar_guide(
+    doc_id: str,
+    chapter_id: str,
+    response: Response,
+    body: GrammarGuideRequest = GrammarGuideRequest(),
+):
+    _require_doc(doc_id)
+    if storage.load_chapter(doc_id, chapter_id) is None:
+        raise HTTPException(404, "chapter not found")
+    if (
+        not body.overwrite
+        and storage.load_grammar_guide(doc_id, chapter_id) is not None
+    ):
+        raise HTTPException(409, "grammar guide already exists; pass overwrite=true to regenerate")
+
+    regions = grammar_guide.grammar_regions(doc_id, chapter_id)
+    if not regions:
+        raise HTTPException(400, "chapter has no grammar_points regions")
+    untranscribed = [r["id"] for r in regions if not r.get("transcription_md")]
+    if untranscribed:
+        raise HTTPException(
+            409,
+            f"{len(untranscribed)} grammar region(s) are untranscribed",
+        )
+
+    settings = get_settings()
+    payload: dict[str, Any] = {
+        "job_type": "grammar_guide",
+        "doc_id": doc_id,
+        "chapter_id": chapter_id,
+        "engine": "vlm",
+        "provider": "anthropic",
+        "config": {"model": settings.default_vlm_model, "max_tokens": 16000},
+        "prompt": GRAMMAR_GUIDE_PROMPT,
+        "tool_name": "record_grammar_guide",
+        "tool_schema": GRAMMAR_GUIDE_TOOL_SCHEMA,
+    }
+    job = manager.submit(payload)
+    response.status_code = 202
+    return {"job_id": job["id"]}
+
+
+@router.delete("/{chapter_id}/grammar-guide")
+def delete_grammar_guide(doc_id: str, chapter_id: str):
+    _require_doc(doc_id)
+    if not storage.delete_grammar_guide(doc_id, chapter_id):
+        raise HTTPException(404, "grammar guide not found")
+    log.info("grammar_guide_deleted", extra={"doc_id": doc_id, "chapter_id": chapter_id})
     return {"ok": True}

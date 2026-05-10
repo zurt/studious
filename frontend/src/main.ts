@@ -3,6 +3,7 @@ import { initRouter, navigate } from "./router";
 import { mountLibrary } from "./pages/library";
 import { mountDocumentView } from "./pages/document-view";
 import { mountChapterView } from "./pages/chapter-view";
+import { mountGrammarGuide } from "./pages/grammar-guide";
 import { openSettingsModal, syncSettingsModalFromUrl } from "./modules/settings-modal";
 import {
   openShortcutsHelp,
@@ -96,6 +97,7 @@ initRouter(pageContainer, [
   { pattern: "/", mount: mountLibrary },
   { pattern: "/doc/:id", mount: mountDocumentView },
   { pattern: "/doc/:id/chapter/:chapterId", mount: mountChapterView },
+  { pattern: "/doc/:id/chapter/:chapterId/grammar-guide", mount: mountGrammarGuide },
 ]);
 
 // When the page changes while in fullscreen, ensure controls land in the new page's topbar.

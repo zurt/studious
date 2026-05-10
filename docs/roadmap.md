@@ -152,6 +152,15 @@ See `docs/breakdown-vocab-links-plan.md`.
       `breakdown_links_annotated` INFO log with per-region match-strategy
       counts, troubleshooting entries for linker miss modes
 
+### Phase 2.2: Chapter Grammar Guide
+
+- [x] Per-chapter "grammar guide" generated from concatenated
+      `grammar_points` transcriptions via VLM tool-call (structured
+      JSON: title / subtitle / sections of markdown).
+- [x] Standalone view with Regenerate, Copy-markdown, and Open-in-window
+      buttons; source-changed warning when any underlying grammar
+      region is re-transcribed since the guide was generated.
+
 ## Phase 3: Central Vocab/Grammar Store
 
 - [ ] Global vocab store (JSONL-based, across all textbooks)
