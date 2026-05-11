@@ -17,6 +17,14 @@ const ICON_CHECK = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" 
 
 const COPY_TITLE = "Copy to clipboard (Alt/Option for rich text)";
 
+export async function markdownToRichHtml(md: string): Promise<string> {
+  const html = await Promise.resolve(marked.parse(md));
+  return (html as string).replace(
+    /(<\/(?:p|h[1-6]|ul|ol|blockquote|pre|table)>)\s*(<(?:p|h[1-6]|ul|ol|blockquote|pre|table|hr)\b)/gi,
+    "$1<p><br></p>$2"
+  );
+}
+
 export function makeCopyButton(getText: () => string): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.className = "icon-btn";
@@ -29,11 +37,7 @@ export function makeCopyButton(getText: () => string): HTMLButtonElement {
     const wantHtml = e.altKey;
     try {
       if (wantHtml && typeof ClipboardItem !== "undefined") {
-        const html = await Promise.resolve(marked.parse(md));
-        const spaced = (html as string).replace(
-          /(<\/(?:p|h[1-6]|ul|ol|blockquote|pre|table)>)\s*(<(?:p|h[1-6]|ul|ol|blockquote|pre|table|hr)\b)/gi,
-          "$1<p><br></p>$2"
-        );
+        const spaced = await markdownToRichHtml(md);
         await navigator.clipboard.write([
           new ClipboardItem({
             "text/html": new Blob([spaced], { type: "text/html" }),
