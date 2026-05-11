@@ -5,7 +5,7 @@ import {
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { navigate } from "../router";
 import { confirmDialog } from "../modules/confirm";
-import { makeCopyButton } from "../modules/region-list";
+import { makeCopyButton, ICON_REDO } from "../modules/region-list";
 import { marked } from "marked";
 
 function escapeHtml(s: string): string {
@@ -43,9 +43,8 @@ export function mountGrammarGuide(params: Record<string, string>, container: HTM
           <span id="gg-title">Grammar Guide</span>
           <div class="spacer"></div>
           <span id="gg-meta" class="region-detail-meta" style="font-size:11px;color:var(--muted)"></span>
-          <button id="gg-regen-btn" disabled>Regenerate</button>
+          <button id="gg-regen-btn" class="icon-btn" title="Regenerate" aria-label="Regenerate" disabled>${ICON_REDO}</button>
           <span id="gg-copy-slot"></span>
-          <button id="gg-open-window-btn" title="Open in new window" aria-label="Open in new window">Open in window</button>
         </div>
       </div>
       <div id="gg-stale-banner" style="display:none;padding:8px 16px;background:#fff7e6;border-bottom:1px solid #f0c36d;color:#8a5a00;font-size:13px">
@@ -66,7 +65,6 @@ export function mountGrammarGuide(params: Record<string, string>, container: HTM
   const bodyEl = container.querySelector<HTMLElement>("#gg-body")!;
   const regenBtn = container.querySelector<HTMLButtonElement>("#gg-regen-btn")!;
   const copySlot = container.querySelector<HTMLElement>("#gg-copy-slot")!;
-  const openWinBtn = container.querySelector<HTMLButtonElement>("#gg-open-window-btn")!;
   const staleBanner = container.querySelector<HTMLElement>("#gg-stale-banner")!;
 
   let chapter: Chapter | null = null;
@@ -75,11 +73,7 @@ export function mountGrammarGuide(params: Record<string, string>, container: HTM
   let closeStream: (() => void) | null = null;
   let destroyed = false;
 
-  openWinBtn.addEventListener("click", () => {
-    window.open(location.href, "_blank", "noopener");
-  });
-
-  const copyBtn = makeCopyButton(() => (chapter && guide) ? guideToMarkdown(chapter, guide) : "");
+const copyBtn = makeCopyButton(() => (chapter && guide) ? guideToMarkdown(chapter, guide) : "");
   copyBtn.title = "Copy markdown";
   copyBtn.setAttribute("aria-label", "Copy markdown");
   copySlot.appendChild(copyBtn);

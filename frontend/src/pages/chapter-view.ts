@@ -65,7 +65,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           <button id="prev-chapter-btn" class="chapter-nav-btn" title="Previous chapter" aria-label="Previous chapter" disabled>&larr;</button>
           <button id="next-chapter-btn" class="chapter-nav-btn" title="Next chapter" aria-label="Next chapter" disabled>&rarr;</button>
           <div class="spacer"></div>
-          <button id="grammar-guide-btn" style="display:none"></button>
+          <a id="grammar-guide-btn" class="topbar-link-btn" style="display:none" href=""></a>
           <button id="tracker-btn" title="Untranscribed regions">0 pending</button>
           <button id="prev-btn" disabled>&larr;</button>
           <span id="page-info">-</span>
@@ -95,7 +95,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const prevBtn = container.querySelector<HTMLButtonElement>("#prev-btn")!;
   const nextBtn = container.querySelector<HTMLButtonElement>("#next-btn")!;
   const trackerBtn = container.querySelector<HTMLButtonElement>("#tracker-btn")!;
-  const grammarGuideBtn = container.querySelector<HTMLButtonElement>("#grammar-guide-btn")!;
+  const grammarGuideBtn = container.querySelector<HTMLAnchorElement>("#grammar-guide-btn")!;
   const prevChapterBtn = container.querySelector<HTMLButtonElement>("#prev-chapter-btn")!;
   const nextChapterBtn = container.querySelector<HTMLButtonElement>("#next-chapter-btn")!;
   const leftPane = container.querySelector<HTMLElement>("#left-pane")!;
@@ -175,34 +175,48 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     }
     grammarGuideBtn.style.display = "";
     const pending = grammar.filter((r) => !r.transcription_md).length;
+    const setDisabled = (disabled: boolean) => {
+      if (disabled) grammarGuideBtn.setAttribute("aria-disabled", "true");
+      else grammarGuideBtn.removeAttribute("aria-disabled");
+    };
     if (grammarGuideBusy) {
-      grammarGuideBtn.disabled = true;
+      setDisabled(true);
+      grammarGuideBtn.removeAttribute("href");
       grammarGuideBtn.textContent = "Generating…";
       grammarGuideBtn.title = "Grammar guide generation in progress";
       return;
     }
     if (pending > 0) {
-      grammarGuideBtn.disabled = true;
+      setDisabled(true);
+      grammarGuideBtn.removeAttribute("href");
       grammarGuideBtn.textContent = "Grammar guide";
       grammarGuideBtn.title = `Transcribe ${pending} grammar region${pending === 1 ? "" : "s"} first`;
       return;
     }
-    grammarGuideBtn.disabled = false;
+    setDisabled(false);
     if (chapter?.has_grammar_guide) {
+      grammarGuideBtn.href = `/doc/${docId}/chapter/${chapterId}/grammar-guide`;
       grammarGuideBtn.textContent = "Open grammar guide";
       grammarGuideBtn.title = "Open the chapter grammar guide";
     } else {
+      grammarGuideBtn.removeAttribute("href");
       grammarGuideBtn.textContent = "Generate grammar guide";
       grammarGuideBtn.title = "Generate a grammar guide from this chapter's grammar regions";
     }
   }
 
-  async function handleGrammarGuideClick() {
-    if (grammarGuideBusy) return;
+  async function handleGrammarGuideClick(e: MouseEvent) {
+    if (grammarGuideBtn.getAttribute("aria-disabled") === "true") {
+      e.preventDefault();
+      return;
+    }
     if (chapter?.has_grammar_guide) {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+      e.preventDefault();
       navigate(`/doc/${docId}/chapter/${chapterId}/grammar-guide`);
       return;
     }
+    e.preventDefault();
     grammarGuideBusy = true;
     updateGrammarGuideBtn();
     const cid = generateCorrelationId();
@@ -245,7 +259,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     }
   }
 
-  grammarGuideBtn.addEventListener("click", () => void handleGrammarGuideClick());
+  grammarGuideBtn.addEventListener("click", (e) => void handleGrammarGuideClick(e));
 
   function updateTrackerBtn() {
     const pending = regions.filter((r) => !r.transcription_md).length;

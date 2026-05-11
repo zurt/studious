@@ -49,6 +49,20 @@ button {
 button:hover { border-color: var(--accent); }
 button:disabled { opacity: 0.55; cursor: not-allowed; }
 
+a.topbar-link-btn {
+  font: inherit;
+  background: var(--bg-soft);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+a.topbar-link-btn:hover { border-color: var(--accent); }
+a.topbar-link-btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
+
 input, select, textarea {
   font: inherit;
   background: var(--bg);
