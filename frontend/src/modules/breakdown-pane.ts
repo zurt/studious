@@ -5,7 +5,7 @@ import {
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
 import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "./collapsible";
-import { makeCopyButton } from "./region-list";
+import { makeCopyButton, ICON_REDO } from "./region-list";
 
 type Ctx = { docId: string; chapterId: string; region: Region };
 
@@ -251,7 +251,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("");
 
     container.innerHTML = `
-      ${headerHtml(`<button type="button" id="bd-regenerate">Regenerate</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
+      ${headerHtml(`<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
       <div class="breakdown-list">${cards}</div>`;
 
     const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
