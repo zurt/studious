@@ -1,3 +1,4 @@
+import { marked } from "marked";
 import type { Region } from "../api";
 
 export type RegionListOptions = {
@@ -14,21 +15,39 @@ const ICON_REDO = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" s
 const ICON_COPY = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 const ICON_CHECK = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
 
+const COPY_TITLE = "Copy to clipboard (Alt/Option for rich text)";
+
 export function makeCopyButton(getText: () => string): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.className = "icon-btn";
-  btn.title = "Copy to clipboard";
+  btn.title = COPY_TITLE;
   btn.setAttribute("aria-label", "Copy to clipboard");
   btn.innerHTML = ICON_COPY;
   btn.addEventListener("click", async (e) => {
     e.stopPropagation();
+    const md = getText();
+    const wantHtml = e.altKey;
     try {
-      await navigator.clipboard.writeText(getText());
+      if (wantHtml && typeof ClipboardItem !== "undefined") {
+        const html = await Promise.resolve(marked.parse(md));
+        const spaced = (html as string).replace(
+          /(<\/(?:p|h[1-6]|ul|ol|blockquote|pre|table)>)\s*(<(?:p|h[1-6]|ul|ol|blockquote|pre|table|hr)\b)/gi,
+          "$1<p><br></p>$2"
+        );
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([spaced], { type: "text/html" }),
+            "text/plain": new Blob([md], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(md);
+      }
       btn.innerHTML = ICON_CHECK;
-      btn.title = "Copied!";
+      btn.title = wantHtml ? "Copied rich text!" : "Copied!";
       setTimeout(() => {
         btn.innerHTML = ICON_COPY;
-        btn.title = "Copy to clipboard";
+        btn.title = COPY_TITLE;
       }, 1200);
     } catch {
       btn.title = "Copy failed";

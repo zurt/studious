@@ -124,7 +124,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   }
 
   function allSentencesToMarkdown(b: Breakdown): string {
-    return b.sentences.map(sentenceToMarkdown).join("\n\n");
+    return b.sentences.map(sentenceToMarkdown).join("\n\n──────────\n\n");
   }
 
   function escapeHtml(s: string): string {
