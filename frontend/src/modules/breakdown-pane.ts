@@ -257,7 +257,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
     if (copyAllSlot) {
       const copyAllBtn = makeCopyButton(() => allSentencesToMarkdown(breakdown!));
-      copyAllBtn.title = "Copy all";
+      copyAllBtn.title = "Copy all (Alt/Option for markdown)";
       copyAllBtn.setAttribute("aria-label", "Copy all");
       copyAllSlot.appendChild(copyAllBtn);
     }

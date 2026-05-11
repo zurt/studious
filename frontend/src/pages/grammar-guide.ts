@@ -43,8 +43,10 @@ export function mountGrammarGuide(params: Record<string, string>, container: HTM
           <span id="gg-title">Grammar Guide</span>
           <div class="spacer"></div>
           <span id="gg-meta" class="region-detail-meta" style="font-size:11px;color:var(--muted)"></span>
-          <button id="gg-regen-btn" class="icon-btn" title="Regenerate" aria-label="Regenerate" disabled>${ICON_REDO}</button>
-          <span id="gg-copy-slot"></span>
+          <span class="gg-actions">
+            <button id="gg-regen-btn" class="icon-btn" title="Regenerate" aria-label="Regenerate" disabled>${ICON_REDO}</button>
+            <span id="gg-copy-slot"></span>
+          </span>
         </div>
       </div>
       <div id="gg-stale-banner" style="display:none;padding:8px 16px;background:#fff7e6;border-bottom:1px solid #f0c36d;color:#8a5a00;font-size:13px">
@@ -74,8 +76,8 @@ export function mountGrammarGuide(params: Record<string, string>, container: HTM
   let destroyed = false;
 
 const copyBtn = makeCopyButton(() => (chapter && guide) ? guideToMarkdown(chapter, guide) : "");
-  copyBtn.title = "Copy markdown";
-  copyBtn.setAttribute("aria-label", "Copy markdown");
+  copyBtn.title = "Copy to clipboard (Alt/Option for markdown)";
+  copyBtn.setAttribute("aria-label", "Copy to clipboard");
   copySlot.appendChild(copyBtn);
 
   function renderBody() {

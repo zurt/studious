@@ -15,7 +15,7 @@ export const ICON_REDO = `<svg viewBox="0 0 24 24" width="14" height="14" fill="
 const ICON_COPY = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 const ICON_CHECK = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
 
-const COPY_TITLE = "Copy to clipboard (Alt/Option for rich text)";
+const COPY_TITLE = "Copy to clipboard (Alt/Option for markdown)";
 
 export async function markdownToRichHtml(md: string): Promise<string> {
   const html = await Promise.resolve(marked.parse(md));
@@ -34,9 +34,10 @@ export function makeCopyButton(getText: () => string): HTMLButtonElement {
   btn.addEventListener("click", async (e) => {
     e.stopPropagation();
     const md = getText();
-    const wantHtml = e.altKey;
+    const wantMarkdown = e.altKey;
+    const canRich = typeof ClipboardItem !== "undefined";
     try {
-      if (wantHtml && typeof ClipboardItem !== "undefined") {
+      if (!wantMarkdown && canRich) {
         const spaced = await markdownToRichHtml(md);
         await navigator.clipboard.write([
           new ClipboardItem({
@@ -48,7 +49,7 @@ export function makeCopyButton(getText: () => string): HTMLButtonElement {
         await navigator.clipboard.writeText(md);
       }
       btn.innerHTML = ICON_CHECK;
-      btn.title = wantHtml ? "Copied rich text!" : "Copied!";
+      btn.title = wantMarkdown ? "Copied markdown!" : "Copied!";
       setTimeout(() => {
         btn.innerHTML = ICON_COPY;
         btn.title = COPY_TITLE;
