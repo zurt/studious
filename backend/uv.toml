@@ -1,3 +1,5 @@
 # Require packages to be at least 7 days old before installing.
 # Protects against supply chain attacks via recently-published malicious versions.
-exclude-newer = "7 days"
+# Temporarily set to absolute date (restore to "7 days" after 2026-05-14):
+# Exception: urllib3 2.7.0 (2026-05-07) fixes CVE-2026-44431 and CVE-2026-44432.
+exclude-newer = "2026-05-12T23:59:59Z"
