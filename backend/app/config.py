@@ -164,8 +164,11 @@ instruction block, etc.).
 Produce a sentence-by-sentence study breakdown of the input. Split
 the input into natural sentences using Japanese sentence-ending
 punctuation (。！？) or, for non-narrative content, into individual
-items, headings, or example lines as they appear. For each sentence
-or item, return:
+items, headings, or example lines as they appear. For markdown
+tables: treat the entire table as a single entry unless one or more
+cells contain sentence-ending punctuation (。！？), in which case
+split at those sentence boundaries (one entry per sentence, spanning
+whatever cells are needed). For each sentence or item, return:
 - text: the original Japanese sentence, copied verbatim from the
   input. Preserve furigana already written inline as 漢字(かな).
 - vocab: notable vocabulary entries that an intermediate learner
