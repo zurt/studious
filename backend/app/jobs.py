@@ -422,6 +422,35 @@ class JobManager:
             self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
             return
 
+        breakdown_payload = {
+            "model": result.meta.get("model"),
+            "sentences": sentences,
+        }
+        try:
+            breakdown_links.annotate(breakdown_payload)
+            storage.save_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
+        except Exception as exc:
+            err_msg = f"post-processing failed: {exc}"
+            log.exception("breakdown_postprocess_error", extra=job_extra)
+            llm_audit.record(
+                provider=provider_name,
+                model=result.meta.get("model"),
+                job_type="breakdown_region",
+                status="error",
+                duration_ms=duration_ms,
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                region_id=region_id,
+                job_id=job_id,
+                error=err_msg,
+                correlation_id=correlation_id_var.get(""),
+                **llm_audit.extract_usage(result.meta),
+                **llm_audit.extract_provenance(result.meta),
+            )
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            return
+
         llm_audit.record(
             provider=provider_name,
             model=result.meta.get("model"),
@@ -437,13 +466,6 @@ class JobManager:
             **llm_audit.extract_provenance(result.meta),
         )
         log.info("breakdown_job_done", extra={**job_extra, "duration_ms": duration_ms})
-
-        breakdown_payload = {
-            "model": result.meta.get("model"),
-            "sentences": sentences,
-        }
-        breakdown_links.annotate(breakdown_payload)
-        storage.save_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
         storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
         self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
 
