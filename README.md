@@ -63,6 +63,13 @@ Open <http://localhost:5173>.
    per-sentence breakdown with English glosses and per-sentence vocab
    and grammar. Vocab items are linked inline to the chapter's vocab
    list so clicking a word reveals its reading and meaning.
+7. **Generate a chapter grammar guide** — once a chapter's
+   `grammar_points` regions are transcribed, the chapter view shows
+   a button that produces a structured study guide (one entry per
+   pattern, with Meaning / Form / Examples / Related sections). The
+   guide opens in its own view with regenerate and copy-as-markdown
+   buttons; if a source region is re-transcribed afterward, the guide
+   shows a "source changed" banner until you regenerate.
 
 ## Layout
 

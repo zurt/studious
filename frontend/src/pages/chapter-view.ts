@@ -1,6 +1,7 @@
 import {
   getDocument, getChapter, pageImageUrl,
   createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream,
+  requestGrammarGuide,
   type DocMeta, type Chapter, type Region,
 } from "../api";
 import { generateCorrelationId, info, error as logError } from "../logger";
@@ -64,6 +65,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           <button id="prev-chapter-btn" class="chapter-nav-btn" title="Previous chapter" aria-label="Previous chapter" disabled>&larr;</button>
           <button id="next-chapter-btn" class="chapter-nav-btn" title="Next chapter" aria-label="Next chapter" disabled>&rarr;</button>
           <div class="spacer"></div>
+          <a id="grammar-guide-btn" class="topbar-link-btn" style="display:none" href=""></a>
           <button id="tracker-btn" title="Untranscribed regions">0 pending</button>
           <button id="prev-btn" disabled>&larr;</button>
           <span id="page-info">-</span>
@@ -93,6 +95,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const prevBtn = container.querySelector<HTMLButtonElement>("#prev-btn")!;
   const nextBtn = container.querySelector<HTMLButtonElement>("#next-btn")!;
   const trackerBtn = container.querySelector<HTMLButtonElement>("#tracker-btn")!;
+  const grammarGuideBtn = container.querySelector<HTMLAnchorElement>("#grammar-guide-btn")!;
   const prevChapterBtn = container.querySelector<HTMLButtonElement>("#prev-chapter-btn")!;
   const nextChapterBtn = container.querySelector<HTMLButtonElement>("#next-chapter-btn")!;
   const leftPane = container.querySelector<HTMLElement>("#left-pane")!;
@@ -162,9 +165,106 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
   document.addEventListener("click", onDocClick);
 
+  let grammarGuideBusy = false;
+
+  function updateGrammarGuideBtn() {
+    const grammar = regions.filter((r) => r.tag === "grammar_points");
+    if (grammar.length === 0) {
+      grammarGuideBtn.style.display = "none";
+      return;
+    }
+    grammarGuideBtn.style.display = "";
+    const pending = grammar.filter((r) => !r.transcription_md).length;
+    const setDisabled = (disabled: boolean) => {
+      if (disabled) grammarGuideBtn.setAttribute("aria-disabled", "true");
+      else grammarGuideBtn.removeAttribute("aria-disabled");
+    };
+    if (grammarGuideBusy) {
+      setDisabled(true);
+      grammarGuideBtn.removeAttribute("href");
+      grammarGuideBtn.textContent = "Generating…";
+      grammarGuideBtn.title = "Grammar guide generation in progress";
+      return;
+    }
+    if (pending > 0) {
+      setDisabled(true);
+      grammarGuideBtn.removeAttribute("href");
+      grammarGuideBtn.textContent = "Grammar guide";
+      grammarGuideBtn.title = `Transcribe ${pending} grammar region${pending === 1 ? "" : "s"} first`;
+      return;
+    }
+    setDisabled(false);
+    if (chapter?.has_grammar_guide) {
+      grammarGuideBtn.href = `/doc/${docId}/chapter/${chapterId}/grammar-guide`;
+      grammarGuideBtn.textContent = "Open grammar guide";
+      grammarGuideBtn.title = "Open the chapter grammar guide";
+    } else {
+      grammarGuideBtn.removeAttribute("href");
+      grammarGuideBtn.textContent = "Generate grammar guide";
+      grammarGuideBtn.title = "Generate a grammar guide from this chapter's grammar regions";
+    }
+  }
+
+  async function handleGrammarGuideClick(e: MouseEvent) {
+    if (grammarGuideBtn.getAttribute("aria-disabled") === "true") {
+      e.preventDefault();
+      return;
+    }
+    if (chapter?.has_grammar_guide) {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+      e.preventDefault();
+      navigate(`/doc/${docId}/chapter/${chapterId}/grammar-guide`);
+      return;
+    }
+    e.preventDefault();
+    grammarGuideBusy = true;
+    updateGrammarGuideBtn();
+    const cid = generateCorrelationId();
+    try {
+      const { job_id } = await requestGrammarGuide(docId, chapterId, {}, cid);
+      info("ChapterView", "grammar_guide_started", { chapter_id: chapterId, job_id, correlation_id: cid });
+      let settled = false;
+      const settle = async (kind: "done" | "failed", msg?: string) => {
+        if (settled) return;
+        settled = true;
+        grammarGuideBusy = false;
+        if (kind === "done") {
+          if (chapter) chapter.has_grammar_guide = true;
+          updateGrammarGuideBtn();
+          navigate(`/doc/${docId}/chapter/${chapterId}/grammar-guide`);
+        } else {
+          logError("ChapterView", "grammar_guide_failed", {
+            chapter_id: chapterId, job_id, error: msg, correlation_id: cid,
+          });
+          alert("Grammar guide generation failed: " + (msg || "unknown error"));
+          updateGrammarGuideBtn();
+        }
+      };
+      openJobStream(job_id, (event) => {
+        if (event.event === "job-done") void settle("done");
+        else if (event.event === "job-failed") void settle("failed", event.data?.error);
+        else if (event.event === "snapshot") {
+          const status = event.data?.status;
+          if (status === "completed") void settle("done");
+          else if (status === "failed") void settle("failed", event.data?.errors?.[0]?.message);
+        }
+      });
+    } catch (e: any) {
+      grammarGuideBusy = false;
+      logError("ChapterView", "grammar_guide_submit_failed", {
+        chapter_id: chapterId, error: e.message, stack: e.stack, correlation_id: cid,
+      });
+      alert("Failed to start grammar guide: " + e.message);
+      updateGrammarGuideBtn();
+    }
+  }
+
+  grammarGuideBtn.addEventListener("click", (e) => void handleGrammarGuideClick(e));
+
   function updateTrackerBtn() {
     const pending = regions.filter((r) => !r.transcription_md).length;
     trackerBtn.textContent = pending > 0 ? `${pending} pending` : "Regions";
+    updateGrammarGuideBtn();
   }
 
   function renderTracker() {

@@ -253,6 +253,10 @@ class AnthropicVlm:
         kwargs = _build_common_kwargs(
             model, max_tokens, config, settings.vlm_effort_breakdown
         )
+        # Anthropic rejects `thinking` when `tool_choice` forces a specific
+        # tool. Drop it for forced-tool calls; `output_config.effort` still
+        # tunes the model's reasoning budget.
+        kwargs.pop("thinking", None)
 
         log.info(
             "vlm_tool_call_start",

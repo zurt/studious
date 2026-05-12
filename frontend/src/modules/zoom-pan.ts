@@ -8,6 +8,8 @@
  */
 
 const MIN_SCALE = 0.25;
+const FIT_MODE_KEY = "zp-fit-mode";
+type FitMode = "fit" | "fit-width";
 const MAX_SCALE = 5.0;
 const PAN_MARGIN = 40;
 
@@ -147,12 +149,23 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
     }
   }
 
+  function savedFitMode(): FitMode {
+    return (localStorage.getItem(FIT_MODE_KEY) as FitMode) ?? "fit-width";
+  }
+
   viewport.addEventListener("wheel", onWheel, { passive: false });
-  fitBtn.addEventListener("click", zoomToFit);
-  fitWidthBtn.addEventListener("click", zoomToFitWidth);
+  fitBtn.addEventListener("click", () => {
+    localStorage.setItem(FIT_MODE_KEY, "fit");
+    zoomToFit();
+  });
+  fitWidthBtn.addEventListener("click", () => {
+    localStorage.setItem(FIT_MODE_KEY, "fit-width");
+    zoomToFitWidth();
+  });
 
   img.addEventListener("load", () => {
-    zoomToFit();
+    if (savedFitMode() === "fit") zoomToFit();
+    else zoomToFitWidth();
   });
 
   return {

@@ -34,6 +34,28 @@ export type Chapter = {
   order: number;
   created_at: string;
   regions?: Region[];
+  has_grammar_guide?: boolean;
+};
+
+export type GrammarGuideSection = { heading: string; body_md: string };
+export type GrammarGuidePoint = {
+  title: string;
+  subtitle?: string;
+  sections: GrammarGuideSection[];
+};
+export type GrammarGuideFingerprint = {
+  region_id: string;
+  transcribed_at?: string | null;
+};
+export type GrammarGuide = {
+  chapter_id: string;
+  model?: string;
+  intro?: string;
+  points: GrammarGuidePoint[];
+  source_fingerprint: GrammarGuideFingerprint[];
+  is_stale: boolean;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type Region = {
@@ -263,6 +285,45 @@ export async function updateChapter(
 
 export async function deleteChapter(docId: string, chapterId: string): Promise<void> {
   return jdelete(`/api/documents/${docId}/chapters/${chapterId}`);
+}
+
+export async function getGrammarGuide(
+  docId: string,
+  chapterId: string,
+  cid: string = generateCorrelationId(),
+): Promise<GrammarGuide | null> {
+  const r = await fetch(`/api/documents/${docId}/chapters/${chapterId}/grammar-guide`, {
+    headers: { "x-correlation-id": cid },
+  });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`grammar guide fetch: ${r.status}`);
+  return (await r.json()) as GrammarGuide;
+}
+
+export async function requestGrammarGuide(
+  docId: string,
+  chapterId: string,
+  opts: { overwrite?: boolean } = {},
+  cid: string = generateCorrelationId(),
+): Promise<{ job_id: string }> {
+  const url = `/api/documents/${docId}/chapters/${chapterId}/grammar-guide`;
+  const done = startTimer("api", `POST ${url}`, { correlation_id: cid });
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-correlation-id": cid },
+    body: JSON.stringify({ overwrite: !!opts.overwrite }),
+  });
+  done({ status: r.status });
+  if (!r.ok) throw new Error(`${url}: ${r.status} ${await r.text()}`);
+  return (await r.json()) as { job_id: string };
+}
+
+export async function deleteGrammarGuide(
+  docId: string,
+  chapterId: string,
+  cid?: string,
+): Promise<void> {
+  return jdelete(`/api/documents/${docId}/chapters/${chapterId}/grammar-guide`, cid);
 }
 
 // ---------- Regions ----------

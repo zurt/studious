@@ -10,7 +10,7 @@ from typing import Any
 from .config import get_settings
 from .middleware import correlation_id_var
 from .providers import registry
-from .services import breakdown_links, llm_audit, pdf, storage
+from .services import breakdown_links, grammar_guide, llm_audit, pdf, storage
 
 log = logging.getLogger("studious.jobs")
 
@@ -93,6 +93,9 @@ class JobManager:
                 return
             if job_type == "breakdown_region":
                 await self._run_breakdown_job(job_id, job)
+                return
+            if job_type == "grammar_guide":
+                await self._run_grammar_guide_job(job_id, job)
                 return
             await self._run_pages_job(job_id, job)
         finally:
@@ -419,6 +422,35 @@ class JobManager:
             self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
             return
 
+        breakdown_payload = {
+            "model": result.meta.get("model"),
+            "sentences": sentences,
+        }
+        try:
+            breakdown_links.annotate(breakdown_payload)
+            storage.save_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
+        except Exception as exc:
+            err_msg = f"post-processing failed: {exc}"
+            log.exception("breakdown_postprocess_error", extra=job_extra)
+            llm_audit.record(
+                provider=provider_name,
+                model=result.meta.get("model"),
+                job_type="breakdown_region",
+                status="error",
+                duration_ms=duration_ms,
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                region_id=region_id,
+                job_id=job_id,
+                error=err_msg,
+                correlation_id=correlation_id_var.get(""),
+                **llm_audit.extract_usage(result.meta),
+                **llm_audit.extract_provenance(result.meta),
+            )
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            return
+
         llm_audit.record(
             provider=provider_name,
             model=result.meta.get("model"),
@@ -434,13 +466,119 @@ class JobManager:
             **llm_audit.extract_provenance(result.meta),
         )
         log.info("breakdown_job_done", extra={**job_extra, "duration_ms": duration_ms})
+        storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
+        self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
 
-        breakdown_payload = {
+
+    async def _run_grammar_guide_job(self, job_id: str, job: dict[str, Any]) -> None:
+        doc_id = job["doc_id"]
+        chapter_id = job["chapter_id"]
+        provider_name: str = job["provider"]
+        config: dict[str, Any] = job.get("config", {}) or {}
+        prompt: str = job.get("prompt", "")
+        tool_name: str = job.get("tool_name", "record_grammar_guide")
+        tool_schema: dict[str, Any] = job.get("tool_schema", {})
+
+        job_extra = {"job_id": job_id, "doc_id": doc_id, "chapter_id": chapter_id}
+        log.info("grammar_guide_job_start", extra=job_extra)
+
+        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
+        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id}})
+
+        try:
+            source_md, regions = grammar_guide.prepare_source(doc_id, chapter_id)
+        except grammar_guide.NoGrammarRegionsError as exc:
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+        except grammar_guide.UntranscribedRegionsError as exc:
+            storage.update_job(
+                job_id,
+                status="failed",
+                finished_at=_now_iso(),
+                errors=[{"message": str(exc), "region_ids": exc.region_ids}],
+            )
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+
+        try:
+            provider = registry.get_vlm(provider_name)
+        except Exception as exc:
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+
+        full_prompt = f"{prompt}\n\n<input>\n{source_md}\n</input>"
+
+        t0 = time.monotonic()
+        try:
+            result = await asyncio.to_thread(
+                provider.call_tool, full_prompt, tool_name, tool_schema, config
+            )
+        except Exception as exc:
+            llm_audit.record(
+                provider=provider_name,
+                model=str(config.get("model") or get_settings().default_vlm_model),
+                job_type="grammar_guide",
+                status="error",
+                duration_ms=int((time.monotonic() - t0) * 1000),
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                job_id=job_id,
+                error=str(exc),
+                correlation_id=correlation_id_var.get(""),
+            )
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        points = result.tool_input.get("points")
+        if not isinstance(points, list) or not points:
+            if result.meta.get("stop_reason") == "max_tokens":
+                err_msg = "tool response was truncated at max_tokens before returning non-empty `points`"
+            else:
+                err_msg = "tool response missing non-empty `points`"
+            llm_audit.record(
+                provider=provider_name,
+                model=result.meta.get("model"),
+                job_type="grammar_guide",
+                status="error",
+                duration_ms=duration_ms,
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                job_id=job_id,
+                error=err_msg,
+                correlation_id=correlation_id_var.get(""),
+                **llm_audit.extract_usage(result.meta),
+                **llm_audit.extract_provenance(result.meta),
+            )
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            return
+
+        llm_audit.record(
+            provider=provider_name,
+            model=result.meta.get("model"),
+            job_type="grammar_guide",
+            status="success",
+            duration_ms=duration_ms,
+            doc_id=doc_id,
+            chapter_id=chapter_id,
+            job_id=job_id,
+            correlation_id=correlation_id_var.get(""),
+            **llm_audit.extract_usage(result.meta),
+            **llm_audit.extract_provenance(result.meta),
+        )
+        log.info("grammar_guide_job_done", extra={**job_extra, "duration_ms": duration_ms})
+
+        guide_payload = {
             "model": result.meta.get("model"),
-            "sentences": sentences,
+            "intro": result.tool_input.get("intro") or "",
+            "points": points,
+            "source_fingerprint": grammar_guide.fingerprint(regions),
         }
-        breakdown_links.annotate(breakdown_payload)
-        storage.save_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
+        storage.save_grammar_guide(doc_id, chapter_id, guide_payload)
         storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
         self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
 

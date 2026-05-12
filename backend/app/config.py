@@ -164,8 +164,11 @@ instruction block, etc.).
 Produce a sentence-by-sentence study breakdown of the input. Split
 the input into natural sentences using Japanese sentence-ending
 punctuation (。！？) or, for non-narrative content, into individual
-items, headings, or example lines as they appear. For each sentence
-or item, return:
+items, headings, or example lines as they appear. For markdown
+tables: treat the entire table as a single entry unless one or more
+cells contain sentence-ending punctuation (。！？), in which case
+split at those sentence boundaries (one entry per sentence, spanning
+whatever cells are needed). For each sentence or item, return:
 - text: the original Japanese sentence, copied verbatim from the
   input. Preserve furigana already written inline as 漢字(かな).
 - vocab: notable vocabulary entries that an intermediate learner
@@ -209,6 +212,87 @@ or item, return:
 Call the `record_breakdown` tool with your result. Do not return
 prose; return only the tool call.
 """
+
+
+GRAMMAR_GUIDE_PROMPT = """\
+You are helping an English-speaking learner study Japanese grammar. The
+input is a concatenation of all transcribed grammar-point regions from a
+single chapter of a Japanese textbook. Different regions are separated by
+`---`.
+
+<task>
+Read through these grammar points from the textbook. Make a concise study
+guide in a mix of Japanese and English for the grammar points in this
+chapter. Keep it simple and direct. Provide related grammar and
+expressions where appropriate (both to group related patterns and to
+disambiguate). Include a few short, clear examples.
+</task>
+
+<structure>
+- `intro`: optional one- or two-sentence orientation for the chapter
+  (markdown).
+- `points`: one entry per grammar point in the chapter, in the order
+  they appear. For each point:
+  - `title`: the Japanese pattern itself, e.g. "〜ばかりで",
+    "このように見てみると／考えると、〜ということになる". Use 〜 as a
+    placeholder where the textbook does.
+  - `subtitle` (optional): a short English label naming the function
+    (e.g. "Soft speculation / proposal", "Logical conclusion").
+  - `sections`: an ordered list of titled markdown blocks. Typical
+    headings are `Meaning`, `Form`, `Nuance`, `Pattern`, `Examples`,
+    `Variations`, `Related`. Adapt the set to what each grammar point
+    actually needs — do not invent content, but do regroup the
+    textbook's information into these clearer buckets. Each section's
+    `body_md` is GitHub-flavored markdown; use bullet lists for forms,
+    pair Japanese example sentences with their English translation on
+    the next line, and write related/contrasting patterns as bullets
+    with a short English gloss in parentheses.
+</structure>
+
+<rules>
+- Cover every distinct grammar point in the input, in input order.
+- Do not invent grammar that is not in the input. You may add a small
+  number of related patterns under `Related` when they help group or
+  disambiguate; mark them clearly.
+- Keep examples short (one line of Japanese, one line of English).
+- Do not include a chapter heading; the renderer adds one.
+- Do not return prose. Call the `record_grammar_guide` tool with the
+  structured result.
+</rules>
+"""
+
+
+GRAMMAR_GUIDE_TOOL_SCHEMA: dict = {
+    "type": "object",
+    "required": ["points"],
+    "properties": {
+        "intro": {"type": "string"},
+        "points": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["title", "sections"],
+                "properties": {
+                    "title": {"type": "string", "minLength": 1},
+                    "subtitle": {"type": "string"},
+                    "sections": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": ["heading", "body_md"],
+                            "properties": {
+                                "heading": {"type": "string", "minLength": 1},
+                                "body_md": {"type": "string", "minLength": 1},
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
+}
 
 
 BREAKDOWN_TOOL_SCHEMA: dict = {

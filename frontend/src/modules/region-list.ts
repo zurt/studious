@@ -1,3 +1,4 @@
+import { marked } from "marked";
 import type { Region } from "../api";
 
 export type RegionListOptions = {
@@ -10,25 +11,48 @@ export type RegionListOptions = {
 };
 
 const ICON_TRASH = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>`;
-const ICON_REDO = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
+export const ICON_REDO = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
 const ICON_COPY = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 const ICON_CHECK = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+const COPY_TITLE = "Copy to clipboard (Alt/Option for markdown)";
+
+export async function markdownToRichHtml(md: string): Promise<string> {
+  const html = await Promise.resolve(marked.parse(md));
+  return (html as string).replace(
+    /(<\/(?:p|h[1-6]|ul|ol|blockquote|pre|table)>)\s*(<(?:p|h[1-6]|ul|ol|blockquote|pre|table|hr)\b)/gi,
+    "$1<p><br></p>$2"
+  );
+}
 
 export function makeCopyButton(getText: () => string): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.className = "icon-btn";
-  btn.title = "Copy to clipboard";
+  btn.title = COPY_TITLE;
   btn.setAttribute("aria-label", "Copy to clipboard");
   btn.innerHTML = ICON_COPY;
   btn.addEventListener("click", async (e) => {
     e.stopPropagation();
+    const md = getText();
+    const wantMarkdown = e.altKey;
+    const canRich = typeof ClipboardItem !== "undefined";
     try {
-      await navigator.clipboard.writeText(getText());
+      if (!wantMarkdown && canRich) {
+        const spaced = await markdownToRichHtml(md);
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([spaced], { type: "text/html" }),
+            "text/plain": new Blob([md], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(md);
+      }
       btn.innerHTML = ICON_CHECK;
-      btn.title = "Copied!";
+      btn.title = wantMarkdown ? "Copied markdown!" : "Copied!";
       setTimeout(() => {
         btn.innerHTML = ICON_COPY;
-        btn.title = "Copy to clipboard";
+        btn.title = COPY_TITLE;
       }, 1200);
     } catch {
       btn.title = "Copy failed";
