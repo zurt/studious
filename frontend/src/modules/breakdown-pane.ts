@@ -1,6 +1,8 @@
 import {
   getBreakdown, requestBreakdown, openJobStream,
+  getExerciseCompletion, requestExerciseCompletion,
   type Breakdown, type BreakdownLink, type BreakdownSentence, type Region,
+  type ExerciseCompletion, type ExerciseCompletionEntry,
 } from "../api";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
@@ -16,6 +18,12 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   let errMsg: string | null = null;
   let closeStream: (() => void) | null = null;
   let destroyed = false;
+  const isExercise = ctx.region.tag === "exercises";
+  let completion: ExerciseCompletion | null = null;
+  const completionBusy = new Set<number>();
+  const completionErrors = new Map<number, string>();
+  const completionNotExercise = new Map<number, string>();
+  const completionStreams = new Map<number, () => void>();
   const popover = document.createElement("div");
   popover.className = "bd-link-popover";
   popover.setAttribute("role", "dialog");
@@ -163,6 +171,50 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     return out.join("");
   }
 
+  function completionEntry(idx: number): ExerciseCompletionEntry | undefined {
+    return completion?.completions?.[String(idx)];
+  }
+
+  function completionBlockHtml(idx: number): string {
+    const entry = completionEntry(idx);
+    const busyIt = completionBusy.has(idx);
+    const errIt = completionErrors.get(idx);
+    if (busyIt) {
+      return `<div class="exercise-completion is-busy"><span class="spinner"></span> Completing exercise…</div>`;
+    }
+    if (entry) {
+      const examples = (entry.examples || []).map((ex, ei) => `
+        <li class="exercise-completion-example${ei === 0 ? " is-primary" : ""}">
+          <div class="exercise-completion-example-jp" lang="ja">${escapeHtml(ex.japanese)}</div>
+          <div class="exercise-completion-example-reading" lang="ja">${escapeHtml(ex.reading)}</div>
+          <div class="exercise-completion-example-en">${escapeHtml(ex.english)}</div>
+          <div class="exercise-completion-example-note">${escapeHtml(ex.explanation)}</div>
+        </li>`).join("");
+      return `
+        <div class="exercise-completion">
+          <div class="exercise-completion-header">
+            <span class="exercise-completion-label">Completion</span>
+            <button type="button" class="icon-btn" data-completion-regen="${idx}" title="Regenerate completion" aria-label="Regenerate completion">${ICON_REDO}</button>
+          </div>
+          <div class="exercise-completion-answer" lang="ja"><strong>Answer:</strong> ${escapeHtml(entry.answer)}</div>
+          ${entry.explanation ? `<div class="exercise-completion-explanation">${escapeHtml(entry.explanation)}</div>` : ""}
+          ${examples ? `<ol class="exercise-completion-examples">${examples}</ol>` : ""}
+        </div>`;
+    }
+    const notExercise = completionNotExercise.get(idx);
+    const noticeHtml = notExercise
+      ? `<div class="exercise-completion-notice">No exercise detected: ${escapeHtml(notExercise)}</div>`
+      : "";
+    const errHtml = errIt ? `<div class="exercise-completion-error">${escapeHtml(errIt)}</div>` : "";
+    const btnLabel = notExercise || errIt ? "Try again" : "Complete exercise";
+    return `
+      <div class="exercise-completion is-empty">
+        ${noticeHtml}
+        ${errHtml}
+        <button type="button" class="exercise-completion-btn" data-completion-gen="${idx}">${btnLabel}</button>
+      </div>`;
+  }
+
   function headerHtml(actionsHtml: string = "", metaText: string = ""): string {
     const collapsed = isPaneCollapsed("breakdown");
     const infoBtn = metaText ? `<button type="button" class="pane-info-btn" data-meta-toggle="breakdown" title="Model details" aria-label="Model details" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button><span class="region-detail-meta is-hidden" data-meta-target="breakdown">${escapeHtml(metaText)}</span>` : "";
@@ -234,6 +286,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
           ${vocab ? `<table class="breakdown-vocab"><tbody>${vocab}</tbody></table>` : ""}
           ${grammar ? `<ul class="breakdown-grammar">${grammar}</ul>` : ""}
         </div>` : "";
+      const completionBlock = isExercise ? completionBlockHtml(i) : "";
       return `
         <div class="breakdown-card${hasAnswers ? " answers-hidden" : ""}" data-idx="${i}">
           <div class="breakdown-card-header">
@@ -247,6 +300,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
+          ${completionBlock}
         </div>`;
     }).join("");
 
@@ -343,6 +397,27 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
 
   function onClick(e: MouseEvent) {
     const target = e.target as HTMLElement;
+    const genBtn = target.closest("[data-completion-gen]") as HTMLButtonElement | null;
+    if (genBtn) {
+      e.stopPropagation();
+      const idx = Number(genBtn.getAttribute("data-completion-gen"));
+      void generateCompletion(idx, false);
+      return;
+    }
+    const regenBtn = target.closest("[data-completion-regen]") as HTMLButtonElement | null;
+    if (regenBtn) {
+      e.stopPropagation();
+      const idx = Number(regenBtn.getAttribute("data-completion-regen"));
+      void (async () => {
+        const ok = await confirmDialog(
+          "Regenerate completion?",
+          "The existing completion will be replaced.",
+          "Regenerate",
+        );
+        if (ok) void generateCompletion(idx, true);
+      })();
+      return;
+    }
     const linkBtn = target.closest(".bd-link") as HTMLButtonElement | null;
     if (linkBtn) {
       e.stopPropagation();
@@ -377,11 +452,95 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   container.addEventListener("click", onClick);
   container.addEventListener("keydown", onKeydown);
 
+  async function generateCompletion(idx: number, overwrite: boolean) {
+    if (completionBusy.has(idx)) return;
+    completionBusy.add(idx);
+    completionErrors.delete(idx);
+    completionNotExercise.delete(idx);
+    render();
+    const cid = generateCorrelationId();
+    try {
+      const { job_id } = await requestExerciseCompletion(
+        ctx.docId, ctx.chapterId, ctx.region.id,
+        { sentence_index: idx, overwrite }, cid,
+      );
+      info("BreakdownPane", "exercise_completion_started", {
+        region_id: ctx.region.id, sentence_index: idx, job_id, correlation_id: cid,
+      });
+
+      let settled = false;
+      const settle = async (kind: "done" | "failed" | "no_exercise", msg?: string) => {
+        if (settled || destroyed) return;
+        settled = true;
+        const stream = completionStreams.get(idx);
+        if (stream) { stream(); completionStreams.delete(idx); }
+        completionBusy.delete(idx);
+        if (kind === "done") {
+          try {
+            completion = await getExerciseCompletion(ctx.docId, ctx.chapterId, ctx.region.id);
+          } catch (e: any) {
+            completionErrors.set(idx, "Failed to reload completion: " + e.message);
+          }
+        } else if (kind === "no_exercise") {
+          completionNotExercise.set(idx, msg || "No exercise found in this sentence.");
+          info("BreakdownPane", "exercise_completion_no_exercise", {
+            region_id: ctx.region.id, sentence_index: idx, job_id, reason: msg, correlation_id: cid,
+          });
+        } else {
+          completionErrors.set(idx, "Completion failed: " + (msg || "unknown error"));
+          logError("BreakdownPane", "exercise_completion_failed", {
+            region_id: ctx.region.id, sentence_index: idx, job_id, error: msg, correlation_id: cid,
+          });
+        }
+        render();
+      };
+
+      const close = openJobStream(job_id, (event) => {
+        if (event.event === "job-done") void settle("done");
+        else if (event.event === "job-failed") {
+          if (event.data?.code === "no_exercise") {
+            void settle("no_exercise", event.data?.reason);
+          } else {
+            void settle("failed", event.data?.error);
+          }
+        } else if (event.event === "snapshot") {
+          const status = event.data?.status;
+          if (status === "completed") void settle("done");
+          else if (status === "failed") {
+            const firstErr = event.data?.errors?.[0];
+            if (firstErr?.code === "no_exercise") {
+              void settle("no_exercise", firstErr.reason);
+            } else {
+              void settle("failed", firstErr?.message);
+            }
+          }
+        }
+      });
+      completionStreams.set(idx, close);
+    } catch (e: any) {
+      completionBusy.delete(idx);
+      completionErrors.set(idx, "Failed to start completion: " + e.message);
+      logError("BreakdownPane", "exercise_completion_submit_failed", {
+        region_id: ctx.region.id, sentence_index: idx, error: e.message, correlation_id: cid,
+      });
+      render();
+    }
+  }
+
   async function loadExisting() {
     loading = true;
     render();
     try {
       breakdown = await getBreakdown(ctx.docId, ctx.chapterId, ctx.region.id);
+      if (isExercise && breakdown) {
+        try {
+          completion = await getExerciseCompletion(ctx.docId, ctx.chapterId, ctx.region.id);
+        } catch (e: any) {
+          logError("BreakdownPane", "completion_load_failed", {
+            region_id: ctx.region.id, error: e.message,
+          });
+        }
+      }
     } catch (e: any) {
       logError("BreakdownPane", "load_failed", {
         region_id: ctx.region.id, error: e.message, stack: e.stack,
@@ -453,6 +612,8 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   return () => {
     destroyed = true;
     if (closeStream) { closeStream(); closeStream = null; }
+    for (const close of completionStreams.values()) close();
+    completionStreams.clear();
     closePopover();
     document.removeEventListener("click", onDocClick, true);
     document.removeEventListener("keydown", onDocKeydown);

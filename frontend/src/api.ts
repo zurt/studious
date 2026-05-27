@@ -403,6 +403,60 @@ export async function requestBreakdown(
   return (await r.json()) as { job_id: string };
 }
 
+export type ExerciseCompletionExample = {
+  japanese: string;
+  reading: string;
+  english: string;
+  explanation: string;
+};
+export type ExerciseCompletionEntry = {
+  answer: string;
+  explanation?: string;
+  examples: ExerciseCompletionExample[];
+  model?: string;
+  updated_at?: string;
+};
+export type ExerciseCompletion = {
+  region_id: string;
+  completions: Record<string, ExerciseCompletionEntry>;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export async function getExerciseCompletion(
+  docId: string,
+  chapterId: string,
+  regionId: string,
+  cid: string = generateCorrelationId(),
+): Promise<ExerciseCompletion | null> {
+  const r = await fetch(
+    `/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/exercise-completion`,
+    { headers: { "x-correlation-id": cid } },
+  );
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`exercise completion fetch: ${r.status}`);
+  return (await r.json()) as ExerciseCompletion;
+}
+
+export async function requestExerciseCompletion(
+  docId: string,
+  chapterId: string,
+  regionId: string,
+  body: { sentence_index: number; overwrite?: boolean },
+  cid: string = generateCorrelationId(),
+): Promise<{ job_id: string }> {
+  const url = `/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/exercise-completion`;
+  const done = startTimer("api", `POST ${url}`, { correlation_id: cid });
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-correlation-id": cid },
+    body: JSON.stringify({ sentence_index: body.sentence_index, overwrite: !!body.overwrite }),
+  });
+  done({ status: r.status });
+  if (!r.ok) throw new Error(`${url}: ${r.status} ${await r.text()}`);
+  return (await r.json()) as { job_id: string };
+}
+
 export async function transcribeRegion(
   docId: string,
   chapterId: string,

@@ -94,6 +94,9 @@ class JobManager:
             if job_type == "breakdown_region":
                 await self._run_breakdown_job(job_id, job)
                 return
+            if job_type == "exercise_completion":
+                await self._run_exercise_completion_job(job_id, job)
+                return
             if job_type == "grammar_guide":
                 await self._run_grammar_guide_job(job_id, job)
                 return
@@ -429,6 +432,9 @@ class JobManager:
         try:
             breakdown_links.annotate(breakdown_payload)
             storage.save_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
+            # Sentence indices in completions only make sense against the
+            # breakdown that produced them. A new breakdown invalidates them.
+            storage.delete_exercise_completion(doc_id, chapter_id, region_id)
         except Exception as exc:
             err_msg = f"post-processing failed: {exc}"
             log.exception("breakdown_postprocess_error", extra=job_extra)
@@ -466,6 +472,151 @@ class JobManager:
             **llm_audit.extract_provenance(result.meta),
         )
         log.info("breakdown_job_done", extra={**job_extra, "duration_ms": duration_ms})
+        storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
+        self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
+
+
+    async def _run_exercise_completion_job(self, job_id: str, job: dict[str, Any]) -> None:
+        doc_id = job["doc_id"]
+        chapter_id = job["chapter_id"]
+        region_id = job["region_id"]
+        sentence_index: int = job["sentence_index"]
+        sentence_text: str = job["sentence_text"]
+        region_transcription: str = job.get("region_transcription") or ""
+        provider_name: str = job["provider"]
+        config: dict[str, Any] = job.get("config", {}) or {}
+        prompt: str = job.get("prompt", "")
+        tool_name: str = job.get("tool_name", "record_exercise_completion")
+        tool_schema: dict[str, Any] = job.get("tool_schema", {})
+
+        job_extra = {
+            "job_id": job_id,
+            "doc_id": doc_id,
+            "chapter_id": chapter_id,
+            "region_id": region_id,
+            "sentence_index": sentence_index,
+        }
+        log.info("exercise_completion_job_start", extra=job_extra)
+
+        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
+        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id}})
+
+        try:
+            provider = registry.get_vlm(provider_name)
+        except Exception as exc:
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+
+        context_block = (
+            f"<region_transcription>\n{region_transcription}\n</region_transcription>\n\n"
+            if region_transcription
+            else ""
+        )
+        full_prompt = (
+            f"{prompt}\n\n{context_block}"
+            f"<target_sentence>\n{sentence_text}\n</target_sentence>"
+        )
+
+        t0 = time.monotonic()
+        try:
+            result = await asyncio.to_thread(
+                provider.call_tool, full_prompt, tool_name, tool_schema, config
+            )
+        except Exception as exc:
+            llm_audit.record(
+                provider=provider_name,
+                model=str(config.get("model") or get_settings().default_vlm_model),
+                job_type="exercise_completion",
+                status="error",
+                duration_ms=int((time.monotonic() - t0) * 1000),
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                region_id=region_id,
+                job_id=job_id,
+                error=str(exc),
+                correlation_id=correlation_id_var.get(""),
+            )
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            return
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        if result.tool_input.get("no_exercise"):
+            reason = result.tool_input.get("reason") or "No exercise found in this sentence."
+            err_msg = f"no_exercise: {reason}"
+            llm_audit.record(
+                provider=provider_name,
+                model=result.meta.get("model"),
+                job_type="exercise_completion",
+                status="success",
+                duration_ms=duration_ms,
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                region_id=region_id,
+                job_id=job_id,
+                correlation_id=correlation_id_var.get(""),
+                **llm_audit.extract_usage(result.meta),
+                **llm_audit.extract_provenance(result.meta),
+            )
+            log.info("exercise_completion_no_exercise", extra={**job_extra, "reason": reason})
+            storage.update_job(
+                job_id,
+                status="failed",
+                finished_at=_now_iso(),
+                errors=[{"message": err_msg, "code": "no_exercise", "reason": reason}],
+            )
+            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg, "code": "no_exercise", "reason": reason}})
+            return
+        answer = result.tool_input.get("answer")
+        examples = result.tool_input.get("examples")
+        if not answer or not isinstance(examples, list) or not examples:
+            err_msg = "tool response missing `answer` or `examples`"
+            llm_audit.record(
+                provider=provider_name,
+                model=result.meta.get("model"),
+                job_type="exercise_completion",
+                status="error",
+                duration_ms=duration_ms,
+                doc_id=doc_id,
+                chapter_id=chapter_id,
+                region_id=region_id,
+                job_id=job_id,
+                error=err_msg,
+                correlation_id=correlation_id_var.get(""),
+                **llm_audit.extract_usage(result.meta),
+                **llm_audit.extract_provenance(result.meta),
+            )
+            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
+            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            return
+
+        entry = {
+            "answer": answer,
+            "explanation": result.tool_input.get("explanation") or "",
+            "examples": examples,
+            "model": result.meta.get("model"),
+            "updated_at": _now_iso(),
+        }
+        storage.upsert_exercise_completion_entry(
+            doc_id, chapter_id, region_id, sentence_index, entry
+        )
+
+        llm_audit.record(
+            provider=provider_name,
+            model=result.meta.get("model"),
+            job_type="exercise_completion",
+            status="success",
+            duration_ms=duration_ms,
+            doc_id=doc_id,
+            chapter_id=chapter_id,
+            region_id=region_id,
+            job_id=job_id,
+            correlation_id=correlation_id_var.get(""),
+            **llm_audit.extract_usage(result.meta),
+            **llm_audit.extract_provenance(result.meta),
+        )
+        log.info("exercise_completion_job_done", extra={**job_extra, "duration_ms": duration_ms})
         storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
         self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
 

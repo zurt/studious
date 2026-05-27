@@ -295,6 +295,99 @@ GRAMMAR_GUIDE_TOOL_SCHEMA: dict = {
 }
 
 
+EXERCISE_COMPLETION_PROMPT = """\
+You are a Japanese-language tutor for English-speaking learners. The
+input has two parts:
+- `<region_transcription>`: the full transcribed text of an exercises
+  region from a Japanese textbook. Use this for context — it usually
+  contains the instruction header (what kind of drill this is),
+  surrounding numbered items, and any choice bank or vocabulary list
+  that applies to the whole region.
+- `<target_sentence>`: the single item you are being asked to complete.
+  This is one line from the region transcription.
+
+<task>
+First decide whether `<target_sentence>` is actually an exercise item
+to complete. The instruction header, section title, choice bank, or a
+plain example sentence printed by the textbook are NOT exercises — only
+the numbered drill items the student is meant to fill in or transform
+are exercises.
+
+If the target IS an exercise, complete it using the surrounding region
+as context (read the instruction header to figure out what is being
+practiced, and look at sibling items and any choice bank). Provide a
+simple example that an intermediate student could understand. Call the
+`record_exercise_completion` tool with:
+- answer: the completed sentence with the blank filled in, in Japanese.
+  Include furigana on uncommon kanji as `漢字(かな)`. If the exercise is
+  a transformation rather than a blank, give the transformed sentence.
+- explanation: one or two sentences in English explaining the answer
+  (what grammar/word is being practiced, why this answer fits).
+- examples: a list of three example sentences that use the same
+  pattern or vocabulary as the exercise. The FIRST example must be
+  the simplest possible illustration of the pattern — short, plain
+  vocabulary, no extra clauses — so an intermediate learner can grasp
+  the core usage at a glance. The SECOND and THIRD examples should be
+  appropriate, slightly richer variations that show the pattern in
+  different contexts (e.g. different tense, polarity, register, or
+  paired with a related grammar point). Each example object has:
+    - japanese: the sentence, with furigana on uncommon kanji as
+      `漢字(かな)`.
+    - reading: the full sentence written in kana (hiragana/katakana
+      only — no kanji). For sentences that are already kana-only, just
+      repeat the japanese field.
+    - english: a concise English translation.
+    - explanation: one short English sentence. For the first example,
+      explain how the example illustrates the core pattern. For the
+      second and third examples, keep the explanation brief — note
+      what aspect of the pattern this variation demonstrates.
+
+If the input is NOT an exercise, call the tool with:
+- no_exercise: true
+- reason: a short English sentence explaining why (e.g. "This line is a
+  section heading, not a drill item.").
+Do NOT invent an exercise that is not present. Omit `answer` and
+`examples` in this case.
+</task>
+
+<rules>
+- If the exercise has multiple blanks, fill all of them.
+- Keep examples short and natural. The first example must be the
+  simplest of the three. All examples should be one sentence each.
+- Provide exactly three examples.
+- The `<region_transcription>` is context only; complete exactly the
+  one line given in `<target_sentence>`, not any other item.
+- Do not return prose; return only the tool call.
+</rules>
+"""
+
+
+EXERCISE_COMPLETION_TOOL_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "answer": {"type": "string"},
+        "explanation": {"type": "string"},
+        "examples": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "required": ["japanese", "reading", "english", "explanation"],
+                "properties": {
+                    "japanese": {"type": "string", "minLength": 1},
+                    "reading": {"type": "string", "minLength": 1},
+                    "english": {"type": "string", "minLength": 1},
+                    "explanation": {"type": "string", "minLength": 1},
+                },
+            },
+        },
+        "no_exercise": {"type": "boolean"},
+        "reason": {"type": "string"},
+    },
+}
+
+
 BREAKDOWN_TOOL_SCHEMA: dict = {
     "type": "object",
     "required": ["sentences"],
