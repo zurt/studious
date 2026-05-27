@@ -411,6 +411,7 @@ export type ExerciseCompletionExample = {
 };
 export type ExerciseCompletionEntry = {
   answer: string;
+  answer_english?: string;
   explanation?: string;
   examples: ExerciseCompletionExample[];
   model?: string;

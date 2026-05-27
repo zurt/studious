@@ -315,32 +315,40 @@ are exercises.
 
 If the target IS an exercise, complete it using the surrounding region
 as context (read the instruction header to figure out what is being
-practiced, and look at sibling items and any choice bank). Provide a
-simple example that an intermediate student could understand. Call the
+practiced, and look at sibling items and any choice bank). Call the
 `record_exercise_completion` tool with:
 - answer: the completed sentence with the blank filled in, in Japanese.
-  Include furigana on uncommon kanji as `漢字(かな)`. If the exercise is
-  a transformation rather than a blank, give the transformed sentence.
+  Preserve the printed portions of the target sentence VERBATIM —
+  copy them character-for-character from `<target_sentence>`, including
+  punctuation and ordering. Fill ONLY the blank(s). Include furigana on
+  uncommon kanji as `漢字(かな)`. If the exercise is a transformation
+  rather than a blank, give the transformed sentence.
+- answer_english: a concise English translation of the completed answer
+  sentence above.
 - explanation: one or two sentences in English explaining the answer
   (what grammar/word is being practiced, why this answer fits).
-- examples: a list of three example sentences that use the same
-  pattern or vocabulary as the exercise. The FIRST example must be
-  the simplest possible illustration of the pattern — short, plain
-  vocabulary, no extra clauses — so an intermediate learner can grasp
-  the core usage at a glance. The SECOND and THIRD examples should be
-  appropriate, slightly richer variations that show the pattern in
-  different contexts (e.g. different tense, polarity, register, or
-  paired with a related grammar point). Each example object has:
-    - japanese: the sentence, with furigana on uncommon kanji as
-      `漢字(かな)`.
+- examples: a list of three ALTERNATIVE COMPLETIONS of the same target
+  sentence. Each example is the target sentence with the blank filled
+  in a different way — the printed portions of the target sentence
+  must appear VERBATIM in every example. Do NOT rewrite the
+  surrounding clauses, swap subjects, change tense outside the blank,
+  or invent unrelated sentences. The FIRST example must be the
+  simplest, most natural completion — short, plain vocabulary in the
+  blank, the most obvious fit. The SECOND and THIRD examples are
+  appropriate, slightly richer alternative completions that show
+  different ways the blank could be filled while keeping the rest of
+  the sentence unchanged. Each example object has:
+    - japanese: the completed sentence, with furigana on uncommon
+      kanji as `漢字(かな)`. The portions outside the blank must match
+      `<target_sentence>` verbatim.
     - reading: the full sentence written in kana (hiragana/katakana
       only — no kanji). For sentences that are already kana-only, just
       repeat the japanese field.
     - english: a concise English translation.
-    - explanation: one short English sentence. For the first example,
-      explain how the example illustrates the core pattern. For the
-      second and third examples, keep the explanation brief — note
-      what aspect of the pattern this variation demonstrates.
+    - explanation: one short English sentence describing WHY this
+      completion fits the blank. For the first example, explain why it
+      is the most natural fit. For the second and third examples, note
+      what nuance or variation this alternative completion shows.
 
 If the input is NOT an exercise, call the tool with:
 - no_exercise: true
@@ -352,9 +360,11 @@ Do NOT invent an exercise that is not present. Omit `answer` and
 
 <rules>
 - If the exercise has multiple blanks, fill all of them.
-- Keep examples short and natural. The first example must be the
-  simplest of the three. All examples should be one sentence each.
-- Provide exactly three examples.
+- The printed (non-blank) portions of `<target_sentence>` MUST appear
+  verbatim in `answer` and in every example's `japanese`. Vary only
+  what fills the blank.
+- The first example must be the simplest natural completion of the
+  three. Provide exactly three examples.
 - The `<region_transcription>` is context only; complete exactly the
   one line given in `<target_sentence>`, not any other item.
 - Do not return prose; return only the tool call.
@@ -366,6 +376,7 @@ EXERCISE_COMPLETION_TOOL_SCHEMA: dict = {
     "type": "object",
     "properties": {
         "answer": {"type": "string"},
+        "answer_english": {"type": "string"},
         "explanation": {"type": "string"},
         "examples": {
             "type": "array",

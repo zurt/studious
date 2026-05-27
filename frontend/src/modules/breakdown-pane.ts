@@ -197,6 +197,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
             <button type="button" class="icon-btn" data-completion-regen="${idx}" title="Regenerate completion" aria-label="Regenerate completion">${ICON_REDO}</button>
           </div>
           <div class="exercise-completion-answer" lang="ja"><strong>Answer:</strong> ${escapeHtml(entry.answer)}</div>
+          ${entry.answer_english ? `<div class="exercise-completion-answer-en">${escapeHtml(entry.answer_english)}</div>` : ""}
           ${entry.explanation ? `<div class="exercise-completion-explanation">${escapeHtml(entry.explanation)}</div>` : ""}
           ${examples ? `<ol class="exercise-completion-examples">${examples}</ol>` : ""}
         </div>`;

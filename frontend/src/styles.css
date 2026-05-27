@@ -485,6 +485,7 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted);
 }
 .exercise-completion-answer { line-height: 1.5; }
+.exercise-completion-answer-en { font-size: 13px; line-height: 1.4; }
 .exercise-completion-explanation { color: var(--muted); line-height: 1.4; }
 .exercise-completion-examples {
   margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;

@@ -593,6 +593,7 @@ class JobManager:
 
         entry = {
             "answer": answer,
+            "answer_english": result.tool_input.get("answer_english") or "",
             "explanation": result.tool_input.get("explanation") or "",
             "examples": examples,
             "model": result.meta.get("model"),
