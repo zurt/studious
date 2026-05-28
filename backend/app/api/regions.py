@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 from ..config import (
     BREAKDOWN_TOOL_SCHEMA,
+    EXERCISE_COMPLETION_PROMPT,
+    EXERCISE_COMPLETION_TOOL_SCHEMA,
     REGION_TRANSCRIBE_PROMPT,
     SENTENCE_BREAKDOWN_PROMPT,
     VOCAB_LIST_TRANSCRIBE_PROMPT,
@@ -223,6 +225,75 @@ def request_region_breakdown(
         "prompt": SENTENCE_BREAKDOWN_PROMPT,
         "tool_name": "record_breakdown",
         "tool_schema": BREAKDOWN_TOOL_SCHEMA,
+    }
+    job = manager.submit(payload)
+    response.status_code = 202
+    return {"job_id": job["id"]}
+
+
+class ExerciseCompletionRequest(BaseModel):
+    sentence_index: int = Field(..., ge=0)
+    overwrite: bool = False
+
+
+@router.get("/{region_id}/exercise-completion")
+def get_region_exercise_completion(doc_id: str, chapter_id: str, region_id: str):
+    _require_chapter(doc_id, chapter_id)
+    record = storage.load_exercise_completion(doc_id, chapter_id, region_id)
+    if record is None:
+        raise HTTPException(404, "exercise completion not found")
+    return record
+
+
+@router.post("/{region_id}/exercise-completion")
+def request_region_exercise_completion(
+    doc_id: str,
+    chapter_id: str,
+    region_id: str,
+    response: Response,
+    body: ExerciseCompletionRequest,
+):
+    _require_chapter(doc_id, chapter_id)
+    region = storage.load_region(doc_id, chapter_id, region_id)
+    if region is None:
+        raise HTTPException(404, "region not found")
+    if region.get("tag") != "exercises":
+        raise HTTPException(400, "exercise completions are only available on exercises regions")
+
+    breakdown = storage.load_breakdown(doc_id, chapter_id, region_id)
+    if breakdown is None:
+        raise HTTPException(409, "breakdown must be generated before requesting an exercise completion")
+    sentences = breakdown.get("sentences") or []
+    if body.sentence_index >= len(sentences):
+        raise HTTPException(400, f"sentence_index {body.sentence_index} out of range")
+    sentence = sentences[body.sentence_index]
+    sentence_text = sentence.get("text") if isinstance(sentence, dict) else None
+    if not sentence_text:
+        raise HTTPException(400, "sentence has no text")
+
+    existing = storage.load_exercise_completion(doc_id, chapter_id, region_id)
+    if (
+        not body.overwrite
+        and existing
+        and str(body.sentence_index) in (existing.get("completions") or {})
+    ):
+        raise HTTPException(409, "exercise completion already exists; pass overwrite=true to regenerate")
+
+    settings = get_settings()
+    payload: dict[str, Any] = {
+        "job_type": "exercise_completion",
+        "doc_id": doc_id,
+        "chapter_id": chapter_id,
+        "region_id": region_id,
+        "sentence_index": body.sentence_index,
+        "sentence_text": sentence_text,
+        "region_transcription": region.get("transcription_md") or "",
+        "engine": "vlm",
+        "provider": "anthropic",
+        "config": {"model": settings.default_vlm_model, "max_tokens": 2048},
+        "prompt": EXERCISE_COMPLETION_PROMPT,
+        "tool_name": "record_exercise_completion",
+        "tool_schema": EXERCISE_COMPLETION_TOOL_SCHEMA,
     }
     job = manager.submit(payload)
     response.status_code = 202

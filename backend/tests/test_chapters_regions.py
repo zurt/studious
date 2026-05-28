@@ -285,6 +285,172 @@ def test_get_breakdown_returns_stored_payload(isolated_data_dir, tmp_path: Path)
     assert body["model"] == "claude-opus-4-7"
 
 
+def _exercise_region_with_breakdown(tmp_path: Path) -> tuple[str, str, str]:
+    """Helper: create an exercises region with a transcription + 2-sentence breakdown."""
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    region = storage.create_region(
+        doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="exercises"
+    )
+    storage.update_region(
+        doc_id, ch["id"], region["id"],
+        transcription_md="1. 私は学校＿＿行く。\n2. 友達＿＿映画を見た。",
+    )
+    storage.save_breakdown(
+        doc_id, ch["id"], region["id"],
+        {"sentences": [
+            {"text": "1. 私は学校＿＿行く。", "gloss": "I go ___ school."},
+            {"text": "2. 友達＿＿映画を見た。", "gloss": "I saw a movie ___ a friend."},
+        ]},
+    )
+    return doc_id, ch["id"], region["id"]
+
+
+def test_exercise_completion_request_validation(isolated_data_dir, tmp_path: Path):
+    doc_id, chapter_id, region_id = _exercise_region_with_breakdown(tmp_path)
+    base = f"/api/documents/{doc_id}/chapters/{chapter_id}/regions"
+    client = TestClient(app)
+
+    # GET 404 when no completion exists
+    r = client.get(f"{base}/{region_id}/exercise-completion")
+    assert r.status_code == 404
+
+    # POST 400 on non-exercise region
+    other = storage.create_region(
+        doc_id, chapter_id, page=1, bbox=[0, 0, 1, 1], tag="reading_passage"
+    )
+    r = client.post(
+        f"{base}/{other['id']}/exercise-completion",
+        json={"sentence_index": 0},
+    )
+    assert r.status_code == 400
+
+    # POST 409 when no breakdown yet
+    no_bd = storage.create_region(
+        doc_id, chapter_id, page=1, bbox=[0, 0, 1, 1], tag="exercises"
+    )
+    r = client.post(
+        f"{base}/{no_bd['id']}/exercise-completion",
+        json={"sentence_index": 0},
+    )
+    assert r.status_code == 409
+
+    # POST 400 when sentence_index is out of range
+    r = client.post(
+        f"{base}/{region_id}/exercise-completion",
+        json={"sentence_index": 5},
+    )
+    assert r.status_code == 400
+
+    # POST 404 region not found
+    r = client.post(
+        f"{base}/missing/exercise-completion",
+        json={"sentence_index": 0},
+    )
+    assert r.status_code == 404
+
+
+def test_exercise_completion_submit_and_overwrite(isolated_data_dir, tmp_path: Path):
+    doc_id, chapter_id, region_id = _exercise_region_with_breakdown(tmp_path)
+    base = f"/api/documents/{doc_id}/chapters/{chapter_id}/regions"
+    client = TestClient(app)
+
+    # Initial POST → 202, job carries the target sentence and region context
+    r = client.post(
+        f"{base}/{region_id}/exercise-completion",
+        json={"sentence_index": 0},
+    )
+    assert r.status_code == 202
+    job = storage.load_job(r.json()["job_id"])
+    assert job["job_type"] == "exercise_completion"
+    assert job["tool_name"] == "record_exercise_completion"
+    assert job["sentence_index"] == 0
+    assert job["sentence_text"] == "1. 私は学校＿＿行く。"
+    assert "友達" in job["region_transcription"]
+    assert job["tool_schema"]["properties"]["examples"]["minItems"] == 3
+
+    # Seed an existing completion at idx=0 → second POST without overwrite 409s
+    storage.upsert_exercise_completion_entry(
+        doc_id, chapter_id, region_id, 0,
+        {"answer": "に", "examples": [{"japanese": "a", "reading": "a", "english": "a", "explanation": "a"}]},
+    )
+    r = client.post(
+        f"{base}/{region_id}/exercise-completion",
+        json={"sentence_index": 0},
+    )
+    assert r.status_code == 409
+
+    # overwrite=True → 202
+    r = client.post(
+        f"{base}/{region_id}/exercise-completion",
+        json={"sentence_index": 0, "overwrite": True},
+    )
+    assert r.status_code == 202
+
+    # A *different* sentence_index without overwrite is allowed
+    r = client.post(
+        f"{base}/{region_id}/exercise-completion",
+        json={"sentence_index": 1},
+    )
+    assert r.status_code == 202
+
+
+def test_get_exercise_completion_returns_stored_payload(isolated_data_dir, tmp_path: Path):
+    doc_id, chapter_id, region_id = _exercise_region_with_breakdown(tmp_path)
+    storage.upsert_exercise_completion_entry(
+        doc_id, chapter_id, region_id, 0,
+        {
+            "answer": "に",
+            "explanation": "Direction particle.",
+            "examples": [
+                {"japanese": "学校に行く。", "reading": "がっこうにいく。",
+                 "english": "I go to school.", "explanation": "に marks destination."},
+            ],
+        },
+    )
+    client = TestClient(app)
+    r = client.get(
+        f"/api/documents/{doc_id}/chapters/{chapter_id}/regions/{region_id}/exercise-completion"
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["region_id"] == region_id
+    assert "0" in body["completions"]
+    assert body["completions"]["0"]["answer"] == "に"
+
+
+def test_breakdown_regeneration_clears_completions(isolated_data_dir, tmp_path: Path):
+    """When a breakdown is regenerated the saved completions become index-stale, so
+    `save_breakdown` (via the job) must drop them."""
+    doc_id, chapter_id, region_id = _exercise_region_with_breakdown(tmp_path)
+    storage.upsert_exercise_completion_entry(
+        doc_id, chapter_id, region_id, 0,
+        {"answer": "に", "examples": []},
+    )
+    assert storage.load_exercise_completion(doc_id, chapter_id, region_id) is not None
+
+    # Simulate the job's save → delete sequence
+    storage.save_breakdown(
+        doc_id, chapter_id, region_id,
+        {"sentences": [{"text": "different.", "gloss": "different"}]},
+    )
+    storage.delete_exercise_completion(doc_id, chapter_id, region_id)
+    assert storage.load_exercise_completion(doc_id, chapter_id, region_id) is None
+
+
+def test_region_delete_cascades_exercise_completion(isolated_data_dir, tmp_path: Path):
+    doc_id, chapter_id, region_id = _exercise_region_with_breakdown(tmp_path)
+    storage.upsert_exercise_completion_entry(
+        doc_id, chapter_id, region_id, 0,
+        {"answer": "x", "examples": []},
+    )
+    p = storage.exercise_completion_path(doc_id, chapter_id, region_id)
+    assert p.exists()
+    storage.delete_region(doc_id, chapter_id, region_id)
+    assert not p.exists()
+
+
 def test_delete_chapter_cascades_regions(isolated_data_dir, tmp_path: Path):
     doc = _make_doc(tmp_path)
     doc_id = doc["id"]

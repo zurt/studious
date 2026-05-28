@@ -469,6 +469,50 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   cursor: pointer; user-select: none;
 }
 
+.exercise-completion {
+  margin-top: 8px; padding: 8px 10px; border-top: 1px dashed var(--border);
+  font-size: 13px; display: flex; flex-direction: column; gap: 6px;
+}
+.exercise-completion.is-empty { padding-top: 6px; }
+.exercise-completion.is-busy {
+  color: var(--muted); font-style: italic;
+  display: flex; flex-direction: row; align-items: center; gap: 6px;
+}
+.exercise-completion-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.exercise-completion-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted);
+}
+.exercise-completion-answer { line-height: 1.5; }
+.exercise-completion-answer-en { font-size: 13px; line-height: 1.4; }
+.exercise-completion-explanation { color: var(--muted); line-height: 1.4; }
+.exercise-completion-examples {
+  margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;
+}
+.exercise-completion-example { line-height: 1.4; }
+.exercise-completion-example.is-primary {
+  padding: 4px 8px; margin-left: -8px;
+  border-left: 2px solid var(--accent, #2563eb); background: var(--bg-soft);
+  border-radius: 2px;
+}
+.exercise-completion-example-jp { font-weight: 500; }
+.exercise-completion-example-reading { color: var(--muted); font-size: 12px; }
+.exercise-completion-example-en { font-size: 13px; }
+.exercise-completion-example-note { font-size: 12px; color: var(--muted); font-style: italic; }
+.exercise-completion-btn {
+  align-self: flex-start; padding: 4px 10px; font-size: 12px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-soft); cursor: pointer;
+}
+.exercise-completion-btn:hover { background: var(--border); }
+.exercise-completion-error { color: #dc2626; font-size: 12px; }
+.exercise-completion-notice {
+  font-size: 12px; color: var(--muted); font-style: italic;
+  padding: 4px 6px; border-left: 2px solid var(--border); background: var(--bg-soft);
+  border-radius: 2px;
+}
+
 /* Zoom-pan viewer */
 .zp-container {
   position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;

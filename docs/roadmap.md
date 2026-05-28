@@ -161,6 +161,42 @@ See `docs/breakdown-vocab-links-plan.md`.
       buttons; source-changed warning when any underlying grammar
       region is re-transcribed since the guide was generated.
 
+### Phase 2.3: Exercise Completions
+
+- [x] Per-sentence "Complete exercise" button on breakdown cards for
+      `exercises` regions (gated on an existing breakdown). VLM tool-call
+      returns `answer`, `explanation`, and three example sentences (the
+      first as the simplest illustration, two more as appropriate
+      variations); each example carries `japanese`, `reading`, `english`,
+      and a brief `explanation`.
+- [x] Region transcription sent as `<region_transcription>` context
+      alongside the `<target_sentence>` so the model can read the
+      exercise instruction header, sibling items, and choice banks.
+- [x] Tool reports `no_exercise: true` with a `reason` when the target
+      line isn't actually a drill item; UI shows a muted notice with a
+      "Try again" button instead of treating it as an error.
+- [x] Completions saved per-region keyed by `sentence_index`; cascaded
+      delete with the region; cleared automatically when a region's
+      breakdown is regenerated (sentence indices would otherwise become
+      stale).
+
+Beyond MVP (deferred):
+- [ ] Bulk "Complete all exercises in this region" action that fans out
+      one job per sentence, with per-item progress in the UI.
+- [ ] Completion-count badge on exercises regions in the region list
+      and chapter-view tracker widget.
+- [ ] Include the chapter's grammar guide (when present) as additional
+      context so completions stay grounded in patterns the chapter has
+      actually taught.
+- [ ] Markdown / clipboard export of completions per region and per
+      chapter (mirror the breakdown copy-all affordance).
+- [ ] Fallback: when transcription quality is poor, optionally include
+      the region image crop in the VLM call (toggle, not default — image
+      tokens are expensive).
+- [ ] Regenerate-completion-on-stale: if the source breakdown is
+      regenerated, surface the prior completions in a "review and
+      reapply" UI rather than silently dropping them.
+
 ## Phase 3: Central Vocab/Grammar Store
 
 - [ ] Global vocab store (JSONL-based, across all textbooks)
