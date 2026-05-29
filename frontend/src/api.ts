@@ -231,6 +231,23 @@ export async function getProviders(): Promise<ProvidersResponse> {
   return jget("/api/providers");
 }
 
+export type Preferences = {
+  vlm_model: string;
+  vlm_model_override: string | null;
+  available_vlm_models: string[];
+  default_vlm_model: string;
+};
+
+export async function getPreferences(): Promise<Preferences> {
+  return jget("/api/preferences");
+}
+
+export async function updatePreferences(
+  patch: { vlm_model?: string | null }
+): Promise<Preferences> {
+  return jput("/api/preferences", patch);
+}
+
 // ---------- Costs ----------
 
 export type CostBucket = {

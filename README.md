@@ -99,7 +99,13 @@ Environment variables (read at startup, `.env` supported):
 Valid effort values are `low`, `medium`, `high`, `xhigh`, `max`. Effort and
 adaptive thinking only apply to models that support them (Opus 4.5+ and
 Sonnet 4.6); on Haiku 4.5 they are silently omitted. The `temperature`
-config field is silently dropped on Claude Opus 4.7 (which removed it).
+config field is silently dropped on Claude Opus 4.7 and Opus 4.8 (which
+removed it).
+
+The default VLM model is `claude-opus-4-8`. You can switch to
+`claude-opus-4-7` from the **Settings → General** panel; the choice
+persists to `data/preferences.json` and is exposed via
+`GET`/`PUT /api/preferences`.
 
 VLM requests use ephemeral prompt caching on the text/tool-schema portion
 of the request, so repeated calls with the same prompt see cache hits

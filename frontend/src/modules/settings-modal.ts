@@ -1,11 +1,14 @@
 import {
   CostSummary,
   DocMeta,
+  Preferences,
   ProvidersResponse,
   getCostSummary,
   getDocument,
+  getPreferences,
   getProviders,
   listDocuments,
+  updatePreferences,
 } from "../api";
 import { error as logError } from "../logger";
 import { replaceQuery } from "../router";
@@ -129,19 +132,35 @@ function fmtNum(n: number): string {
 async function renderGeneral(host: HTMLElement) {
   host.innerHTML = `<div class="muted">Loading…</div>`;
   try {
-    const [providers, docList] = await Promise.all([getProviders(), listDocuments()]);
+    const [providers, prefs, docList] = await Promise.all([
+      getProviders(),
+      getPreferences(),
+      listDocuments(),
+    ]);
     const docs = await Promise.all(
       docList.map((d) => getDocument(d.id).catch(() => d))
     );
-    host.innerHTML = generalHtml(providers, docs);
+    host.innerHTML = generalHtml(providers, prefs, docs);
+    wireGeneral(host);
   } catch (e: any) {
     logError("SettingsModal", "general_load_failed", { error: e?.message ?? String(e), stack: e?.stack });
     host.innerHTML = `<div class="error">Failed to load: ${escapeHtml(String(e))}</div>`;
   }
 }
 
-function generalHtml(providers: ProvidersResponse, docs: DocMeta[]): string {
+function generalHtml(
+  providers: ProvidersResponse,
+  prefs: Preferences,
+  docs: DocMeta[]
+): string {
   const d = providers.defaults;
+  const modelOptions = prefs.available_vlm_models
+    .map((m) => {
+      const selected = m === prefs.vlm_model ? " selected" : "";
+      const suffix = m === prefs.default_vlm_model ? " (default)" : "";
+      return `<option value="${escapeHtml(m)}"${selected}>${escapeHtml(m)}${suffix}</option>`;
+    })
+    .join("");
   const vlmList = providers.vlm.map((p) => {
     const flag = p.unavailable ? ` <span class="muted">(unavailable: ${escapeHtml(p.unavailable)})</span>` : "";
     return `<li><code>${escapeHtml(p.name)}</code>${flag}</li>`;
@@ -176,7 +195,10 @@ function generalHtml(providers: ProvidersResponse, docs: DocMeta[]): string {
       <h3>Configuration</h3>
       <dl class="settings-dl">
         <dt>Default VLM provider</dt><dd><code>${escapeHtml(d.vlm)}</code></dd>
-        <dt>Default VLM model</dt><dd><code>${escapeHtml(d.vlm_model)}</code></dd>
+        <dt>Default VLM model</dt><dd>
+          <select id="settings-vlm-model" class="settings-select">${modelOptions}</select>
+          <span id="settings-vlm-model-status" class="muted small" style="margin-left:0.5rem;"></span>
+        </dd>
         <dt>Default OCR provider</dt><dd><code>${escapeHtml(d.ocr)}</code></dd>
         <dt>VLM providers</dt><dd><ul class="settings-inline-list">${vlmList || '<li class="muted">none</li>'}</ul></dd>
         <dt>OCR providers</dt><dd><ul class="settings-inline-list">${ocrList || '<li class="muted">none</li>'}</ul></dd>
@@ -195,6 +217,26 @@ function generalHtml(providers: ProvidersResponse, docs: DocMeta[]): string {
       <p class="muted small">Note: full-page transcription is not currently in use — region-level transcription is the active workflow.</p>
     </section>
   `;
+}
+
+function wireGeneral(host: HTMLElement): void {
+  const select = host.querySelector<HTMLSelectElement>("#settings-vlm-model");
+  const status = host.querySelector<HTMLElement>("#settings-vlm-model-status");
+  if (!select) return;
+  select.addEventListener("change", async () => {
+    const model = select.value;
+    select.disabled = true;
+    if (status) status.textContent = "Saving…";
+    try {
+      await updatePreferences({ vlm_model: model });
+      if (status) status.textContent = "Saved.";
+    } catch (e: any) {
+      logError("SettingsModal", "preferences_save_failed", { error: e?.message ?? String(e) });
+      if (status) status.textContent = `Failed: ${e?.message ?? String(e)}`;
+    } finally {
+      select.disabled = false;
+    }
+  });
 }
 
 async function renderUsage(host: HTMLElement) {

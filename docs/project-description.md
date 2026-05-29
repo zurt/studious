@@ -11,7 +11,9 @@ The tool replaces a manual ChatGPT-based study workflow with persistent storage,
 ### Backend (Python 3.11+)
 - **Framework**: FastAPI with uvicorn
 - **VLM**: Anthropic Claude API (configurable model: sonnet, opus, haiku;
-  default `claude-opus-4-7`). Adaptive thinking and per-stage `effort` (default
+  default `claude-opus-4-8`, switchable to `claude-opus-4-7` from the settings
+  UI; selection persists in `data/preferences.json`). Adaptive thinking and
+  per-stage `effort` (default
   `high` for transcription, `xhigh` for sentence breakdowns) are applied where
   supported; ephemeral prompt caching is enabled on text/tool-schema blocks.
 - **Storage**: File-based (JSON metadata, PNG page images, JSON transcriptions)

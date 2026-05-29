@@ -85,6 +85,18 @@ def test_temperature_helper_recognises_4_7_prefix():
     assert not _model_deprecates_temperature("claude-sonnet-4-6")
 
 
+def test_4_8_recognised_for_temperature_thinking_and_effort():
+    from app.providers.vlm.anthropic import (
+        _model_deprecates_temperature,
+        _model_supports_adaptive_thinking,
+        _model_supports_effort,
+    )
+
+    assert _model_deprecates_temperature("claude-opus-4-8")
+    assert _model_supports_adaptive_thinking("claude-opus-4-8")
+    assert _model_supports_effort("claude-opus-4-8")
+
+
 def test_default_model_used_when_config_missing(vlm):
     inst, messages, _ = vlm
     inst.transcribe(b"img", "prompt", {})
