@@ -6,7 +6,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import chapters, costs, documents, jobs, providers, regions, transcribe
+from .api import (
+    chapters,
+    costs,
+    documents,
+    jobs,
+    preferences,
+    providers,
+    regions,
+    transcribe,
+)
 from .config import get_settings
 from .jobs import manager
 from .middleware import CorrelationMiddleware, StructuredFormatter
@@ -48,6 +57,7 @@ app.include_router(regions.router)
 app.include_router(transcribe.router)
 app.include_router(jobs.router)
 app.include_router(providers.router)
+app.include_router(preferences.router)
 app.include_router(costs.router)
 
 

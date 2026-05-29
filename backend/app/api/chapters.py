@@ -7,9 +7,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
-from ..config import GRAMMAR_GUIDE_PROMPT, GRAMMAR_GUIDE_TOOL_SCHEMA, get_settings
+from ..config import GRAMMAR_GUIDE_PROMPT, GRAMMAR_GUIDE_TOOL_SCHEMA
 from ..jobs import manager
 from ..services import grammar_guide, storage
+from ..services.preferences import get_active_vlm_model
 
 log = logging.getLogger("studious.api.chapters")
 
@@ -146,14 +147,13 @@ def request_grammar_guide(
             f"{len(untranscribed)} grammar region(s) are untranscribed",
         )
 
-    settings = get_settings()
     payload: dict[str, Any] = {
         "job_type": "grammar_guide",
         "doc_id": doc_id,
         "chapter_id": chapter_id,
         "engine": "vlm",
         "provider": "anthropic",
-        "config": {"model": settings.default_vlm_model, "max_tokens": 16000},
+        "config": {"model": get_active_vlm_model(), "max_tokens": 16000},
         "prompt": GRAMMAR_GUIDE_PROMPT,
         "tool_name": "record_grammar_guide",
         "tool_schema": GRAMMAR_GUIDE_TOOL_SCHEMA,

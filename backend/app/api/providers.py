@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from ..config import get_settings
 from ..providers import registry
+from ..services.preferences import get_active_vlm_model
 
 router = APIRouter(prefix="/api/providers", tags=["providers"])
 
@@ -31,7 +32,7 @@ def list_providers():
         "defaults": {
             "ocr": "tesseract",
             "vlm": "anthropic",
-            "vlm_model": settings.default_vlm_model,
+            "vlm_model": get_active_vlm_model(),
             "vlm_prompt": settings.default_vlm_prompt,
         },
     }

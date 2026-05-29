@@ -452,6 +452,7 @@ BREAKDOWN_TOOL_SCHEMA: dict = {
 # and are already included in `usage.input_tokens`, so no separate rate.
 MODEL_PRICING: dict[str, dict[str, float]] = {
     # Claude 4 family
+    "claude-opus-4-8": {"input": 15.0, "output": 75.0},
     "claude-opus-4-7": {"input": 15.0, "output": 75.0},
     "claude-opus-4-6": {"input": 15.0, "output": 75.0},
     "claude-opus-4-5": {"input": 15.0, "output": 75.0},
@@ -469,7 +470,14 @@ class Settings(BaseModel):
     data_dir: Path
     anthropic_api_key: str | None
     tesseract_cmd: str | None
-    default_vlm_model: str = "claude-opus-4-7"
+    default_vlm_model: str = "claude-opus-4-8"
+    # Models offered in the settings UI for VLM selection. The first entry
+    # is treated as the canonical default; anything outside this list is
+    # still accepted server-side for forward compatibility.
+    selectable_vlm_models: list[str] = [
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+    ]
     default_vlm_prompt: str = DEFAULT_VLM_PROMPT
     vlm_max_edge: int = 1568
     vlm_effort_transcription: str = "high"

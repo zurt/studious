@@ -13,10 +13,10 @@ from ..config import (
     REGION_TRANSCRIBE_PROMPT,
     SENTENCE_BREAKDOWN_PROMPT,
     VOCAB_LIST_TRANSCRIBE_PROMPT,
-    get_settings,
 )
 from ..jobs import manager
 from ..services import breakdown_links, storage
+from ..services.preferences import get_active_vlm_model
 
 log = logging.getLogger("studious.api.regions")
 
@@ -152,7 +152,6 @@ def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
     if not page_img.exists():
         raise HTTPException(404, "page image not found")
 
-    settings = get_settings()
     prompt = (
         VOCAB_LIST_TRANSCRIBE_PROMPT
         if region.get("tag") == "vocab_list"
@@ -167,7 +166,7 @@ def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
         "bbox": region["bbox"],
         "engine": "vlm",
         "provider": "anthropic",
-        "config": {"model": settings.default_vlm_model},
+        "config": {"model": get_active_vlm_model()},
         "prompt": prompt,
     }
     job = manager.submit(payload)
@@ -212,7 +211,6 @@ def request_region_breakdown(
     ):
         raise HTTPException(409, "breakdown already exists; pass overwrite=true to regenerate")
 
-    settings = get_settings()
     payload: dict[str, Any] = {
         "job_type": "breakdown_region",
         "doc_id": doc_id,
@@ -221,7 +219,7 @@ def request_region_breakdown(
         "page": region["page"],
         "engine": "vlm",
         "provider": "anthropic",
-        "config": {"model": settings.default_vlm_model, "max_tokens": 8192},
+        "config": {"model": get_active_vlm_model(), "max_tokens": 8192},
         "prompt": SENTENCE_BREAKDOWN_PROMPT,
         "tool_name": "record_breakdown",
         "tool_schema": BREAKDOWN_TOOL_SCHEMA,
@@ -279,7 +277,6 @@ def request_region_exercise_completion(
     ):
         raise HTTPException(409, "exercise completion already exists; pass overwrite=true to regenerate")
 
-    settings = get_settings()
     payload: dict[str, Any] = {
         "job_type": "exercise_completion",
         "doc_id": doc_id,
@@ -290,7 +287,7 @@ def request_region_exercise_completion(
         "region_transcription": region.get("transcription_md") or "",
         "engine": "vlm",
         "provider": "anthropic",
-        "config": {"model": settings.default_vlm_model, "max_tokens": 2048},
+        "config": {"model": get_active_vlm_model(), "max_tokens": 2048},
         "prompt": EXERCISE_COMPLETION_PROMPT,
         "tool_name": "record_exercise_completion",
         "tool_schema": EXERCISE_COMPLETION_TOOL_SCHEMA,

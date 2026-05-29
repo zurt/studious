@@ -12,14 +12,20 @@ from ...config import get_settings
 from ..registry import ToolCallResult, TranscriptionResult
 
 
-_TEMPERATURE_DEPRECATED_PREFIXES = ("claude-opus-4-7",)
+_TEMPERATURE_DEPRECATED_PREFIXES = ("claude-opus-4-7", "claude-opus-4-8")
 # Models that support adaptive thinking (`thinking: {type: "adaptive"}`).
-_ADAPTIVE_THINKING_PREFIXES = ("claude-opus-4-6", "claude-opus-4-7", "claude-sonnet-4-6")
+_ADAPTIVE_THINKING_PREFIXES = (
+    "claude-opus-4-6",
+    "claude-opus-4-7",
+    "claude-opus-4-8",
+    "claude-sonnet-4-6",
+)
 # Models that support the `effort` output_config parameter.
 _EFFORT_PREFIXES = (
     "claude-opus-4-5",
     "claude-opus-4-6",
     "claude-opus-4-7",
+    "claude-opus-4-8",
     "claude-sonnet-4-6",
 )
 
@@ -80,6 +86,7 @@ class AnthropicVlm:
             },
             "default_prompt": settings.default_vlm_prompt,
             "models": [
+                "claude-opus-4-8",
                 "claude-opus-4-7",
                 "claude-sonnet-4-6",
                 "claude-haiku-4-5-20251001",
@@ -91,7 +98,7 @@ class AnthropicVlm:
                     "type": "number",
                     "min": 0,
                     "max": 1,
-                    "note": "Ignored on claude-opus-4-7 and other adaptive-thinking models.",
+                    "note": "Ignored on claude-opus-4-7+/4-8 and other adaptive-thinking models.",
                 },
                 "effort": {
                     "type": "string",
