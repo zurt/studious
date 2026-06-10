@@ -141,6 +141,50 @@ def move_region(doc_id: str, chapter_id: str, region_id: str, body: MoveRegion):
     return moved
 
 
+class LinkRegion(BaseModel):
+    continues_to: str | None = None
+
+
+@router.post("/{region_id}/link")
+def link_region(doc_id: str, chapter_id: str, region_id: str, body: LinkRegion):
+    _require_chapter(doc_id, chapter_id)
+    region = storage.load_region(doc_id, chapter_id, region_id)
+    if region is None:
+        raise HTTPException(404, "region not found")
+
+    if body.continues_to is None:
+        updated = storage.update_region(doc_id, chapter_id, region_id, continues_to=None)
+        return updated
+
+    if body.continues_to == region_id:
+        raise HTTPException(400, "region cannot link to itself")
+
+    target = storage.load_region(doc_id, chapter_id, body.continues_to)
+    if target is None:
+        raise HTTPException(404, "target region not found in this chapter")
+    if target["page"] <= region["page"]:
+        raise HTTPException(400, "target region must be on a later page than the source")
+
+    # cycle detection: follow the target's chain forward; we must not reach source.
+    seen: set[str] = {region_id}
+    cur = target
+    while cur is not None:
+        if cur["id"] in seen:
+            raise HTTPException(400, "linking would create a cycle")
+        seen.add(cur["id"])
+        nxt_id = cur.get("continues_to")
+        if not nxt_id:
+            break
+        cur = storage.load_region(doc_id, chapter_id, nxt_id)
+
+    updated = storage.update_region(doc_id, chapter_id, region_id, continues_to=body.continues_to)
+    log.info(
+        "region_linked",
+        extra={"doc_id": doc_id, "chapter_id": chapter_id, "region_id": region_id, "continues_to": body.continues_to},
+    )
+    return updated
+
+
 @router.post("/{region_id}/transcribe")
 def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
     _require_chapter(doc_id, chapter_id)

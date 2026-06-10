@@ -68,6 +68,7 @@ export type Region = {
   transcription_md: string | null;
   transcribed_at?: string | null;
   transcribed_model?: string | null;
+  continues_to?: string | null;
   created_at: string;
 };
 
@@ -372,6 +373,18 @@ export async function deleteRegion(
   regionId: string
 ): Promise<void> {
   return jdelete(`/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}`);
+}
+
+export async function linkRegion(
+  docId: string,
+  chapterId: string,
+  regionId: string,
+  continuesTo: string | null,
+): Promise<Region> {
+  return jpost(
+    `/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/link`,
+    { continues_to: continuesTo },
+  );
 }
 
 export async function moveRegion(

@@ -104,5 +104,12 @@ Grammar links come from `surfaces` in the model's tool response — literal subs
 
 Multiple identical surfaces (e.g., two ます in one sentence) are linked to *different* occurrences automatically. Surfaces shared across patterns (e.g., `的` inside `社会文化的な`) are allowed to overlap — the popover stacks both entries.
 
+### Linked region's text isn't appearing in breakdown / exercise completion
+The breakdown and exercise-completion jobs read the source region from disk and walk `continues_to` forward via `backend/app/services/region_chain.py` to build the combined VLM input. If the combined text doesn't reflect the continuation:
+- Confirm the link is set on disk: `backend/data/documents/<doc>/chapters/<ch>/regions/<source>.json` → `continues_to` should be the target region id.
+- Confirm both regions have `transcription_md` set; an empty tail contributes nothing.
+- Check the job log line `breakdown_job_start` / `exercise_completion_job_start` for the correlation id, then `llm_audit.YYYY-MM.jsonl` for the call — the `prompt_hash` differs from the single-region call if the chain was built. (For deeper debugging, the prompt itself isn't logged, but you can replay locally: load the source region, call `region_chain.resolve_chain` + `combined_transcription`, and compare.)
+- Per-region transcription is *not* combined — that's by design; only breakdown and exercise completion use the chain.
+
 ### Benchmark CER spikes or line accuracy collapses
 Before assuming a model/prompt regression: check whether the **ground truth** matches the format the current prompt is producing. CER and line-accuracy are computed character- and line-exact — markdown structure (`#`, `**`, `<u>`), fullwidth vs halfwidth punctuation, paragraph wrapping, and inline annotations like `[?N]` all count as differences. If you change the default VLM prompt's output style, the existing GT will need to be regenerated (or normalized before scoring). Rule of thumb: if line accuracy is in single digits while the body text reads correctly side-by-side, it's a format mismatch, not a regression.

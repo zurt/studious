@@ -7,7 +7,10 @@ export type RegionListOptions = {
   onDelete: (region: Region) => void;
   onSelect: (region: Region) => void;
   onHover?: (region: Region | null) => void;
+  onJumpToRegion?: (regionId: string) => void;
+  onUnlink?: (region: Region) => void;
   transcribingIds?: Set<string>;
+  allRegions?: Region[];
 };
 
 const ICON_TRASH = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>`;
@@ -108,6 +111,38 @@ export function renderRegionList(
     }
 
     card.appendChild(header);
+
+    if (region.continues_to && opts.allRegions) {
+      const target = opts.allRegions.find((r) => r.id === region.continues_to);
+      if (target) {
+        const chip = document.createElement("div");
+        chip.className = "region-continues-chip";
+        chip.style.cssText = "font-size: 11px; color: rgb(16, 185, 129); margin-top: 4px; display: flex; gap: 6px; align-items: center;";
+        const link = document.createElement("a");
+        link.href = "#";
+        link.textContent = `🔗 Continues on p.${target.page} →`;
+        link.style.cssText = "color: rgb(16, 185, 129); text-decoration: none;";
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          opts.onJumpToRegion?.(target.id);
+        });
+        chip.appendChild(link);
+        if (opts.onUnlink) {
+          const unlink = document.createElement("button");
+          unlink.className = "icon-btn";
+          unlink.title = "Unlink continuation";
+          unlink.textContent = "✕";
+          unlink.style.cssText = "font-size: 11px; padding: 0 4px;";
+          unlink.addEventListener("click", (e) => {
+            e.stopPropagation();
+            opts.onUnlink!(region);
+          });
+          chip.appendChild(unlink);
+        }
+        card.appendChild(chip);
+      }
+    }
 
     if (region.transcription_md) {
       const preview = document.createElement("div");

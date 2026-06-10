@@ -10,7 +10,7 @@ from typing import Any
 from .config import get_settings
 from .middleware import correlation_id_var
 from .providers import registry
-from .services import breakdown_links, grammar_guide, llm_audit, pdf, storage
+from .services import breakdown_links, grammar_guide, llm_audit, pdf, region_chain, storage
 
 log = logging.getLogger("studious.jobs")
 
@@ -355,7 +355,8 @@ class JobManager:
             storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
             self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
             return
-        transcription_md = region.get("transcription_md")
+        chain = region_chain.resolve_chain(doc_id, chapter_id, region_id)
+        transcription_md = region_chain.combined_transcription(chain) if chain else (region.get("transcription_md") or "")
         if not transcription_md:
             err_msg = "region has no transcription"
             storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
@@ -482,7 +483,12 @@ class JobManager:
         region_id = job["region_id"]
         sentence_index: int = job["sentence_index"]
         sentence_text: str = job["sentence_text"]
-        region_transcription: str = job.get("region_transcription") or ""
+        chain = region_chain.resolve_chain(doc_id, chapter_id, region_id)
+        region_transcription: str = (
+            region_chain.combined_transcription(chain)
+            if chain
+            else (job.get("region_transcription") or "")
+        )
         provider_name: str = job["provider"]
         config: dict[str, Any] = job.get("config", {}) or {}
         prompt: str = job.get("prompt", "")

@@ -1,6 +1,6 @@
 import {
   getDocument, getChapter, pageImageUrl,
-  createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream,
+  createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream, linkRegion,
   requestGrammarGuide,
   type DocMeta, type Chapter, type Region,
 } from "../api";
@@ -66,12 +66,14 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           <button id="next-chapter-btn" class="chapter-nav-btn" title="Next chapter" aria-label="Next chapter" disabled>&rarr;</button>
           <div class="spacer"></div>
           <a id="grammar-guide-btn" class="topbar-link-btn" style="display:none" href=""></a>
+          <button id="link-mode-btn" title="Link continuation region (L)">Link</button>
           <button id="tracker-btn" title="Untranscribed regions">0 pending</button>
           <button id="prev-btn" disabled>&larr;</button>
           <span id="page-info">-</span>
           <button id="next-btn" disabled>&rarr;</button>
         </div>
       </div>
+      <div id="link-mode-banner" style="display:none; padding:6px 10px; background:rgba(16,185,129,0.12); color:rgb(16,185,129); font-size:12px; border-bottom:1px solid rgba(16,185,129,0.3);"></div>
       <div class="pane-row">
         <div class="pane left" id="left-pane"></div>
         <div class="pane" id="right-pane">
@@ -95,6 +97,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const prevBtn = container.querySelector<HTMLButtonElement>("#prev-btn")!;
   const nextBtn = container.querySelector<HTMLButtonElement>("#next-btn")!;
   const trackerBtn = container.querySelector<HTMLButtonElement>("#tracker-btn")!;
+  const linkModeBtn = container.querySelector<HTMLButtonElement>("#link-mode-btn")!;
+  const linkBanner = container.querySelector<HTMLElement>("#link-mode-banner")!;
   const grammarGuideBtn = container.querySelector<HTMLAnchorElement>("#grammar-guide-btn")!;
   const prevChapterBtn = container.querySelector<HTMLButtonElement>("#prev-chapter-btn")!;
   const nextChapterBtn = container.querySelector<HTMLButtonElement>("#next-chapter-btn")!;
@@ -131,6 +135,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   let batchInFlight = false;
   let batchTotalCount = 0;
   let batchDoneCount = 0;
+  let linkMode = false;
+  let pendingLinkSourceId: string | null = null;
 
   function syncUrl() {
     replaceQuery({ page: String(page), region: selectedRegionId });
@@ -427,6 +433,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       regions: toDrawable(pageRegions()),
       onDraw: (bbox) => showTagPopover(bbox),
       onSelect: (id) => selectRegion(id),
+      linkMode,
     });
   }
 
@@ -457,12 +464,18 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   function toDrawable(regs: Region[]): DrawableRegion[] {
+    const incomingTargets = new Set(
+      regions.map((r) => r.continues_to).filter((x): x is string => !!x),
+    );
     return regs.map((r) => ({
       id: r.id,
       bbox: r.bbox,
       tag: r.tag,
       label: r.label,
       selected: r.id === selectedRegionId,
+      linkedTo: !!r.continues_to,
+      linkedFrom: incomingTargets.has(r.id),
+      linkPending: r.id === pendingLinkSourceId,
     }));
   }
 
@@ -498,12 +511,98 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       onDelete: handleDelete,
       onSelect: (r) => selectRegion(r.id),
       onHover: (r) => drawer?.setHover(r ? r.id : null),
+      onJumpToRegion: (id) => jumpToRegion(id),
+      onUnlink: (r) => handleUnlink(r),
+      allRegions: regions,
       transcribingIds,
     });
     renderDetail();
   }
 
+  function jumpToRegion(regionId: string) {
+    const target = regions.find((r) => r.id === regionId);
+    if (!target) return;
+    if (target.page !== page) {
+      page = target.page;
+      selectedRegionId = target.id;
+      updatePage();
+    } else {
+      selectRegion(target.id);
+    }
+  }
+
+  async function handleUnlink(region: Region) {
+    try {
+      await linkRegion(docId, chapterId, region.id, null);
+      const idx = regions.findIndex((r) => r.id === region.id);
+      if (idx >= 0) regions[idx] = { ...regions[idx], continues_to: null };
+      refreshRegionUI();
+    } catch (e: any) {
+      alert("Failed to unlink: " + e.message);
+    }
+  }
+
+  function updateLinkBanner() {
+    if (!linkMode) {
+      linkBanner.style.display = "none";
+      linkModeBtn.classList.remove("is-active");
+      return;
+    }
+    linkBanner.style.display = "";
+    linkModeBtn.classList.add("is-active");
+    if (!pendingLinkSourceId) {
+      linkBanner.textContent = "Link mode: click the source region (the one that continues onto a later page). Esc to cancel.";
+    } else {
+      const src = regions.find((r) => r.id === pendingLinkSourceId);
+      const where = src ? ` (selected: p.${src.page})` : "";
+      linkBanner.textContent = `Link mode${where}: navigate to a later page and click the continuation region. Esc to cancel.`;
+    }
+  }
+
+  function toggleLinkMode(force?: boolean) {
+    linkMode = force ?? !linkMode;
+    if (!linkMode) pendingLinkSourceId = null;
+    drawer?.setLinkMode(linkMode);
+    updateLinkBanner();
+    refreshRegionUI();
+  }
+
+  async function tryCompleteLink(targetId: string) {
+    const src = regions.find((r) => r.id === pendingLinkSourceId);
+    const tgt = regions.find((r) => r.id === targetId);
+    if (!src || !tgt) return;
+    if (src.id === tgt.id) {
+      alert("Pick a different region as the continuation.");
+      return;
+    }
+    if (tgt.page <= src.page) {
+      alert("Continuation must be on a later page than the source.");
+      return;
+    }
+    try {
+      const updated = await linkRegion(docId, chapterId, src.id, tgt.id);
+      const idx = regions.findIndex((r) => r.id === src.id);
+      if (idx >= 0) regions[idx] = { ...regions[idx], continues_to: updated.continues_to ?? tgt.id };
+      pendingLinkSourceId = null;
+      toggleLinkMode(false);
+    } catch (e: any) {
+      alert("Failed to link: " + e.message);
+    }
+  }
+
+  linkModeBtn.addEventListener("click", () => toggleLinkMode());
+
   function selectRegion(id: string) {
+    if (linkMode) {
+      if (!pendingLinkSourceId) {
+        pendingLinkSourceId = id;
+        updateLinkBanner();
+        refreshRegionUI();
+      } else {
+        void tryCompleteLink(id);
+      }
+      return;
+    }
     selectedRegionId = id === selectedRegionId ? null : id;
     rememberRegion(chapterId, page, selectedRegionId);
     syncUrl();
@@ -765,6 +864,10 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
   function onKey(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey) return; // let zoom-pan handle Cmd keys
+    const tag = (e.target as HTMLElement | null)?.tagName;
+    const inField = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement | null)?.isContentEditable;
+    if (e.key === "Escape" && linkMode) { toggleLinkMode(false); return; }
+    if (!inField && (e.key === "l" || e.key === "L")) { toggleLinkMode(); return; }
     if (e.key === "ArrowLeft") prevBtn.click();
     if (e.key === "ArrowRight") nextBtn.click();
   }
