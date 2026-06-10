@@ -609,12 +609,70 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     refreshRegionUI();
   }
 
+  function resolveChain(headId: string): Region[] {
+    const out: Region[] = [];
+    const seen = new Set<string>();
+    let curId: string | null = headId;
+    while (curId && !seen.has(curId)) {
+      const r = regions.find((x) => x.id === curId);
+      if (!r) break;
+      seen.add(curId);
+      out.push(r);
+      curId = r.continues_to || null;
+    }
+    return out;
+  }
+
+  function combinedTranscriptionHtml(chain: Region[]): string {
+    return chain
+      .map((r, idx) => {
+        const md = r.transcription_md || "";
+        const body = marked.parse(md) as string;
+        if (idx === 0) return body;
+        return `<div class="region-chain-separator" style="margin: 12px 0; padding: 6px 10px; border-top: 1px dashed rgba(16,185,129,0.5); color: rgb(16,185,129); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">↓ continues on page ${r.page}</div>${body}`;
+      })
+      .join("");
+  }
+
+  function combinedTranscriptionMd(chain: Region[]): string {
+    return chain
+      .map((r, idx) => {
+        const md = r.transcription_md || "";
+        if (idx === 0) return md;
+        return `\n\n---\n_(continues on page ${r.page})_\n\n${md}`;
+      })
+      .join("");
+  }
+
   function syncBreakdownPane(region: Region | undefined) {
     // Show the breakdown pane only on regions that (a) aren't vocab_list and
     // (b) have an existing transcription. Remount when the target region or
     // its transcription changes; otherwise leave it alone to avoid blowing
     // away in-progress state.
     const eligible = region && region.tag !== "vocab_list" && !!region.transcription_md;
+    const inboundSource = region
+      ? regions.find((r) => r.continues_to === region.id)
+      : undefined;
+    if (region && inboundSource) {
+      // This region is a continuation; breakdown runs from the source.
+      const key = `continuation:${region.id}:${inboundSource.id}`;
+      if (key === breakdownMountKey) return;
+      if (breakdownDestroy) { breakdownDestroy(); breakdownDestroy = null; }
+      breakdownMountKey = key;
+      breakdownPane.style.display = "";
+      breakdownPane.innerHTML = "";
+      const notice = document.createElement("div");
+      notice.style.cssText = "padding: 16px; color: var(--muted, #6b7280); font-size: 13px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start;";
+      const msg = document.createElement("div");
+      msg.textContent = `This region continues from p.${inboundSource.page}. Sentence breakdowns and exercise completions cover the whole chain and are generated from the source region.`;
+      notice.appendChild(msg);
+      const jump = document.createElement("button");
+      jump.textContent = `Go to source on p.${inboundSource.page} →`;
+      jump.addEventListener("click", () => jumpToRegion(inboundSource.id));
+      notice.appendChild(jump);
+      breakdownPane.appendChild(notice);
+      return;
+    }
     const key = eligible ? `${region.id}:${region.transcribed_at || ""}` : null;
     if (key === breakdownMountKey) return;
     if (breakdownDestroy) { breakdownDestroy(); breakdownDestroy = null; }
@@ -637,6 +695,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     }
     const inFlight = transcribingIds.has(region.id);
     if (region.transcription_md) {
+      const chain = region.continues_to ? resolveChain(region.id) : [region];
+      const displayHtml = chain.length > 1 ? combinedTranscriptionHtml(chain) : (marked.parse(region.transcription_md) as string);
+      const copyMd = chain.length > 1 ? combinedTranscriptionMd(chain) : region.transcription_md;
       const meta: string[] = [];
       if (region.transcribed_model) meta.push(region.transcribed_model);
       if (region.transcribed_at) meta.push(new Date(region.transcribed_at).toLocaleString());
@@ -657,11 +718,11 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           </span>
         </div>
         ${busyHtml}
-        <div class="markdown text-size-${size}">${marked.parse(region.transcription_md)}</div>
+        <div class="markdown text-size-${size}">${displayHtml}</div>
       `;
       const detailActions = regionDetail.querySelector(".region-detail-actions");
       if (detailActions) {
-        detailActions.appendChild(makeCopyButton(() => region.transcription_md || ""));
+        detailActions.appendChild(makeCopyButton(() => copyMd));
       }
       const infoBtn = regionDetail.querySelector<HTMLButtonElement>('.pane-info-btn[data-meta-toggle="transcription"]');
       const metaEl = regionDetail.querySelector<HTMLElement>('.region-detail-meta[data-meta-target="transcription"]');

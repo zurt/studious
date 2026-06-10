@@ -135,12 +135,17 @@ export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOpti
         ctx.fillText(r.label, rx + 3, ry + 13);
       }
 
-      // Chain badge — small "🔗" indicator at top-right corner when this
-      // region participates in a continuation link.
+      // Continuation arrow glyph in the region's border color: "→" on the
+      // source (linkedTo), "←" on the target (linkedFrom).
       if (r.linkedTo || r.linkedFrom) {
-        ctx.font = "12px system-ui, sans-serif";
-        ctx.fillStyle = "rgba(16, 185, 129, 0.95)";
-        ctx.fillText("🔗", rx + rw - 16, ry + 13);
+        const size = 36;
+        ctx.font = `bold ${size}px system-ui, sans-serif`;
+        ctx.fillStyle = TAG_BORDERS[r.tag] || TAG_BORDERS.other;
+        ctx.textAlign = "right";
+        ctx.textBaseline = "top";
+        ctx.fillText(r.linkedTo ? "→" : "←", rx + rw - 4, ry + 2);
+        ctx.textAlign = "start";
+        ctx.textBaseline = "alphabetic";
       }
     }
 

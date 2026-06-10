@@ -108,6 +108,17 @@ def test_link_api_rejects_cycle(isolated_data_dir, tmp_path: Path):
     assert r.status_code == 400
 
 
+def test_breakdown_rejected_on_continuation(isolated_data_dir, tmp_path: Path):
+    doc, ch, r1, r2 = _setup_chapter_with_two_regions(tmp_path)
+    storage.update_region(doc["id"], ch["id"], r1["id"], continues_to=r2["id"])
+    client = TestClient(app)
+    r = client.post(
+        f"/api/documents/{doc['id']}/chapters/{ch['id']}/regions/{r2['id']}/breakdown",
+    )
+    assert r.status_code == 409
+    assert "continuation" in r.json()["detail"]
+
+
 def test_delete_clears_inbound_link(isolated_data_dir, tmp_path: Path):
     doc, ch, r1, r2 = _setup_chapter_with_two_regions(tmp_path)
     storage.update_region(doc["id"], ch["id"], r1["id"], continues_to=r2["id"])

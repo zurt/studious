@@ -112,6 +112,26 @@ export function renderRegionList(
 
     card.appendChild(header);
 
+    if (opts.allRegions) {
+      const incoming = opts.allRegions.find((r) => r.continues_to === region.id);
+      if (incoming) {
+        const chip = document.createElement("div");
+        chip.className = "region-continues-chip";
+        chip.style.cssText = "font-size: 11px; color: rgb(16, 185, 129); margin-top: 4px; display: flex; gap: 6px; align-items: center;";
+        const link = document.createElement("a");
+        link.href = "#";
+        link.textContent = `← Continued from p.${incoming.page}`;
+        link.style.cssText = "color: rgb(16, 185, 129); text-decoration: none;";
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          opts.onJumpToRegion?.(incoming.id);
+        });
+        chip.appendChild(link);
+        card.appendChild(chip);
+      }
+    }
+
     if (region.continues_to && opts.allRegions) {
       const target = opts.allRegions.find((r) => r.id === region.continues_to);
       if (target) {
@@ -120,7 +140,7 @@ export function renderRegionList(
         chip.style.cssText = "font-size: 11px; color: rgb(16, 185, 129); margin-top: 4px; display: flex; gap: 6px; align-items: center;";
         const link = document.createElement("a");
         link.href = "#";
-        link.textContent = `🔗 Continues on p.${target.page} →`;
+        link.textContent = `Continues on p.${target.page} →`;
         link.style.cssText = "color: rgb(16, 185, 129); text-decoration: none;";
         link.addEventListener("click", (e) => {
           e.preventDefault();
