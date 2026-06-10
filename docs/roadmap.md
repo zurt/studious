@@ -210,9 +210,18 @@ Beyond MVP (deferred):
       Per-region transcription itself is unchanged (visual task; doesn't
       need cross-page context).
 - [x] Chapter view's click-to-link UI (toolbar button, `L` shortcut,
-      Esc to cancel): pick source, navigate, pick target. Chain badges
-      on canvas + a "Continues on p.N →" chip on region cards with
-      unlink action.
+      Esc to cancel): pick source, navigate, pick target. Tag-colored
+      arrow glyph on canvas (→ on source, ← on target) and matching
+      "Continues on p.N →" / "← Continued from p.N" chips on the
+      region cards with unlink action.
+- [x] Source region's detail pane renders the combined chain
+      transcription with a dashed "continues on page N" separator;
+      copy button emits combined markdown matching the VLM input.
+- [x] Continuation regions reject `breakdown` and `exercise-completion`
+      requests with a 409 pointing at the source. When a continuation
+      region is selected, the breakdown pane shows an explanatory
+      notice plus a "Go to source on p.N →" jump button instead of the
+      Generate-breakdown UI.
 
 ## Phase 3: Central Vocab/Grammar Store
 

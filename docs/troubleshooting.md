@@ -104,6 +104,9 @@ Grammar links come from `surfaces` in the model's tool response — literal subs
 
 Multiple identical surfaces (e.g., two ます in one sentence) are linked to *different* occurrences automatically. Surfaces shared across patterns (e.g., `的` inside `社会文化的な`) are allowed to overlap — the popover stacks both entries.
 
+### "this region is a continuation of region ... generate the breakdown from there" (409)
+By design. Breakdowns and exercise completions on a region that is the *target* of a `continues_to` pointer are blocked so the chain is always processed from the head — otherwise the tail-only breakdown would miss any sentence whose start lives on the prior page. The chapter view replaces the Generate-breakdown UI with a notice and a "Go to source" button for these regions. To bypass: unlink the source (✕ on the chip), or run the breakdown from the source as intended.
+
 ### Linked region's text isn't appearing in breakdown / exercise completion
 The breakdown and exercise-completion jobs read the source region from disk and walk `continues_to` forward via `backend/app/services/region_chain.py` to build the combined VLM input. If the combined text doesn't reflect the continuation:
 - Confirm the link is set on disk: `backend/data/documents/<doc>/chapters/<ch>/regions/<source>.json` → `continues_to` should be the target region id.
