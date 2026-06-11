@@ -456,6 +456,7 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   filter: blur(5px); opacity: 0.5; cursor: pointer; user-select: none;
 }
 .breakdown-copy-all-slot { display: inline-flex; }
+.completions-copy-all-slot { display: inline-flex; }
 .breakdown-card-actions { display: inline-flex; align-items: center; gap: 2px; }
 .gg-actions { display: inline-flex; align-items: center; gap: 2px; }
 .breakdown-answers { position: relative; }
@@ -484,6 +485,9 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .exercise-completion-label {
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted);
 }
+.exercise-completion-actions { display: inline-flex; align-items: center; gap: 2px; }
+.exercise-completion-actions .icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px; line-height: 0; }
+.exercise-completion-actions .icon-btn svg { display: block; }
 .exercise-completion-answer { line-height: 1.5; }
 .exercise-completion-answer-en { font-size: 13px; line-height: 1.4; }
 .exercise-completion-explanation { color: var(--muted); line-height: 1.4; }

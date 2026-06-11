@@ -11,6 +11,39 @@ import { makeCopyButton, ICON_REDO } from "./region-list";
 
 type Ctx = { docId: string; chapterId: string; region: Region };
 
+export function completionToMarkdown(
+  entry: ExerciseCompletionEntry,
+  sentenceText?: string,
+): string {
+  const parts: string[] = [];
+  if (sentenceText) parts.push(sentenceText);
+  const answerEn = entry.answer_english ? ` (${entry.answer_english})` : "";
+  parts.push(`**Answer:** ${entry.answer}${answerEn}`);
+  if (entry.explanation) parts.push(entry.explanation);
+  if (entry.examples && entry.examples.length) {
+    const rows = entry.examples.map((ex) => {
+      const reading = ex.reading ? `（${ex.reading}）` : "";
+      const note = ex.explanation ? `\n  ${ex.explanation}` : "";
+      return `- ${ex.japanese}${reading} — ${ex.english}${note}`;
+    });
+    parts.push("**Examples**\n" + rows.join("\n"));
+  }
+  return parts.join("\n\n");
+}
+
+export function allCompletionsToMarkdown(
+  breakdown: Breakdown,
+  completion: ExerciseCompletion | null,
+): string {
+  if (!completion) return "";
+  const blocks: string[] = [];
+  breakdown.sentences.forEach((s, i) => {
+    const entry = completion.completions?.[String(i)];
+    if (entry) blocks.push(completionToMarkdown(entry, s.text));
+  });
+  return blocks.join("\n\n──────────\n\n");
+}
+
 export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void {
   let breakdown: Breakdown | null = null;
   let loading = true;
@@ -194,7 +227,10 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
         <div class="exercise-completion">
           <div class="exercise-completion-header">
             <span class="exercise-completion-label">Completion</span>
-            <button type="button" class="icon-btn" data-completion-regen="${idx}" title="Regenerate completion" aria-label="Regenerate completion">${ICON_REDO}</button>
+            <span class="exercise-completion-actions">
+              <span data-completion-copy-slot="${idx}"></span>
+              <button type="button" class="icon-btn" data-completion-regen="${idx}" title="Regenerate completion" aria-label="Regenerate completion">${ICON_REDO}</button>
+            </span>
           </div>
           <div class="exercise-completion-answer" lang="ja"><strong>Answer:</strong> ${escapeHtml(entry.answer)}</div>
           ${entry.answer_english ? `<div class="exercise-completion-answer-en">${escapeHtml(entry.answer_english)}</div>` : ""}
@@ -306,7 +342,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("");
 
     container.innerHTML = `
-      ${headerHtml(`<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
+      ${headerHtml(`<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span><span class="completions-copy-all-slot"></span>`, metaText)}
       <div class="breakdown-list">${cards}</div>`;
 
     const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
@@ -317,11 +353,31 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       copyAllSlot.appendChild(copyAllBtn);
     }
 
+    const hasCompletions = isExercise && breakdown.sentences.some((_, i) => !!completionEntry(i));
+    const completionsCopyAllSlot = container.querySelector<HTMLElement>(".completions-copy-all-slot");
+    if (completionsCopyAllSlot && hasCompletions) {
+      const btn = makeCopyButton(() => allCompletionsToMarkdown(breakdown!, completion));
+      btn.title = "Copy all completions (Alt/Option for markdown)";
+      btn.setAttribute("aria-label", "Copy all completions");
+      completionsCopyAllSlot.appendChild(btn);
+    }
+
     container.querySelectorAll<HTMLElement>("[data-copy-slot]").forEach((slot) => {
       const idx = Number(slot.getAttribute("data-copy-slot"));
       const sentence = breakdown!.sentences[idx];
       if (!sentence) return;
       slot.appendChild(makeCopyButton(() => sentenceToMarkdown(sentence)));
+    });
+
+    container.querySelectorAll<HTMLElement>("[data-completion-copy-slot]").forEach((slot) => {
+      const idx = Number(slot.getAttribute("data-completion-copy-slot"));
+      const entry = completionEntry(idx);
+      if (!entry) return;
+      const sentence = breakdown!.sentences[idx];
+      const copyBtn = makeCopyButton(() => completionToMarkdown(entry, sentence?.text));
+      copyBtn.title = "Copy completion (Alt/Option for markdown)";
+      copyBtn.setAttribute("aria-label", "Copy completion");
+      slot.appendChild(copyBtn);
     });
 
     container.querySelectorAll<HTMLElement>(".breakdown-gloss-row").forEach((row) => {
