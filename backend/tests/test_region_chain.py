@@ -43,7 +43,10 @@ def test_resolve_chain_walks_pointer(isolated_data_dir, tmp_path: Path):
     assert [r["id"] for r in chain] == [r1["id"], r2["id"]]
     combined = region_chain.combined_transcription(chain)
     assert "HEAD" in combined and "TAIL" in combined
-    assert "continues on page 2" in combined
+    # No page-break metadata is inserted into the LLM-facing text; the
+    # frontend renders its own visual separator instead.
+    assert "continues on page" not in combined
+    assert combined == "HEAD\n\nTAIL"
 
 
 def test_resolve_chain_cycle_guard(isolated_data_dir, tmp_path: Path):
