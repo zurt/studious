@@ -134,7 +134,7 @@ coverage report.
 Both package managers enforce a 7-day cooldown on new package versions to
 protect against supply chain attacks:
 
-- **npm**: configured in `frontend/.npmrc` (`min-release-age=7d`)
+- **npm**: configured in `frontend/.npmrc` (`min-release-age=7`)
 - **uv**: configured in `backend/uv.toml` (`exclude-newer = "7 days"`)
 
 Run `make audit` to check for known vulnerabilities.

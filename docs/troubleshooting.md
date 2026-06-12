@@ -69,8 +69,14 @@ the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
 
 ## Known failure modes
 
-### npm installs a package newer than 7 days despite the .npmrc cooldown
-`min-release-age=7d` in `frontend/.npmrc` requires npm >= 11.10; older npm versions ignore the setting **silently** and resolve to the newest release (observed with npm 10.9.2 installing a same-day dompurify). Check `npm --version` first when adding a dependency. If npm is too old, verify the release date by hand (`npm view <pkg> time --json`) and pin the newest version that is at least 7 days old with `npm install --save-exact <pkg>@<version>`.
+### npm installs a package newer than 7 days despite the .npmrc cooldown (or errors with "Invalid time value")
+Two distinct causes, both observed 2026-06-12:
+1. **Wrong value format.** `min-release-age` takes a plain number of days (`min-release-age=7`). The old `7d` suffix form is invalid: npm >= 11.10 fails every install with `npm error Invalid time value`, while older npm ignores the unknown-typed key entirely.
+2. **npm too old.** Enforcement requires npm >= 11.10; older versions skip the setting **silently** and resolve to the newest release (npm 10.9.2 installed a same-day dompurify). This machine's nvm node v22 was upgraded to npm 11.16.0 on 2026-06-12.
+
+To verify enforcement is live: `npm install --dry-run <pkg>@<version-published-this-week>` from `frontend/` must fail with `notarget No matching version found ... with a date before <cutoff>`. On a machine with old npm, check release dates by hand (`npm view <pkg> time --json`) and pin the newest version at least 7 days old with `npm install --save-exact <pkg>@<version>`. Note the cooldown only matters where dependency resolution happens (adding/updating packages locally); CI runs `npm ci`, which installs the lockfile verbatim.
+
+npm 11 also emits `npm warn allow-scripts` for esbuild/fsevents install scripts — npm now blocks install scripts by default. Tests and builds pass with those scripts skipped, so leave them unapproved.
 
 ### Upload fails with 400 "could not render uploaded file"
 The file reached the backend but PyMuPDF/Pillow could not parse it — usually a corrupt download, a password-protected PDF, or a file whose extension doesn't match its contents. The partial document directory is cleaned up automatically (nothing appears in the library), and the render error is logged as `document_render_failed` with the underlying parser message. Re-export or decrypt the source file and upload again. Note: the re-upload endpoint (`PUT /api/documents/{id}/file`) does not yet have this protection — a failed re-upload render can leave a document with stale metadata and no pages (see R6 in `docs/improvement-recommendations.md`).
