@@ -197,6 +197,32 @@ Beyond MVP (deferred):
       regenerated, surface the prior completions in a "review and
       reapply" UI rather than silently dropping them.
 
+### Phase 2.4: Cross-Page Region Linking
+
+- [x] Region schema gains an optional `continues_to` pointer (one-way,
+      same chapter, target page must be later, cycles rejected).
+- [x] `POST /api/documents/{doc_id}/chapters/{chapter_id}/regions/{region_id}/link`
+      endpoint. Cross-chapter `move` clears the link; deleting a region
+      clears any inbound pointers.
+- [x] `region_chain.resolve_chain` + `combined_transcription` helpers
+      consumed by the breakdown and exercise-completion jobs so they
+      receive the joined transcription of the chain head + tails.
+      Per-region transcription itself is unchanged (visual task; doesn't
+      need cross-page context).
+- [x] Chapter view's click-to-link UI (toolbar button, `L` shortcut,
+      Esc to cancel): pick source, navigate, pick target. Tag-colored
+      arrow glyph on canvas (→ on source, ← on target) and matching
+      "Continues on p.N →" / "← Continued from p.N" chips on the
+      region cards with unlink action.
+- [x] Source region's detail pane renders the combined chain
+      transcription with a dashed "continues on page N" separator;
+      copy button emits combined markdown matching the VLM input.
+- [x] Continuation regions reject `breakdown` and `exercise-completion`
+      requests with a 409 pointing at the source. When a continuation
+      region is selected, the breakdown pane shows an explanatory
+      notice plus a "Go to source on p.N →" jump button instead of the
+      Generate-breakdown UI.
+
 ## Phase 3: Central Vocab/Grammar Store
 
 - [ ] Global vocab store (JSONL-based, across all textbooks)

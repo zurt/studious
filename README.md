@@ -63,7 +63,13 @@ Open <http://localhost:5173>.
    per-sentence breakdown with English glosses and per-sentence vocab
    and grammar. Vocab items are linked inline to the chapter's vocab
    list so clicking a word reveals its reading and meaning.
-7. **Generate a chapter grammar guide** — once a chapter's
+7. **Link continuation regions** — when a passage or exercise spans a
+   page break, toggle Link mode (button in the chapter toolbar, or `L`),
+   click the source region, navigate to a later page, then click the
+   continuation. The chain is followed at sentence-breakdown and
+   exercise-completion time so the VLM sees the combined text. Per-region
+   transcription is unchanged. Press Esc to cancel.
+8. **Generate a chapter grammar guide** — once a chapter's
    `grammar_points` regions are transcribed, the chapter view shows
    a button that produces a structured study guide (one entry per
    pattern, with Meaning / Form / Examples / Related sections). The

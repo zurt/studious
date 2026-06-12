@@ -16,12 +16,16 @@ export type DrawableRegion = {
   tag: string;
   label: string;
   selected?: boolean;
+  linkedFrom?: boolean; // shown as a target of a continues_to pointer
+  linkedTo?: boolean;   // has continues_to set
+  linkPending?: boolean; // chosen as the source while link mode awaits target
 };
 
 export type RegionDrawerOptions = {
   regions?: DrawableRegion[];
   onDraw?: (bbox: [number, number, number, number]) => void;
   onSelect?: (regionId: string) => void;
+  linkMode?: boolean;
 };
 
 const TAG_RGB: Record<string, string> = {
@@ -63,6 +67,7 @@ export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOpti
   wrapper.appendChild(canvas);
 
   let regions = opts.regions || [];
+  let linkMode = !!opts.linkMode;
   let hoverId: string | null = null;
   let flashState: { id: string; startedAt: number } | null = null;
   let flashFrame: number | null = null;
@@ -113,17 +118,34 @@ export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOpti
         ctx.fillRect(rx, ry, rw, rh);
       }
 
-      ctx.strokeStyle = r.selected
+      ctx.strokeStyle = r.linkPending
+        ? "rgba(16, 185, 129, 0.95)"
+        : r.selected
         ? "rgba(255, 200, 0, 0.9)"
         : TAG_BORDERS[r.tag] || TAG_BORDERS.other;
-      ctx.lineWidth = r.selected ? 2 : 1;
+      ctx.lineWidth = r.selected || r.linkPending ? 2 : 1;
+      if (r.linkPending) ctx.setLineDash([6, 4]);
       ctx.strokeRect(rx, ry, rw, rh);
+      ctx.setLineDash([]);
 
       // Label
       if (r.label) {
         ctx.font = "11px system-ui, sans-serif";
         ctx.fillStyle = TAG_BORDERS[r.tag] || TAG_BORDERS.other;
         ctx.fillText(r.label, rx + 3, ry + 13);
+      }
+
+      // Continuation arrow glyph in the region's border color: "→" on the
+      // source (linkedTo), "←" on the target (linkedFrom).
+      if (r.linkedTo || r.linkedFrom) {
+        const size = 36;
+        ctx.font = `bold ${size}px system-ui, sans-serif`;
+        ctx.fillStyle = TAG_BORDERS[r.tag] || TAG_BORDERS.other;
+        ctx.textAlign = "right";
+        ctx.textBaseline = "top";
+        ctx.fillText(r.linkedTo ? "→" : "←", rx + rw - 4, ry + 2);
+        ctx.textAlign = "start";
+        ctx.textBaseline = "alphabetic";
       }
     }
 
@@ -165,6 +187,9 @@ export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOpti
         return;
       }
     }
+
+    // In link mode, clicks outside any region are no-ops (don't draw).
+    if (linkMode) return;
 
     drawing = true;
     [startX, startY] = [mx, my];
@@ -223,6 +248,11 @@ export function createRegionDrawer(img: HTMLImageElement, opts: RegionDrawerOpti
   return {
     setRegions(newRegions: DrawableRegion[]) {
       regions = newRegions;
+      redraw();
+    },
+    setLinkMode(on: boolean) {
+      linkMode = on;
+      canvas.style.cursor = on ? "pointer" : "crosshair";
       redraw();
     },
     setHover(id: string | null) {

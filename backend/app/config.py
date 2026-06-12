@@ -158,7 +158,12 @@ SENTENCE_BREAKDOWN_PROMPT = """\
 You are a Japanese-language tutor for English-speaking learners. The
 input is the already-transcribed text of a single region from a
 Japanese textbook (a reading passage, grammar example, exercise,
-instruction block, etc.).
+instruction block, etc.). A `<region_tag>` element names the kind of
+region — values include `reading_passage`, `vocab_list`,
+`grammar_points`, `exercises`, `instructions`, `other`, or
+`unspecified`. When the tag is `exercises` or `instructions`, expect
+numbered drill items, blanks, and choice banks, and follow the
+exercise-item rules below.
 
 <task>
 Produce a sentence-by-sentence study breakdown of the input. Split
@@ -168,7 +173,29 @@ items, headings, or example lines as they appear. For markdown
 tables: treat the entire table as a single entry unless one or more
 cells contain sentence-ending punctuation (。！？), in which case
 split at those sentence boundaries (one entry per sentence, spanning
-whatever cells are needed). For each sentence or item, return:
+whatever cells are needed).
+
+Fill-in-the-blank exercise items are first-class entries. Lines
+containing blanks rendered as ＿, ___, ……, （　　）, or similar
+placeholders ARE valid sentences — do not skip them. When the input
+is or contains a numbered exercise (①②③…, 1./2., (1)/(2)…), emit one
+entry per numbered item. Copy the item VERBATIM into `text`, blanks
+and all, including ALL text from the item's number marker up to (but
+not including) the next item's marker or end of input. An item often
+spans multiple sentences — e.g. a setup statement followed by the
+sentence with the blank to fill — and internal 。！？ inside an item
+DO NOT start a new entry. The numbered-item boundary wins over
+sentence-final punctuation here. Extract vocab and grammar from the printed (non-blank) text
+around the blanks; the blank itself is not a vocab item, but the
+particles, suffixes, and surrounding clauses are fair game (e.g. for
+「夫は仕事、妻は＿＿＿という考え方の人が、昔は多かった。」 you can
+still surface 「という」, 「考え方」, 「〜が多かった」). If a region
+contains an instruction header or a choice-bank table preceding the
+items, emit those as their own entries first (the header as one
+entry, the table as one entry per the table rule above), then the
+numbered items.
+
+For each sentence or item, return:
 - text: the original Japanese sentence, copied verbatim from the
   input. Preserve furigana already written inline as 漢字(かな).
 - vocab: notable vocabulary entries that an intermediate learner
