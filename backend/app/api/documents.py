@@ -61,10 +61,20 @@ async def upload_document(file: UploadFile = File(...)):
     original = doc_dir / meta["original_filename"]
 
     t0 = time.monotonic()
-    if source_type == "pdf":
-        page_count = pdf.render_pdf_to_pages(original, pages_dir, dpi=get_settings().pdf_render_dpi)
-    else:
-        page_count = pdf.copy_image_as_page(original, pages_dir)
+    try:
+        if source_type == "pdf":
+            page_count = pdf.render_pdf_to_pages(original, pages_dir, dpi=get_settings().pdf_render_dpi)
+        else:
+            page_count = pdf.copy_image_as_page(original, pages_dir)
+    except Exception as exc:
+        # A corrupt/unreadable file must not leave a zero-page document
+        # behind in the library.
+        shutil.rmtree(doc_dir, ignore_errors=True)
+        log.error(
+            "document_render_failed",
+            extra={"doc_id": meta["id"], "source_type": source_type, "error": str(exc)},
+        )
+        raise HTTPException(400, f"could not render uploaded file: {exc}") from exc
     render_ms = int((time.monotonic() - t0) * 1000)
     log.info("document_uploaded", extra={"doc_id": meta["id"], "source_type": source_type, "page_count": page_count, "render_ms": render_ms})
 
