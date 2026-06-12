@@ -121,9 +121,9 @@ Vitest + jsdom now run as part of `make test`. See the frontend section of
 See `docs/supply-chain-plan.md` for full details.
 
 Priority 1:
-- [ ] Frozen installs in CI (`uv sync --frozen`, `npm ci`)
-- [ ] `make audit` runs on every PR; fails on high/critical
-- [ ] Dependabot config with 7-day cooldown (pip + npm + actions)
+- [x] Frozen installs in CI (`uv sync --frozen`, `npm ci`)
+- [x] `make audit` runs on every PR; fails on high/critical
+- [x] Dependabot config with 7-day cooldown (pip + npm + actions)
 
 Priority 2 (second pass, bundled):
 - [ ] Pin GitHub Actions by SHA
@@ -188,8 +188,9 @@ Beyond MVP (deferred):
 - [ ] Include the chapter's grammar guide (when present) as additional
       context so completions stay grounded in patterns the chapter has
       actually taught.
-- [ ] Markdown / clipboard export of completions per region and per
-      chapter (mirror the breakdown copy-all affordance).
+- [x] Markdown / clipboard export of completions per region (per-card
+      copy button + region-level "copy all completions", mirroring the
+      breakdown copy-all affordance). Per-chapter export still deferred.
 - [ ] Fallback: when transcription quality is poor, optionally include
       the region image crop in the VLM call (toggle, not default — image
       tokens are expensive).
