@@ -1,6 +1,6 @@
 import {
   getDocument, getChapter, pageImageUrl,
-  createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream,
+  createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream, linkRegion,
   requestGrammarGuide,
   type DocMeta, type Chapter, type Region,
 } from "../api";
@@ -66,12 +66,14 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           <button id="next-chapter-btn" class="chapter-nav-btn" title="Next chapter" aria-label="Next chapter" disabled>&rarr;</button>
           <div class="spacer"></div>
           <a id="grammar-guide-btn" class="topbar-link-btn" style="display:none" href=""></a>
+          <button id="link-mode-btn" title="Link continuation region (L)">Link</button>
           <button id="tracker-btn" title="Untranscribed regions">0 pending</button>
           <button id="prev-btn" disabled>&larr;</button>
           <span id="page-info">-</span>
           <button id="next-btn" disabled>&rarr;</button>
         </div>
       </div>
+      <div id="link-mode-banner" style="display:none; padding:6px 10px; background:rgba(16,185,129,0.12); color:rgb(16,185,129); font-size:12px; border-bottom:1px solid rgba(16,185,129,0.3);"></div>
       <div class="pane-row">
         <div class="pane left" id="left-pane"></div>
         <div class="pane" id="right-pane">
@@ -95,6 +97,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const prevBtn = container.querySelector<HTMLButtonElement>("#prev-btn")!;
   const nextBtn = container.querySelector<HTMLButtonElement>("#next-btn")!;
   const trackerBtn = container.querySelector<HTMLButtonElement>("#tracker-btn")!;
+  const linkModeBtn = container.querySelector<HTMLButtonElement>("#link-mode-btn")!;
+  const linkBanner = container.querySelector<HTMLElement>("#link-mode-banner")!;
   const grammarGuideBtn = container.querySelector<HTMLAnchorElement>("#grammar-guide-btn")!;
   const prevChapterBtn = container.querySelector<HTMLButtonElement>("#prev-chapter-btn")!;
   const nextChapterBtn = container.querySelector<HTMLButtonElement>("#next-chapter-btn")!;
@@ -131,6 +135,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   let batchInFlight = false;
   let batchTotalCount = 0;
   let batchDoneCount = 0;
+  let linkMode = false;
+  let pendingLinkSourceId: string | null = null;
 
   function syncUrl() {
     replaceQuery({ page: String(page), region: selectedRegionId });
@@ -427,6 +433,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       regions: toDrawable(pageRegions()),
       onDraw: (bbox) => showTagPopover(bbox),
       onSelect: (id) => selectRegion(id),
+      linkMode,
     });
   }
 
@@ -457,12 +464,18 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   function toDrawable(regs: Region[]): DrawableRegion[] {
+    const incomingTargets = new Set(
+      regions.map((r) => r.continues_to).filter((x): x is string => !!x),
+    );
     return regs.map((r) => ({
       id: r.id,
       bbox: r.bbox,
       tag: r.tag,
       label: r.label,
       selected: r.id === selectedRegionId,
+      linkedTo: !!r.continues_to,
+      linkedFrom: incomingTargets.has(r.id),
+      linkPending: r.id === pendingLinkSourceId,
     }));
   }
 
@@ -498,16 +511,137 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       onDelete: handleDelete,
       onSelect: (r) => selectRegion(r.id),
       onHover: (r) => drawer?.setHover(r ? r.id : null),
+      onJumpToRegion: (id) => jumpToRegion(id),
+      onUnlink: (r) => handleUnlink(r),
+      allRegions: regions,
       transcribingIds,
     });
     renderDetail();
   }
 
+  function jumpToRegion(regionId: string) {
+    const target = regions.find((r) => r.id === regionId);
+    if (!target) return;
+    if (target.page !== page) {
+      page = target.page;
+      selectedRegionId = target.id;
+      updatePage();
+    } else {
+      selectRegion(target.id);
+    }
+  }
+
+  async function handleUnlink(region: Region) {
+    try {
+      await linkRegion(docId, chapterId, region.id, null);
+      const idx = regions.findIndex((r) => r.id === region.id);
+      if (idx >= 0) regions[idx] = { ...regions[idx], continues_to: null };
+      refreshRegionUI();
+    } catch (e: any) {
+      alert("Failed to unlink: " + e.message);
+    }
+  }
+
+  function updateLinkBanner() {
+    if (!linkMode) {
+      linkBanner.style.display = "none";
+      linkModeBtn.classList.remove("is-active");
+      return;
+    }
+    linkBanner.style.display = "";
+    linkModeBtn.classList.add("is-active");
+    if (!pendingLinkSourceId) {
+      linkBanner.textContent = "Link mode: click the source region (the one that continues onto a later page). Esc to cancel.";
+    } else {
+      const src = regions.find((r) => r.id === pendingLinkSourceId);
+      const where = src ? ` (selected: p.${src.page})` : "";
+      linkBanner.textContent = `Link mode${where}: navigate to a later page and click the continuation region. Esc to cancel.`;
+    }
+  }
+
+  function toggleLinkMode(force?: boolean) {
+    linkMode = force ?? !linkMode;
+    if (!linkMode) pendingLinkSourceId = null;
+    drawer?.setLinkMode(linkMode);
+    updateLinkBanner();
+    refreshRegionUI();
+  }
+
+  async function tryCompleteLink(targetId: string) {
+    const src = regions.find((r) => r.id === pendingLinkSourceId);
+    const tgt = regions.find((r) => r.id === targetId);
+    if (!src || !tgt) return;
+    if (src.id === tgt.id) {
+      alert("Pick a different region as the continuation.");
+      return;
+    }
+    if (tgt.page <= src.page) {
+      alert("Continuation must be on a later page than the source.");
+      return;
+    }
+    try {
+      const updated = await linkRegion(docId, chapterId, src.id, tgt.id);
+      const idx = regions.findIndex((r) => r.id === src.id);
+      if (idx >= 0) regions[idx] = { ...regions[idx], continues_to: updated.continues_to ?? tgt.id };
+      pendingLinkSourceId = null;
+      toggleLinkMode(false);
+    } catch (e: any) {
+      alert("Failed to link: " + e.message);
+    }
+  }
+
+  linkModeBtn.addEventListener("click", () => toggleLinkMode());
+
   function selectRegion(id: string) {
+    if (linkMode) {
+      if (!pendingLinkSourceId) {
+        pendingLinkSourceId = id;
+        updateLinkBanner();
+        refreshRegionUI();
+      } else {
+        void tryCompleteLink(id);
+      }
+      return;
+    }
     selectedRegionId = id === selectedRegionId ? null : id;
     rememberRegion(chapterId, page, selectedRegionId);
     syncUrl();
     refreshRegionUI();
+  }
+
+  function resolveChain(headId: string): Region[] {
+    const out: Region[] = [];
+    const seen = new Set<string>();
+    let curId: string | null = headId;
+    while (curId && !seen.has(curId)) {
+      const r = regions.find((x) => x.id === curId);
+      if (!r) break;
+      seen.add(curId);
+      out.push(r);
+      curId = r.continues_to || null;
+    }
+    return out;
+  }
+
+  function combinedTranscriptionHtml(chain: Region[]): string {
+    return chain
+      .map((r, idx) => {
+        const md = r.transcription_md || "";
+        const body = marked.parse(md) as string;
+        if (idx === 0) return body;
+        return `<div class="region-chain-separator" style="margin: 12px 0; padding: 6px 10px; border-top: 1px dashed rgba(16,185,129,0.5); color: rgb(16,185,129); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">↓ continues on page ${r.page}</div>${body}`;
+      })
+      .join("");
+  }
+
+  function combinedTranscriptionMd(chain: Region[]): string {
+    return chain
+      .map((r, idx) => {
+        const md = r.transcription_md || "";
+        if (idx === 0) return md;
+        return `\n\n---\n_(continues on page ${r.page})_\n\n${md}`;
+      })
+      .join("");
   }
 
   function syncBreakdownPane(region: Region | undefined) {
@@ -516,6 +650,29 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     // its transcription changes; otherwise leave it alone to avoid blowing
     // away in-progress state.
     const eligible = region && region.tag !== "vocab_list" && !!region.transcription_md;
+    const inboundSource = region
+      ? regions.find((r) => r.continues_to === region.id)
+      : undefined;
+    if (region && inboundSource) {
+      // This region is a continuation; breakdown runs from the source.
+      const key = `continuation:${region.id}:${inboundSource.id}`;
+      if (key === breakdownMountKey) return;
+      if (breakdownDestroy) { breakdownDestroy(); breakdownDestroy = null; }
+      breakdownMountKey = key;
+      breakdownPane.style.display = "";
+      breakdownPane.innerHTML = "";
+      const notice = document.createElement("div");
+      notice.style.cssText = "padding: 16px; color: var(--muted, #6b7280); font-size: 13px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start;";
+      const msg = document.createElement("div");
+      msg.textContent = `This region continues from p.${inboundSource.page}. Sentence breakdowns and exercise completions cover the whole chain and are generated from the source region.`;
+      notice.appendChild(msg);
+      const jump = document.createElement("button");
+      jump.textContent = `Go to source on p.${inboundSource.page} →`;
+      jump.addEventListener("click", () => jumpToRegion(inboundSource.id));
+      notice.appendChild(jump);
+      breakdownPane.appendChild(notice);
+      return;
+    }
     const key = eligible ? `${region.id}:${region.transcribed_at || ""}` : null;
     if (key === breakdownMountKey) return;
     if (breakdownDestroy) { breakdownDestroy(); breakdownDestroy = null; }
@@ -538,6 +695,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     }
     const inFlight = transcribingIds.has(region.id);
     if (region.transcription_md) {
+      const chain = region.continues_to ? resolveChain(region.id) : [region];
+      const displayHtml = chain.length > 1 ? combinedTranscriptionHtml(chain) : (marked.parse(region.transcription_md) as string);
+      const copyMd = chain.length > 1 ? combinedTranscriptionMd(chain) : region.transcription_md;
       const meta: string[] = [];
       if (region.transcribed_model) meta.push(region.transcribed_model);
       if (region.transcribed_at) meta.push(new Date(region.transcribed_at).toLocaleString());
@@ -558,11 +718,11 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           </span>
         </div>
         ${busyHtml}
-        <div class="markdown text-size-${size}">${marked.parse(region.transcription_md)}</div>
+        <div class="markdown text-size-${size}">${displayHtml}</div>
       `;
       const detailActions = regionDetail.querySelector(".region-detail-actions");
       if (detailActions) {
-        detailActions.appendChild(makeCopyButton(() => region.transcription_md || ""));
+        detailActions.appendChild(makeCopyButton(() => copyMd));
       }
       const infoBtn = regionDetail.querySelector<HTMLButtonElement>('.pane-info-btn[data-meta-toggle="transcription"]');
       const metaEl = regionDetail.querySelector<HTMLElement>('.region-detail-meta[data-meta-target="transcription"]');
@@ -765,6 +925,10 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
   function onKey(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey) return; // let zoom-pan handle Cmd keys
+    const tag = (e.target as HTMLElement | null)?.tagName;
+    const inField = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement | null)?.isContentEditable;
+    if (e.key === "Escape" && linkMode) { toggleLinkMode(false); return; }
+    if (!inField && (e.key === "l" || e.key === "L")) { toggleLinkMode(); return; }
     if (e.key === "ArrowLeft") prevBtn.click();
     if (e.key === "ArrowRight") nextBtn.click();
   }

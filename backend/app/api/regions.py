@@ -51,6 +51,13 @@ def _require_chapter(doc_id: str, chapter_id: str) -> dict:
     return chapter
 
 
+def _find_inbound_source(doc_id: str, chapter_id: str, region_id: str) -> dict | None:
+    for other in storage.list_regions(doc_id, chapter_id):
+        if other.get("id") != region_id and other.get("continues_to") == region_id:
+            return other
+    return None
+
+
 def _validate_bbox(bbox: list[float]) -> None:
     x1, y1, x2, y2 = bbox
     if not (0 <= x1 < x2 <= 1 and 0 <= y1 < y2 <= 1):
@@ -141,6 +148,50 @@ def move_region(doc_id: str, chapter_id: str, region_id: str, body: MoveRegion):
     return moved
 
 
+class LinkRegion(BaseModel):
+    continues_to: str | None = None
+
+
+@router.post("/{region_id}/link")
+def link_region(doc_id: str, chapter_id: str, region_id: str, body: LinkRegion):
+    _require_chapter(doc_id, chapter_id)
+    region = storage.load_region(doc_id, chapter_id, region_id)
+    if region is None:
+        raise HTTPException(404, "region not found")
+
+    if body.continues_to is None:
+        updated = storage.update_region(doc_id, chapter_id, region_id, continues_to=None)
+        return updated
+
+    if body.continues_to == region_id:
+        raise HTTPException(400, "region cannot link to itself")
+
+    target = storage.load_region(doc_id, chapter_id, body.continues_to)
+    if target is None:
+        raise HTTPException(404, "target region not found in this chapter")
+    if target["page"] <= region["page"]:
+        raise HTTPException(400, "target region must be on a later page than the source")
+
+    # cycle detection: follow the target's chain forward; we must not reach source.
+    seen: set[str] = {region_id}
+    cur = target
+    while cur is not None:
+        if cur["id"] in seen:
+            raise HTTPException(400, "linking would create a cycle")
+        seen.add(cur["id"])
+        nxt_id = cur.get("continues_to")
+        if not nxt_id:
+            break
+        cur = storage.load_region(doc_id, chapter_id, nxt_id)
+
+    updated = storage.update_region(doc_id, chapter_id, region_id, continues_to=body.continues_to)
+    log.info(
+        "region_linked",
+        extra={"doc_id": doc_id, "chapter_id": chapter_id, "region_id": region_id, "continues_to": body.continues_to},
+    )
+    return updated
+
+
 @router.post("/{region_id}/transcribe")
 def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
     _require_chapter(doc_id, chapter_id)
@@ -205,6 +256,13 @@ def request_region_breakdown(
         raise HTTPException(400, "breakdowns are not available on vocab_list regions")
     if not region.get("transcription_md"):
         raise HTTPException(409, "region has no transcription")
+    inbound = _find_inbound_source(doc_id, chapter_id, region_id)
+    if inbound is not None:
+        raise HTTPException(
+            409,
+            f"this region is a continuation of region {inbound['id']} on page {inbound['page']}; "
+            "generate the breakdown from there instead",
+        )
     if (
         not body.overwrite
         and storage.load_breakdown(doc_id, chapter_id, region_id) is not None
@@ -257,6 +315,13 @@ def request_region_exercise_completion(
         raise HTTPException(404, "region not found")
     if region.get("tag") != "exercises":
         raise HTTPException(400, "exercise completions are only available on exercises regions")
+    inbound = _find_inbound_source(doc_id, chapter_id, region_id)
+    if inbound is not None:
+        raise HTTPException(
+            409,
+            f"this region is a continuation of region {inbound['id']} on page {inbound['page']}; "
+            "generate exercise completions from there instead",
+        )
 
     breakdown = storage.load_breakdown(doc_id, chapter_id, region_id)
     if breakdown is None:

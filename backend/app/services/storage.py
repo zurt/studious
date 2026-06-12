@@ -216,6 +216,7 @@ def create_region(
         "transcription_md": None,
         "transcribed_at": None,
         "transcribed_model": None,
+        "continues_to": None,
         "created_at": _now_iso(),
     }
     _atomic_write_text(
@@ -263,6 +264,9 @@ def delete_region(doc_id: str, chapter_id: str, region_id: str) -> bool:
     p.unlink()
     delete_breakdown(doc_id, chapter_id, region_id)
     delete_exercise_completion(doc_id, chapter_id, region_id)
+    for other in list_regions(doc_id, chapter_id):
+        if other.get("continues_to") == region_id:
+            update_region(doc_id, chapter_id, other["id"], continues_to=None)
     return True
 
 
@@ -410,6 +414,11 @@ def move_region(
     if region is None:
         return None
     region["chapter_id"] = dst_chapter_id
+    if src_chapter_id != dst_chapter_id:
+        region["continues_to"] = None
+        for other in list_regions(doc_id, src_chapter_id):
+            if other.get("id") != region_id and other.get("continues_to") == region_id:
+                update_region(doc_id, src_chapter_id, other["id"], continues_to=None)
     dst_dir = _regions_dir(doc_id, dst_chapter_id)
     dst_dir.mkdir(parents=True, exist_ok=True)
     _atomic_write_text(
