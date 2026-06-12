@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend audit audit-log logs clean benchmark
+.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-e2e audit audit-log logs clean benchmark
 
 install: install-backend install-frontend
 	@echo ""
@@ -36,6 +36,12 @@ test-backend:
 
 test-frontend:
 	cd frontend && npm test
+
+# Browser smoke suite: Playwright boots an isolated backend (mock VLM
+# provider, fresh data dir) plus a vite dev server on dedicated ports.
+# One-time setup: cd frontend && npx playwright install chromium
+test-e2e:
+	cd frontend && npm run test:e2e
 
 audit:
 	@echo "==> npm audit (fail on high+critical)"

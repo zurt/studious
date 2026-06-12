@@ -123,11 +123,18 @@ of the request, so repeated calls with the same prompt see cache hits
 make test            # backend (pytest + coverage) and frontend (vitest)
 make test-backend    # pytest only
 make test-frontend   # vitest only
+make test-e2e        # browser smoke suite (Playwright)
 ```
 
 Backend coverage runs under pytest-cov with a 75% floor. Frontend uses
 Vitest + jsdom; run `cd frontend && npm run test:coverage` for a v8
 coverage report.
+
+The E2E suite drives Chromium against the real stack on dedicated ports
+(backend 8765, frontend 5273) with a mock VLM provider and an isolated,
+per-run data dir (`backend/.e2e-data`) — no API key or tokens needed.
+One-time setup: `cd frontend && npx playwright install chromium`. On
+failure, traces and screenshots land in `frontend/test-results/`.
 
 ## Security
 

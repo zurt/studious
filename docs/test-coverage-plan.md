@@ -217,3 +217,28 @@ fixtures so divergence breaks CI.
 With `TestClient` plus a tiny real PDF fixture and a mocked VLM provider, one
 test that uploads → creates a chapter → creates a region → submits a region
 transcription end-to-end catches wiring bugs unit tests miss.
+
+## Phase 5 — Browser E2E smoke suite (Playwright)
+
+Added 2026-06: a thin real-browser layer above the jsdom suite. Roadmap
+status lives in `docs/roadmap.md` (Phase 1.8.1).
+
+**Approach.** Playwright drives Chromium against the full stack: a vite dev
+server (port 5273) proxying to a FastAPI backend (port 8765) started from
+`backend/e2e_server.py`, which registers a canned mock VLM provider under the
+"anthropic" name. Each run gets a fresh `backend/.e2e-data` dir, so journeys
+are deterministic and cost nothing. Dedicated ports guarantee a run can never
+reuse — or write into — a real dev backend.
+
+**Scope rules.**
+- One test per core user journey, in `frontend/e2e/` (currently
+  `smoke.spec.ts`). Journeys run in source order on one worker and may build
+  on earlier state.
+- No screenshot-diff visual regression: highest-maintenance UI testing, worst
+  fit for a prototype with a planned native rewrite. Playwright's
+  trace/screenshot-on-failure (`frontend/test-results/`) covers diagnostics.
+- The suite doubles as executable UI documentation and a seeded environment
+  for agent-driven browser verification.
+
+**Run with** `make test-e2e` (separate from `make test` to keep the unit
+loop fast). One-time setup: `cd frontend && npx playwright install chromium`.

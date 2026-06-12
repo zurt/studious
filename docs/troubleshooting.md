@@ -67,6 +67,11 @@ the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
 - Browser DevTools **Console** — `frontend/src/logger.ts` emits structured entries with `correlation_id` that match backend logs.
 - DevTools **Network → `/api/jobs/<job_id>/events` → EventStream** — SSE-specific view of job events (`snapshot`, `job-started`, `job-done`, `job-failed`, `ping`).
 
+### E2E (Playwright) state and artifacts
+- `frontend/test-results/` — per-failure screenshots, error context, and traces. Inspect a trace with `cd frontend && npx playwright show-trace test-results/<test-dir>/trace.zip`.
+- `backend/.e2e-data/` — the isolated data dir for the E2E backend, wiped at the start of every run (the wipe happens in the backend `webServer` command in `frontend/playwright.config.ts`). Documents/jobs left here after a failed run reflect the state the failing test saw.
+- The E2E backend (`backend/e2e_server.py`, port 8765) logs at `WARNING` to Playwright's server output; transcriptions come from the mock VLM provider, so real-API failure modes (auth, rate limits) cannot occur in this suite. If an E2E run reports a port already in use, something is squatting on 8765 or 5273 (`lsof -i :8765`); the suite never reuses an existing server by design.
+
 ## Known failure modes
 
 ### npm installs a package newer than 7 days despite the .npmrc cooldown (or errors with "Invalid time value")
