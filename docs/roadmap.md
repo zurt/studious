@@ -138,9 +138,9 @@ verification. See the E2E section of `docs/test-coverage-plan.md`.
 - [x] Journey: create chapter → chapter view opens; banner links back
 - [x] Journey: draw region in chapter view → tag type → transcribe with mock
       provider → markdown renders in right pane
-- [ ] Journey: sentence breakdown on a transcribed region → cards render,
+- [x] Journey: sentence breakdown on a transcribed region → cards render,
       vocab/grammar popover opens
-- [ ] Journey: grammar guide generation from grammar_points regions
+- [x] Journey: grammar guide generation from grammar_points regions
 - [ ] Wire `make test-e2e` into CI (after journeys above stabilize)
 
 ## Phase 1.9: Supply Chain Hardening

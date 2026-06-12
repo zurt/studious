@@ -96,3 +96,92 @@ test("drawing a region and transcribing it renders mock markdown", async ({ page
   });
   await expect(page.locator("#region-detail")).toContainText("私(わたし)は日本語(にほんご)を");
 });
+
+test("generating a sentence breakdown renders cards and vocab/grammar popovers", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#doc-grid .doc-card").first().click();
+  await page.locator("#banner-link").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+
+  // The chapter view auto-selects the page's first region on load, so the
+  // breakdown pane mounts in its empty state for the transcribed region.
+  const pane = page.locator("#breakdown-pane");
+  await expect(pane).toContainText("No breakdown yet");
+
+  await pane.locator("#bd-generate").click();
+  const card = pane.locator(".breakdown-card");
+  await expect(card).toHaveCount(1, { timeout: 15_000 });
+  await expect(card.locator(".breakdown-text")).toContainText(
+    "私(わたし)は日本語(にほんご)を勉強(べんきょう)しています。",
+  );
+
+  // The backend annotates vocab/grammar spans as inline links; clicking one
+  // opens the popover with the matching entry.
+  const popover = page.locator(".bd-link-popover");
+  await card.locator(".bd-link", { hasText: "日本語" }).click();
+  await expect(popover).toBeVisible();
+  await expect(popover.locator(".bd-popover-word")).toHaveText("日本語");
+  await expect(popover).toContainText("Japanese language");
+
+  // Clicking a grammar link swaps the popover to the grammar entry.
+  await card.locator(".bd-link", { hasText: "しています" }).click();
+  await expect(popover.locator(".bd-popover-pattern")).toHaveText("〜ている");
+  await expect(popover).toContainText("Ongoing action or continuing state.");
+
+  await page.keyboard.press("Escape");
+  await expect(popover).toBeHidden();
+
+  // The gloss starts blurred; its toggle reveals the translation.
+  await card.locator("[data-gloss-toggle]").click();
+  await expect(card.locator(".breakdown-gloss")).not.toHaveClass(/is-blurred/);
+  await expect(card.locator(".breakdown-gloss")).toHaveText("I am studying Japanese.");
+});
+
+test("a transcribed grammar_points region powers grammar guide generation", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#doc-grid .doc-card").first().click();
+  await page.locator("#banner-link").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+
+  // No grammar_points regions yet, so the topbar button stays hidden.
+  const guideBtn = page.locator("#grammar-guide-btn");
+  await expect(guideBtn).toBeHidden();
+
+  const canvas = page.locator("#left-pane canvas");
+  await expect(canvas).toBeVisible();
+  const box = (await canvas.boundingBox())!;
+
+  // Draw to the right of the reading-passage region from the earlier
+  // journey: a mousedown inside an existing bbox selects that region instead
+  // of drawing, and the fit-width canvas extends below the viewport, so the
+  // drag must stay in the visible upper area.
+  await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.95, box.y + box.height * 0.5, { steps: 5 });
+  await page.mouse.up();
+
+  await page.locator("#tag-select").selectOption("grammar_points");
+  await page.locator("#region-label").fill("文法");
+  await page.locator("#tag-save").click();
+
+  // The button appears but stays disabled until the region is transcribed.
+  await expect(guideBtn).toBeVisible();
+  await expect(guideBtn).toHaveAttribute("aria-disabled", "true");
+
+  const grammarCard = page.locator(".region-card", { hasText: "文法" });
+  await grammarCard.getByRole("button", { name: "Transcribe" }).click();
+  await expect(guideBtn).toHaveText("Generate grammar guide", { timeout: 15_000 });
+
+  // Generation navigates into the guide page once the job completes.
+  await guideBtn.click();
+  await page.waitForURL(/\/grammar-guide$/, { timeout: 15_000 });
+  await expect(page.locator("#gg-title")).toContainText("Grammar Guide");
+  const body = page.locator("#gg-body");
+  await expect(body).toContainText("Mock grammar guide for E2E runs.");
+  await expect(body).toContainText("〜ている");
+  await expect(body).toContainText("Meaning");
+
+  // Back on the chapter, the same button now opens the stored guide.
+  await page.locator("#back-link").click();
+  await expect(guideBtn).toHaveText("Open grammar guide");
+});

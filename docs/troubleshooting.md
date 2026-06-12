@@ -74,6 +74,14 @@ the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
 
 ## Known failure modes
 
+### E2E test drawing a region times out waiting for `#tag-select` (or a card click shows an empty breakdown pane)
+Two chapter-view behaviors trip up new journey tests (both bit on 2026-06-12):
+1. **Region drags must stay inside the visible viewport.** At fit-width zoom the page canvas is taller than the 720px viewport; `canvas.boundingBox()` reports the full (partially clipped) height, so a drag endpoint at a large height fraction lands below the viewport, the canvas never sees `mouseup`, and the tag popover never opens. The failure screenshot shows a small stranded dashed box at the last in-viewport mousemove. Keep drag coordinates in the upper ~half of the canvas box. Also remember a `mousedown` inside an existing region's bbox *selects* that region instead of starting a draw — draw beside existing regions, not over or under them.
+2. **The chapter view auto-selects the page's first region on load** (falling back from the remembered selection). Clicking that region's card therefore *toggles it off* and unmounts the breakdown pane. Assert against the auto-selected state instead of re-clicking the card.
+
+### Playwright cannot download browsers (403 from cdn.playwright.dev)
+Sandboxed/CI-like environments may block the browser CDN. If a Playwright-managed chromium is preinstalled (this remote env ships one under `/opt/pw-browsers/`), point the suite at it with a local-only config that extends `playwright.config.ts` and sets `use.launchOptions.executablePath` — don't commit it (machine-specific path). If the local `uv` is too old to parse `exclude-newer = "7 days"` in `backend/uv.toml`, run the suite with `UV_NO_CONFIG=1` (harmless here: the E2E backend installs nothing; `uv run` only uses the existing lockfile environment).
+
 ### npm installs a package newer than 7 days despite the .npmrc cooldown (or errors with "Invalid time value")
 Two distinct causes, both observed 2026-06-12:
 1. **Wrong value format.** `min-release-age` takes a plain number of days (`min-release-age=7`). The old `7d` suffix form is invalid: npm >= 11.10 fails every install with `npm error Invalid time value`, while older npm ignores the unknown-typed key entirely.
