@@ -74,7 +74,15 @@ keeps updating them). This was already on the roadmap.
 
 ## Items marked for review — decide before acting
 
-### R1. Deduplicate the job-failure boilerplate in `jobs.py` ⚠️
+### R1. Deduplicate the job-failure boilerplate in `jobs.py` ✅ Applied 2026-06-12
+
+`_start_job` / `_fail_job` / `_complete_job` helpers plus a module-level
+`_audit()` now carry the repeated sequences; event payloads, statuses,
+audit fields, and log lines are unchanged, verified by the existing
+mock-provider suite. Benchmarks not run: no prompt, image-prep, or API
+call-shape changes. Original rationale below.
+
+
 
 The five `_run_*_job` methods repeat the same ~15-line
 fail-update-audit-emit sequence roughly ten times (~150 lines of
@@ -141,7 +149,14 @@ left with stale metadata and no pages. Robust fix: render to a temp dir
 first, swap only on success. **Why review first:** slightly more involved
 change to a rarely-used endpoint; decide whether the endpoint matters enough.
 
-### R7. Reuse provider instances ⚠️
+### R7. Reuse provider instances ✅ Applied 2026-06-12
+
+The registry now caches one instance per provider name; re-registering a
+name drops the cached instance, and a factory that raises (missing API
+key) caches nothing. Benchmarks not run: the calls themselves are
+unchanged. Original rationale below.
+
+
 
 `registry.get_vlm()` constructs a fresh `AnthropicVlm` (and a fresh
 `anthropic.Anthropic` HTTP client) for every job. Caching the instance in
