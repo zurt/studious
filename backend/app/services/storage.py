@@ -101,6 +101,13 @@ def document_dir(doc_id: str) -> Path:
     return _docs_root() / _check_id(doc_id)
 
 
+def save_document_meta(meta: dict[str, Any]) -> None:
+    _atomic_write_text(
+        document_dir(meta["id"]) / "meta.json",
+        json.dumps(meta, indent=2, ensure_ascii=False),
+    )
+
+
 def page_image_path(doc_id: str, page: int) -> Path:
     return document_dir(doc_id) / "pages" / f"{page:04d}.png"
 
