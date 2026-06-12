@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import uuid
 from datetime import datetime, timezone
@@ -9,6 +10,21 @@ from pathlib import Path
 from typing import Any
 
 from ..config import get_settings
+
+# Generated ids are 12-char lowercase hex; the pattern is deliberately
+# looser so any historical ids keep working, while still excluding path
+# separators and dots.
+_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
+class InvalidIdError(ValueError):
+    """A caller-supplied resource id contains path-unsafe characters."""
+
+
+def _check_id(value: str) -> str:
+    if not isinstance(value, str) or not _ID_RE.fullmatch(value):
+        raise InvalidIdError(f"invalid resource id: {value!r}")
+    return value
 
 
 def _now_iso() -> str:
@@ -75,14 +91,14 @@ def list_documents() -> list[dict[str, Any]]:
 
 
 def load_document(doc_id: str) -> dict[str, Any] | None:
-    meta_path = _docs_root() / doc_id / "meta.json"
+    meta_path = document_dir(doc_id) / "meta.json"
     if not meta_path.exists():
         return None
     return json.loads(meta_path.read_text("utf-8"))
 
 
 def document_dir(doc_id: str) -> Path:
-    return _docs_root() / doc_id
+    return _docs_root() / _check_id(doc_id)
 
 
 def page_image_path(doc_id: str, page: int) -> Path:
@@ -125,6 +141,10 @@ def _chapters_dir(doc_id: str) -> Path:
     return document_dir(doc_id) / "chapters"
 
 
+def _chapter_dir(doc_id: str, chapter_id: str) -> Path:
+    return _chapters_dir(doc_id) / _check_id(chapter_id)
+
+
 def create_chapter(
     doc_id: str,
     *,
@@ -134,7 +154,7 @@ def create_chapter(
     order: int = 0,
 ) -> dict[str, Any]:
     chapter_id = uuid.uuid4().hex[:12]
-    chapter_dir = _chapters_dir(doc_id) / chapter_id
+    chapter_dir = _chapter_dir(doc_id, chapter_id)
     (chapter_dir / "regions").mkdir(parents=True, exist_ok=True)
     meta = {
         "id": chapter_id,
@@ -163,7 +183,7 @@ def list_chapters(doc_id: str) -> list[dict[str, Any]]:
 
 
 def load_chapter(doc_id: str, chapter_id: str) -> dict[str, Any] | None:
-    meta_path = _chapters_dir(doc_id) / chapter_id / "meta.json"
+    meta_path = _chapter_dir(doc_id, chapter_id) / "meta.json"
     if not meta_path.exists():
         return None
     return json.loads(meta_path.read_text("utf-8"))
@@ -175,14 +195,14 @@ def update_chapter(doc_id: str, chapter_id: str, **changes: Any) -> dict[str, An
         return None
     chapter.update(changes)
     _atomic_write_text(
-        _chapters_dir(doc_id) / chapter_id / "meta.json",
+        _chapter_dir(doc_id, chapter_id) / "meta.json",
         json.dumps(chapter, indent=2, ensure_ascii=False),
     )
     return chapter
 
 
 def delete_chapter(doc_id: str, chapter_id: str) -> bool:
-    chapter_dir = _chapters_dir(doc_id) / chapter_id
+    chapter_dir = _chapter_dir(doc_id, chapter_id)
     if not chapter_dir.exists():
         return False
     shutil.rmtree(chapter_dir)
@@ -193,7 +213,11 @@ def delete_chapter(doc_id: str, chapter_id: str) -> bool:
 
 
 def _regions_dir(doc_id: str, chapter_id: str) -> Path:
-    return _chapters_dir(doc_id) / chapter_id / "regions"
+    return _chapter_dir(doc_id, chapter_id) / "regions"
+
+
+def _region_path(doc_id: str, chapter_id: str, region_id: str) -> Path:
+    return _regions_dir(doc_id, chapter_id) / f"{_check_id(region_id)}.json"
 
 
 def create_region(
@@ -239,7 +263,7 @@ def list_regions(doc_id: str, chapter_id: str) -> list[dict[str, Any]]:
 
 
 def load_region(doc_id: str, chapter_id: str, region_id: str) -> dict[str, Any] | None:
-    p = _regions_dir(doc_id, chapter_id) / f"{region_id}.json"
+    p = _region_path(doc_id, chapter_id, region_id)
     if not p.exists():
         return None
     return json.loads(p.read_text("utf-8"))
@@ -251,14 +275,14 @@ def update_region(doc_id: str, chapter_id: str, region_id: str, **changes: Any) 
         return None
     region.update(changes)
     _atomic_write_text(
-        _regions_dir(doc_id, chapter_id) / f"{region_id}.json",
+        _region_path(doc_id, chapter_id, region_id),
         json.dumps(region, indent=2, ensure_ascii=False),
     )
     return region
 
 
 def delete_region(doc_id: str, chapter_id: str, region_id: str) -> bool:
-    p = _regions_dir(doc_id, chapter_id) / f"{region_id}.json"
+    p = _region_path(doc_id, chapter_id, region_id)
     if not p.exists():
         return False
     p.unlink()
@@ -271,11 +295,11 @@ def delete_region(doc_id: str, chapter_id: str, region_id: str) -> bool:
 
 
 def _breakdowns_dir(doc_id: str, chapter_id: str) -> Path:
-    return _chapters_dir(doc_id) / chapter_id / "breakdowns"
+    return _chapter_dir(doc_id, chapter_id) / "breakdowns"
 
 
 def breakdown_path(doc_id: str, chapter_id: str, region_id: str) -> Path:
-    return _breakdowns_dir(doc_id, chapter_id) / f"{region_id}.json"
+    return _breakdowns_dir(doc_id, chapter_id) / f"{_check_id(region_id)}.json"
 
 
 def save_breakdown(
@@ -314,7 +338,7 @@ def delete_breakdown(doc_id: str, chapter_id: str, region_id: str) -> bool:
 
 
 def exercise_completion_path(doc_id: str, chapter_id: str, region_id: str) -> Path:
-    return _breakdowns_dir(doc_id, chapter_id) / f"{region_id}.completion.json"
+    return _breakdowns_dir(doc_id, chapter_id) / f"{_check_id(region_id)}.completion.json"
 
 
 def load_exercise_completion(
@@ -371,7 +395,7 @@ def delete_exercise_completion(doc_id: str, chapter_id: str, region_id: str) -> 
 
 
 def grammar_guide_path(doc_id: str, chapter_id: str) -> Path:
-    return _chapters_dir(doc_id) / chapter_id / "grammar_guide.json"
+    return _chapter_dir(doc_id, chapter_id) / "grammar_guide.json"
 
 
 def save_grammar_guide(
@@ -422,10 +446,10 @@ def move_region(
     dst_dir = _regions_dir(doc_id, dst_chapter_id)
     dst_dir.mkdir(parents=True, exist_ok=True)
     _atomic_write_text(
-        dst_dir / f"{region_id}.json",
+        _region_path(doc_id, dst_chapter_id, region_id),
         json.dumps(region, indent=2, ensure_ascii=False),
     )
-    src = _regions_dir(doc_id, src_chapter_id) / f"{region_id}.json"
+    src = _region_path(doc_id, src_chapter_id, region_id)
     if src.exists():
         src.unlink()
     return region
@@ -435,7 +459,7 @@ def move_region(
 
 
 def _job_path(job_id: str) -> Path:
-    return _jobs_root() / f"{job_id}.json"
+    return _jobs_root() / f"{_check_id(job_id)}.json"
 
 
 def create_job(payload: dict[str, Any]) -> dict[str, Any]:
