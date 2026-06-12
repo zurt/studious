@@ -136,7 +136,7 @@ verification. See the E2E section of `docs/test-coverage-plan.md`.
 - [x] Journey: fresh library shows empty state
 - [x] Journey: upload PDF → document view renders page image, paging works
 - [x] Journey: create chapter → chapter view opens; banner links back
-- [ ] Journey: draw region in chapter view → tag type → transcribe with mock
+- [x] Journey: draw region in chapter view → tag type → transcribe with mock
       provider → markdown renders in right pane
 - [ ] Journey: sentence breakdown on a transcribed region → cards render,
       vocab/grammar popover opens

@@ -60,3 +60,39 @@ test("creating a chapter opens the chapter view", async ({ page }) => {
   await page.locator("#back-link").click();
   await expect(page.locator("#chapter-banner")).toContainText("第1課 テスト");
 });
+
+test("drawing a region and transcribing it renders mock markdown", async ({ page }) => {
+  // Reach the chapter view created by the previous test via the banner link.
+  await page.goto("/");
+  await page.locator("#doc-grid .doc-card").first().click();
+  await page.locator("#banner-link").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+
+  // The drawer overlays a canvas on the page image once it loads.
+  const canvas = page.locator("#left-pane canvas");
+  await expect(canvas).toBeVisible();
+  const box = (await canvas.boundingBox())!;
+
+  // Drag a box well above the drawer's 2%-of-canvas minimum size.
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.55, { steps: 5 });
+  await page.mouse.up();
+
+  // Tag the new region in the popover.
+  await page.locator("#tag-select").selectOption("reading_passage");
+  await page.locator("#region-label").fill("本文");
+  await page.locator("#tag-save").click();
+
+  const card = page.locator(".region-card");
+  await expect(card).toHaveCount(1);
+  await expect(card.locator(".badge")).toHaveClass(/tag-reading_passage/);
+
+  // Transcribe via the mock provider; the job stream flips the card state
+  // and the detail pane renders the canned markdown.
+  await card.getByRole("button", { name: "Transcribe" }).click();
+  await expect(page.locator("#region-detail")).toContainText("Mock transcription", {
+    timeout: 15_000,
+  });
+  await expect(page.locator("#region-detail")).toContainText("私(わたし)は日本語(にほんご)を");
+});
