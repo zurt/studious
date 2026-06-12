@@ -69,6 +69,9 @@ the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
 
 ## Known failure modes
 
+### npm installs a package newer than 7 days despite the .npmrc cooldown
+`min-release-age=7d` in `frontend/.npmrc` requires npm >= 11.10; older npm versions ignore the setting **silently** and resolve to the newest release (observed with npm 10.9.2 installing a same-day dompurify). Check `npm --version` first when adding a dependency. If npm is too old, verify the release date by hand (`npm view <pkg> time --json`) and pin the newest version that is at least 7 days old with `npm install --save-exact <pkg>@<version>`.
+
 ### Upload fails with 400 "could not render uploaded file"
 The file reached the backend but PyMuPDF/Pillow could not parse it — usually a corrupt download, a password-protected PDF, or a file whose extension doesn't match its contents. The partial document directory is cleaned up automatically (nothing appears in the library), and the render error is logged as `document_render_failed` with the underlying parser message. Re-export or decrypt the source file and upload again. Note: the re-upload endpoint (`PUT /api/documents/{id}/file`) does not yet have this protection — a failed re-upload render can leave a document with stale metadata and no pages (see R6 in `docs/improvement-recommendations.md`).
 

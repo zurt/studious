@@ -14,7 +14,7 @@ import { mountBreakdownPane } from "../modules/breakdown-pane";
 import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "../modules/collapsible";
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
-import { marked } from "marked";
+import { renderMarkdown } from "../modules/markdown";
 
 const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
 
@@ -627,7 +627,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     return chain
       .map((r, idx) => {
         const md = r.transcription_md || "";
-        const body = marked.parse(md) as string;
+        const body = renderMarkdown(md);
         if (idx === 0) return body;
         return `<div class="region-chain-separator" style="margin: 12px 0; padding: 6px 10px; border-top: 1px dashed rgba(16,185,129,0.5); color: rgb(16,185,129); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">↓ continues on page ${r.page}</div>${body}`;
       })
@@ -696,7 +696,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     const inFlight = transcribingIds.has(region.id);
     if (region.transcription_md) {
       const chain = region.continues_to ? resolveChain(region.id) : [region];
-      const displayHtml = chain.length > 1 ? combinedTranscriptionHtml(chain) : (marked.parse(region.transcription_md) as string);
+      const displayHtml = chain.length > 1 ? combinedTranscriptionHtml(chain) : renderMarkdown(region.transcription_md);
       const copyMd = chain.length > 1 ? combinedTranscriptionMd(chain) : region.transcription_md;
       const meta: string[] = [];
       if (region.transcribed_model) meta.push(region.transcribed_model);

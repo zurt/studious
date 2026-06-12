@@ -96,7 +96,16 @@ API tokens. A pure refactor with the existing mock-provider tests is
 probably safe, but it's your call whether the cleanup is worth the
 benchmark run (or whether you'd accept test coverage alone as sufficient).
 
-### R2. Sanitize VLM-generated markdown before `innerHTML` ⚠️
+### R2. Sanitize VLM-generated markdown before `innerHTML` ✅ Applied 2026-06-12
+
+All five `marked.parse` call sites now go through a shared
+`renderMarkdown()` in `frontend/src/modules/markdown.ts`, which runs the
+output through DOMPurify. `dompurify` is pinned exactly to 3.4.8
+(published 2026-06-03, beyond the 7-day cooldown) because the local npm
+10.9.2 silently ignores `min-release-age` — see the new troubleshooting
+entry. Original rationale below.
+
+
 
 `chapter-view.ts`, `breakdown-pane.ts`, and `grammar-guide.ts` render model
 output via `marked.parse(...)` straight into `innerHTML`. `marked` does
