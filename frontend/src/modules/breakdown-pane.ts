@@ -3,6 +3,7 @@ import {
   getExerciseCompletion, requestExerciseCompletion,
   type Breakdown, type BreakdownLink, type BreakdownSentence, type Region,
   type ExerciseCompletion, type ExerciseCompletionEntry,
+
 } from "../api";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
@@ -29,19 +30,6 @@ export function completionToMarkdown(
     parts.push("**Examples**\n" + rows.join("\n"));
   }
   return parts.join("\n\n");
-}
-
-export function allCompletionsToMarkdown(
-  breakdown: Breakdown,
-  completion: ExerciseCompletion | null,
-): string {
-  if (!completion) return "";
-  const blocks: string[] = [];
-  breakdown.sentences.forEach((s, i) => {
-    const entry = completion.completions?.[String(i)];
-    if (entry) blocks.push(completionToMarkdown(entry, s.text));
-  });
-  return blocks.join("\n\n──────────\n\n");
 }
 
 export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void {
@@ -165,7 +153,24 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   }
 
   function allSentencesToMarkdown(b: Breakdown): string {
-    return b.sentences.map(sentenceToMarkdown).join("\n\n──────────\n\n");
+    return b.sentences.map((s, i) => {
+      const base = sentenceToMarkdown(s);
+      const entry = completionEntry(i);
+      if (!entry) return base;
+      const parts: string[] = [base];
+      const answerEn = entry.answer_english ? ` (${entry.answer_english})` : "";
+      parts.push(`**Answer:** ${entry.answer}${answerEn}`);
+      if (entry.explanation) parts.push(entry.explanation);
+      if (entry.examples && entry.examples.length) {
+        const rows = entry.examples.map((ex) => {
+          const reading = ex.reading ? `（${ex.reading}）` : "";
+          const note = ex.explanation ? `\n  ${ex.explanation}` : "";
+          return `- ${ex.japanese}${reading} — ${ex.english}${note}`;
+        });
+        parts.push("**Examples**\n" + rows.join("\n"));
+      }
+      return parts.join("\n\n");
+    }).join("\n\n──────────\n\n");
   }
 
   function escapeHtml(s: string): string {
@@ -342,7 +347,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("");
 
     container.innerHTML = `
-      ${headerHtml(`<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span><span class="completions-copy-all-slot"></span>`, metaText)}
+      ${headerHtml(`<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
       <div class="breakdown-list">${cards}</div>`;
 
     const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
@@ -351,15 +356,6 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       copyAllBtn.title = "Copy all (Alt/Option for markdown)";
       copyAllBtn.setAttribute("aria-label", "Copy all");
       copyAllSlot.appendChild(copyAllBtn);
-    }
-
-    const hasCompletions = isExercise && breakdown.sentences.some((_, i) => !!completionEntry(i));
-    const completionsCopyAllSlot = container.querySelector<HTMLElement>(".completions-copy-all-slot");
-    if (completionsCopyAllSlot && hasCompletions) {
-      const btn = makeCopyButton(() => allCompletionsToMarkdown(breakdown!, completion));
-      btn.title = "Copy all completions (Alt/Option for markdown)";
-      btn.setAttribute("aria-label", "Copy all completions");
-      completionsCopyAllSlot.appendChild(btn);
     }
 
     container.querySelectorAll<HTMLElement>("[data-copy-slot]").forEach((slot) => {

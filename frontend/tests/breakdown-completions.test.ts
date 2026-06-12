@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { completionToMarkdown, allCompletionsToMarkdown } from "../src/modules/breakdown-pane";
-import type { Breakdown, ExerciseCompletion, ExerciseCompletionEntry } from "../src/api";
+import { completionToMarkdown } from "../src/modules/breakdown-pane";
+import type { ExerciseCompletionEntry } from "../src/api";
 
 const entry: ExerciseCompletionEntry = {
   answer: "本を読みます",
@@ -36,35 +36,3 @@ describe("completionToMarkdown", () => {
   });
 });
 
-describe("allCompletionsToMarkdown", () => {
-  const breakdown = {
-    sentences: [
-      { text: "first", gloss: "" },
-      { text: "second", gloss: "" },
-      { text: "third", gloss: "" },
-    ],
-  } as unknown as Breakdown;
-
-  it("returns empty string when there is no completion data", () => {
-    expect(allCompletionsToMarkdown(breakdown, null)).toBe("");
-  });
-
-  it("includes only sentences that have completions, in order, joined by a divider", () => {
-    const completion: ExerciseCompletion = {
-      region_id: "r1",
-      completions: {
-        "0": { answer: "A", examples: [] },
-        "2": { answer: "C", examples: [] },
-      },
-    };
-    const md = allCompletionsToMarkdown(breakdown, completion);
-    expect(md).toContain("first");
-    expect(md).toContain("**Answer:** A");
-    expect(md).toContain("third");
-    expect(md).toContain("**Answer:** C");
-    expect(md).not.toContain("second");
-    expect(md).toContain("──────────");
-    // ordering: first block precedes third block
-    expect(md.indexOf("first")).toBeLessThan(md.indexOf("third"));
-  });
-});
