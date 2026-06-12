@@ -121,7 +121,18 @@ output, local single-user app) may not justify it. If you take it:
 shared `renderMarkdown()` helper — which would also collapse the duplicated
 parse logic.
 
-### R3. Replace `alert()` error reporting with a toast/notice component ⚠️
+### R3. Replace `alert()` error reporting with a toast/notice component ✅ Applied 2026-06-12
+
+All 13 `alert()` call sites in `library.ts` and `chapter-view.ts` now use a
+new `frontend/src/modules/toast.ts` (same standalone-module pattern as
+`confirm.ts`): non-blocking, bottom-right stacked, auto-dismiss after 6s or
+on click, `textContent`-only so messages can't inject markup, and
+fullscreen-aware like the confirm dialog. Failures use `toastError`
+(`role="alert"`); the two link-mode guidance messages use `toastInfo`
+(`role="status"`). Covered by `tests/toast.test.ts`. Original rationale
+below.
+
+
 
 ~10 call sites use `alert()` for failures (upload, link, transcribe,
 grammar guide). Blocking dialogs are jarring mid-study-session, and several
