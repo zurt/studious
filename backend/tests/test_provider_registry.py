@@ -79,3 +79,44 @@ def test_to_markdown_empty_input_returns_empty():
 def test_to_markdown_strips_trailing_whitespace_per_line():
     md = _to_markdown("hello   \nworld  ")
     assert md == "hello\nworld\n"
+
+
+def test_get_vlm_returns_cached_instance():
+    registry.register_vlm("stub-vlm-cache", lambda: _StubVlm())
+    try:
+        first = registry.get_vlm("stub-vlm-cache")
+        assert registry.get_vlm("stub-vlm-cache") is first
+    finally:
+        registry._VLM.pop("stub-vlm-cache", None)
+        registry._VLM_INSTANCES.pop("stub-vlm-cache", None)
+
+
+def test_reregister_drops_cached_instance():
+    registry.register_vlm("stub-vlm-rereg", lambda: _StubVlm())
+    try:
+        first = registry.get_vlm("stub-vlm-rereg")
+        registry.register_vlm("stub-vlm-rereg", lambda: _StubVlm())
+        assert registry.get_vlm("stub-vlm-rereg") is not first
+    finally:
+        registry._VLM.pop("stub-vlm-rereg", None)
+        registry._VLM_INSTANCES.pop("stub-vlm-rereg", None)
+
+
+def test_factory_failure_caches_nothing():
+    calls = {"n": 0}
+
+    def boom():
+        calls["n"] += 1
+        raise RuntimeError("provider unavailable")
+
+    registry.register_vlm("stub-vlm-boom", boom)
+    try:
+        with pytest.raises(RuntimeError):
+            registry.get_vlm("stub-vlm-boom")
+        # Availability is re-checked on every get; the failure is not cached.
+        with pytest.raises(RuntimeError):
+            registry.get_vlm("stub-vlm-boom")
+        assert calls["n"] == 2
+    finally:
+        registry._VLM.pop("stub-vlm-boom", None)
+        registry._VLM_INSTANCES.pop("stub-vlm-boom", None)

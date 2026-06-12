@@ -48,24 +48,38 @@ _OCR: dict[str, Callable[[], OcrProvider]] = {}
 _VLM: dict[str, Callable[[], VlmProvider]] = {}
 
 
+# Lazily-constructed singletons. Providers hold reusable resources (the
+# Anthropic VLM keeps an HTTP client), so one instance per name is shared
+# across jobs. A factory that raises (e.g. missing API key) caches nothing,
+# so availability is re-checked on the next get.
+_OCR_INSTANCES: dict[str, OcrProvider] = {}
+_VLM_INSTANCES: dict[str, VlmProvider] = {}
+
+
 def register_ocr(name: str, factory: Callable[[], OcrProvider]) -> None:
     _OCR[name] = factory
+    _OCR_INSTANCES.pop(name, None)
 
 
 def register_vlm(name: str, factory: Callable[[], VlmProvider]) -> None:
     _VLM[name] = factory
+    _VLM_INSTANCES.pop(name, None)
 
 
 def get_ocr(name: str) -> OcrProvider:
     if name not in _OCR:
         raise KeyError(f"unknown OCR provider: {name!r}")
-    return _OCR[name]()
+    if name not in _OCR_INSTANCES:
+        _OCR_INSTANCES[name] = _OCR[name]()
+    return _OCR_INSTANCES[name]
 
 
 def get_vlm(name: str) -> VlmProvider:
     if name not in _VLM:
         raise KeyError(f"unknown VLM provider: {name!r}")
-    return _VLM[name]()
+    if name not in _VLM_INSTANCES:
+        _VLM_INSTANCES[name] = _VLM[name]()
+    return _VLM_INSTANCES[name]
 
 
 def list_ocr() -> list[str]:
