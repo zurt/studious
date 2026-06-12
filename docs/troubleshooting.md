@@ -83,6 +83,9 @@ To verify enforcement is live: `npm install --dry-run <pkg>@<version-published-t
 
 npm 11 also emits `npm warn allow-scripts` for esbuild/fsevents install scripts — npm now blocks install scripts by default. Tests and builds pass with those scripts skipped, so leave them unapproved.
 
+### CI fails with `npm ci ... Missing: esbuild@X from lock file` even though the lockfile was just regenerated
+npm 10 (bundled with node 22, used by CI) and npm 11 disagree about peer dependencies: vitest 4 ships a nested vite 8 whose *optional* peer dep on `esbuild ^0.27 || ^0.28` is materialized into the install tree by npm 10 but not npm 11. A lockfile written by npm 11 therefore fails `npm ci` under npm 10. Worse, regenerating the lock with an npm that ignores `min-release-age` (see above) resolves that peer to the newest esbuild, which can violate the 7-day cooldown (0.28.1 was 1 day old when this bit on 2026-06-12). Fix: pin the peer with a scoped override in `frontend/package.json` (`"overrides": { "vitest": { "vite": { "esbuild": "<7-day-old version>" } } }`), regenerate the lock, and verify with **both** `npm ci --dry-run` (npm 10) and `npx npm@11 ci --dry-run`.
+
 ### Upload fails with 400 "could not render uploaded file"
 The file reached the backend but PyMuPDF/Pillow could not parse it — usually a corrupt download, a password-protected PDF, or a file whose extension doesn't match its contents. The partial document directory is cleaned up automatically (nothing appears in the library), and the render error is logged as `document_render_failed` with the underlying parser message. Re-export or decrypt the source file and upload again. Note: the re-upload endpoint (`PUT /api/documents/{id}/file`) does not yet have this protection — a failed re-upload render can leave a document with stale metadata and no pages (see R6 in `docs/improvement-recommendations.md`).
 

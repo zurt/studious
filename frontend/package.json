@@ -25,5 +25,12 @@
   "dependencies": {
     "dompurify": "3.4.8",
     "marked": "^18.0.2"
+  },
+  "overrides": {
+    "vitest": {
+      "vite": {
+        "esbuild": "0.28.0"
+      }
+    }
   }
 }
