@@ -126,7 +126,7 @@ Priority 1:
 - [x] Dependabot config with 7-day cooldown (pip + npm + actions)
 
 Priority 2 (second pass, bundled):
-- [ ] Pin GitHub Actions by SHA
+- [x] Pin GitHub Actions by SHA
 - [ ] Enable GitHub secret scanning + push protection
 - [ ] Prune unused deps (`depcheck`, `deptry`)
 - [ ] SBOM on release tags
