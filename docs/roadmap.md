@@ -141,6 +141,14 @@ verification. See the E2E section of `docs/test-coverage-plan.md`.
 - [x] Journey: sentence breakdown on a transcribed region → cards render,
       vocab/grammar popover opens
 - [x] Journey: grammar guide generation from grammar_points regions
+- [x] Journey: exercise completion on an exercises-region breakdown →
+      answer, explanation, and example sentences render
+- [x] Journey: link a continuation region across pages (continuation
+      transcribed via the tracker's "Transcribe all") → continuation's
+      breakdown pane defers to the source; source shows the combined
+      transcription
+- [x] Journey: document lifecycle — upload a second document, delete it
+      from the library card menu behind the confirm dialog
 - [ ] Wire `make test-e2e` into CI (after journeys above stabilize)
 
 ## Phase 1.9: Supply Chain Hardening

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -184,4 +185,127 @@ test("a transcribed grammar_points region powers grammar guide generation", asyn
   // Back on the chapter, the same button now opens the stored guide.
   await page.locator("#back-link").click();
   await expect(guideBtn).toHaveText("Open grammar guide");
+});
+
+test("completing an exercise renders the answer and example sentences", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#doc-grid .doc-card").first().click();
+  await page.locator("#banner-link").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+
+  // Page 2 has no regions yet — draw an exercises region there.
+  await page.locator("#next-btn").click();
+  await expect(page.locator("#page-info")).toContainText("2");
+  const canvas = page.locator("#left-pane canvas");
+  await expect(canvas).toBeVisible();
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.45, { steps: 5 });
+  await page.mouse.up();
+
+  await page.locator("#tag-select").selectOption("exercises");
+  await page.locator("#region-label").fill("練習");
+  await page.locator("#tag-save").click();
+
+  const regionCard = page.locator(".region-card", { hasText: "練習" });
+  await regionCard.getByRole("button", { name: "Transcribe" }).click();
+  await expect(page.locator("#region-detail")).toContainText("Mock transcription", {
+    timeout: 15_000,
+  });
+
+  // Exercises regions get a per-sentence "Complete exercise" action once a
+  // breakdown exists.
+  const pane = page.locator("#breakdown-pane");
+  await pane.locator("#bd-generate").click();
+  const bdCard = pane.locator(".breakdown-card");
+  await expect(bdCard).toHaveCount(1, { timeout: 15_000 });
+  await expect(bdCard.locator(".exercise-completion-btn")).toHaveText("Complete exercise");
+
+  await bdCard.locator("[data-completion-gen]").click();
+  const completion = bdCard.locator(".exercise-completion");
+  await expect(completion.locator(".exercise-completion-answer")).toContainText(
+    "私は日本語を勉強しています。",
+    { timeout: 15_000 },
+  );
+  await expect(completion).toContainText("Mock completion: the blank takes the て-form plus います.");
+  await expect(completion.locator(".exercise-completion-example")).toHaveCount(3);
+  await expect(completion.locator(".exercise-completion-example.is-primary")).toContainText(
+    "I am studying Japanese.",
+  );
+});
+
+test("linking a continuation region combines transcriptions across pages", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#doc-grid .doc-card").first().click();
+  await page.locator("#banner-link").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+  await page.locator("#next-btn").click();
+  await expect(page.locator("#page-info")).toContainText("2");
+
+  // Draw the continuation beside the exercises region from the previous
+  // journey (a mousedown inside an existing bbox selects instead of drawing).
+  const canvas = page.locator("#left-pane canvas");
+  await expect(canvas).toBeVisible();
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.95, box.y + box.height * 0.5, { steps: 5 });
+  await page.mouse.up();
+  await page.locator("#tag-select").selectOption("reading_passage");
+  await page.locator("#region-label").fill("続き");
+  await page.locator("#tag-save").click();
+
+  // Transcribe it through the tracker's batch action.
+  const trackerBtn = page.locator("#tracker-btn");
+  await expect(trackerBtn).toHaveText("1 pending");
+  await trackerBtn.click();
+  await page.locator("#batch-transcribe-btn").click();
+  await expect(trackerBtn).toHaveText("Regions", { timeout: 15_000 });
+  await trackerBtn.click(); // close the popover
+
+  // Link: pick the page-1 source, then the page-2 continuation.
+  await page.locator("#link-mode-btn").click();
+  await expect(page.locator("#link-mode-banner")).toContainText("click the source region");
+  await page.locator("#prev-btn").click();
+  await page.locator(".region-card", { hasText: "本文" }).click();
+  await expect(page.locator("#link-mode-banner")).toContainText("click the continuation region");
+  await page.locator("#next-btn").click();
+  await page.locator(".region-card", { hasText: "続き" }).click();
+  await expect(page.locator("#link-mode-banner")).toBeHidden();
+
+  // The continuation's breakdown pane defers to the source region…
+  await page.locator(".region-card", { hasText: "続き" }).click();
+  const pane = page.locator("#breakdown-pane");
+  await expect(pane).toContainText("This region continues from p.1");
+
+  // …and jumping to the source shows the combined transcription.
+  await pane.getByRole("button", { name: /Go to source on p\.1/ }).click();
+  await expect(page.locator("#page-info")).toContainText("1");
+  await expect(page.locator("#region-detail")).toContainText("continues on page 2");
+});
+
+test("a document can be deleted from the library card menu", async ({ page }) => {
+  await page.goto("/");
+
+  // Upload a throwaway copy under a distinct name; upload navigates into it.
+  await page.locator("#upload-input").setInputFiles({
+    name: "throwaway.pdf",
+    mimeType: "application/pdf",
+    buffer: fs.readFileSync(FIXTURE_PDF),
+  });
+  await page.waitForURL(/\/doc\/[0-9a-f]+$/, { timeout: 30_000 });
+  await page.locator("#back-link").click();
+  const card = page.locator("#doc-grid .doc-card", { hasText: "throwaway.pdf" });
+  await expect(card).toHaveCount(1);
+
+  await card.locator(".card-menu-btn").click();
+  await page.locator('[data-action="delete"]').click();
+  await expect(page.locator("#confirm-ok")).toHaveText("Delete");
+  await page.locator("#confirm-ok").click();
+
+  // The throwaway is gone; the document shared by the other journeys survives.
+  await expect(card).toHaveCount(0);
+  await expect(page.locator("#doc-grid .doc-card")).toHaveCount(1);
+  await expect(page.locator("#doc-grid")).toContainText("sample.pdf");
 });
