@@ -65,6 +65,58 @@ def test_homograph_guard_rejects_kanji_inside_longer_run():
         assert s["text"][by_index[1]["start"]] == "行"
 
 
+def test_stem_match_at_sentence_start_does_not_crash():
+    # Regression: a kanji stem matching at index 0 left no preceding
+    # character, so the run guard called _is_kanji("") -> ord("") and
+    # crashed post-processing ("ord() expected a character...").
+    s = _sentence(
+        "行きます。",
+        [{"word": "行く", "reading": "いく", "meaning": "to go"}],
+    )
+    links = breakdown_links.compute_sentence_links(s)
+    assert len(links) == 1
+    assert links[0]["match"] == "stem"
+    assert links[0]["start"] == 0
+    assert s["text"][links[0]["start"] : links[0]["end"]] == "行"
+
+
+def test_stem_match_at_sentence_end_does_not_crash():
+    # Mirror of the start-of-sentence case: a kanji stem matching at the
+    # very end leaves no following character, so the run guard's "after"
+    # neighbor is "". Sentence has no trailing punctuation so 飲 lands last.
+    s = _sentence(
+        "コーヒーを飲",
+        [{"word": "飲む", "reading": "のむ", "meaning": "to drink"}],
+    )
+    links = breakdown_links.compute_sentence_links(s)
+    assert len(links) == 1
+    assert links[0]["match"] == "stem"
+    assert links[0]["end"] == len(s["text"])
+    assert s["text"][links[0]["start"] : links[0]["end"]] == "飲"
+
+
+def test_kana_only_sentence_stem_at_start_does_not_crash():
+    # Inflected kana adjective at index 0: the full surface isn't present
+    # but its kana stem is, so the stem path runs the boundary guard with
+    # an empty "before" neighbor on an all-kana sentence.
+    s = _sentence(
+        "おいしかったです。",
+        [{"word": "おいしい", "reading": "", "meaning": "tasty"}],
+    )
+    links = breakdown_links.compute_sentence_links(s)
+    assert len(links) == 1
+    assert links[0]["match"] == "stem"
+    assert links[0]["start"] == 0
+
+
+def test_char_predicates_reject_non_single_char():
+    # The primitives must never call ord() on input that isn't exactly one
+    # code point — empty (the run-guard sentinel) or multi-char.
+    for bad in ("", "ab", "銀行"):
+        assert breakdown_links._is_kanji(bad) is False
+        assert breakdown_links._is_hiragana(bad) is False
+
+
 def test_overlap_resolution_keeps_longer_span():
     # Both entries can match a span; longer wins.
     s = _sentence(
