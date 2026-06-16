@@ -16,7 +16,7 @@ dependencies = [
     "Pillow>=10.0",
     "pytesseract>=0.3.10",
     "anthropic>=0.40",
-    "python-dotenv>=1.0",
+    "python-dotenv>=1.2.2",
     "sse-starlette>=2.1",
 ]
 
