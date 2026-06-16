@@ -1,5 +1,5 @@
-import { marked } from "marked";
 import type { Region } from "../api";
+import { renderMarkdown } from "./markdown";
 
 export type RegionListOptions = {
   onTranscribe: (region: Region) => void;
@@ -21,8 +21,8 @@ const ICON_CHECK = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" 
 const COPY_TITLE = "Copy to clipboard (Alt/Option for markdown)";
 
 export async function markdownToRichHtml(md: string): Promise<string> {
-  const html = await Promise.resolve(marked.parse(md));
-  return (html as string).replace(
+  const html = renderMarkdown(md);
+  return html.replace(
     /(<\/(?:p|h[1-6]|ul|ol|blockquote|pre|table)>)\s*(<(?:p|h[1-6]|ul|ol|blockquote|pre|table|hr)\b)/gi,
     "$1<p><br></p>$2"
   );

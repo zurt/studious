@@ -116,6 +116,41 @@ Vitest + jsdom now run as part of `make test`. See the frontend section of
       `api.ts`/`logger.ts`/`router.ts` (achieved: 90.6% line overall;
       api.ts 97%, router.ts 100%, modules dir 87.7%)
 
+## Phase 1.8.1: Browser E2E Smoke Suite (Playwright)
+
+Thin browser-level smoke suite over the real stack (vite + FastAPI) with a
+mock VLM provider — deterministic, no API key, no tokens. Deliberately small:
+one test per core journey, no visual regression (the web app is a prototype;
+see "Web MVP now, native later" in `docs/plan.md`). Also serves as executable
+UI documentation and a seeded environment for agent-driven browser
+verification. See the E2E section of `docs/test-coverage-plan.md`.
+
+- [x] Playwright scaffold: `frontend/playwright.config.ts`, `make test-e2e`,
+      dedicated ports (backend 8765 / frontend 5273) so runs never touch a
+      real dev stack or data dir
+- [x] `backend/e2e_server.py` — ASGI entrypoint that registers a canned mock
+      VLM under the "anthropic" name before app startup; isolated
+      `backend/.e2e-data` wiped per run
+- [x] Committed fixture PDF (`frontend/e2e/fixtures/sample.pdf`, 2 pages,
+      generated with pymupdf)
+- [x] Journey: fresh library shows empty state
+- [x] Journey: upload PDF → document view renders page image, paging works
+- [x] Journey: create chapter → chapter view opens; banner links back
+- [x] Journey: draw region in chapter view → tag type → transcribe with mock
+      provider → markdown renders in right pane
+- [x] Journey: sentence breakdown on a transcribed region → cards render,
+      vocab/grammar popover opens
+- [x] Journey: grammar guide generation from grammar_points regions
+- [x] Journey: exercise completion on an exercises-region breakdown →
+      answer, explanation, and example sentences render
+- [x] Journey: link a continuation region across pages (continuation
+      transcribed via the tracker's "Transcribe all") → continuation's
+      breakdown pane defers to the source; source shows the combined
+      transcription
+- [x] Journey: document lifecycle — upload a second document, delete it
+      from the library card menu behind the confirm dialog
+- [ ] Wire `make test-e2e` into CI (after journeys above stabilize)
+
 ## Phase 1.9: Supply Chain Hardening
 
 See `docs/supply-chain-plan.md` for full details.
@@ -126,7 +161,7 @@ Priority 1:
 - [x] Dependabot config with 7-day cooldown (pip + npm + actions)
 
 Priority 2 (second pass, bundled):
-- [ ] Pin GitHub Actions by SHA
+- [x] Pin GitHub Actions by SHA
 - [ ] Enable GitHub secret scanning + push protection
 - [ ] Prune unused deps (`depcheck`, `deptry`)
 - [ ] SBOM on release tags

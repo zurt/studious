@@ -67,7 +67,35 @@ the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
 - Browser DevTools **Console** — `frontend/src/logger.ts` emits structured entries with `correlation_id` that match backend logs.
 - DevTools **Network → `/api/jobs/<job_id>/events` → EventStream** — SSE-specific view of job events (`snapshot`, `job-started`, `job-done`, `job-failed`, `ping`).
 
+### E2E (Playwright) state and artifacts
+- `frontend/test-results/` — per-failure screenshots, error context, and traces. Inspect a trace with `cd frontend && npx playwright show-trace test-results/<test-dir>/trace.zip`.
+- `backend/.e2e-data/` — the isolated data dir for the E2E backend, wiped at the start of every run (the wipe happens in the backend `webServer` command in `frontend/playwright.config.ts`). Documents/jobs left here after a failed run reflect the state the failing test saw.
+- The E2E backend (`backend/e2e_server.py`, port 8765) logs at `WARNING` to Playwright's server output; transcriptions come from the mock VLM provider, so real-API failure modes (auth, rate limits) cannot occur in this suite. If an E2E run reports a port already in use, something is squatting on 8765 or 5273 (`lsof -i :8765`); the suite never reuses an existing server by design.
+
 ## Known failure modes
+
+### E2E test drawing a region times out waiting for `#tag-select` (or a card click shows an empty breakdown pane)
+Two chapter-view behaviors trip up new journey tests (both bit on 2026-06-12):
+1. **Region drags must stay inside the visible viewport.** At fit-width zoom the page canvas is taller than the 720px viewport; `canvas.boundingBox()` reports the full (partially clipped) height, so a drag endpoint at a large height fraction lands below the viewport, the canvas never sees `mouseup`, and the tag popover never opens. The failure screenshot shows a small stranded dashed box at the last in-viewport mousemove. Keep drag coordinates in the upper ~half of the canvas box. Also remember a `mousedown` inside an existing region's bbox *selects* that region instead of starting a draw — draw beside existing regions, not over or under them.
+2. **The chapter view auto-selects the page's first region on load** (falling back from the remembered selection). Clicking that region's card therefore *toggles it off* and unmounts the breakdown pane. Assert against the auto-selected state instead of re-clicking the card.
+
+### Playwright cannot download browsers (403 from cdn.playwright.dev)
+Sandboxed/CI-like environments may block the browser CDN. If a Playwright-managed chromium is preinstalled (this remote env ships one under `/opt/pw-browsers/`), point the suite at it with a local-only config that extends `playwright.config.ts` and sets `use.launchOptions.executablePath` — don't commit it (machine-specific path). If the local `uv` is too old to parse `exclude-newer = "7 days"` in `backend/uv.toml`, run the suite with `UV_NO_CONFIG=1` (harmless here: the E2E backend installs nothing; `uv run` only uses the existing lockfile environment).
+
+### npm installs a package newer than 7 days despite the .npmrc cooldown (or errors with "Invalid time value")
+Two distinct causes, both observed 2026-06-12:
+1. **Wrong value format.** `min-release-age` takes a plain number of days (`min-release-age=7`). The old `7d` suffix form is invalid: npm >= 11.10 fails every install with `npm error Invalid time value`, while older npm ignores the unknown-typed key entirely.
+2. **npm too old.** Enforcement requires npm >= 11.10; older versions skip the setting **silently** and resolve to the newest release (npm 10.9.2 installed a same-day dompurify). This machine's nvm node v22 was upgraded to npm 11.16.0 on 2026-06-12.
+
+To verify enforcement is live: `npm install --dry-run <pkg>@<version-published-this-week>` from `frontend/` must fail with `notarget No matching version found ... with a date before <cutoff>`. On a machine with old npm, check release dates by hand (`npm view <pkg> time --json`) and pin the newest version at least 7 days old with `npm install --save-exact <pkg>@<version>`. Note the cooldown only matters where dependency resolution happens (adding/updating packages locally); CI runs `npm ci`, which installs the lockfile verbatim.
+
+npm 11 also emits `npm warn allow-scripts` for esbuild/fsevents install scripts — npm now blocks install scripts by default. Tests and builds pass with those scripts skipped, so leave them unapproved.
+
+### CI fails with `npm ci ... Missing: esbuild@X from lock file` even though the lockfile was just regenerated
+npm 10 (bundled with node 22, used by CI) and npm 11 disagree about peer dependencies: vitest 4 ships a nested vite 8 whose *optional* peer dep on `esbuild ^0.27 || ^0.28` is materialized into the install tree by npm 10 but not npm 11. A lockfile written by npm 11 therefore fails `npm ci` under npm 10. Worse, regenerating the lock with an npm that ignores `min-release-age` (see above) resolves that peer to the newest esbuild, which can violate the 7-day cooldown (0.28.1 was 1 day old when this bit on 2026-06-12). Fix: pin the peer with a scoped override in `frontend/package.json` (`"overrides": { "vitest": { "vite": { "esbuild": "<7-day-old version>" } } }`), regenerate the lock, and verify with **both** `npm ci --dry-run` (npm 10) and `npx npm@11 ci --dry-run`.
+
+### Upload fails with 400 "could not render uploaded file"
+The file reached the backend but PyMuPDF/Pillow could not parse it — usually a corrupt download, a password-protected PDF, or a file whose extension doesn't match its contents. The partial document directory is cleaned up automatically (nothing appears in the library), and the render error is logged as `document_render_failed` with the underlying parser message. Re-export or decrypt the source file and upload again. Note: the re-upload endpoint (`PUT /api/documents/{id}/file`) does not yet have this protection — a failed re-upload render can leave a document with stale metadata and no pages (see R6 in `docs/improvement-recommendations.md`).
 
 ### Spinner never stops on a region transcription
 1. Check the job JSON — if `status: "failed"` with an `ANTHROPIC_API_KEY is not set` error, the backend process didn't see the env var. Re-export it in the shell that runs `make dev-backend` and restart.

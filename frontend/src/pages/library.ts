@@ -7,6 +7,7 @@ import {
   type DocMeta,
 } from "../api";
 import { confirmDialog } from "../modules/confirm";
+import { toastError } from "../modules/toast";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { navigate } from "../router";
 
@@ -41,7 +42,7 @@ export function mountLibrary(_params: Record<string, string>, container: HTMLEle
       navigate(`/doc/${doc.id}`);
     } catch (e: any) {
       logError("Library", "upload_error", { error: e.message, stack: e.stack, correlation_id: cid });
-      alert("Upload failed: " + e.message);
+      toastError("Upload failed: " + e.message);
     } finally {
       uploadBtn.disabled = false;
       uploadBtn.textContent = "Upload PDF / Image";
@@ -189,7 +190,7 @@ async function handleReupload(doc: DocMeta) {
       if (grid) await loadDocs(grid);
     } catch (e: any) {
       logError("Library", "reupload_error", { error: e.message, stack: e.stack, correlation_id: cid });
-      alert("Re-upload failed: " + e.message);
+      toastError("Re-upload failed: " + e.message);
     }
   });
   input.click();
@@ -211,6 +212,6 @@ async function handleDelete(doc: DocMeta) {
     if (grid) await loadDocs(grid);
   } catch (e: any) {
     logError("Library", "delete_error", { error: e.message, stack: e.stack, correlation_id: cid });
-    alert("Delete failed: " + e.message);
+    toastError("Delete failed: " + e.message);
   }
 }

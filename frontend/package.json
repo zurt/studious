@@ -10,9 +10,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.60.0",
     "@testing-library/dom": "10.4.1",
     "@vitest/coverage-v8": "4.1.5",
     "jsdom": "29.1.1",
@@ -21,6 +23,14 @@
     "vitest": "4.1.5"
   },
   "dependencies": {
+    "dompurify": "3.4.8",
     "marked": "^18.0.2"
+  },
+  "overrides": {
+    "vitest": {
+      "vite": {
+        "esbuild": "0.28.0"
+      }
+    }
   }
 }

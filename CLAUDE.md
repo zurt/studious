@@ -37,7 +37,7 @@ After every commit, follow these steps:
 
 ## Supply Chain Security
 
-- **npm**: `frontend/.npmrc` enforces `min-release-age=7d`. Do not bypass this.
+- **npm**: `frontend/.npmrc` enforces `min-release-age=7`. Do not bypass this.
 - **uv**: `backend/uv.toml` enforces `exclude-newer = "7 days"`. Do not bypass this.
 - Never install packages less than 7 days old. If a dependency is too new, wait or pin an older version.
 - Run `make audit` periodically to check for known vulnerabilities.

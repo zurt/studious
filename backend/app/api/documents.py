@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import tempfile
 import time
@@ -21,24 +22,32 @@ PDF_SUFFIXES = {".pdf"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp"}
 
 
-@router.post("")
-async def upload_document(file: UploadFile = File(...)):
+def _classify_upload(file: UploadFile) -> tuple[str, str]:
+    """Return (suffix, source_type) for an upload, or raise 400."""
     if not file.filename:
         raise HTTPException(400, "missing filename")
     suffix = Path(file.filename).suffix.lower()
     if suffix in PDF_SUFFIXES:
-        source_type = "pdf"
-    elif suffix in IMAGE_SUFFIXES:
-        source_type = "image"
-    else:
-        raise HTTPException(400, f"unsupported file type: {suffix!r}")
+        return suffix, "pdf"
+    if suffix in IMAGE_SUFFIXES:
+        return suffix, "image"
+    raise HTTPException(400, f"unsupported file type: {suffix!r}")
 
-    tmp = Path(tempfile.mkstemp(suffix=suffix)[1])
+
+async def _save_upload_to_tmp(file: UploadFile, suffix: str) -> Path:
+    fd, tmp_name = tempfile.mkstemp(suffix=suffix)
     try:
-        with tmp.open("wb") as out:
+        with os.fdopen(fd, "wb") as out:
             shutil.copyfileobj(file.file, out)
     finally:
         await file.close()
+    return Path(tmp_name)
+
+
+@router.post("")
+async def upload_document(file: UploadFile = File(...)):
+    suffix, source_type = _classify_upload(file)
+    tmp = await _save_upload_to_tmp(file, suffix)
 
     meta = storage.create_document(
         name=file.filename,
@@ -52,16 +61,25 @@ async def upload_document(file: UploadFile = File(...)):
     original = doc_dir / meta["original_filename"]
 
     t0 = time.monotonic()
-    if source_type == "pdf":
-        page_count = pdf.render_pdf_to_pages(original, pages_dir, dpi=get_settings().pdf_render_dpi)
-    else:
-        page_count = pdf.copy_image_as_page(original, pages_dir)
+    try:
+        if source_type == "pdf":
+            page_count = pdf.render_pdf_to_pages(original, pages_dir, dpi=get_settings().pdf_render_dpi)
+        else:
+            page_count = pdf.copy_image_as_page(original, pages_dir)
+    except Exception as exc:
+        # A corrupt/unreadable file must not leave a zero-page document
+        # behind in the library.
+        shutil.rmtree(doc_dir, ignore_errors=True)
+        log.error(
+            "document_render_failed",
+            extra={"doc_id": meta["id"], "source_type": source_type, "error": str(exc)},
+        )
+        raise HTTPException(400, f"could not render uploaded file: {exc}") from exc
     render_ms = int((time.monotonic() - t0) * 1000)
     log.info("document_uploaded", extra={"doc_id": meta["id"], "source_type": source_type, "page_count": page_count, "render_ms": render_ms})
 
     meta["page_count"] = page_count
-    import json
-    (doc_dir / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), "utf-8")
+    storage.save_document_meta(meta)
     return meta
 
 
@@ -70,22 +88,8 @@ async def reupload_document(doc_id: str, file: UploadFile = File(...)):
     meta = storage.load_document(doc_id)
     if meta is None:
         raise HTTPException(404, "document not found")
-    if not file.filename:
-        raise HTTPException(400, "missing filename")
-    suffix = Path(file.filename).suffix.lower()
-    if suffix in PDF_SUFFIXES:
-        source_type = "pdf"
-    elif suffix in IMAGE_SUFFIXES:
-        source_type = "image"
-    else:
-        raise HTTPException(400, f"unsupported file type: {suffix!r}")
-
-    tmp = Path(tempfile.mkstemp(suffix=suffix)[1])
-    try:
-        with tmp.open("wb") as out:
-            shutil.copyfileobj(file.file, out)
-    finally:
-        await file.close()
+    suffix, source_type = _classify_upload(file)
+    tmp = await _save_upload_to_tmp(file, suffix)
 
     doc_dir = storage.document_dir(doc_id)
     pages_dir = doc_dir / "pages"
@@ -108,8 +112,7 @@ async def reupload_document(doc_id: str, file: UploadFile = File(...)):
     meta["source_type"] = source_type
     meta["page_count"] = page_count
     meta["original_filename"] = f"original{suffix}"
-    import json
-    (doc_dir / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), "utf-8")
+    storage.save_document_meta(meta)
     return meta
 
 

@@ -38,7 +38,10 @@ The project already enforces a 7-day package cooldown (`backend/uv.toml`,
 Bundled for a follow-up phase:
 
 - **Pin GitHub Actions by SHA.** Tags are mutable; SHAs are not. Apply
-  to every third-party action used in CI workflows.
+  to every third-party action used in CI workflows. ✅ Done 2026-06-12 —
+  all uses in `ci.yml` are pinned to full commit SHAs with version
+  comments; Dependabot's `github-actions` ecosystem keeps the pins
+  updated.
 - **Secret scanning + push protection.** Enable in GitHub repo settings
   (no code change required, but worth documenting).
 - **Prune unused dependencies.** Run `depcheck` (npm) and `deptry`

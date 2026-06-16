@@ -6,10 +6,10 @@ import {
 import { error as logError } from "../logger";
 import { navigate, replaceQuery } from "../router";
 import { createZoomPanViewer } from "../modules/zoom-pan";
+import { renderMarkdown } from "../modules/markdown";
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { confirmDialog } from "../modules/confirm";
-import { marked } from "marked";
 
 export function mountDocumentView(params: Record<string, string>, container: HTMLElement) {
   const docId = params.id;
@@ -156,7 +156,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
         ${t.model ? `<span class="badge">${t.model}</span>` : ""}
         ${t.duration_ms ? `<span class="badge">${t.duration_ms}ms</span>` : ""}
       </div>
-      <div class="markdown">${marked.parse(t.markdown)}</div>
+      <div class="markdown">${renderMarkdown(t.markdown)}</div>
     `;
   }
 

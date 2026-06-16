@@ -19,6 +19,50 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _ms_since(t0: float) -> int:
+    return int((time.monotonic() - t0) * 1000)
+
+
+def _audit(
+    *,
+    provider: str,
+    job_type: str,
+    status: str,
+    duration_ms: int,
+    context: dict[str, Any],
+    meta: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> None:
+    """Write one llm_audit entry for a VLM call.
+
+    ``meta`` (a provider result's meta) supplies the model plus usage and
+    provenance fields. Before a result exists — the provider raised — the
+    model falls back to the job config or the settings default and no
+    usage is recorded.
+    """
+    if meta is not None:
+        model = meta.get("model")
+        extracted: dict[str, Any] = {
+            **llm_audit.extract_usage(meta),
+            **llm_audit.extract_provenance(meta),
+        }
+    else:
+        model = str((config or {}).get("model") or get_settings().default_vlm_model)
+        extracted = {}
+    llm_audit.record(
+        provider=provider,
+        model=model,
+        job_type=job_type,
+        status=status,
+        duration_ms=duration_ms,
+        error=error,
+        correlation_id=correlation_id_var.get(""),
+        **context,
+        **extracted,
+    )
+
+
 class JobManager:
     """Sequential, in-process job queue.
 
@@ -71,6 +115,36 @@ class JobManager:
         for q in list(self._listeners.get(job_id, [])):
             q.put_nowait(event)
 
+    def _start_job(self, job_id: str, **data: Any) -> None:
+        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
+        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id, **data}})
+
+    def _fail_job(
+        self,
+        job_id: str,
+        message: str,
+        *,
+        error_extra: dict[str, Any] | None = None,
+        emit_extra: dict[str, Any] | None = None,
+    ) -> None:
+        storage.update_job(
+            job_id,
+            status="failed",
+            finished_at=_now_iso(),
+            errors=[{"message": message, **(error_extra or {})}],
+        )
+        self._emit(
+            job_id,
+            {"event": "job-failed", "data": {"error": message, **(emit_extra or {})}},
+        )
+
+    def _complete_job(self, job_id: str, *, duration_ms: int) -> None:
+        storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
+        self._emit(
+            job_id,
+            {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}},
+        )
+
     async def _run(self) -> None:
         while True:
             job_id = await self._queue.get()
@@ -114,11 +188,11 @@ class JobManager:
         overwrite: bool = bool(job.get("overwrite", False))
 
         job_extra = {"job_id": job_id, "doc_id": doc_id}
+        audit_ctx = {"doc_id": doc_id, "job_id": job_id}
         log.info("job_start", extra={**job_extra, "page_count": len(pages), "engine": engine, "provider": provider_name})
         job_t0 = time.monotonic()
 
-        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
-        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id, "pages": pages}})
+        self._start_job(job_id, pages=pages)
 
         try:
             if engine == "ocr":
@@ -128,13 +202,7 @@ class JobManager:
             else:
                 raise ValueError(f"unknown engine: {engine!r}")
         except Exception as exc:
-            storage.update_job(
-                job_id,
-                status="failed",
-                finished_at=_now_iso(),
-                errors=[{"message": str(exc)}],
-            )
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc))
             return
 
         errors: list[dict[str, Any]] = []
@@ -175,34 +243,26 @@ class JobManager:
                 errors.append(err)
                 self._emit(job_id, {"event": "page-error", "data": err})
                 if engine == "vlm":
-                    llm_audit.record(
+                    _audit(
                         provider=provider_name,
-                        model=str(config.get("model") or get_settings().default_vlm_model),
                         job_type="transcribe_pages",
                         status="error",
-                        duration_ms=int((time.monotonic() - t0) * 1000),
-                        doc_id=doc_id,
-                        job_id=job_id,
-                        page=page,
+                        duration_ms=_ms_since(t0),
+                        context={**audit_ctx, "page": page},
+                        config=config,
                         error=str(exc),
-                        correlation_id=correlation_id_var.get(""),
                     )
                 continue
 
-            duration_ms = int((time.monotonic() - t0) * 1000)
+            duration_ms = _ms_since(t0)
             if engine == "vlm":
-                llm_audit.record(
+                _audit(
                     provider=provider_name,
-                    model=result.meta.get("model"),
                     job_type="transcribe_pages",
                     status="success",
                     duration_ms=duration_ms,
-                    doc_id=doc_id,
-                    job_id=job_id,
-                    page=page,
-                    correlation_id=correlation_id_var.get(""),
-                    **llm_audit.extract_usage(result.meta),
-                    **llm_audit.extract_provenance(result.meta),
+                    context={**audit_ctx, "page": page},
+                    meta=result.meta,
                 )
             log.debug("page_done", extra={**job_extra, "page": page, "duration_ms": duration_ms})
             # Note: `duration_ms` is intentionally not persisted in the
@@ -230,7 +290,7 @@ class JobManager:
                 },
             )
 
-        job_duration_ms = int((time.monotonic() - job_t0) * 1000)
+        job_duration_ms = _ms_since(job_t0)
         final_status = "completed" if not errors else "completed_with_errors"
         log.info("job_end", extra={**job_extra, "status": final_status, "duration_ms": job_duration_ms, "error_count": len(errors)})
 
@@ -241,7 +301,6 @@ class JobManager:
             errors=errors,
         )
         self._emit(job_id, {"event": "job-done", "data": {"errors": errors}})
-
 
     async def _run_region_job(self, job_id: str, job: dict[str, Any]) -> None:
         doc_id = job["doc_id"]
@@ -254,23 +313,26 @@ class JobManager:
         prompt: str = job.get("prompt", "")
 
         job_extra = {"job_id": job_id, "doc_id": doc_id, "chapter_id": chapter_id, "region_id": region_id}
+        audit_ctx = {
+            "doc_id": doc_id,
+            "chapter_id": chapter_id,
+            "region_id": region_id,
+            "job_id": job_id,
+            "page": page,
+        }
         log.info("region_job_start", extra=job_extra)
 
-        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
-        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id}})
+        self._start_job(job_id)
 
         try:
             provider = registry.get_vlm(provider_name)
         except Exception as exc:
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc))
             return
 
         image_path = storage.page_image_path(doc_id, page)
         if not image_path.exists():
-            err_msg = f"missing page image: {image_path}"
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            self._fail_job(job_id, f"missing page image: {image_path}")
             return
 
         t0 = time.monotonic()
@@ -280,39 +342,26 @@ class JobManager:
             )
             result = await asyncio.to_thread(provider.transcribe, image_bytes, prompt, config)
         except Exception as exc:
-            llm_audit.record(
+            _audit(
                 provider=provider_name,
-                model=str(config.get("model") or get_settings().default_vlm_model),
                 job_type="transcribe_region",
                 status="error",
-                duration_ms=int((time.monotonic() - t0) * 1000),
-                doc_id=doc_id,
-                chapter_id=chapter_id,
-                region_id=region_id,
-                job_id=job_id,
-                page=page,
+                duration_ms=_ms_since(t0),
+                context=audit_ctx,
+                config=config,
                 error=str(exc),
-                correlation_id=correlation_id_var.get(""),
             )
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc))
             return
 
-        duration_ms = int((time.monotonic() - t0) * 1000)
-        llm_audit.record(
+        duration_ms = _ms_since(t0)
+        _audit(
             provider=provider_name,
-            model=result.meta.get("model"),
             job_type="transcribe_region",
             status="success",
             duration_ms=duration_ms,
-            doc_id=doc_id,
-            chapter_id=chapter_id,
-            region_id=region_id,
-            job_id=job_id,
-            page=page,
-            correlation_id=correlation_id_var.get(""),
-            **llm_audit.extract_usage(result.meta),
-            **llm_audit.extract_provenance(result.meta),
+            context=audit_ctx,
+            meta=result.meta,
         )
         log.info("region_job_done", extra={**job_extra, "duration_ms": duration_ms})
 
@@ -324,9 +373,7 @@ class JobManager:
             transcribed_at=_now_iso(),
             transcribed_model=result.meta.get("model"),
         )
-        storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
-        self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
-
+        self._complete_job(job_id, duration_ms=duration_ms)
 
     async def _run_breakdown_job(self, job_id: str, job: dict[str, Any]) -> None:
         doc_id = job["doc_id"]
@@ -344,30 +391,30 @@ class JobManager:
             "chapter_id": chapter_id,
             "region_id": region_id,
         }
+        audit_ctx = {
+            "doc_id": doc_id,
+            "chapter_id": chapter_id,
+            "region_id": region_id,
+            "job_id": job_id,
+        }
         log.info("breakdown_job_start", extra=job_extra)
 
-        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
-        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id}})
+        self._start_job(job_id)
 
         region = storage.load_region(doc_id, chapter_id, region_id)
         if region is None:
-            err_msg = "region not found"
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            self._fail_job(job_id, "region not found")
             return
         chain = region_chain.resolve_chain(doc_id, chapter_id, region_id)
         transcription_md = region_chain.combined_transcription(chain) if chain else (region.get("transcription_md") or "")
         if not transcription_md:
-            err_msg = "region has no transcription"
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            self._fail_job(job_id, "region has no transcription")
             return
 
         try:
             provider = registry.get_vlm(provider_name)
         except Exception as exc:
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc))
             return
 
         region_tag = region.get("tag") or "unspecified"
@@ -384,24 +431,19 @@ class JobManager:
                 provider.call_tool, full_prompt, tool_name, tool_schema, config
             )
         except Exception as exc:
-            llm_audit.record(
+            _audit(
                 provider=provider_name,
-                model=str(config.get("model") or get_settings().default_vlm_model),
                 job_type="breakdown_region",
                 status="error",
-                duration_ms=int((time.monotonic() - t0) * 1000),
-                doc_id=doc_id,
-                chapter_id=chapter_id,
-                region_id=region_id,
-                job_id=job_id,
+                duration_ms=_ms_since(t0),
+                context=audit_ctx,
+                config=config,
                 error=str(exc),
-                correlation_id=correlation_id_var.get(""),
             )
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc))
             return
 
-        duration_ms = int((time.monotonic() - t0) * 1000)
+        duration_ms = _ms_since(t0)
 
         sentences = result.tool_input.get("sentences")
         if not isinstance(sentences, list) or not sentences:
@@ -413,23 +455,16 @@ class JobManager:
                     "purely visual, or all-blank exercise items the model declined to "
                     "split; try re-running, or check the transcription"
                 )
-            llm_audit.record(
+            _audit(
                 provider=provider_name,
-                model=result.meta.get("model"),
                 job_type="breakdown_region",
                 status="error",
                 duration_ms=duration_ms,
-                doc_id=doc_id,
-                chapter_id=chapter_id,
-                region_id=region_id,
-                job_id=job_id,
+                context=audit_ctx,
+                meta=result.meta,
                 error=err_msg,
-                correlation_id=correlation_id_var.get(""),
-                **llm_audit.extract_usage(result.meta),
-                **llm_audit.extract_provenance(result.meta),
             )
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            self._fail_job(job_id, err_msg)
             return
 
         breakdown_payload = {
@@ -445,43 +480,28 @@ class JobManager:
         except Exception as exc:
             err_msg = f"post-processing failed: {exc}"
             log.exception("breakdown_postprocess_error", extra=job_extra)
-            llm_audit.record(
+            _audit(
                 provider=provider_name,
-                model=result.meta.get("model"),
                 job_type="breakdown_region",
                 status="error",
                 duration_ms=duration_ms,
-                doc_id=doc_id,
-                chapter_id=chapter_id,
-                region_id=region_id,
-                job_id=job_id,
+                context=audit_ctx,
+                meta=result.meta,
                 error=err_msg,
-                correlation_id=correlation_id_var.get(""),
-                **llm_audit.extract_usage(result.meta),
-                **llm_audit.extract_provenance(result.meta),
             )
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            self._fail_job(job_id, err_msg)
             return
 
-        llm_audit.record(
+        _audit(
             provider=provider_name,
-            model=result.meta.get("model"),
             job_type="breakdown_region",
             status="success",
             duration_ms=duration_ms,
-            doc_id=doc_id,
-            chapter_id=chapter_id,
-            region_id=region_id,
-            job_id=job_id,
-            correlation_id=correlation_id_var.get(""),
-            **llm_audit.extract_usage(result.meta),
-            **llm_audit.extract_provenance(result.meta),
+            context=audit_ctx,
+            meta=result.meta,
         )
         log.info("breakdown_job_done", extra={**job_extra, "duration_ms": duration_ms})
-        storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
-        self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
-
+        self._complete_job(job_id, duration_ms=duration_ms)
 
     async def _run_exercise_completion_job(self, job_id: str, job: dict[str, Any]) -> None:
         doc_id = job["doc_id"]
@@ -508,16 +528,20 @@ class JobManager:
             "region_id": region_id,
             "sentence_index": sentence_index,
         }
+        audit_ctx = {
+            "doc_id": doc_id,
+            "chapter_id": chapter_id,
+            "region_id": region_id,
+            "job_id": job_id,
+        }
         log.info("exercise_completion_job_start", extra=job_extra)
 
-        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
-        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id}})
+        self._start_job(job_id)
 
         try:
             provider = registry.get_vlm(provider_name)
         except Exception as exc:
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc))
             return
 
         context_block = (
@@ -536,71 +560,54 @@ class JobManager:
                 provider.call_tool, full_prompt, tool_name, tool_schema, config
             )
         except Exception as exc:
-            llm_audit.record(
+            _audit(
                 provider=provider_name,
-                model=str(config.get("model") or get_settings().default_vlm_model),
                 job_type="exercise_completion",
                 status="error",
-                duration_ms=int((time.monotonic() - t0) * 1000),
-                doc_id=doc_id,
-                chapter_id=chapter_id,
-                region_id=region_id,
-                job_id=job_id,
+                duration_ms=_ms_since(t0),
+                context=audit_ctx,
+                config=config,
                 error=str(exc),
-                correlation_id=correlation_id_var.get(""),
             )
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc))
             return
 
-        duration_ms = int((time.monotonic() - t0) * 1000)
+        duration_ms = _ms_since(t0)
         if result.tool_input.get("no_exercise"):
             reason = result.tool_input.get("reason") or "No exercise found in this sentence."
             err_msg = f"no_exercise: {reason}"
-            llm_audit.record(
+            # The model answered as instructed — the target just isn't a
+            # drill item — so the call itself is audited as a success.
+            _audit(
                 provider=provider_name,
-                model=result.meta.get("model"),
                 job_type="exercise_completion",
                 status="success",
                 duration_ms=duration_ms,
-                doc_id=doc_id,
-                chapter_id=chapter_id,
-                region_id=region_id,
-                job_id=job_id,
-                correlation_id=correlation_id_var.get(""),
-                **llm_audit.extract_usage(result.meta),
-                **llm_audit.extract_provenance(result.meta),
+                context=audit_ctx,
+                meta=result.meta,
             )
             log.info("exercise_completion_no_exercise", extra={**job_extra, "reason": reason})
-            storage.update_job(
+            self._fail_job(
                 job_id,
-                status="failed",
-                finished_at=_now_iso(),
-                errors=[{"message": err_msg, "code": "no_exercise", "reason": reason}],
+                err_msg,
+                error_extra={"code": "no_exercise", "reason": reason},
+                emit_extra={"code": "no_exercise", "reason": reason},
             )
-            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg, "code": "no_exercise", "reason": reason}})
             return
         answer = result.tool_input.get("answer")
         examples = result.tool_input.get("examples")
         if not answer or not isinstance(examples, list) or not examples:
             err_msg = "tool response missing `answer` or `examples`"
-            llm_audit.record(
+            _audit(
                 provider=provider_name,
-                model=result.meta.get("model"),
                 job_type="exercise_completion",
                 status="error",
                 duration_ms=duration_ms,
-                doc_id=doc_id,
-                chapter_id=chapter_id,
-                region_id=region_id,
-                job_id=job_id,
+                context=audit_ctx,
+                meta=result.meta,
                 error=err_msg,
-                correlation_id=correlation_id_var.get(""),
-                **llm_audit.extract_usage(result.meta),
-                **llm_audit.extract_provenance(result.meta),
             )
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            self._fail_job(job_id, err_msg)
             return
 
         entry = {
@@ -615,24 +622,16 @@ class JobManager:
             doc_id, chapter_id, region_id, sentence_index, entry
         )
 
-        llm_audit.record(
+        _audit(
             provider=provider_name,
-            model=result.meta.get("model"),
             job_type="exercise_completion",
             status="success",
             duration_ms=duration_ms,
-            doc_id=doc_id,
-            chapter_id=chapter_id,
-            region_id=region_id,
-            job_id=job_id,
-            correlation_id=correlation_id_var.get(""),
-            **llm_audit.extract_usage(result.meta),
-            **llm_audit.extract_provenance(result.meta),
+            context=audit_ctx,
+            meta=result.meta,
         )
         log.info("exercise_completion_job_done", extra={**job_extra, "duration_ms": duration_ms})
-        storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
-        self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
-
+        self._complete_job(job_id, duration_ms=duration_ms)
 
     async def _run_grammar_guide_job(self, job_id: str, job: dict[str, Any]) -> None:
         doc_id = job["doc_id"]
@@ -644,32 +643,24 @@ class JobManager:
         tool_schema: dict[str, Any] = job.get("tool_schema", {})
 
         job_extra = {"job_id": job_id, "doc_id": doc_id, "chapter_id": chapter_id}
+        audit_ctx = {"doc_id": doc_id, "chapter_id": chapter_id, "job_id": job_id}
         log.info("grammar_guide_job_start", extra=job_extra)
 
-        storage.update_job(job_id, status="running", started_at=_now_iso(), errors=[])
-        self._emit(job_id, {"event": "job-started", "data": {"job_id": job_id}})
+        self._start_job(job_id)
 
         try:
             source_md, regions = grammar_guide.prepare_source(doc_id, chapter_id)
         except grammar_guide.NoGrammarRegionsError as exc:
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc))
             return
         except grammar_guide.UntranscribedRegionsError as exc:
-            storage.update_job(
-                job_id,
-                status="failed",
-                finished_at=_now_iso(),
-                errors=[{"message": str(exc), "region_ids": exc.region_ids}],
-            )
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc), error_extra={"region_ids": exc.region_ids})
             return
 
         try:
             provider = registry.get_vlm(provider_name)
         except Exception as exc:
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc))
             return
 
         full_prompt = f"{prompt}\n\n<input>\n{source_md}\n</input>"
@@ -680,59 +671,44 @@ class JobManager:
                 provider.call_tool, full_prompt, tool_name, tool_schema, config
             )
         except Exception as exc:
-            llm_audit.record(
+            _audit(
                 provider=provider_name,
-                model=str(config.get("model") or get_settings().default_vlm_model),
                 job_type="grammar_guide",
                 status="error",
-                duration_ms=int((time.monotonic() - t0) * 1000),
-                doc_id=doc_id,
-                chapter_id=chapter_id,
-                job_id=job_id,
+                duration_ms=_ms_since(t0),
+                context=audit_ctx,
+                config=config,
                 error=str(exc),
-                correlation_id=correlation_id_var.get(""),
             )
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": str(exc)}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": str(exc)}})
+            self._fail_job(job_id, str(exc))
             return
 
-        duration_ms = int((time.monotonic() - t0) * 1000)
+        duration_ms = _ms_since(t0)
         points = result.tool_input.get("points")
         if not isinstance(points, list) or not points:
             if result.meta.get("stop_reason") == "max_tokens":
                 err_msg = "tool response was truncated at max_tokens before returning non-empty `points`"
             else:
                 err_msg = "tool response missing non-empty `points`"
-            llm_audit.record(
+            _audit(
                 provider=provider_name,
-                model=result.meta.get("model"),
                 job_type="grammar_guide",
                 status="error",
                 duration_ms=duration_ms,
-                doc_id=doc_id,
-                chapter_id=chapter_id,
-                job_id=job_id,
+                context=audit_ctx,
+                meta=result.meta,
                 error=err_msg,
-                correlation_id=correlation_id_var.get(""),
-                **llm_audit.extract_usage(result.meta),
-                **llm_audit.extract_provenance(result.meta),
             )
-            storage.update_job(job_id, status="failed", finished_at=_now_iso(), errors=[{"message": err_msg}])
-            self._emit(job_id, {"event": "job-failed", "data": {"error": err_msg}})
+            self._fail_job(job_id, err_msg)
             return
 
-        llm_audit.record(
+        _audit(
             provider=provider_name,
-            model=result.meta.get("model"),
             job_type="grammar_guide",
             status="success",
             duration_ms=duration_ms,
-            doc_id=doc_id,
-            chapter_id=chapter_id,
-            job_id=job_id,
-            correlation_id=correlation_id_var.get(""),
-            **llm_audit.extract_usage(result.meta),
-            **llm_audit.extract_provenance(result.meta),
+            context=audit_ctx,
+            meta=result.meta,
         )
         log.info("grammar_guide_job_done", extra={**job_extra, "duration_ms": duration_ms})
 
@@ -743,8 +719,7 @@ class JobManager:
             "source_fingerprint": grammar_guide.fingerprint(regions),
         }
         storage.save_grammar_guide(doc_id, chapter_id, guide_payload)
-        storage.update_job(job_id, status="completed", finished_at=_now_iso(), errors=[])
-        self._emit(job_id, {"event": "job-done", "data": {"duration_ms": duration_ms, "errors": []}})
+        self._complete_job(job_id, duration_ms=duration_ms)
 
 
 manager = JobManager()

@@ -6,7 +6,7 @@ import { generateCorrelationId, info, error as logError } from "../logger";
 import { navigate } from "../router";
 import { confirmDialog } from "../modules/confirm";
 import { makeCopyButton, ICON_REDO } from "../modules/region-list";
-import { marked } from "marked";
+import { renderMarkdown } from "../modules/markdown";
 
 function escapeHtml(s: string): string {
   return s
@@ -89,7 +89,7 @@ const copyBtn = makeCopyButton(() => (chapter && guide) ? guideToMarkdown(chapte
     metaEl.textContent = meta.join(" · ");
     staleBanner.style.display = guide.is_stale ? "" : "none";
     const md = guideToMarkdown(chapter, guide);
-    bodyEl.innerHTML = marked.parse(md) as string;
+    bodyEl.innerHTML = renderMarkdown(md);
   }
 
   function renderBusy(msg: string) {

@@ -14,6 +14,8 @@ htmlcov/
 node_modules/
 dist/
 .vite/
+coverage/
+*.tsbuildinfo
 
 # Env / data
 .env
@@ -27,3 +29,8 @@ benchmarks/results/
 .DS_Store
 .idea/
 .vscode/
+
+# Playwright E2E
+backend/.e2e-data/
+frontend/test-results/
+frontend/playwright-report/

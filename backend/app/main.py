@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .api import (
     chapters,
@@ -20,6 +21,7 @@ from .config import get_settings
 from .jobs import manager
 from .middleware import CorrelationMiddleware, StructuredFormatter
 from .providers import registry
+from .services.storage import InvalidIdError
 
 # Structured JSON logging. Level is configurable via STUDIOUS_LOG_LEVEL.
 _handler = logging.StreamHandler()
@@ -43,6 +45,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Studious", lifespan=lifespan)
 app.add_middleware(CorrelationMiddleware)
+
+
+@app.exception_handler(InvalidIdError)
+async def invalid_id_handler(request: Request, exc: InvalidIdError):
+    # Path-unsafe resource ids (e.g. `..`) must never reach the filesystem;
+    # to the client they are indistinguishable from a missing resource.
+    return JSONResponse(status_code=404, content={"detail": "not found"})
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],

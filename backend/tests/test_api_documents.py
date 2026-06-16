@@ -184,3 +184,19 @@ def test_get_transcription_returns_payload(client):
     r = client.get(f"/api/documents/{doc_id}/pages/1/transcription")
     assert r.status_code == 200
     assert r.json()["markdown"] == "hi"
+
+
+def test_upload_corrupt_pdf_returns_400_and_cleans_up(client):
+    files = {"file": ("broken.pdf", b"this is not a pdf", "application/pdf")}
+    r = client.post("/api/documents", files=files)
+    assert r.status_code == 400
+    assert "could not render" in r.json()["detail"]
+    # No orphaned zero-page document is left in the library.
+    assert client.get("/api/documents").json() == []
+
+
+def test_upload_corrupt_image_returns_400_and_cleans_up(client):
+    files = {"file": ("broken.png", b"not an image", "image/png")}
+    r = client.post("/api/documents", files=files)
+    assert r.status_code == 400
+    assert client.get("/api/documents").json() == []

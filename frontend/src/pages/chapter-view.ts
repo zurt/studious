@@ -10,11 +10,12 @@ import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawe
 import { renderRegionList, makeCopyButton } from "../modules/region-list";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { confirmDialog } from "../modules/confirm";
+import { toastError, toastInfo } from "../modules/toast";
 import { mountBreakdownPane } from "../modules/breakdown-pane";
 import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "../modules/collapsible";
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
-import { marked } from "marked";
+import { renderMarkdown } from "../modules/markdown";
 
 const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
 
@@ -242,7 +243,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           logError("ChapterView", "grammar_guide_failed", {
             chapter_id: chapterId, job_id, error: msg, correlation_id: cid,
           });
-          alert("Grammar guide generation failed: " + (msg || "unknown error"));
+          toastError("Grammar guide generation failed: " + (msg || "unknown error"));
           updateGrammarGuideBtn();
         }
       };
@@ -260,7 +261,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       logError("ChapterView", "grammar_guide_submit_failed", {
         chapter_id: chapterId, error: e.message, stack: e.stack, correlation_id: cid,
       });
-      alert("Failed to start grammar guide: " + e.message);
+      toastError("Failed to start grammar guide: " + e.message);
       updateGrammarGuideBtn();
     }
   }
@@ -538,7 +539,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       if (idx >= 0) regions[idx] = { ...regions[idx], continues_to: null };
       refreshRegionUI();
     } catch (e: any) {
-      alert("Failed to unlink: " + e.message);
+      toastError("Failed to unlink: " + e.message);
     }
   }
 
@@ -572,11 +573,11 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     const tgt = regions.find((r) => r.id === targetId);
     if (!src || !tgt) return;
     if (src.id === tgt.id) {
-      alert("Pick a different region as the continuation.");
+      toastInfo("Pick a different region as the continuation.");
       return;
     }
     if (tgt.page <= src.page) {
-      alert("Continuation must be on a later page than the source.");
+      toastInfo("Continuation must be on a later page than the source.");
       return;
     }
     try {
@@ -586,7 +587,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       pendingLinkSourceId = null;
       toggleLinkMode(false);
     } catch (e: any) {
-      alert("Failed to link: " + e.message);
+      toastError("Failed to link: " + e.message);
     }
   }
 
@@ -627,7 +628,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     return chain
       .map((r, idx) => {
         const md = r.transcription_md || "";
-        const body = marked.parse(md) as string;
+        const body = renderMarkdown(md);
         if (idx === 0) return body;
         return `<div class="region-chain-separator" style="margin: 12px 0; padding: 6px 10px; border-top: 1px dashed rgba(16,185,129,0.5); color: rgb(16,185,129); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">↓ continues on page ${r.page}</div>${body}`;
       })
@@ -696,7 +697,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     const inFlight = transcribingIds.has(region.id);
     if (region.transcription_md) {
       const chain = region.continues_to ? resolveChain(region.id) : [region];
-      const displayHtml = chain.length > 1 ? combinedTranscriptionHtml(chain) : (marked.parse(region.transcription_md) as string);
+      const displayHtml = chain.length > 1 ? combinedTranscriptionHtml(chain) : renderMarkdown(region.transcription_md);
       const copyMd = chain.length > 1 ? combinedTranscriptionMd(chain) : region.transcription_md;
       const meta: string[] = [];
       if (region.transcribed_model) meta.push(region.transcribed_model);
@@ -822,7 +823,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         logError("ChapterView", "region_create_failed", {
           chapter_id: chapterId, page, tag, error: e.message, stack: e.stack,
         });
-        alert("Failed to create region: " + e.message);
+        toastError("Failed to create region: " + e.message);
       }
     });
   }
@@ -848,7 +849,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           logError("ChapterView", "transcribe_failed", {
             region_id: region.id, job_id, error: errMsg || "unknown", correlation_id: cid,
           });
-          alert("Transcription failed: " + (errMsg || "unknown error"));
+          toastError("Transcription failed: " + (errMsg || "unknown error"));
         }
         refreshRegionUI();
       };
@@ -876,7 +877,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       logError("ChapterView", "transcribe_submit_failed", {
         region_id: region.id, error: e.message, stack: e.stack, correlation_id: cid,
       });
-      alert("Failed to start transcription: " + e.message);
+      toastError("Failed to start transcription: " + e.message);
     }
   }
 
@@ -912,7 +913,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       logError("ChapterView", "region_delete_failed", {
         region_id: region.id, error: e.message, stack: e.stack,
       });
-      alert("Failed to delete region: " + e.message);
+      toastError("Failed to delete region: " + e.message);
     }
   }
 
