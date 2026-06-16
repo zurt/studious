@@ -61,4 +61,11 @@ jobs:
         working-directory: backend
         run: |
           uv sync --frozen --extra dev
-          uv run pip-audit
+          # Temporarily ignoring two starlette advisories whose only fixes
+          # (1.3.0 / 1.3.1) are still inside our 7-day install cooldown
+          # (uv.toml exclude-newer). starlette is pinned to 1.2.1, the newest
+          # eligible release. Remove both ignores and bump starlette once the
+          # fixes age past the cooldown (~2026-06-19).
+          uv run pip-audit \
+            --ignore-vuln CVE-2026-54283 \
+            --ignore-vuln CVE-2026-54282
