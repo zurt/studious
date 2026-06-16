@@ -24,11 +24,18 @@ _KANJI_RANGES = ((0x4E00, 0x9FFF),)
 
 
 def _is_hiragana(ch: str) -> bool:
+    # Single-character predicate. Empty/multi-char input (e.g. the "no
+    # neighbor" sentinel from _kanji_run_violation) is not a code point,
+    # so it can't be hiragana — guard rather than let ord() raise.
+    if len(ch) != 1:
+        return False
     cp = ord(ch)
     return _HIRAGANA_RANGE[0] <= cp <= _HIRAGANA_RANGE[1]
 
 
 def _is_kanji(ch: str) -> bool:
+    if len(ch) != 1:
+        return False
     cp = ord(ch)
     return any(lo <= cp <= hi for lo, hi in _KANJI_RANGES)
 
