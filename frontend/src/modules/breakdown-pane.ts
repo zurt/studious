@@ -12,6 +12,18 @@ import { makeCopyButton, ICON_REDO } from "./region-list";
 
 type Ctx = { docId: string; chapterId: string; region: Region };
 
+type TextSize = 1 | 2 | 3;
+const TEXT_SIZE_KEY = "studious.breakdown.textSize";
+
+function getTextSize(): TextSize {
+  const v = Number(localStorage.getItem(TEXT_SIZE_KEY));
+  return v === 2 || v === 3 ? v : 1;
+}
+
+function setTextSize(size: TextSize): void {
+  localStorage.setItem(TEXT_SIZE_KEY, String(size));
+}
+
 export function completionToMarkdown(
   entry: ExerciseCompletionEntry,
   sentenceText?: string,
@@ -257,6 +269,13 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       </div>`;
   }
 
+  function textSizeControlHtml(): string {
+    const size = getTextSize();
+    const opt = (n: TextSize, label: string) =>
+      `<button type="button" class="icon-btn text-size-btn size-${n}${size === n ? " active" : ""}" data-size="${n}" title="${label}" aria-label="${label}" aria-pressed="${size === n}">A</button>`;
+    return `<span class="text-size-toggle" role="group" aria-label="Text size">${opt(1, "100%")}${opt(2, "150%")}${opt(3, "200%")}</span>`;
+  }
+
   function headerHtml(actionsHtml: string = "", metaText: string = ""): string {
     const collapsed = isPaneCollapsed("breakdown");
     const infoBtn = metaText ? `<button type="button" class="pane-info-btn" data-meta-toggle="breakdown" title="Model details" aria-label="Model details" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button><span class="region-detail-meta is-hidden" data-meta-target="breakdown">${escapeHtml(metaText)}</span>` : "";
@@ -270,6 +289,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   function render() {
     if (destroyed) return;
     closePopover();
+    container.dataset.textSize = String(getTextSize());
     if (loading) {
       container.innerHTML = `
         ${headerHtml()}
@@ -347,7 +367,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("");
 
     container.innerHTML = `
-      ${headerHtml(`<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
+      ${headerHtml(`${textSizeControlHtml()}<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
       <div class="breakdown-list">${cards}</div>`;
 
     const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
@@ -450,6 +470,13 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
 
   function onClick(e: MouseEvent) {
     const target = e.target as HTMLElement;
+    const sizeBtn = target.closest(".text-size-btn") as HTMLButtonElement | null;
+    if (sizeBtn) {
+      e.stopPropagation();
+      setTextSize(Number(sizeBtn.dataset.size) as TextSize);
+      render();
+      return;
+    }
     const genBtn = target.closest("[data-completion-gen]") as HTMLButtonElement | null;
     if (genBtn) {
       e.stopPropagation();
