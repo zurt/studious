@@ -286,6 +286,18 @@ MODEL_PRICING = {
 - Image token count: Anthropic counts image tokens based on image dimensions; the API response includes them in `input_tokens`. Track image bytes sent so we can estimate the image token portion separately if needed.
 - Cost estimates are just that — estimates. Display with appropriate caveat.
 
+**Pricing-table maintenance.** `MODEL_PRICING` is a hand-maintained constant.
+Anthropic has no pricing API (the Models API returns capabilities/context
+windows but no per-token cost), so there's no clean way to refresh it without
+either a third-party structured feed (e.g. LiteLLM's
+`model_prices_and_context_window.json`) or scraping the official pricing page.
+A self-service "update pricing" feature in the settings usage view is deferred
+(roadmap Phase 1.5) pending a decision on that source vs. the project's
+supply-chain rules. **Interim process: review and update `MODEL_PRICING` by
+hand roughly every two weeks during development** (cross-check against
+platform.claude.com pricing). Keep Opus 4.5–4.8 at $5/$25, Sonnet at $3/$15,
+Haiku at $1/$5 until Anthropic changes published rates.
+
 ---
 
 ## Phase 3: Central Vocab/Grammar Store

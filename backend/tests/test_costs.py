@@ -58,10 +58,10 @@ def test_summary_aggregates_by_model_and_doc(isolated_data_dir):
     assert s["total_requests"] == 3
     assert s["success_count"] == 2
     assert s["error_count"] == 1
-    # Opus: 1M*15 + 0.1M*75 = 15 + 7.5 = 22.5
+    # Opus 4.7: 1M*5 + 0.1M*25 = 5 + 2.5 = 7.5
     # Sonnet: 1000*3/1M = 0.003
     # Mystery: unknown -> 0
-    assert abs(s["total_estimated_cost_usd"] - 22.503) < 1e-6
+    assert abs(s["total_estimated_cost_usd"] - 7.503) < 1e-6
     assert "claude-opus-4-7" in s["by_model"]
     assert s["by_model"]["claude-opus-4-7"]["requests"] == 1
     assert s["by_doc"]["d1"]["requests"] == 2
