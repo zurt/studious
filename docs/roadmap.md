@@ -32,6 +32,14 @@
 - [x] LLM audit log (append-only JSONL with provider, model, tokens, duration, context)
 - [x] Cost tracking estimation (per-model token pricing, cost-per-request, summary API)
 - [x] Settings modal (general + usage sections) with floating gear/fullscreen controls and cost summary UI
+- [ ] Self-service pricing-table update from the settings usage view. Anthropic
+      exposes no pricing API (the Models API returns capabilities/context only),
+      so a non-LLM source would be either a third-party structured feed
+      (e.g. LiteLLM's `model_prices_and_context_window.json`) or a scrape of the
+      official pricing page — both carry trade-offs (supply-chain surface vs.
+      fragile parsing) to weigh against the project's supply-chain rules.
+      Interim: `MODEL_PRICING` in `backend/app/config.py` is updated by hand
+      during development on a ~2-week cadence. See plan.md → Cost Tracking.
 
 ## Phase 1.6: Logging & Observability Improvements
 
