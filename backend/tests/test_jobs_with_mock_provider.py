@@ -345,10 +345,15 @@ class _MockBreakdownVlm:
         tool_input: dict | None = None,
         raise_exc: Exception | None = None,
         stop_reason: str | None = None,
+        responses: list[dict] | None = None,
     ) -> None:
         self.tool_input = tool_input
         self.raise_exc = raise_exc
         self.stop_reason = stop_reason
+        # Optional per-call script: list of {"tool_input": ..., "stop_reason": ...}.
+        # Consumed by call index; the last entry repeats once exhausted. Lets a
+        # test drive retry behaviour (e.g. malformed then well-formed).
+        self.responses = responses
         self.calls: list[tuple[str, str, dict, dict]] = []
 
     def info(self):
@@ -361,14 +366,21 @@ class _MockBreakdownVlm:
         self.calls.append((prompt, tool_name, tool_schema, config))
         if self.raise_exc is not None:
             raise self.raise_exc
+        if self.responses:
+            scripted = self.responses[min(len(self.calls) - 1, len(self.responses) - 1)]
+            tool_input = scripted.get("tool_input") or {}
+            stop_reason = scripted.get("stop_reason")
+        else:
+            tool_input = self.tool_input or {}
+            stop_reason = self.stop_reason
         return registry.ToolCallResult(
-            tool_input=self.tool_input or {},
+            tool_input=tool_input,
             meta={
                 "model": config.get("model", "mock-model"),
                 "request_id": "req_breakdown_1",
                 "prompt_hash": "deadbeef",
                 "image_bytes": 0,
-                "stop_reason": self.stop_reason,
+                "stop_reason": stop_reason,
                 "usage": {
                     "input_tokens": 200,
                     "output_tokens": 80,
@@ -529,9 +541,109 @@ async def test_exercise_completion_job_reports_truncation_at_max_tokens(isolated
 
     assert final["status"] == "failed"
     assert "truncated at max_tokens" in final["errors"][0]["message"]
+    # Truncation is not retried — a resend with the same budget can't help.
+    assert len(mock.calls) == 1
     entries = llm_audit.read_all()
     assert entries and entries[0]["status"] == "error"
     assert entries[0]["job_type"] == "exercise_completion"
+
+
+_VALID_COMPLETION = {
+    "answer": "1. 私は学校に行く。",
+    "answer_english": "I go to school.",
+    "explanation": "に marks the destination.",
+    "examples": [
+        {"japanese": "1. 私は学校に行く。", "reading": "わたしはがっこうにいく。", "english": "I go to school.", "explanation": "natural"},
+        {"japanese": "1. 私は学校へ行く。", "reading": "わたしはがっこうへいく。", "english": "I head to school.", "explanation": "へ variant"},
+        {"japanese": "1. 私は学校まで行く。", "reading": "わたしはがっこうまでいく。", "english": "I go as far as school.", "explanation": "まで variant"},
+    ],
+}
+
+
+async def test_exercise_completion_job_retries_malformed_then_succeeds(isolated_data_dir):
+    # A clean-stop response missing `answer`/`examples` (not truncation) is the
+    # intermittent failure mode; one retry recovers it.
+    mock = _MockBreakdownVlm(
+        responses=[
+            {"tool_input": {"explanation": "oops, no answer"}, "stop_reason": "tool_use"},
+            {"tool_input": _VALID_COMPLETION, "stop_reason": "tool_use"},
+        ]
+    )
+    registry.register_vlm("mock-exercise-retry-ok", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "exercise_completion",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "region_id": region_id,
+                "sentence_index": 0,
+                "sentence_text": "1. 私は学校＿＿行く。",
+                "region_transcription": "口べたで料理好きの父親。",
+                "engine": "vlm",
+                "provider": "mock-exercise-retry-ok",
+                "config": {"model": "mock-model", "max_tokens": 8192},
+                "prompt": "EXERCISE_COMPLETION_PROMPT",
+                "tool_name": "record_exercise_completion",
+                "tool_schema": {"type": "object"},
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    assert len(mock.calls) == 2  # one retry
+    saved = storage.load_exercise_completion(meta["id"], chapter_id, region_id)
+    assert saved["completions"]["0"]["answer"] == _VALID_COMPLETION["answer"]
+    # Both attempts are billed → both audited (first error, then success).
+    entries = llm_audit.read_all()
+    assert [e["status"] for e in entries] == ["error", "success"]
+
+
+async def test_exercise_completion_job_fails_after_retry_exhausted(isolated_data_dir):
+    # Malformed on every attempt → fail with the generic message after retrying.
+    mock = _MockBreakdownVlm(tool_input={"explanation": "still no answer"}, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-retry-bad", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "exercise_completion",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "region_id": region_id,
+                "sentence_index": 0,
+                "sentence_text": "1. 私は学校＿＿行く。",
+                "region_transcription": "口べたで料理好きの父親。",
+                "engine": "vlm",
+                "provider": "mock-exercise-retry-bad",
+                "config": {"model": "mock-model", "max_tokens": 8192},
+                "prompt": "EXERCISE_COMPLETION_PROMPT",
+                "tool_name": "record_exercise_completion",
+                "tool_schema": {"type": "object"},
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "failed"
+    assert "missing `answer` or `examples`" in final["errors"][0]["message"]
+    assert len(mock.calls) == 2  # initial attempt + one retry, then give up
+    entries = llm_audit.read_all()
+    assert [e["status"] for e in entries] == ["error", "error"]
 
 
 async def test_breakdown_job_fails_when_region_has_no_transcription(isolated_data_dir):

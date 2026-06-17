@@ -554,53 +554,69 @@ class JobManager:
             f"<target_sentence>\n{sentence_text}\n</target_sentence>"
         )
 
-        t0 = time.monotonic()
-        try:
-            result = await asyncio.to_thread(
-                provider.call_tool, full_prompt, tool_name, tool_schema, config
-            )
-        except Exception as exc:
-            _audit(
-                provider=provider_name,
-                job_type="exercise_completion",
-                status="error",
-                duration_ms=_ms_since(t0),
-                context=audit_ctx,
-                config=config,
-                error=str(exc),
-            )
-            self._fail_job(job_id, str(exc))
-            return
+        # The model occasionally returns a well-formed-looking tool call that
+        # finishes cleanly (stop_reason=tool_use) yet omits `answer` or sends an
+        # empty `examples` — low-rate and not tied to output length. The schema
+        # can't force the shape (a forced tool call isn't strict-validated), so
+        # retry once; the resend almost always comes back complete. Truncation
+        # (max_tokens) and transport errors are not retried — a second call with
+        # the same budget won't help.
+        max_attempts = 2
+        answer = examples = None
+        for attempt in range(max_attempts):
+            t0 = time.monotonic()
+            try:
+                result = await asyncio.to_thread(
+                    provider.call_tool, full_prompt, tool_name, tool_schema, config
+                )
+            except Exception as exc:
+                _audit(
+                    provider=provider_name,
+                    job_type="exercise_completion",
+                    status="error",
+                    duration_ms=_ms_since(t0),
+                    context=audit_ctx,
+                    config=config,
+                    error=str(exc),
+                )
+                self._fail_job(job_id, str(exc))
+                return
 
-        duration_ms = _ms_since(t0)
-        if result.tool_input.get("no_exercise"):
-            reason = result.tool_input.get("reason") or "No exercise found in this sentence."
-            err_msg = f"no_exercise: {reason}"
-            # The model answered as instructed — the target just isn't a
-            # drill item — so the call itself is audited as a success.
-            _audit(
-                provider=provider_name,
-                job_type="exercise_completion",
-                status="success",
-                duration_ms=duration_ms,
-                context=audit_ctx,
-                meta=result.meta,
+            duration_ms = _ms_since(t0)
+            if result.tool_input.get("no_exercise"):
+                reason = result.tool_input.get("reason") or "No exercise found in this sentence."
+                err_msg = f"no_exercise: {reason}"
+                # The model answered as instructed — the target just isn't a
+                # drill item — so the call itself is audited as a success.
+                _audit(
+                    provider=provider_name,
+                    job_type="exercise_completion",
+                    status="success",
+                    duration_ms=duration_ms,
+                    context=audit_ctx,
+                    meta=result.meta,
+                )
+                log.info("exercise_completion_no_exercise", extra={**job_extra, "reason": reason})
+                self._fail_job(
+                    job_id,
+                    err_msg,
+                    error_extra={"code": "no_exercise", "reason": reason},
+                    emit_extra={"code": "no_exercise", "reason": reason},
+                )
+                return
+
+            answer = result.tool_input.get("answer")
+            examples = result.tool_input.get("examples")
+            if answer and isinstance(examples, list) and examples:
+                break  # well-formed — fall through to persist below
+
+            truncated = result.meta.get("stop_reason") == "max_tokens"
+            err_msg = (
+                "tool response was truncated at max_tokens before returning `answer` and `examples`"
+                if truncated
+                else "tool response missing `answer` or `examples`"
             )
-            log.info("exercise_completion_no_exercise", extra={**job_extra, "reason": reason})
-            self._fail_job(
-                job_id,
-                err_msg,
-                error_extra={"code": "no_exercise", "reason": reason},
-                emit_extra={"code": "no_exercise", "reason": reason},
-            )
-            return
-        answer = result.tool_input.get("answer")
-        examples = result.tool_input.get("examples")
-        if not answer or not isinstance(examples, list) or not examples:
-            if result.meta.get("stop_reason") == "max_tokens":
-                err_msg = "tool response was truncated at max_tokens before returning `answer` and `examples`"
-            else:
-                err_msg = "tool response missing `answer` or `examples`"
+            # Every attempt is a billed API call; audit each one.
             _audit(
                 provider=provider_name,
                 job_type="exercise_completion",
@@ -610,8 +626,13 @@ class JobManager:
                 meta=result.meta,
                 error=err_msg,
             )
-            self._fail_job(job_id, err_msg)
-            return
+            if truncated or attempt == max_attempts - 1:
+                self._fail_job(job_id, err_msg)
+                return
+            log.info(
+                "exercise_completion_retry",
+                extra={**job_extra, "attempt": attempt + 1, "reason": err_msg},
+            )
 
         entry = {
             "answer": answer,
