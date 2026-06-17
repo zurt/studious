@@ -339,9 +339,16 @@ class _MockBreakdownVlm:
 
     name = "mock-breakdown-vlm"
 
-    def __init__(self, *, tool_input: dict | None = None, raise_exc: Exception | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        tool_input: dict | None = None,
+        raise_exc: Exception | None = None,
+        stop_reason: str | None = None,
+    ) -> None:
         self.tool_input = tool_input
         self.raise_exc = raise_exc
+        self.stop_reason = stop_reason
         self.calls: list[tuple[str, str, dict, dict]] = []
 
     def info(self):
@@ -361,6 +368,7 @@ class _MockBreakdownVlm:
                 "request_id": "req_breakdown_1",
                 "prompt_hash": "deadbeef",
                 "image_bytes": 0,
+                "stop_reason": self.stop_reason,
                 "usage": {
                     "input_tokens": 200,
                     "output_tokens": 80,
@@ -483,6 +491,47 @@ async def test_breakdown_job_fails_on_malformed_tool_response(isolated_data_dir)
     entries = llm_audit.read_all()
     assert entries and entries[0]["status"] == "error"
     assert entries[0]["job_type"] == "breakdown_region"
+
+
+async def test_exercise_completion_job_reports_truncation_at_max_tokens(isolated_data_dir):
+    # Partial tool input (no `answer`/`examples`) + stop_reason=max_tokens is the
+    # truncation signature; the error must say so rather than the generic
+    # "missing" message. See docs/troubleshooting.md.
+    mock = _MockBreakdownVlm(tool_input={"explanation": "cut off"}, stop_reason="max_tokens")
+    registry.register_vlm("mock-exercise-trunc", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "exercise_completion",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "region_id": region_id,
+                "sentence_index": 0,
+                "sentence_text": "1. 私は学校＿＿行く。",
+                "region_transcription": "口べたで料理好きの父親。",
+                "engine": "vlm",
+                "provider": "mock-exercise-trunc",
+                "config": {"model": "mock-model", "max_tokens": 8192},
+                "prompt": "EXERCISE_COMPLETION_PROMPT",
+                "tool_name": "record_exercise_completion",
+                "tool_schema": {"type": "object"},
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "failed"
+    assert "truncated at max_tokens" in final["errors"][0]["message"]
+    entries = llm_audit.read_all()
+    assert entries and entries[0]["status"] == "error"
+    assert entries[0]["job_type"] == "exercise_completion"
 
 
 async def test_breakdown_job_fails_when_region_has_no_transcription(isolated_data_dir):

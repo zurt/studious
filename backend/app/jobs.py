@@ -597,7 +597,10 @@ class JobManager:
         answer = result.tool_input.get("answer")
         examples = result.tool_input.get("examples")
         if not answer or not isinstance(examples, list) or not examples:
-            err_msg = "tool response missing `answer` or `examples`"
+            if result.meta.get("stop_reason") == "max_tokens":
+                err_msg = "tool response was truncated at max_tokens before returning `answer` and `examples`"
+            else:
+                err_msg = "tool response missing `answer` or `examples`"
             _audit(
                 provider=provider_name,
                 job_type="exercise_completion",

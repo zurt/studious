@@ -352,7 +352,12 @@ def request_region_exercise_completion(
         "region_transcription": region.get("transcription_md") or "",
         "engine": "vlm",
         "provider": "anthropic",
-        "config": {"model": get_active_vlm_model(), "max_tokens": 2048},
+        # answer + answer_english + explanation + three fully-glossed Japanese
+        # examples (japanese/reading/english/explanation each) is a large forced
+        # tool call; 2048 truncated longer items mid-`examples` and surfaced as
+        # "tool response missing `answer` or `examples`". Match the breakdown
+        # budget. See docs/troubleshooting.md.
+        "config": {"model": get_active_vlm_model(), "max_tokens": 8192},
         "prompt": EXERCISE_COMPLETION_PROMPT,
         "tool_name": "record_exercise_completion",
         "tool_schema": EXERCISE_COMPLETION_TOOL_SCHEMA,
