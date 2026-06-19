@@ -161,5 +161,15 @@ The breakdown and exercise-completion jobs read the source region from disk and 
 - Per-region transcription is *not* combined — that's by design; only breakdown and exercise completion use the chain.
 - The combined text is concatenated with a blank-line separator only — no `(continues on page N)` marker is injected. That marker used to be there but leaked into prompts and tool output as if it were content; the page boundary is now a frontend rendering concern.
 
+### `uv lock` / `uv sync` fails locally with "failed to parse: `uv.toml`" (TOML error on `exclude-newer = "7 days"`)
+The CI version of uv (installed by `astral-sh/setup-uv`) supports relative duration syntax (`"7 days"`) in `exclude-newer`. Older local builds (observed at 0.8.17) treat the value as a date string and reject it at parse time, so every uv command fails before touching the network.
+
+Workaround when you need to run `uv lock` locally (e.g., to upgrade a package):
+1. Temporarily replace `exclude-newer = "7 days"` in `backend/uv.toml` with the equivalent absolute cutoff (`exclude-newer = "YYYY-MM-DDT23:59:59Z"`, where the date is today minus 7 days).
+2. Run `uv lock --upgrade-package <pkg>` (or `uv sync`) as normal.
+3. Restore `exclude-newer = "7 days"` before committing — the `--frozen` installs in CI don't re-resolve and don't validate the cutoff format at install time.
+
+Note: changing the global cutoff causes uv to "Ignore existing lockfile due to change in timestamp cutoff" and re-resolves the full graph. Only packages whose upload timestamps fall inside the new window get updated, so all resolved versions still honour the 7-day rule, but more packages may bump than the single `--upgrade-package` target. Verify with `uv run pip-audit` and the test suite before committing the broader lock.
+
 ### Benchmark CER spikes or line accuracy collapses
 Before assuming a model/prompt regression: check whether the **ground truth** matches the format the current prompt is producing. CER and line-accuracy are computed character- and line-exact — markdown structure (`#`, `**`, `<u>`), fullwidth vs halfwidth punctuation, paragraph wrapping, and inline annotations like `[?N]` all count as differences. If you change the default VLM prompt's output style, the existing GT will need to be regenerated (or normalized before scoring). Rule of thumb: if line accuracy is in single digits while the body text reads correctly side-by-side, it's a format mismatch, not a regression.
