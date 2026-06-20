@@ -7,7 +7,7 @@ name = "studious-backend"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.110",
+    "fastapi>=0.136.3",
     "uvicorn[standard]>=0.27",
     "python-multipart>=0.0.9",
     "pydantic>=2.6",
