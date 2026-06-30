@@ -287,7 +287,12 @@ class AnthropicVlm:
 
         t0 = time.monotonic()
         try:
-            message = self._client.messages.create(
+            # Stream the response: large max_tokens budgets can push the request
+            # past the SDK's 10-minute non-streaming limit, which raises
+            # "Streaming is required for operations that may take longer than 10
+            # minutes." get_final_message() accumulates the stream into the same
+            # Message shape the non-streaming path returned.
+            with self._client.messages.stream(
                 **kwargs,
                 tools=tools,
                 tool_choice={"type": "tool", "name": tool_name},
@@ -303,7 +308,8 @@ class AnthropicVlm:
                         ],
                     }
                 ],
-            )
+            ) as stream:
+                message = stream.get_final_message()
         except anthropic.APIStatusError as exc:
             log.error(
                 "vlm_tool_call_error",
