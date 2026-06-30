@@ -277,7 +277,7 @@ def request_region_breakdown(
         "page": region["page"],
         "engine": "vlm",
         "provider": "anthropic",
-        "config": {"model": get_active_vlm_model(), "max_tokens": 8192},
+        "config": {"model": get_active_vlm_model(), "max_tokens": 16384},
         "prompt": SENTENCE_BREAKDOWN_PROMPT,
         "tool_name": "record_breakdown",
         "tool_schema": BREAKDOWN_TOOL_SCHEMA,
