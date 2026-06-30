@@ -38,6 +38,22 @@ class _StubMessage:
         }))
 
 
+class _StubStream:
+    """Context manager mimicking the SDK's streaming response."""
+
+    def __init__(self, message) -> None:
+        self._message = message
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None:
+        return None
+
+    def get_final_message(self):
+        return self._message
+
+
 class _StubMessages:
     def __init__(self, message: _StubMessage) -> None:
         self.calls: list[dict] = []
@@ -46,6 +62,10 @@ class _StubMessages:
     def create(self, **kwargs):
         self.calls.append(kwargs)
         return self._message
+
+    def stream(self, **kwargs):
+        self.calls.append(kwargs)
+        return _StubStream(self._message)
 
 
 class _StubClient:
