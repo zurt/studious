@@ -24,6 +24,10 @@ log = logging.getLogger("studious.harvest")
 # `（前文）`. Only stripped when what remains still parses as an entry.
 _INDEX_RE = re.compile(r"^(?:\d{1,3}[．.]?|[（(][^（）()]{1,8}[）)])\s*")
 
+# The vocab_list prompt forbids bullet markers, but models occasionally
+# emit them anyway (and older transcriptions may predate the rule).
+_BULLET_RE = re.compile(r"^[-*•]\s+")
+
 # `term（reading）gloss` — the reading must be pure kana (plus the
 # prolonged-sound and middle-dot marks), which is what separates a real
 # reading from parenthesized page references like `（p. 28）` in section
@@ -71,15 +75,16 @@ def parse_vocab_list_markdown(markdown: str) -> list[dict[str, Any]]:
         line = raw.strip()
         if not line:
             continue
+        candidate = _BULLET_RE.sub("", line, count=1)
         # Try with the leading item index stripped first — otherwise a
         # `1 国民（こくみん）…` line parses with the index absorbed into
-        # the term. Fall back to the raw line for index-less entries.
+        # the term. Fall back to the un-stripped line for index-less entries.
         parsed = None
-        stripped = _INDEX_RE.sub("", line, count=1)
-        if stripped != line:
+        stripped = _INDEX_RE.sub("", candidate, count=1)
+        if stripped != candidate:
             parsed = _parse_entry_line(stripped)
         if parsed is None:
-            parsed = _parse_entry_line(line)
+            parsed = _parse_entry_line(candidate)
         if parsed is None:
             continue
         entries.append({**parsed, "line_index": i, "line": line})

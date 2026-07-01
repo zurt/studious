@@ -809,3 +809,57 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   text-align: center; color: inherit;
 }
 .shortcut-plus { color: var(--muted); font-size: 11px; }
+
+/* ---------- Vocab/Grammar study dashboard ---------- */
+.study-dash { padding: 16px; max-width: 1100px; margin: 0 auto; width: 100%; box-sizing: border-box; overflow-y: auto; }
+.study-dash-header { margin-bottom: 12px; flex-wrap: wrap; }
+.topbar-nav { display: flex; gap: 6px; margin-left: 12px; }
+.study-stats { display: flex; gap: 6px; flex-wrap: wrap; }
+.study-stat-chip {
+  font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg); cursor: pointer;
+}
+.study-stat-chip:hover { border-color: var(--accent); }
+.study-stat-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.study-stat-count { opacity: 0.75; font-variant-numeric: tabular-nums; }
+.study-filters { margin-bottom: 12px; flex-wrap: wrap; }
+.study-filters input[type="search"] { flex: 1; min-width: 180px; }
+.study-add-form { margin-bottom: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-soft); }
+.study-add-form input { flex: 1; min-width: 120px; }
+.study-bulk-bar {
+  margin-bottom: 8px; padding: 6px 10px; border: 1px dashed var(--border);
+  border-radius: 8px; background: var(--bg-soft);
+}
+.study-bulk-label { font-size: 12px; color: var(--muted); }
+.study-bulk-bar button { font-size: 12px; padding: 3px 10px; }
+.study-list { display: flex; flex-direction: column; gap: 6px; }
+.study-row { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.study-row:hover { border-color: var(--accent-soft); }
+.study-row-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.study-term { font-size: 17px; font-weight: 600; }
+.study-reading { font-size: 13px; color: var(--muted); }
+.study-gloss { font-size: 13px; color: var(--fg); opacity: 0.85; }
+.study-badge {
+  font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border);
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap;
+}
+.study-badge-vocab_list { background: rgba(22,163,74,0.12); color: #16a34a; border-color: rgba(22,163,74,0.3); }
+.study-badge-breakdown { background: rgba(37,99,235,0.12); color: #2563eb; border-color: rgba(37,99,235,0.3); }
+.study-badge-manual { background: rgba(107,114,128,0.12); color: #6b7280; border-color: rgba(107,114,128,0.3); }
+.study-sightings-btn {
+  font-size: 11px; padding: 1px 8px; border-radius: 999px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.study-status-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.study-status-toggle .study-status-btn {
+  font-size: 11px; padding: 3px 8px; border: none; border-radius: 0; background: var(--bg); color: var(--muted);
+}
+.study-status-toggle .study-status-btn + .study-status-btn { border-left: 1px solid var(--border); }
+.study-status-toggle .study-status-btn:hover { background: var(--bg-soft); color: var(--fg); }
+.study-status-toggle .study-status-btn.active { background: var(--accent); color: #fff; }
+.study-delete-btn { font-size: 11px; color: var(--muted); padding: 3px 7px; }
+.study-delete-btn:hover { color: #d33; border-color: #d33; }
+.study-row-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 6px; }
+.study-sighting { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.study-sighting-text { flex: 1; line-height: 1.5; }
+.study-sighting a { white-space: nowrap; font-size: 12px; }

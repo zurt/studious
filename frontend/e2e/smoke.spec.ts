@@ -309,3 +309,34 @@ test("a document can be deleted from the library card menu", async ({ page }) =>
   await expect(page.locator("#doc-grid .doc-card")).toHaveCount(1);
   await expect(page.locator("#doc-grid")).toContainText("sample.pdf");
 });
+
+test("the vocab dashboard lists harvested items and status changes persist", async ({ page }) => {
+  // Breakdown journeys above already harvested their vocab/grammar into the
+  // central store via the post-breakdown hook.
+  await page.goto("/vocab");
+
+  const row = page.locator(".study-row", { hasText: "勉強" });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("study");
+  await expect(row.locator(".study-badge-breakdown").first()).toBeVisible();
+
+  // Mark it known via the row's status toggle; the change survives a reload.
+  await row.locator('.study-status-btn[data-status="known"]').click();
+  await expect(row.locator('.study-status-btn[data-status="known"]')).toHaveClass(/active/);
+  await page.reload();
+  await expect(
+    page.locator(".study-row", { hasText: "勉強" }).locator('.study-status-btn[data-status="known"]'),
+  ).toHaveClass(/active/);
+
+  // The stats chips filter: Known shows the item, Inbox does not.
+  await page.locator(".study-stat-chip", { hasText: "Known" }).click();
+  await expect(page.locator(".study-row", { hasText: "勉強" })).toBeVisible();
+  await page.locator(".study-stat-chip", { hasText: "Inbox" }).click();
+  await expect(page.locator(".study-row", { hasText: "勉強" })).toHaveCount(0);
+
+  // The grammar dashboard shows the harvested pattern from the breakdown.
+  await page.locator('.topbar-nav a[href="/grammar"]').click();
+  const grammarRow = page.locator(".study-row", { hasText: "〜ている" });
+  await expect(grammarRow).toBeVisible();
+  await expect(grammarRow).toContainText("Ongoing action");
+});

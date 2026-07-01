@@ -4,6 +4,7 @@ import { mountLibrary } from "./pages/library";
 import { mountDocumentView } from "./pages/document-view";
 import { mountChapterView } from "./pages/chapter-view";
 import { mountGrammarGuide } from "./pages/grammar-guide";
+import { mountVocabDashboard, mountGrammarDashboard } from "./pages/study-dashboard";
 import { openSettingsModal, syncSettingsModalFromUrl } from "./modules/settings-modal";
 import {
   openShortcutsHelp,
@@ -18,6 +19,10 @@ root.innerHTML = `
   <div class="app" id="app">
     <div class="topbar" id="app-topbar">
       <h1><a href="/" id="home-link" style="color:inherit;text-decoration:none">Studious</a></h1>
+      <nav class="topbar-nav">
+        <a href="/vocab" class="topbar-link-btn" data-nav-link>Vocab</a>
+        <a href="/grammar" class="topbar-link-btn" data-nav-link>Grammar</a>
+      </nav>
       <div class="spacer"></div>
     </div>
     <div id="page-container" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
@@ -32,6 +37,13 @@ root.innerHTML = `
 root.querySelector<HTMLAnchorElement>("#home-link")!.addEventListener("click", (e) => {
   e.preventDefault();
   navigate("/");
+});
+
+root.querySelectorAll<HTMLAnchorElement>("[data-nav-link]").forEach((a) => {
+  a.addEventListener("click", (e) => {
+    e.preventDefault();
+    navigate(a.getAttribute("href")!);
+  });
 });
 
 const appEl = document.getElementById("app")!;
@@ -98,6 +110,8 @@ initRouter(pageContainer, [
   { pattern: "/doc/:id", mount: mountDocumentView },
   { pattern: "/doc/:id/chapter/:chapterId", mount: mountChapterView },
   { pattern: "/doc/:id/chapter/:chapterId/grammar-guide", mount: mountGrammarGuide },
+  { pattern: "/vocab", mount: mountVocabDashboard },
+  { pattern: "/grammar", mount: mountGrammarDashboard },
 ]);
 
 // When the page changes while in fullscreen, ensure controls land in the new page's topbar.
