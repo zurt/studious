@@ -307,21 +307,33 @@ Shipped 2026-07-01.
 
 ### 3.2 Enrichment + classification
 
-- [ ] Bundle JMdict locally (jmdict-simplified JSON; pinned +
-      checksummed download via make target; CC BY-SA attribution)
-- [ ] JMdict linking (`jmdict_seq` canonical identity, glosses, POS,
-      common flags, kana variants) + re-link pass over existing items
-- [ ] JLPT level tagging (pinned community dataset — official lists
-      ceased 2010)
-- [ ] Frequency rank tagging (pinned corpus dataset)
-- [ ] WaniKani sync: subjects + study_materials + assignments via
-      personal API token (Keychain); local gitignored cache; WK SRS
+Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
+
+- [x] Bundle JMdict locally (jmdict-simplified 3.6.2 JSON; URL + SHA-256
+      pinned in `backend/refs.lock.json`, fetched/built via `make refs`
+      into a read-only SQLite index; EDRDG CC BY-SA attribution in README)
+- [x] JMdict linking (`jmdict_seq`, glosses, POS, common flags) with
+      reading-disambiguated homographs and variant-spelling matching;
+      enrichment runs after every harvest and `POST /api/store/enrich`
+      re-links everything. User-edited meanings (`meaning_source:
+      "user"`) are never overwritten
+- [x] JLPT level tagging (tanos.co.uk-derived lists pinned to an
+      immutable commit; kana-listed and variant-spelling fallbacks)
+- [ ] ~~Frequency rank tagging~~ deferred: jmdict-simplified folds
+      JMdict's nf frequency bands into a boolean `common` flag, so a
+      finer rank needs a separate corpus dataset (BCCWJ/wordfreq).
+      Revisit if JLPT + common + WK level prove too coarse for queue
+      ordering
+- [x] WaniKani sync: subjects + study_materials + assignments via
+      personal API token (Keychain, `WANIKANI_API_TOKEN`); incremental
+      `updated_after` cursors; gitignored personal-use cache; WK SRS
       history is a display signal only — never auto-marks items known
-- [ ] Vocab → kanji → radical drill-down view with WK mnemonics and the
-      user's own WK notes
-- [ ] Outbound reference links (jisho.org, WaniKani)
-- [ ] Derived priority grouping (pure function of classification
-      signals) for study ordering
+- [x] Vocab → kanji → radical drill-down (dashboard row detail +
+      `GET /api/vocab/{id}/wanikani`) with WK mnemonics, the user's own
+      WK notes, and SRS chips ("burned 2022")
+- [x] Outbound reference links (jisho.org search, WaniKani subject pages)
+- [x] Derived priority grouping (pure function of jlpt/common/WK-level
+      signals, 1–5) + "By study priority" sort on the vocab dashboard
 
 ### 3.3 Curation + editing
 

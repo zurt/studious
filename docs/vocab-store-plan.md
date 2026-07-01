@@ -1,10 +1,19 @@
 # Phase 3: Central Vocab/Grammar Store — Design & Plan
 
-**Status:** Design agreed 2026-07-01. Milestone 3.1 (store foundation +
-harvest + dashboards) shipped 2026-07-01 — see roadmap for the item-level
-record. Implementation note: the dedup indexes are derived in memory from
-the JSONL (cached against file mtime+size) rather than written to
-`*.index.json` files as sketched below — one less artifact to drift.
+**Status:** Design agreed 2026-07-01. Milestones 3.1 (store foundation +
+harvest + dashboards) and 3.2 (enrichment + classification) shipped
+2026-07-01 — see roadmap for the item-level record. Implementation notes:
+
+- Dedup indexes are derived in memory from the JSONL (cached against file
+  mtime+size) rather than written to `*.index.json` files — one less
+  artifact to drift.
+- Frequency-rank classification is deferred: jmdict-simplified reduces
+  JMdict's nf priority bands to a boolean `common` flag, so a finer rank
+  would need a separate corpus dataset. Current signals: JLPT, common,
+  WaniKani level (open question 2 below stays open).
+- WK enrichment stores only `wanikani_level` in classifications; SRS
+  history appears in the drill-down payload only, keeping the
+  display-signal-only rule structural.
 
 ## Objective
 
