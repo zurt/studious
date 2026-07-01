@@ -33,6 +33,19 @@ ls -lt backend/data/jobs/ | head    # most recent jobs
 ### Region state
 `backend/data/documents/<doc_id>/chapters/<chapter_id>/regions/<region_id>.json` — disk truth for a region. Check `transcribed_at` and `transcription_md` here to verify whether the data actually changed, independent of what the UI shows.
 
+### Central vocab/grammar store
+`backend/data/store/vocab.jsonl` and `grammar.jsonl` — append-only, one JSON
+object per line, the **latest line per `id` wins**, deletes are tombstone
+lines (`"deleted": true`). Nothing ever rewrites earlier lines, so the file
+is also its own history: to see how an item evolved,
+`jq 'select(.id == "<id>")' backend/data/store/vocab.jsonl`. The dedup
+indexes are derived in memory on read — there is no index file to rebuild or
+corrupt. Harvest events log as `harvest_vocab_list` / `harvest_breakdown`
+(with created/updated counts) and `harvest_backfill_done`; a failed harvest
+logs `harvest_vocab_list_error` / `harvest_breakdown_error` **without
+failing the parent job** — re-run `POST /api/store/backfill` (or the
+dashboard's Backfill button) to converge the store; it is idempotent.
+
 ### LLM audit log
 `backend/data/llm_audit.YYYY-MM.jsonl` — append-only record of every VLM API call (one JSON object per line), rotated monthly by UTC date. Each entry has `id`, `timestamp`, `provider`, `model`, `job_type`, `status` (`success` or `error`), `duration_ms`, token counts (including `cache_read_tokens` / `cache_creation_tokens`), `correlation_id`, `request_id` (Anthropic's), `prompt_hash`, `image_bytes`, `stop_reason`, and `doc_id` / `chapter_id` / `region_id` / `job_id` / `page` context. OCR calls are not logged (no API cost). Use this to confirm a call happened, see how long it took, and look up token counts after the fact.
 
@@ -91,6 +104,22 @@ Workaround when you need to run `uv lock` locally (e.g., to upgrade a package):
 3. Restore `exclude-newer = "7 days"` before committing — the `--frozen` installs in CI don't re-resolve and don't validate the cutoff format at install time.
 
 Note: changing the global cutoff causes uv to "Ignore existing lockfile due to change in timestamp cutoff" and re-resolves the full graph. Only packages whose upload timestamps fall inside the new window get updated, so all resolved versions still honour the 7-day rule, but more packages may bump than the single `--upgrade-package` target. Verify with `uv run pip-audit` and the test suite before committing the broader lock.
+
+### A vocab-list entry didn't show up in the vocab store
+The harvest parser (`backend/app/services/harvest.py`) only ingests lines it
+can positively identify as entries; everything else is treated as a section
+header and skipped. Known miss modes:
+- **Reading not pure kana** — `term（reading）gloss` is only an entry when
+  the parenthesized text is kana (that's what separates it from headers like
+  `（p. 28）`). A transcription typo inside the reading drops the line.
+- **Kana-only entry with a non-English gloss** — `term　gloss` lines are
+  required to contain an ASCII letter in the gloss (rejects Japanese-only
+  headers containing an ideographic space). A gloss like `？` is skipped.
+- **Item deleted from the store** — deletes are tombstones and deliberately
+  block re-harvest of the same headword+reading; re-create manually if the
+  delete was a mistake.
+Check what the parser saw with the region's `transcription_md`, fix the
+transcription (or add the item manually via the dashboard), then Backfill.
 
 ### A job-progress wait hangs even though the job completed (batch transcribe stuck at "N pending")
 `GET /api/jobs/{id}/events` replays the job's current state as a `snapshot`

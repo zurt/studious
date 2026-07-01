@@ -157,6 +157,9 @@ verification. See the E2E section of `docs/test-coverage-plan.md`.
       transcription
 - [x] Journey: document lifecycle — upload a second document, delete it
       from the library card menu behind the confirm dialog
+- [x] Journey: vocab dashboard lists breakdown-harvested items; status
+      change persists across reload; stat-chip filters; grammar
+      dashboard shows the harvested pattern
 - [ ] Wire `make test-e2e` into CI (after journeys above stabilize)
 
 ## Phase 1.9: Supply Chain Hardening
@@ -277,22 +280,30 @@ rationale.
 
 ### 3.1 Store foundation + harvest
 
-- [ ] Sync-ready JSONL stores (`data/store/{vocab,grammar}.jsonl` +
-      derived indexes): UUID ids, `updated_at`, tombstones, append-only
-      latest-per-id-wins
-- [ ] Ingest hook: breakdown generation appends deduped vocab/grammar
+Shipped 2026-07-01.
+
+- [x] Sync-ready JSONL stores (`data/store/{vocab,grammar}.jsonl`):
+      UUID ids, `updated_at`, tombstones, append-only
+      latest-per-id-wins; dedup index derived in memory (no index file
+      to drift)
+- [x] Ingest hook: breakdown generation appends deduped vocab/grammar
       items with sighting provenance (doc/chapter/region/sentence +
-      sentence text)
-- [ ] Ingest hook: `vocab_list` transcription save parses the
-      `term（reading）　gloss` format (higher-trust source)
-- [ ] One-time idempotent backfill job over existing breakdowns and
-      vocab_list transcriptions
-- [ ] Curation status lifecycle: unreviewed (inbox) → active → known /
-      ignored — distinct from SRS state
-- [ ] `/api/vocab` + `/api/grammar` routers (list/filter/search/PATCH,
-      manual create)
-- [ ] Vocab dashboard at `/vocab`: filters, search, stats, inbox with
-      bulk accept/ignore
+      sentence text); harvest failures log but never fail the parent job
+- [x] Ingest hook: `vocab_list` transcription save parses the
+      `term（reading）gloss` format (item indices, section headers,
+      kana-only entries; tolerates stray bullet markers)
+- [x] Idempotent backfill over existing breakdowns and vocab_list
+      transcriptions (`POST /api/store/backfill` + dashboard button)
+- [x] Curation status lifecycle: unreviewed (inbox) → active → known /
+      ignored — distinct from SRS state; deletes are tombstones and
+      block re-harvest
+- [x] `/api/vocab` + `/api/grammar` routers (filters, search, sorts,
+      pagination, PATCH, manual create with 409-on-duplicate, DELETE)
+      plus `/api/store/stats`
+- [x] Vocab + grammar dashboards at `/vocab` and `/grammar`: stat-chip
+      filters, search, textbook/source filters, inbox with bulk
+      accept/ignore, expandable sightings linking back to chapters,
+      manual add
 
 ### 3.2 Enrichment + classification
 
