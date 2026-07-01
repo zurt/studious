@@ -74,6 +74,19 @@ the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
 
 ## Known failure modes
 
+### A job-progress wait hangs even though the job completed (batch transcribe stuck at "N pending")
+`GET /api/jobs/{id}/events` replays the job's current state as a `snapshot`
+event and only then streams live events. If the job reached a terminal state
+*before* the EventSource connected — routine for fast jobs (mock provider in
+E2E, small crops) — **no `job-done`/`job-failed` event will ever arrive**;
+the snapshot is the only signal. Every `openJobStream` consumer must treat a
+snapshot whose `status` is `completed` / `completed_with_errors` / `failed`
+as terminal. The chapter-view batch-transcribe waiter missed this until
+2026-07-01, which made the E2E linking journey fail deterministically
+(tracker stuck at "1 pending" while all jobs on disk showed `completed`).
+Diagnosis tip: if the UI says pending but `data/jobs/*.json` say completed,
+it's the subscriber, not the queue.
+
 ### E2E test drawing a region times out waiting for `#tag-select` (or a card click shows an empty breakdown pane)
 Two chapter-view behaviors trip up new journey tests (both bit on 2026-06-12):
 1. **Region drags must stay inside the visible viewport.** At fit-width zoom the page canvas is taller than the 720px viewport; `canvas.boundingBox()` reports the full (partially clipped) height, so a drag endpoint at a large height fraction lands below the viewport, the canvas never sees `mouseup`, and the tag popover never opens. The failure screenshot shows a small stranded dashed box at the last in-viewport mousemove. Keep drag coordinates in the upper ~half of the canvas box. Also remember a `mousedown` inside an existing region's bbox *selects* that region instead of starting a draw — draw beside existing regions, not over or under them.
