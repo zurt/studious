@@ -46,6 +46,23 @@ logs `harvest_vocab_list_error` / `harvest_breakdown_error` **without
 failing the parent job** — re-run `POST /api/store/backfill` (or the
 dashboard's Backfill button) to converge the store; it is idempotent.
 
+### Reference data (JMdict index, WaniKani cache)
+`backend/data/refs/jmdict/jmdict.sqlite` — read-only lookup index built by
+`make refs` (~70 MB; sources pinned by SHA-256 in `backend/refs.lock.json`,
+downloads kept in `data/refs/downloads/`). Check what's loaded with
+`sqlite3 backend/data/refs/jmdict/jmdict.sqlite "SELECT * FROM meta"`.
+Rebuild with `make refs` after editing the lock file (`--force` via
+`uv run python scripts/fetch_refs.py --force` if the version didn't change).
+
+`backend/data/refs/wanikani/*.jsonl` — WaniKani subjects / study_materials /
+assignments cache (append-only latest-wins, personal-use content, never
+commit). `sync_state.json` holds the per-resource `updated_after` cursors;
+delete it (or `POST /api/refs/wanikani/sync?full=true`) to force a full
+re-pull. `GET /api/refs/wanikani/status` reports configuration + counts.
+
+Enrichment events log as `enrich_done` (attempted/linked counts) under
+`studious.enrich`; WK sync as `wanikani_sync_done` / `wanikani_rate_limited`.
+
 ### LLM audit log
 `backend/data/llm_audit.YYYY-MM.jsonl` — append-only record of every VLM API call (one JSON object per line), rotated monthly by UTC date. Each entry has `id`, `timestamp`, `provider`, `model`, `job_type`, `status` (`success` or `error`), `duration_ms`, token counts (including `cache_read_tokens` / `cache_creation_tokens`), `correlation_id`, `request_id` (Anthropic's), `prompt_hash`, `image_bytes`, `stop_reason`, and `doc_id` / `chapter_id` / `region_id` / `job_id` / `page` context. OCR calls are not logged (no API cost). Use this to confirm a call happened, see how long it took, and look up token counts after the fact.
 
@@ -104,6 +121,26 @@ Workaround when you need to run `uv lock` locally (e.g., to upgrade a package):
 3. Restore `exclude-newer = "7 days"` before committing — the `--frozen` installs in CI don't re-resolve and don't validate the cutoff format at install time.
 
 Note: changing the global cutoff causes uv to "Ignore existing lockfile due to change in timestamp cutoff" and re-resolves the full graph. Only packages whose upload timestamps fall inside the new window get updated, so all resolved versions still honour the 7-day rule, but more packages may bump than the single `--upgrade-package` target. Verify with `uv run pip-audit` and the test suite before committing the broader lock.
+
+### Vocab items show no JLPT/common badges (or the wrong meaning) after harvest
+Enrichment only runs when a source exists: the JMdict index (`make refs`)
+and/or a synced WaniKani cache. Items harvested *before* the index was
+built carry `enriched_at: null` and get picked up by the next harvest's
+enrichment pass, or immediately via `POST /api/store/enrich`. After
+rebuilding the index or syncing WK, run `POST /api/store/enrich?force=true`
+to re-link everything (WK sync does this automatically). Two policy notes:
+a meaning you edited by hand (`meaning_source: "user"`) is never replaced
+by the JMdict gloss, and a JMdict miss still stamps `enriched_at` — force
+is the only way to retry those.
+
+### WaniKani sync returns 409/502 or seems to hang
+409 = `WANIKANI_API_TOKEN` not exported (store it in the Keychain like the
+Anthropic key; see README). 502 wraps the upstream error — check backend
+logs for `wanikani_sync_failed`. A first full sync makes ~30 requests
+against a 60/min rate limit and can take ~30s; on 429 the client honors
+`Retry-After` once (logged as `wanikani_rate_limited`). WK SRS state is
+display-only by design: a burned item still lands in the Inbox, because
+burned-years-ago knowledge is exactly what the store is re-learning.
 
 ### A vocab-list entry didn't show up in the vocab store
 The harvest parser (`backend/app/services/harvest.py`) only ingests lines it
