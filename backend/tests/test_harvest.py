@@ -58,6 +58,11 @@ class TestParseVocabListMarkdown:
         assert entries[0]["headword"] == "犬"
         assert entries[0]["reading"] == "いぬ"
 
+    def test_bullet_markers_stripped(self):
+        # The prompt forbids bullets but models occasionally emit them.
+        entries = harvest.parse_vocab_list_markdown("- 勉強（べんきょう）study\n* 犬（いぬ）dog")
+        assert [e["headword"] for e in entries] == ["勉強", "犬"]
+
     def test_page_reference_parens_not_a_reading(self):
         # Parenthesized non-kana content must not parse as a reading.
         assert harvest.parse_vocab_list_markdown("読む前に（p. 28）") == []

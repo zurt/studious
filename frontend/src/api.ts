@@ -531,3 +531,122 @@ export function openJobStream(jobId: string, onEvent: (e: JobEvent) => void): ()
   es.onerror = () => es.close();
   return () => es.close();
 }
+
+// ---------- Vocab/Grammar store ----------
+
+export type StoreKind = "vocab" | "grammar";
+export type StoreStatus = "unreviewed" | "active" | "known" | "ignored";
+
+export type StoreSighting = {
+  doc_id: string;
+  chapter_id: string;
+  region_id: string;
+  sentence_index: number | null;
+  surface: string;
+  sentence_text: string;
+  source: "breakdown" | "vocab_list" | "manual";
+  seen_at: string;
+};
+
+export type VocabItem = {
+  id: string;
+  headword: string;
+  reading: string;
+  meaning: string;
+  meaning_source: string;
+  pos: string[];
+  jmdict_seq: number | null;
+  status: StoreStatus;
+  classifications: Record<string, unknown>;
+  priority_group: number | null;
+  sightings: StoreSighting[];
+  links: Record<string, string>;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GrammarItem = {
+  id: string;
+  pattern: string;
+  pattern_normalized: string;
+  explanation: string;
+  status: StoreStatus;
+  classifications: Record<string, unknown>;
+  sightings: StoreSighting[];
+  links: Record<string, string>;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StoreItem = VocabItem | GrammarItem;
+
+export type StoreListResponse<T> = { items: T[]; total: number };
+
+export type StoreListParams = {
+  status?: StoreStatus;
+  q?: string;
+  doc_id?: string;
+  chapter_id?: string;
+  source?: string;
+  sort?: "recent" | "updated" | "alpha";
+  limit?: number;
+  offset?: number;
+};
+
+export type StoreStats = {
+  vocab: Record<string, number>;
+  grammar: Record<string, number>;
+};
+
+async function jpatch<T>(url: string, body: unknown, cid: string = generateCorrelationId()): Promise<T> {
+  const done = startTimer("api", `PATCH ${url}`, { correlation_id: cid });
+  const r = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", "x-correlation-id": cid },
+    body: JSON.stringify(body),
+  });
+  done({ status: r.status });
+  if (!r.ok) throw new Error(`${url}: ${r.status} ${await r.text()}`);
+  return (await r.json()) as T;
+}
+
+export async function listStoreItems<T extends StoreItem>(
+  kind: StoreKind,
+  params: StoreListParams = {}
+): Promise<StoreListResponse<T>> {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") search.set(key, String(value));
+  }
+  const qs = search.toString();
+  return jget(`/api/${kind}${qs ? "?" + qs : ""}`);
+}
+
+export async function createStoreItem<T extends StoreItem>(
+  kind: StoreKind,
+  body: Record<string, string>
+): Promise<T> {
+  return jpost(`/api/${kind}`, body);
+}
+
+export async function patchStoreItem<T extends StoreItem>(
+  kind: StoreKind,
+  itemId: string,
+  changes: Partial<Record<"status" | "notes" | "headword" | "reading" | "meaning" | "pattern" | "explanation", string>>
+): Promise<T> {
+  return jpatch(`/api/${kind}/${itemId}`, changes);
+}
+
+export async function deleteStoreItem(kind: StoreKind, itemId: string): Promise<void> {
+  return jdelete(`/api/${kind}/${itemId}`);
+}
+
+export async function getStoreStats(): Promise<StoreStats> {
+  return jget("/api/store/stats");
+}
+
+export async function runStoreBackfill(): Promise<Record<string, number>> {
+  return jpost("/api/store/backfill");
+}
