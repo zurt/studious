@@ -6,6 +6,10 @@ import {
   deleteStoreItem,
   getStoreStats,
   runStoreBackfill,
+  getWanikaniStatus,
+  syncWanikani,
+  getVocabWanikani,
+  runStoreEnrich,
 } from "../src/api";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -72,6 +76,23 @@ describe("store api", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/grammar/g1");
     expect(init.method).toBe("DELETE");
+  });
+
+  it("wanikani + enrich endpoints hit the right URLs", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ configured: true, synced_at: null, counts: {} }));
+    await getWanikaniStatus();
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/refs/wanikani/status");
+    fetchMock.mockResolvedValue(jsonResponse({ fetched: {} }));
+    await syncWanikani(true);
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/refs/wanikani/sync?full=true");
+    expect(fetchMock.mock.calls[1][1].method).toBe("POST");
+    fetchMock.mockResolvedValue(jsonResponse({ characters: "勉強", kanji: [] }));
+    const d = await getVocabWanikani("abc");
+    expect(fetchMock.mock.calls[2][0]).toBe("/api/vocab/abc/wanikani");
+    expect(d.characters).toBe("勉強");
+    fetchMock.mockResolvedValue(jsonResponse({ attempted: 0 }));
+    await runStoreEnrich(true);
+    expect(fetchMock.mock.calls[3][0]).toBe("/api/store/enrich?force=true");
   });
 
   it("getStoreStats and runStoreBackfill hit /api/store", async () => {

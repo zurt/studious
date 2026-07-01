@@ -863,3 +863,28 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .study-sighting { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
 .study-sighting-text { flex: 1; line-height: 1.5; }
 .study-sighting a { white-space: nowrap; font-size: 12px; }
+
+/* Classification badges + WaniKani drill-down (Phase 3.2) */
+.study-badge-jlpt { background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.3); }
+.study-badge-common { background: rgba(22,163,74,0.10); color: #15803d; border-color: rgba(22,163,74,0.25); }
+.study-badge-wk { background: rgba(236,72,153,0.10); color: #db2777; border-color: rgba(236,72,153,0.3); }
+.study-links { margin-bottom: 4px; }
+.study-link { font-size: 12px; white-space: nowrap; }
+.wk-drilldown { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.wk-subject { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.wk-subject-kanji { border-left: 3px solid #db2777; }
+.wk-subject-radical { border-left: 3px solid #2563eb; }
+.wk-subject-vocabulary, .wk-subject-kana_vocabulary { border-left: 3px solid #a855f7; }
+.wk-subject-head { flex-wrap: wrap; }
+.wk-chars { font-size: 18px; font-weight: 600; }
+.wk-meta { font-size: 12px; color: var(--muted); }
+.wk-mnemonic { font-size: 13px; line-height: 1.55; margin-top: 6px; }
+.wk-user-notes { font-size: 13px; margin-top: 6px; padding: 6px 8px; background: var(--bg-soft); border-radius: 6px; }
+.wk-radicals { margin-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.wk-tag { padding: 0 3px; border-radius: 3px; font-weight: 500; }
+.wk-tag-radical { background: rgba(37,99,235,0.12); color: #2563eb; }
+.wk-tag-kanji { background: rgba(236,72,153,0.12); color: #db2777; }
+.wk-tag-vocabulary { background: rgba(168,85,247,0.12); color: #a855f7; }
+.wk-tag-reading, .wk-tag-ja { background: var(--bg-soft); }
+.wk-srs { text-transform: none; }
+.wk-srs-burned { background: rgba(107,114,128,0.15); color: #374151; border-color: rgba(107,114,128,0.35); }
