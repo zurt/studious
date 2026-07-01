@@ -1,6 +1,10 @@
 # Phase 3: Central Vocab/Grammar Store — Design & Plan
 
-**Status:** Design agreed 2026-07-01. Implementation not started.
+**Status:** Design agreed 2026-07-01. Milestone 3.1 (store foundation +
+harvest + dashboards) shipped 2026-07-01 — see roadmap for the item-level
+record. Implementation note: the dedup indexes are derived in memory from
+the JSONL (cached against file mtime+size) rather than written to
+`*.index.json` files as sketched below — one less artifact to drift.
 
 ## Objective
 
@@ -30,9 +34,7 @@ wins, derived indexes rebuilt on demand):
 data/
   store/
     vocab.jsonl        # one JSON object per line, latest per id wins
-    vocab.index.json   # derived: jmdict_seq -> id, headword+reading -> id
-    grammar.jsonl
-    grammar.index.json
+    grammar.jsonl      # (dedup indexes are derived in memory on read)
     reviews.jsonl      # append-only SRS review events (Milestone 3.4)
   refs/
     jmdict/            # bundled dictionary (gitignored, pinned download)

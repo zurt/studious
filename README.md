@@ -76,14 +76,26 @@ Open <http://localhost:5173>.
    guide opens in its own view with regenerate and copy-as-markdown
    buttons; if a source region is re-transcribed afterward, the guide
    shows a "source changed" banner until you regenerate.
+9. **Review the central vocab/grammar store** — every vocab-list
+   transcription and sentence breakdown automatically harvests its
+   vocab and grammar into a cross-textbook store (deduped by
+   headword+reading / normalized pattern, with per-occurrence
+   provenance). The **Vocab** and **Grammar** topbar links open
+   dashboards with an inbox for newly harvested items, status tracking
+   (inbox → active → known / ignored), search and filters, manual
+   add/edit, and per-item sightings that link back to the source
+   chapter. A **Backfill** button harvests data that predates the
+   store. See `docs/vocab-store-plan.md` for the Phase 3 design.
 
 ## Layout
 
 - `backend/` — FastAPI app (Python 3.11+), file-based storage.
 - `frontend/` — Vite + vanilla TypeScript (no framework).
 - `data/` — uploaded documents, rasterized pages, transcriptions, chapters,
-  regions, and monthly-rotated `llm_audit.YYYY-MM.jsonl` (append-only log of
-  VLM calls; gitignored). Override the data root with `STUDIOUS_DATA_DIR`.
+  regions, the central vocab/grammar store (`store/*.jsonl`, append-only
+  with latest-entry-per-id semantics), and monthly-rotated
+  `llm_audit.YYYY-MM.jsonl` (append-only log of VLM calls; gitignored).
+  Override the data root with `STUDIOUS_DATA_DIR`.
 - `benchmarks/` — quality benchmarking tools for tracking extraction accuracy.
 - `docs/` — project description, roadmap, and architecture documentation.
 
