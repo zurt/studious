@@ -13,7 +13,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..services import enrich, harvest, jmdict, store
+from ..services import enrich, harvest, jmdict, store, wanikani
 
 log = logging.getLogger("studious.api.store")
 
@@ -267,6 +267,46 @@ async def run_enrich(force: bool = False):
     if not jmdict.is_available():
         raise HTTPException(409, "JMdict index not built — run `make refs` first")
     return await asyncio.to_thread(enrich.enrich_pending, force=force)
+
+
+@router.get("/refs/wanikani/status")
+def wanikani_status():
+    return wanikani.status()
+
+
+@router.post("/refs/wanikani/sync")
+async def wanikani_sync(full: bool = False):
+    """Incrementally sync WaniKani subjects, study materials, and
+    assignments into the local cache, then re-enrich store items so
+    WK levels and links land in classifications."""
+    if not wanikani.is_configured():
+        raise HTTPException(
+            409,
+            "WANIKANI_API_TOKEN is not set — store your token in the Keychain "
+            "and export it like ANTHROPIC_API_KEY (see README)",
+        )
+    try:
+        result = await asyncio.to_thread(wanikani.sync, full=full)
+    except Exception as exc:
+        log.error("wanikani_sync_failed", extra={"error": str(exc)})
+        raise HTTPException(502, f"WaniKani sync failed: {exc}")
+    enriched = await asyncio.to_thread(enrich.enrich_pending, force=True)
+    return {**result, "enriched": enriched}
+
+
+@router.get("/vocab/{item_id}/wanikani")
+def vocab_wanikani(item_id: str):
+    """Vocab → kanji → radical drill-down with WK mnemonics, the user's
+    own WK notes, and SRS history (display only)."""
+    item = store.get_item("vocab", item_id)
+    if item is None or item.get("deleted"):
+        raise HTTPException(404, "vocab item not found")
+    if not wanikani.has_subjects():
+        raise HTTPException(409, "WaniKani cache is empty — run a sync first")
+    payload = wanikani.drilldown(item.get("headword") or "")
+    if payload is None:
+        raise HTTPException(404, "no WaniKani subject for this word")
+    return payload
 
 
 @router.post("/store/backfill")

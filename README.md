@@ -104,6 +104,11 @@ Open <http://localhost:5173>.
 Environment variables (read at startup, `.env` supported):
 
 - `ANTHROPIC_API_KEY` — required for the Anthropic VLM provider.
+- `WANIKANI_API_TOKEN` — optional; enables the WaniKani sync (levels,
+  mnemonics, your own WK notes, kanji/radical drill-down). Store it in the
+  Keychain like the Anthropic key:
+  `security add-generic-password -s WANIKANI_API_TOKEN -a "$USER" -w`, then
+  export it in `~/.zshrc` the same way. Never put it in `.env`.
 - `STUDIOUS_DATA_DIR` — data root (default `./data`).
 - `STUDIOUS_PDF_RENDER_DPI` — page raster DPI (default `300`).
 - `STUDIOUS_LOG_LEVEL` — backend log level (default `INFO`; set `DEBUG` for
@@ -168,6 +173,11 @@ Attribution:
   [elzup/jlpt-word-list](https://github.com/elzup/jlpt-word-list). The JLPT
   has published no official lists since 2010; levels are community
   estimates.
+- **WaniKani** content (levels, mnemonics, your own notes) is synced via
+  the [official API v2](https://docs.api.wanikani.com/) with your personal
+  token into a gitignored local cache (`data/refs/wanikani/`) for personal
+  use only. WK SRS history is shown as context (e.g. "burned 2022") but
+  never changes an item's study status.
 
 ## Security
 

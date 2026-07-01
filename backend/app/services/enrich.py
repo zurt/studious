@@ -22,7 +22,7 @@ import urllib.parse
 from datetime import datetime, timezone
 from typing import Any
 
-from . import jmdict, store
+from . import jmdict, store, wanikani
 
 log = logging.getLogger("studious.enrich")
 
@@ -96,6 +96,17 @@ def vocab_changes(item: dict[str, Any]) -> dict[str, Any]:
         if level is not None:
             classifications["jlpt"] = f"N{level}"
 
+    # WaniKani level + link when the subjects cache has been synced.
+    # SRS history stays out of classifications — display signal only.
+    if wanikani.has_subjects():
+        subject = wanikani.vocab_subject(headword)
+        if subject is not None:
+            wk_data = subject.get("data") or {}
+            if isinstance(wk_data.get("level"), int):
+                classifications["wanikani_level"] = wk_data["level"]
+            if wk_data.get("document_url"):
+                links["wanikani"] = wk_data["document_url"]
+
     changes["classifications"] = classifications
     changes["links"] = links
     changes["priority_group"] = compute_priority(
@@ -106,8 +117,9 @@ def vocab_changes(item: dict[str, Any]) -> dict[str, Any]:
 
 def enrich_pending(*, force: bool = False) -> dict[str, Any]:
     """Enrich vocab items that haven't been attempted yet (or all, with
-    force). No-op when the JMdict index hasn't been built."""
-    if not jmdict.is_available():
+    force). No-op until at least one source (JMdict index, WaniKani
+    subjects cache) exists."""
+    if not jmdict.is_available() and not wanikani.has_subjects():
         return {"available": False, "attempted": 0, "linked": 0}
 
     attempted = linked = 0
