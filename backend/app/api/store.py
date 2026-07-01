@@ -13,13 +13,13 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..services import harvest, store
+from ..services import enrich, harvest, jmdict, store
 
 log = logging.getLogger("studious.api.store")
 
 router = APIRouter(prefix="/api", tags=["store"])
 
-_SORTS = ("recent", "updated", "alpha")
+_SORTS = ("recent", "updated", "alpha", "priority")
 
 
 class CreateVocab(BaseModel):
@@ -113,6 +113,9 @@ def _list_items(
             items.sort(key=lambda i: (i.get("reading") or "", i.get("headword") or ""))
         else:
             items.sort(key=lambda i: i.get("pattern_normalized") or "")
+    elif sort == "priority":
+        # Unenriched items (priority_group null) sort last within their bucket.
+        items.sort(key=lambda i: (i.get("priority_group") or 9, i.get("reading") or ""))
     # "recent" is list_items' natural order (created_at desc).
 
     total = len(items)
@@ -149,6 +152,9 @@ def _update_item(kind: str, item_id: str, body: UpdateVocab | UpdateGrammar) -> 
     for key_field in ("headword", "pattern"):
         if key_field in changes and not (changes[key_field] or "").strip():
             raise HTTPException(400, f"{key_field} must not be empty")
+    if kind == "vocab" and "meaning" in changes:
+        # A hand-edited meaning must survive future enrichment passes.
+        changes["meaning_source"] = "user"
     updated = store.update_item(kind, item_id, **changes)
     if updated is None:
         raise HTTPException(404, f"{kind} item not found")
@@ -243,7 +249,24 @@ def delete_grammar(item_id: str):
 
 @router.get("/store/stats")
 def store_stats():
-    return {"vocab": store.stats("vocab"), "grammar": store.stats("grammar")}
+    return {
+        "vocab": store.stats("vocab"),
+        "grammar": store.stats("grammar"),
+        "jmdict": {"available": jmdict.is_available(), **jmdict.meta()},
+    }
+
+
+@router.post("/store/enrich")
+async def run_enrich(force: bool = False):
+    """(Re-)link store items against the local JMdict/JLPT index.
+
+    With force=true every item is re-enriched (after rebuilding the
+    index); otherwise only never-attempted items are touched. 409 when
+    the index hasn't been built (`make refs`).
+    """
+    if not jmdict.is_available():
+        raise HTTPException(409, "JMdict index not built — run `make refs` first")
+    return await asyncio.to_thread(enrich.enrich_pending, force=force)
 
 
 @router.post("/store/backfill")

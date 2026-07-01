@@ -30,6 +30,7 @@ FIXTURE_WORDS = [
         "1589880",
         [
             {"common": True, "text": "関わる", "tags": []},
+            {"common": True, "text": "係わる", "tags": []},
             {"common": False, "text": "関る", "tags": ["sK"]},
         ],
         [{"common": True, "text": "かかわる", "tags": []}],

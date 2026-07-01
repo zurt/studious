@@ -16,7 +16,7 @@ import logging
 import re
 from typing import Any
 
-from . import storage, store
+from . import enrich, storage, store
 
 log = logging.getLogger("studious.harvest")
 
@@ -92,7 +92,7 @@ def parse_vocab_list_markdown(markdown: str) -> list[dict[str, Any]]:
 
 
 def ingest_vocab_list_region(
-    doc_id: str, chapter_id: str, region: dict[str, Any]
+    doc_id: str, chapter_id: str, region: dict[str, Any], *, enrich_after: bool = True
 ) -> dict[str, int]:
     """Harvest a transcribed vocab_list region into the vocab store."""
     markdown = region.get("transcription_md") or ""
@@ -126,11 +126,18 @@ def ingest_vocab_list_region(
             **result,
         },
     )
+    if enrich_after:
+        enrich.enrich_pending()
     return result
 
 
 def ingest_breakdown(
-    doc_id: str, chapter_id: str, region_id: str, breakdown: dict[str, Any]
+    doc_id: str,
+    chapter_id: str,
+    region_id: str,
+    breakdown: dict[str, Any],
+    *,
+    enrich_after: bool = True,
 ) -> dict[str, dict[str, int]]:
     """Harvest a sentence breakdown's vocab and grammar into the store."""
     vocab_entries: list[dict[str, Any]] = []
@@ -188,6 +195,8 @@ def ingest_breakdown(
             "grammar_created": result["grammar"]["created"],
         },
     )
+    if enrich_after:
+        enrich.enrich_pending()
     return result
 
 
@@ -210,16 +219,21 @@ def backfill() -> dict[str, Any]:
             chapter_id = chapter["id"]
             for region in storage.list_regions(doc_id, chapter_id):
                 if region.get("tag") == "vocab_list" and region.get("transcription_md"):
-                    result = ingest_vocab_list_region(doc_id, chapter_id, region)
+                    result = ingest_vocab_list_region(
+                        doc_id, chapter_id, region, enrich_after=False
+                    )
                     totals["vocab_list_regions"] += 1
                     totals["vocab_created"] += result["created"]
                 breakdown = storage.load_breakdown(doc_id, chapter_id, region["id"])
                 if breakdown:
                     result = ingest_breakdown(
-                        doc_id, chapter_id, region["id"], breakdown
+                        doc_id, chapter_id, region["id"], breakdown, enrich_after=False
                     )
                     totals["breakdowns"] += 1
                     totals["vocab_created"] += result["vocab"]["created"]
                     totals["grammar_created"] += result["grammar"]["created"]
+    # One enrichment pass at the end instead of per-region (cheaper).
+    enrich_result = enrich.enrich_pending()
+    totals["enriched"] = enrich_result["attempted"]
     log.info("harvest_backfill_done", extra=totals)
     return totals
