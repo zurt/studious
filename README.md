@@ -148,6 +148,27 @@ per-run data dir (`backend/.e2e-data`) — no API key or tokens needed.
 One-time setup: `cd frontend && npx playwright install chromium`. On
 failure, traces and screenshots land in `frontend/test-results/`.
 
+## Reference data
+
+`make refs` downloads pinned reference datasets and builds a local lookup
+index (`data/refs/jmdict/jmdict.sqlite`, ~70 MB) used to enrich the vocab
+store with dictionary glosses, part-of-speech, common-word flags, and JLPT
+levels. Everything is pinned by exact URL + SHA-256 in
+`backend/refs.lock.json`; downloads that don't match are rejected. The app
+runs fine without the index — enrichment is simply skipped until it exists.
+
+Attribution:
+
+- **JMdict** (via [jmdict-simplified](https://github.com/scriptin/jmdict-simplified))
+  is the property of the [Electronic Dictionary Research and Development
+  Group](https://www.edrdg.org/) and is used in conformance with the
+  Group's [licence](https://www.edrdg.org/edrdg/licence.html) (CC BY-SA 4.0).
+- **JLPT vocabulary lists** derive from [Jonathan Waller's JLPT
+  resources](https://www.tanos.co.uk/jlpt/) (CC BY), via
+  [elzup/jlpt-word-list](https://github.com/elzup/jlpt-word-list). The JLPT
+  has published no official lists since 2010; levels are community
+  estimates.
+
 ## Security
 
 Both package managers enforce a 7-day cooldown on new package versions to

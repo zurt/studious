@@ -53,7 +53,7 @@ def store_path(kind: str) -> Path:
 # ---------- Normalization ----------
 
 
-def _kata_to_hira(s: str) -> str:
+def kata_to_hira(s: str) -> str:
     return "".join(
         chr(ord(c) - 0x60) if 0x30A1 <= ord(c) <= 0x30F6 else c for c in s
     )
@@ -76,12 +76,12 @@ def normalize_reading(reading: str | None, headword: str) -> str:
     same word harvested from a breakdown (which does supply a reading)
     dedups onto one entry.
     """
-    r = _kata_to_hira(unicodedata.normalize("NFKC", (reading or "").strip()))
+    r = kata_to_hira(unicodedata.normalize("NFKC", (reading or "").strip()))
     if r:
         return r
     hw = unicodedata.normalize("NFKC", headword.strip())
     if _all_kana(hw):
-        return _kata_to_hira(hw)
+        return kata_to_hira(hw)
     return ""
 
 
