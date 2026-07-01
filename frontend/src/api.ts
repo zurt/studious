@@ -548,6 +548,12 @@ export type StoreSighting = {
   seen_at: string;
 };
 
+export type StoreClassifications = {
+  jlpt?: string;
+  jmdict_common?: boolean;
+  wanikani_level?: number;
+} & Record<string, unknown>;
+
 export type VocabItem = {
   id: string;
   headword: string;
@@ -556,8 +562,9 @@ export type VocabItem = {
   meaning_source: string;
   pos: string[];
   jmdict_seq: number | null;
+  enriched_at?: string | null;
   status: StoreStatus;
-  classifications: Record<string, unknown>;
+  classifications: StoreClassifications;
   priority_group: number | null;
   sightings: StoreSighting[];
   links: Record<string, string>;
@@ -572,7 +579,7 @@ export type GrammarItem = {
   pattern_normalized: string;
   explanation: string;
   status: StoreStatus;
-  classifications: Record<string, unknown>;
+  classifications: StoreClassifications;
   sightings: StoreSighting[];
   links: Record<string, string>;
   notes: string;
@@ -590,7 +597,7 @@ export type StoreListParams = {
   doc_id?: string;
   chapter_id?: string;
   source?: string;
-  sort?: "recent" | "updated" | "alpha";
+  sort?: "recent" | "updated" | "alpha" | "priority";
   limit?: number;
   offset?: number;
 };
@@ -649,4 +656,47 @@ export async function getStoreStats(): Promise<StoreStats> {
 
 export async function runStoreBackfill(): Promise<Record<string, number>> {
   return jpost("/api/store/backfill");
+}
+
+// ---------- Reference data (JMdict enrichment, WaniKani) ----------
+
+export type WkSubjectView = {
+  id: number;
+  object: "radical" | "kanji" | "vocabulary" | "kana_vocabulary";
+  characters: string | null;
+  slug: string;
+  level: number;
+  document_url: string;
+  meanings: string[];
+  readings: string[];
+  meaning_mnemonic: string;
+  reading_mnemonic: string;
+  user_notes?: { meaning_note: string; reading_note: string; synonyms: string[] };
+  srs?: { stage: number; stage_name: string; burned_at: string | null; passed_at: string | null };
+};
+
+export type WkDrilldown = WkSubjectView & {
+  kanji: (WkSubjectView & { radicals: WkSubjectView[] })[];
+};
+
+export type WanikaniStatus = {
+  configured: boolean;
+  synced_at: string | null;
+  counts: Record<string, number>;
+};
+
+export async function getWanikaniStatus(): Promise<WanikaniStatus> {
+  return jget("/api/refs/wanikani/status");
+}
+
+export async function syncWanikani(full = false): Promise<Record<string, unknown>> {
+  return jpost(`/api/refs/wanikani/sync${full ? "?full=true" : ""}`);
+}
+
+export async function getVocabWanikani(itemId: string): Promise<WkDrilldown> {
+  return jget(`/api/vocab/${itemId}/wanikani`);
+}
+
+export async function runStoreEnrich(force = false): Promise<Record<string, unknown>> {
+  return jpost(`/api/store/enrich${force ? "?force=true" : ""}`);
 }

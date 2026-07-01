@@ -6,6 +6,9 @@ import {
   getStoreStats,
   runStoreBackfill,
   listDocuments,
+  getWanikaniStatus,
+  syncWanikani,
+  getVocabWanikani,
   type DocMeta,
   type GrammarItem,
   type StoreItem,
@@ -13,6 +16,8 @@ import {
   type StoreListParams,
   type StoreStatus,
   type VocabItem,
+  type WkDrilldown,
+  type WkSubjectView,
 } from "../api";
 import { confirmDialog } from "../modules/confirm";
 import { toastError, toastInfo } from "../modules/toast";
@@ -34,7 +39,7 @@ type State = {
   q: string;
   docId: string;
   source: string;
-  sort: "recent" | "updated" | "alpha";
+  sort: "recent" | "updated" | "alpha" | "priority";
   items: StoreItem[];
   total: number;
   expanded: Set<string>;
@@ -58,6 +63,60 @@ function escapeHtml(s: string): string {
 
 function isVocab(item: StoreItem): item is VocabItem {
   return "headword" in item;
+}
+
+// WaniKani mnemonics carry markup like <radical>…</radical>; escape
+// everything, then turn just those known tags into styled spans.
+function wkMarkup(text: string): string {
+  return escapeHtml(text).replace(
+    /&lt;(\/?)(radical|kanji|vocabulary|reading|ja)&gt;/g,
+    (_m, close, tag) => (close ? "</span>" : `<span class="wk-tag wk-tag-${tag}">`),
+  );
+}
+
+function wkSrsChip(subject: WkSubjectView): string {
+  if (!subject.srs) return "";
+  const year = subject.srs.burned_at ? ` ${subject.srs.burned_at.slice(0, 4)}` : "";
+  return `<span class="study-badge wk-srs wk-srs-${escapeHtml(subject.srs.stage_name)}">${escapeHtml(subject.srs.stage_name)}${year}</span>`;
+}
+
+function wkSubjectBlock(subject: WkSubjectView, heading: string): string {
+  const notes = subject.user_notes;
+  return `
+    <div class="wk-subject wk-subject-${subject.object}">
+      <div class="row wk-subject-head">
+        <span class="wk-chars" lang="ja">${escapeHtml(subject.characters || subject.slug)}</span>
+        <span class="wk-meta">${heading} · level ${subject.level} · ${escapeHtml(subject.meanings.join(", "))}${subject.readings.length ? ` · ${escapeHtml(subject.readings.join("・"))}` : ""}</span>
+        <div class="grow"></div>
+        ${wkSrsChip(subject)}
+        <a class="study-link" href="${escapeHtml(subject.document_url)}" target="_blank" rel="noopener noreferrer">WK ↗</a>
+      </div>
+      ${subject.meaning_mnemonic ? `<div class="wk-mnemonic">${wkMarkup(subject.meaning_mnemonic)}</div>` : ""}
+      ${subject.reading_mnemonic ? `<div class="wk-mnemonic">${wkMarkup(subject.reading_mnemonic)}</div>` : ""}
+      ${
+        notes && (notes.meaning_note || notes.reading_note || notes.synonyms.length)
+          ? `<div class="wk-user-notes">Your notes: ${escapeHtml(
+              [notes.meaning_note, notes.reading_note, notes.synonyms.join(", ")]
+                .filter(Boolean)
+                .join(" — "),
+            )}</div>`
+          : ""
+      }
+    </div>`;
+}
+
+function renderWkDrilldown(d: WkDrilldown): string {
+  return `
+    <div class="wk-drilldown">
+      ${wkSubjectBlock(d, "vocabulary")}
+      ${d.kanji
+        .map(
+          (k) => `
+            ${wkSubjectBlock(k, "kanji")}
+            <div class="wk-radicals">${k.radicals.map((r) => wkSubjectBlock(r, "radical")).join("")}</div>`,
+        )
+        .join("")}
+    </div>`;
 }
 
 function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
@@ -84,6 +143,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         <div class="grow"></div>
         <button id="study-add-btn" title="Add an entry by hand">+ Add</button>
         <button id="study-backfill-btn" title="Re-harvest all breakdowns and vocab lists on disk">Backfill</button>
+        <button id="study-wk-btn" hidden title="Sync WaniKani levels, mnemonics, and your notes">Sync WK</button>
       </div>
       <form id="study-add-form" class="study-add-form" hidden></form>
       <div class="row study-filters">
@@ -99,6 +159,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
           <option value="recent">Newest</option>
           <option value="updated">Recently updated</option>
           <option value="alpha">${kind === "vocab" ? "By reading" : "By pattern"}</option>
+          ${kind === "vocab" ? `<option value="priority">By study priority</option>` : ""}
         </select>
       </div>
       <div id="study-bulk-bar" class="row study-bulk-bar" hidden></div>
@@ -120,9 +181,11 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
   const addBtn = container.querySelector<HTMLButtonElement>("#study-add-btn")!;
   const addForm = container.querySelector<HTMLFormElement>("#study-add-form")!;
   const backfillBtn = container.querySelector<HTMLButtonElement>("#study-backfill-btn")!;
+  const wkBtn = container.querySelector<HTMLButtonElement>("#study-wk-btn")!;
 
   let docs: DocMeta[] = [];
   const docNames = new Map<string, string>();
+  let wkHasData = false;
 
   function params(offset = 0): StoreListParams {
     return {
@@ -247,6 +310,14 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     const gloss = isVocab(item) ? item.meaning : (item as GrammarItem).explanation;
     const sources = [...new Set(item.sightings.map((s) => s.source))];
     const sightingCount = item.sightings.length;
+    const c = item.classifications || {};
+    const classChips = [
+      c.jlpt ? `<span class="study-badge study-badge-jlpt">${escapeHtml(String(c.jlpt))}</span>` : "",
+      c.jmdict_common ? `<span class="study-badge study-badge-common">common</span>` : "",
+      typeof c.wanikani_level === "number"
+        ? `<span class="study-badge study-badge-wk">WK ${c.wanikani_level}</span>`
+        : "",
+    ].join("");
 
     row.innerHTML = `
       <div class="study-row-main">
@@ -254,8 +325,9 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         ${sub && sub !== term ? `<span class="study-reading" lang="ja">${escapeHtml(sub)}</span>` : ""}
         <span class="study-gloss">${escapeHtml(gloss)}</span>
         <div class="grow"></div>
+        ${classChips}
         ${sources.map((s) => `<span class="study-badge study-badge-${s}">${s.replace("_", " ")}</span>`).join("")}
-        ${sightingCount ? `<button class="study-sightings-btn" title="Show sightings">${sightingCount}×</button>` : ""}
+        <button class="study-sightings-btn" title="Details, sightings, kanji breakdown">${sightingCount ? `${sightingCount}×` : "…"}</button>
         <div class="study-status-toggle">
           ${STATUSES.map(
             (s) =>
@@ -268,22 +340,20 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     `;
 
     const detail = row.querySelector<HTMLElement>(".study-row-detail")!;
-    const sightingsBtn = row.querySelector<HTMLButtonElement>(".study-sightings-btn");
-    if (sightingsBtn) {
-      sightingsBtn.addEventListener("click", () => {
-        const open = !detail.hidden;
-        detail.hidden = open;
-        if (open) {
-          state.expanded.delete(item.id);
-          return;
-        }
-        state.expanded.add(item.id);
-        renderDetail(item, detail);
-      });
-      if (state.expanded.has(item.id)) {
-        detail.hidden = false;
-        renderDetail(item, detail);
+    const sightingsBtn = row.querySelector<HTMLButtonElement>(".study-sightings-btn")!;
+    sightingsBtn.addEventListener("click", () => {
+      const open = !detail.hidden;
+      detail.hidden = open;
+      if (open) {
+        state.expanded.delete(item.id);
+        return;
       }
+      state.expanded.add(item.id);
+      renderDetail(item, detail);
+    });
+    if (state.expanded.has(item.id)) {
+      detail.hidden = false;
+      renderDetail(item, detail);
     }
 
     row.querySelectorAll<HTMLButtonElement>(".study-status-btn").forEach((btn) => {
@@ -323,11 +393,13 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
   }
 
   function renderDetail(item: StoreItem, detail: HTMLElement) {
-    if (!item.sightings.length) {
-      detail.innerHTML = `<p class="empty">No sightings.</p>`;
-      return;
-    }
-    detail.innerHTML = item.sightings
+    const links = Object.entries(item.links || {})
+      .map(
+        ([name, url]) =>
+          `<a class="study-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(name)} ↗</a>`,
+      )
+      .join("");
+    const sightings = item.sightings
       .map((s) => {
         const docName = docNames.get(s.doc_id) || s.doc_id;
         const context = s.sentence_text || s.surface;
@@ -335,16 +407,35 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
           <div class="study-sighting">
             <span class="study-badge study-badge-${s.source}">${s.source.replace("_", " ")}</span>
             <span class="study-sighting-text" lang="ja">${escapeHtml(context)}</span>
-            <a href="/doc/${s.doc_id}/chapter/${s.chapter_id}" data-nav-chapter="${s.doc_id}/${s.chapter_id}">${escapeHtml(docName)} →</a>
+            <a href="/doc/${s.doc_id}/chapter/${s.chapter_id}" data-nav-chapter>${escapeHtml(docName)} →</a>
           </div>`;
       })
       .join("");
+    detail.innerHTML = `
+      ${links ? `<div class="row study-links">${links}</div>` : ""}
+      ${sightings || `<p class="empty">No sightings.</p>`}
+      <div class="study-wk" hidden></div>
+    `;
     detail.querySelectorAll<HTMLAnchorElement>("[data-nav-chapter]").forEach((a) => {
       a.addEventListener("click", (e) => {
         e.preventDefault();
         navigate(a.getAttribute("href")!);
       });
     });
+    if (state.kind === "vocab" && wkHasData) {
+      void loadWkDrilldown(item.id, detail.querySelector<HTMLElement>(".study-wk")!);
+    }
+  }
+
+  async function loadWkDrilldown(itemId: string, el: HTMLElement) {
+    try {
+      const d = await getVocabWanikani(itemId);
+      el.hidden = false;
+      el.innerHTML = renderWkDrilldown(d);
+    } catch {
+      // 404 (word not on WK) or 409 (cache empty) — just omit the section.
+      el.remove();
+    }
   }
 
   function renderAddForm() {
@@ -388,6 +479,28 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     } catch (err: any) {
       const conflict = String(err.message).includes("409");
       toastError(conflict ? "Already in the store." : "Add failed: " + err.message);
+    }
+  });
+
+  wkBtn.addEventListener("click", async () => {
+    wkBtn.disabled = true;
+    wkBtn.textContent = "Syncing WK…";
+    try {
+      const result: any = await syncWanikani();
+      info("StudyDash", "wk_sync_done", result);
+      const fetched = result.fetched || {};
+      toastInfo(
+        `WaniKani synced: ${fetched.subjects ?? 0} subjects, ${fetched.study_materials ?? 0} notes, ` +
+          `${fetched.assignments ?? 0} assignments updated`,
+      );
+      wkHasData = true;
+      await reload();
+    } catch (e: any) {
+      logError("StudyDash", "wk_sync_failed", { error: e.message });
+      toastError("WaniKani sync failed: " + e.message);
+    } finally {
+      wkBtn.disabled = false;
+      wkBtn.textContent = "Sync WK";
     }
   });
 
@@ -444,6 +557,16 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         docs.map((d) => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join("");
     } catch {
       // Doc filter stays empty; the list itself still works.
+    }
+  })();
+
+  void (async () => {
+    try {
+      const wk = await getWanikaniStatus();
+      wkBtn.hidden = !wk.configured;
+      wkHasData = (wk.counts?.subjects ?? 0) > 0;
+    } catch {
+      // No WK affordances; everything else still works.
     }
   })();
 
