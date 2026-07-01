@@ -302,50 +302,62 @@ Haiku at $1/$5 until Anthropic changes published rates.
 
 ## Phase 3: Central Vocab/Grammar Store
 
-**Goal:** Vocab and grammar items accumulate across textbooks with status tracking (new → reviewing → known).
+**Goal:** Vocab and grammar harvested from textbooks accumulate into a single
+cross-textbook store — dictionary-linked, graded, editable — that becomes the
+long-term core study artifact and eventually powers built-in SRS and an iOS
+companion app.
 
-### Backend
+**Design agreed 2026-07-01.** Full schemas, milestone breakdown (3.1–3.5),
+licensing notes, and open questions live in `docs/vocab-store-plan.md`. Key
+decisions:
 
-**New on-disk structure:**
-```
-data/
-  vocab/
-    items.jsonl      # append-only, one JSON object per line (latest entry per id wins)
-    index.json       # headword+reading -> item_id lookup, rebuilt from items.jsonl
-  grammar/
-    items.jsonl
-    index.json
-```
+- **Canonical identity via JMdict.** Items link to a JMdict entry id
+  (`jmdict_seq`); headword+reading is only the fallback key for unlinked
+  items. Textbook occurrences are *sightings* (with provenance and the full
+  example sentence) on one canonical entry, so surface variants (口下手 vs
+  口べた, conjugated forms) don't fragment the store.
+- **Local dictionary enrichment.** Bundle JMdict (jmdict-simplified JSON,
+  pinned + checksummed download; CC BY-SA attribution) for glosses, POS,
+  common-word flags. jisho.org is an outbound link, not a data source.
+- **WaniKani via official API** (personal token in Keychain, cache
+  gitignored): subjects (levels, mnemonics, vocab→kanji→radical component
+  graph), the user's own study notes, and SRS history. WK history is a
+  display signal only — the user completed all 60 levels years ago and the
+  knowledge has atrophied, so "burned on WK" must never auto-mark an item
+  known. A vocab→kanji→radical drill-down view surfaces WK mnemonics and
+  personal notes for recall.
+- **Multiple classification signals, derived priority.** JLPT level
+  (community lists), frequency rank, JMdict common flags, WK level, and
+  textbook order are stored independently; a derived `priority_group`
+  (pure function, recomputable) orders study queues.
+- **Curation status ≠ SRS state.** `unreviewed → active → known/ignored` is
+  a curation lifecycle with an inbox for auto-ingested items; SRS state
+  derives from an append-only review-event log (`reviews.jsonl`) consumed by
+  an in-repo FSRS scheduler (milestone 3.4).
+- **CloudKit-ready schema now, sync later.** UUID ids, `updated_at`,
+  tombstones, append-only logs, flat records. The iOS/CloudKit topology is
+  documented in milestone 3.5 but not built until Phase 5.
 
-**Vocab item schema (one JSONL line):**
-```json
-{"id": "v_abc123", "headword": "口べた", "reading": "くちべた", "meaning": "poor speaker", "pos": "na-adjective", "status": "new", "sources": [{"doc_id": "...", "chapter_id": "...", "region_id": "..."}], "created_at": "...", "updated_at": "..."}
-```
+### Milestones
 
-**Storage functions:** `append_vocab_item`, `load_vocab_index`, `rebuild_vocab_index`, `update_vocab_status` (and parallel grammar versions). Status updates append a new line with same id (latest wins on index rebuild).
+1. **3.1 Foundation + harvest** — stores under `data/store/`, ingest hooks
+   (breakdown generation + vocab_list transcription parse), idempotent
+   backfill over existing data, dedup, status lifecycle, `/api/vocab` +
+   `/api/grammar`, dashboard with inbox.
+2. **3.2 Enrichment + classification** — JMdict bundling and linking, JLPT +
+   frequency datasets, WaniKani sync + drill-down, outbound links, priority
+   grouping.
+3. **3.3 Curation** — manual add/edit, merge duplicates, bulk actions,
+   known-word de-emphasis in breakdowns, chapter coverage stats.
+4. **3.4 Built-in SRS (web)** — review event log, in-repo FSRS, queue API,
+   flashcard UI (word-first + sentence-context cards from sightings).
+5. **3.5 Sync groundwork** — CloudKit record-mapping design doc only.
 
-**Wire breakdown → vocab store:** When a breakdown is generated, automatically dedup and append new vocab/grammar items to the global store.
+**State syncing:** status changes need to reflect across dashboard/breakdown
+views — add a simple pub/sub event bus (evaluate a reactive lib only if that
+gets painful).
 
-**New router** `backend/app/api/study.py`:
-- `GET /api/vocab` — list with filters (status, doc, chapter, search)
-- `PATCH /api/vocab/{item_id}` — update status
-- `GET /api/grammar` — list with filters
-- `PATCH /api/grammar/{item_id}` — update status
-- `GET /api/documents/{doc_id}/chapters/{chapter_id}/vocab` — chapter-scoped vocab
-
-### Frontend
-
-**New page: `vocab-dashboard.ts`** at `/vocab`
-- Filterable list of all vocab items
-- Status toggle buttons (new / reviewing / known)
-- Filters: status, textbook, chapter, search
-- Stats summary
-
-**Modify `breakdown-pane.ts`:** Add status toggle on each vocab/grammar item, wired to PATCH endpoints.
-
-**State syncing:** If status changes need to reflect across views, add a simple pub/sub event bus or evaluate adding Vue at this point.
-
-**Topbar:** Add "Vocab" link.
+**Topbar:** Add "Vocab" and "Grammar" links.
 
 ## Phase 4: Export + Exercises
 
@@ -376,6 +388,11 @@ data/
 | Text-only VLM for analysis | Cheaper (no image tokens), faster; analysis operates on already-transcribed markdown |
 | Single job queue with job_type dispatch | Simple, prevents API rate limiting, reuses SSE broadcast pattern |
 | JSONL audit log for LLM calls | Same append-only pattern as vocab store; human-readable, no DB dependency; enables cost tracking without external services |
+| JMdict entry id as canonical vocab identity | headword+reading alone fragments across surface variants; JMdict linkage also gives free glosses/POS/common flags and stable jisho links |
+| Dictionary-first enrichment (no LLM, no scraping) | Bundled JMdict is instant, free, offline, deterministic; LLM glosses only fill gaps; jisho.org unofficial API avoided entirely |
+| WaniKani SRS history is display-only | User finished WK long ago and knowledge atrophied; auto-marking burned items "known" would poison the study queue |
+| Curation status separate from SRS state | Status (`unreviewed/active/known/ignored`) is human judgment; SRS state is derived from an append-only review log — mixing them breaks both |
+| CloudKit-ready schema from day one | UUIDs, `updated_at`, tombstones, append-only event logs cost nothing now and avoid a migration when the iOS companion arrives |
 | Cost estimation from API response tokens | Anthropic includes token counts in responses; combine with a pricing table for estimates. Not billing-accurate, but good enough for awareness |
 
 ## Critical Files
