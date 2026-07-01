@@ -366,6 +366,14 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           openJobStream(job_id, async (event) => {
             if (event.event === "job-done" || event.event === "job-failed") {
               resolve();
+            } else if (event.event === "snapshot") {
+              // Race: the job may already be terminal before the EventSource
+              // subscribed (fast jobs). The replayed snapshot is then the
+              // only signal — without this the batch waits forever.
+              const status = event.data?.status;
+              if (status === "completed" || status === "completed_with_errors" || status === "failed") {
+                resolve();
+              }
             }
           });
         });
