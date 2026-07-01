@@ -269,11 +269,68 @@ Beyond MVP (deferred):
 
 ## Phase 3: Central Vocab/Grammar Store
 
-- [ ] Global vocab store (JSONL-based, across all textbooks)
-- [ ] Global grammar store (same pattern)
-- [ ] Status tracking (new → reviewing → known)
-- [ ] Vocab dashboard with filtering and search
-- [ ] Auto-populate store from breakdowns (dedup by headword+reading)
+The long-term core study workflow: vocab and grammar accumulate across
+textbooks into a single graded, dictionary-linked, editable store that
+eventually powers built-in SRS and an iOS companion. Design agreed
+2026-07-01 — see `docs/vocab-store-plan.md` for schemas, decisions, and
+rationale.
+
+### 3.1 Store foundation + harvest
+
+- [ ] Sync-ready JSONL stores (`data/store/{vocab,grammar}.jsonl` +
+      derived indexes): UUID ids, `updated_at`, tombstones, append-only
+      latest-per-id-wins
+- [ ] Ingest hook: breakdown generation appends deduped vocab/grammar
+      items with sighting provenance (doc/chapter/region/sentence +
+      sentence text)
+- [ ] Ingest hook: `vocab_list` transcription save parses the
+      `term（reading）　gloss` format (higher-trust source)
+- [ ] One-time idempotent backfill job over existing breakdowns and
+      vocab_list transcriptions
+- [ ] Curation status lifecycle: unreviewed (inbox) → active → known /
+      ignored — distinct from SRS state
+- [ ] `/api/vocab` + `/api/grammar` routers (list/filter/search/PATCH,
+      manual create)
+- [ ] Vocab dashboard at `/vocab`: filters, search, stats, inbox with
+      bulk accept/ignore
+
+### 3.2 Enrichment + classification
+
+- [ ] Bundle JMdict locally (jmdict-simplified JSON; pinned +
+      checksummed download via make target; CC BY-SA attribution)
+- [ ] JMdict linking (`jmdict_seq` canonical identity, glosses, POS,
+      common flags, kana variants) + re-link pass over existing items
+- [ ] JLPT level tagging (pinned community dataset — official lists
+      ceased 2010)
+- [ ] Frequency rank tagging (pinned corpus dataset)
+- [ ] WaniKani sync: subjects + study_materials + assignments via
+      personal API token (Keychain); local gitignored cache; WK SRS
+      history is a display signal only — never auto-marks items known
+- [ ] Vocab → kanji → radical drill-down view with WK mnemonics and the
+      user's own WK notes
+- [ ] Outbound reference links (jisho.org, WaniKani)
+- [ ] Derived priority grouping (pure function of classification
+      signals) for study ordering
+
+### 3.3 Curation + editing
+
+- [ ] Manual add/edit entries, notes field
+- [ ] Merge-duplicates action; bulk status operations
+- [ ] Known-vocab de-emphasis in breakdown display
+- [ ] Chapter vocab coverage stats ("N of M chapter vocab known")
+
+### 3.4 Built-in SRS (web)
+
+- [ ] Append-only review event log (`data/store/reviews.jsonl`)
+- [ ] FSRS scheduler implemented in-repo (no new dependency)
+- [ ] Review queue API + flashcard UI (word-first and sentence-context
+      cards built from sightings)
+
+### 3.5 Sync groundwork (design only)
+
+- [ ] Document CloudKit record mapping for the eventual iOS companion
+      (items last-writer-wins; review events append-only merge); no
+      code until Phase 5
 
 ## Phase 4: Export + Exercises
 
