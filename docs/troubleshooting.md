@@ -74,6 +74,14 @@ the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
 
 ## Known failure modes
 
+### `make test` fails with "Failed to spawn: pytest" after touching backend deps
+Running plain `uv sync` uninstalls the dev tools: this project declares
+them as a `[project.optional-dependencies]` **extra** (`.[dev]`), which
+`uv sync` does not include by default, so it removes pytest/pip-audit
+from the venv. Reinstall with `cd backend && uv pip install -e ".[dev]"`
+(what `make install-backend` runs). After changing locked versions
+(`uv lock --upgrade-package …`), use that instead of `uv sync`.
+
 ### E2E test drawing a region times out waiting for `#tag-select` (or a card click shows an empty breakdown pane)
 Two chapter-view behaviors trip up new journey tests (both bit on 2026-06-12):
 1. **Region drags must stay inside the visible viewport.** At fit-width zoom the page canvas is taller than the 720px viewport; `canvas.boundingBox()` reports the full (partially clipped) height, so a drag endpoint at a large height fraction lands below the viewport, the canvas never sees `mouseup`, and the tag popover never opens. The failure screenshot shows a small stranded dashed box at the last in-viewport mousemove. Keep drag coordinates in the upper ~half of the canvas box. Also remember a `mousedown` inside an existing region's bbox *selects* that region instead of starting a draw — draw beside existing regions, not over or under them.
