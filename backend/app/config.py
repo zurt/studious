@@ -497,6 +497,7 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
 class Settings(BaseModel):
     data_dir: Path
     anthropic_api_key: str | None
+    wanikani_api_token: str | None = None
     tesseract_cmd: str | None
     default_vlm_model: str = "claude-opus-4-8"
     # Models offered in the settings UI for VLM selection. The first entry
@@ -536,6 +537,7 @@ def get_settings() -> Settings:
     return Settings(
         data_dir=data_dir,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
+        wanikani_api_token=os.environ.get("WANIKANI_API_TOKEN") or None,
         tesseract_cmd=os.environ.get("TESSERACT_CMD") or None,
         **overrides,
     )

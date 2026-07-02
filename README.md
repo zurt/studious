@@ -76,14 +76,40 @@ Open <http://localhost:5173>.
    guide opens in its own view with regenerate and copy-as-markdown
    buttons; if a source region is re-transcribed afterward, the guide
    shows a "source changed" banner until you regenerate.
+9. **Review the central vocab/grammar store** — every vocab-list
+   transcription and sentence breakdown automatically harvests its
+   vocab and grammar into a cross-textbook store (deduped by
+   headword+reading / normalized pattern, with per-occurrence
+   provenance). The **Vocab** and **Grammar** topbar links open
+   dashboards with an inbox for newly harvested items, status tracking
+   (inbox → active → known / ignored), search and filters, manual
+   add/edit with notes, checkbox selection for bulk status changes and
+   merging duplicate entries, and per-item sightings that link back to
+   the source chapter. A **Backfill** button harvests data that
+   predates the store. Words marked **known** render de-emphasized in
+   sentence breakdowns (each word's popover gets an in-store status
+   toggle), and the chapter view shows a "Vocab N/M known" coverage
+   chip. See `docs/vocab-store-plan.md` for the Phase 3 design.
+10. **Study with built-in flashcards** — the **Study** topbar link runs a
+    spaced-repetition session over everything marked **active** in the
+    store. Vocab gets a word→meaning card plus a sentence-context card
+    built from a real textbook sighting; grammar patterns get a
+    pattern→explanation card. Reveal with space, grade with 1–4
+    (Again/Hard/Good/Easy); failed cards return at the end of the
+    session. Scheduling is FSRS-4.5 implemented in-repo; every review is
+    appended to `data/store/reviews.jsonl` and card state is derived by
+    replay, so history is never lost and the scheduler can evolve
+    without migrations.
 
 ## Layout
 
 - `backend/` — FastAPI app (Python 3.11+), file-based storage.
 - `frontend/` — Vite + vanilla TypeScript (no framework).
 - `data/` — uploaded documents, rasterized pages, transcriptions, chapters,
-  regions, and monthly-rotated `llm_audit.YYYY-MM.jsonl` (append-only log of
-  VLM calls; gitignored). Override the data root with `STUDIOUS_DATA_DIR`.
+  regions, the central vocab/grammar store (`store/*.jsonl`, append-only
+  with latest-entry-per-id semantics), and monthly-rotated
+  `llm_audit.YYYY-MM.jsonl` (append-only log of VLM calls; gitignored).
+  Override the data root with `STUDIOUS_DATA_DIR`.
 - `benchmarks/` — quality benchmarking tools for tracking extraction accuracy.
 - `docs/` — project description, roadmap, and architecture documentation.
 
@@ -92,6 +118,11 @@ Open <http://localhost:5173>.
 Environment variables (read at startup, `.env` supported):
 
 - `ANTHROPIC_API_KEY` — required for the Anthropic VLM provider.
+- `WANIKANI_API_TOKEN` — optional; enables the WaniKani sync (levels,
+  mnemonics, your own WK notes, kanji/radical drill-down). Store it in the
+  Keychain like the Anthropic key:
+  `security add-generic-password -s WANIKANI_API_TOKEN -a "$USER" -w`, then
+  export it in `~/.zshrc` the same way. Never put it in `.env`.
 - `STUDIOUS_DATA_DIR` — data root (default `./data`).
 - `STUDIOUS_PDF_RENDER_DPI` — page raster DPI (default `300`).
 - `STUDIOUS_LOG_LEVEL` — backend log level (default `INFO`; set `DEBUG` for
@@ -135,6 +166,32 @@ The E2E suite drives Chromium against the real stack on dedicated ports
 per-run data dir (`backend/.e2e-data`) — no API key or tokens needed.
 One-time setup: `cd frontend && npx playwright install chromium`. On
 failure, traces and screenshots land in `frontend/test-results/`.
+
+## Reference data
+
+`make refs` downloads pinned reference datasets and builds a local lookup
+index (`data/refs/jmdict/jmdict.sqlite`, ~70 MB) used to enrich the vocab
+store with dictionary glosses, part-of-speech, common-word flags, and JLPT
+levels. Everything is pinned by exact URL + SHA-256 in
+`backend/refs.lock.json`; downloads that don't match are rejected. The app
+runs fine without the index — enrichment is simply skipped until it exists.
+
+Attribution:
+
+- **JMdict** (via [jmdict-simplified](https://github.com/scriptin/jmdict-simplified))
+  is the property of the [Electronic Dictionary Research and Development
+  Group](https://www.edrdg.org/) and is used in conformance with the
+  Group's [licence](https://www.edrdg.org/edrdg/licence.html) (CC BY-SA 4.0).
+- **JLPT vocabulary lists** derive from [Jonathan Waller's JLPT
+  resources](https://www.tanos.co.uk/jlpt/) (CC BY), via
+  [elzup/jlpt-word-list](https://github.com/elzup/jlpt-word-list). The JLPT
+  has published no official lists since 2010; levels are community
+  estimates.
+- **WaniKani** content (levels, mnemonics, your own notes) is synced via
+  the [official API v2](https://docs.api.wanikani.com/) with your personal
+  token into a gitignored local cache (`data/refs/wanikani/`) for personal
+  use only. WK SRS history is shown as context (e.g. "burned 2022") but
+  never changes an item's study status.
 
 ## Security
 

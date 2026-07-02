@@ -157,6 +157,9 @@ verification. See the E2E section of `docs/test-coverage-plan.md`.
       transcription
 - [x] Journey: document lifecycle — upload a second document, delete it
       from the library card menu behind the confirm dialog
+- [x] Journey: vocab dashboard lists breakdown-harvested items; status
+      change persists across reload; stat-chip filters; grammar
+      dashboard shows the harvested pattern
 - [ ] Wire `make test-e2e` into CI (after journeys above stabilize)
 
 ## Phase 1.9: Supply Chain Hardening
@@ -269,11 +272,135 @@ Beyond MVP (deferred):
 
 ## Phase 3: Central Vocab/Grammar Store
 
-- [ ] Global vocab store (JSONL-based, across all textbooks)
-- [ ] Global grammar store (same pattern)
-- [ ] Status tracking (new → reviewing → known)
-- [ ] Vocab dashboard with filtering and search
-- [ ] Auto-populate store from breakdowns (dedup by headword+reading)
+The long-term core study workflow: vocab and grammar accumulate across
+textbooks into a single graded, dictionary-linked, editable store that
+eventually powers built-in SRS and an iOS companion. Design agreed
+2026-07-01 — see `docs/vocab-store-plan.md` for schemas, decisions, and
+rationale.
+
+### 3.1 Store foundation + harvest
+
+Shipped 2026-07-01.
+
+- [x] Sync-ready JSONL stores (`data/store/{vocab,grammar}.jsonl`):
+      UUID ids, `updated_at`, tombstones, append-only
+      latest-per-id-wins; dedup index derived in memory (no index file
+      to drift)
+- [x] Ingest hook: breakdown generation appends deduped vocab/grammar
+      items with sighting provenance (doc/chapter/region/sentence +
+      sentence text); harvest failures log but never fail the parent job
+- [x] Ingest hook: `vocab_list` transcription save parses the
+      `term（reading）gloss` format (item indices, section headers,
+      kana-only entries; tolerates stray bullet markers)
+- [x] Idempotent backfill over existing breakdowns and vocab_list
+      transcriptions (`POST /api/store/backfill` + dashboard button)
+- [x] Curation status lifecycle: unreviewed (inbox) → active → known /
+      ignored — distinct from SRS state; deletes are tombstones and
+      block re-harvest
+- [x] `/api/vocab` + `/api/grammar` routers (filters, search, sorts,
+      pagination, PATCH, manual create with 409-on-duplicate, DELETE)
+      plus `/api/store/stats`
+- [x] Vocab + grammar dashboards at `/vocab` and `/grammar`: stat-chip
+      filters, search, textbook/source filters, inbox with bulk
+      accept/ignore, expandable sightings linking back to chapters,
+      manual add
+
+### 3.2 Enrichment + classification
+
+Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
+
+- [x] Bundle JMdict locally (jmdict-simplified 3.6.2 JSON; URL + SHA-256
+      pinned in `backend/refs.lock.json`, fetched/built via `make refs`
+      into a read-only SQLite index; EDRDG CC BY-SA attribution in README)
+- [x] JMdict linking (`jmdict_seq`, glosses, POS, common flags) with
+      reading-disambiguated homographs and variant-spelling matching;
+      enrichment runs after every harvest and `POST /api/store/enrich`
+      re-links everything. User-edited meanings (`meaning_source:
+      "user"`) are never overwritten
+- [x] JLPT level tagging (tanos.co.uk-derived lists pinned to an
+      immutable commit; kana-listed and variant-spelling fallbacks)
+- [ ] ~~Frequency rank tagging~~ deferred: jmdict-simplified folds
+      JMdict's nf frequency bands into a boolean `common` flag, so a
+      finer rank needs a separate corpus dataset (BCCWJ/wordfreq).
+      Revisit if JLPT + common + WK level prove too coarse for queue
+      ordering
+- [x] WaniKani sync: subjects + study_materials + assignments via
+      personal API token (Keychain, `WANIKANI_API_TOKEN`); incremental
+      `updated_after` cursors; gitignored personal-use cache; WK SRS
+      history is a display signal only — never auto-marks items known
+- [x] Vocab → kanji → radical drill-down (dashboard row detail +
+      `GET /api/vocab/{id}/wanikani`) with WK mnemonics, the user's own
+      WK notes, and SRS chips ("burned 2022")
+- [x] Outbound reference links (jisho.org search, WaniKani subject pages)
+- [x] Derived priority grouping (pure function of jlpt/common/WK-level
+      signals, 1–5) + "By study priority" sort on the vocab dashboard
+
+### 3.3 Curation + editing
+
+Shipped 2026-07-01.
+
+- [x] Manual add (3.1) + inline edit of any entry's fields and notes in
+      the dashboard row detail; hand-edited meanings keep
+      `meaning_source: "user"` so enrichment never overwrites them
+- [x] Merge-duplicates: `POST /api/{vocab,grammar}/{id}/merge` unions
+      sightings, keeps the canonical entry's curated fields (an
+      unreviewed target adopts the source's status), records the losing
+      spelling in `surface_variants` (searchable), and tombstones the
+      source with `merged_into` — re-harvests of the merged-away
+      spelling redirect to the canonical item
+- [x] Bulk status operations via row checkboxes on both dashboards
+      (set any status on the selection; Merge needs 2+ selected and asks
+      which entry to keep); the inbox "accept/ignore all shown" from 3.1
+      stays
+- [x] Known-vocab de-emphasis in breakdowns: sentence vocab is
+      batch-resolved against the store (`POST /api/vocab/lookup`,
+      surface variants included); known words render dimmed in the vocab
+      table and inline links, and the word popover gains an in-store
+      status toggle
+- [x] Chapter vocab coverage: "Vocab N/M known" chip in the chapter
+      topbar (`GET /api/store/coverage?chapter_id=…`) linking to the
+      chapter-filtered vocab dashboard; updates live as statuses change
+      in the breakdown popover (new `modules/events.ts` pub/sub bus, per
+      the plan's state-syncing note)
+
+### 3.4 Built-in SRS (web)
+
+Shipped 2026-07-01.
+
+- [x] Append-only review event log (`data/store/reviews.jsonl`): one
+      JSON line per graded review (item, card type, grade 1–4, ts,
+      elapsed_ms); SRS state is always derived by replaying a card's
+      events, so the log stays the single source of truth and the
+      scheduling formula can change without a data migration
+- [x] FSRS-4.5 scheduler implemented in-repo (`services/srs.py`, default
+      reference weights, no new dependency): retention target 0.9 (next
+      interval = stability), whole-day intervals with a 10-minute
+      same-day relearn step after "Again"
+- [x] Cards per (item, card type), each scheduled independently: vocab
+      gets a word card (headword → reading/meaning) plus a
+      sentence-context card when a sighting carries the sentence;
+      grammar gets a pattern card — resolves the plan's open question 3
+      as "both card types"
+- [x] Queue API: `GET /api/study/queue` (due cards most-overdue first,
+      then new cards capped by `new_limit`, new vocab in dashboard
+      priority order; only curation-status `active` items enter) and
+      `POST /api/study/reviews` (appends an event, returns the new
+      derived state)
+- [x] Flashcard UI at `/study` (topbar "Study" link): reveal with
+      space/enter, grade Again/Hard/Good/Easy with 1–4 keys, elapsed-ms
+      capture, failed cards re-queued at the end of the session,
+      session-done summary with "Keep studying"
+
+### 3.5 Sync groundwork (design only)
+
+Shipped 2026-07-01.
+
+- [x] CloudKit record mapping documented in `docs/cloudkit-sync-plan.md`:
+      `VocabItem`/`GrammarItem`/`ReviewEvent` record types in one custom
+      zone (private DB), items last-writer-wins on `updated_at` with
+      tombstone-wins, review events create-only (union merge, FSRS state
+      re-derived per device), JSONL stays canonical on the Mac; no code
+      until Phase 5
 
 ## Phase 4: Export + Exercises
 

@@ -10,7 +10,15 @@ from typing import Any
 from .config import get_settings
 from .middleware import correlation_id_var
 from .providers import registry
-from .services import breakdown_links, grammar_guide, llm_audit, pdf, region_chain, storage
+from .services import (
+    breakdown_links,
+    grammar_guide,
+    harvest,
+    llm_audit,
+    pdf,
+    region_chain,
+    storage,
+)
 
 log = logging.getLogger("studious.jobs")
 
@@ -365,7 +373,7 @@ class JobManager:
         )
         log.info("region_job_done", extra={**job_extra, "duration_ms": duration_ms})
 
-        storage.update_region(
+        region = storage.update_region(
             doc_id,
             chapter_id,
             region_id,
@@ -373,6 +381,14 @@ class JobManager:
             transcribed_at=_now_iso(),
             transcribed_model=result.meta.get("model"),
         )
+        if region is not None and region.get("tag") == "vocab_list":
+            # Harvest failures must not fail the transcription job — the
+            # transcription itself succeeded and the store can catch up
+            # via backfill.
+            try:
+                harvest.ingest_vocab_list_region(doc_id, chapter_id, region)
+            except Exception:
+                log.exception("harvest_vocab_list_error", extra=job_extra)
         self._complete_job(job_id, duration_ms=duration_ms)
 
     async def _run_breakdown_job(self, job_id: str, job: dict[str, Any]) -> None:
@@ -500,6 +516,12 @@ class JobManager:
             context=audit_ctx,
             meta=result.meta,
         )
+        # Harvest failures must not fail the breakdown job — the breakdown
+        # itself saved fine and the store can catch up via backfill.
+        try:
+            harvest.ingest_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
+        except Exception:
+            log.exception("harvest_breakdown_error", extra=job_extra)
         log.info("breakdown_job_done", extra={**job_extra, "duration_ms": duration_ms})
         self._complete_job(job_id, duration_ms=duration_ms)
 

@@ -809,3 +809,167 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   text-align: center; color: inherit;
 }
 .shortcut-plus { color: var(--muted); font-size: 11px; }
+
+/* ---------- Vocab/Grammar study dashboard ---------- */
+.study-dash { padding: 16px; max-width: 1100px; margin: 0 auto; width: 100%; box-sizing: border-box; overflow-y: auto; }
+.study-dash-header { margin-bottom: 12px; flex-wrap: wrap; }
+.topbar-nav { display: flex; gap: 6px; margin-left: 12px; }
+.study-stats { display: flex; gap: 6px; flex-wrap: wrap; }
+.study-stat-chip {
+  font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg); cursor: pointer;
+}
+.study-stat-chip:hover { border-color: var(--accent); }
+.study-stat-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.study-stat-count { opacity: 0.75; font-variant-numeric: tabular-nums; }
+.study-filters { margin-bottom: 12px; flex-wrap: wrap; }
+.study-filters input[type="search"] { flex: 1; min-width: 180px; }
+.study-add-form { margin-bottom: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-soft); }
+.study-add-form input { flex: 1; min-width: 120px; }
+.study-bulk-bar {
+  margin-bottom: 8px; padding: 6px 10px; border: 1px dashed var(--border);
+  border-radius: 8px; background: var(--bg-soft);
+}
+.study-bulk-label { font-size: 12px; color: var(--muted); }
+.study-bulk-bar button { font-size: 12px; padding: 3px 10px; }
+.study-list { display: flex; flex-direction: column; gap: 6px; }
+.study-row { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.study-row:hover { border-color: var(--accent-soft); }
+.study-row-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.study-term { font-size: 17px; font-weight: 600; }
+.study-reading { font-size: 13px; color: var(--muted); }
+.study-gloss { font-size: 13px; color: var(--fg); opacity: 0.85; }
+.study-badge {
+  font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border);
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap;
+}
+.study-badge-vocab_list { background: rgba(22,163,74,0.12); color: #16a34a; border-color: rgba(22,163,74,0.3); }
+.study-badge-breakdown { background: rgba(37,99,235,0.12); color: #2563eb; border-color: rgba(37,99,235,0.3); }
+.study-badge-manual { background: rgba(107,114,128,0.12); color: #6b7280; border-color: rgba(107,114,128,0.3); }
+.study-sightings-btn {
+  font-size: 11px; padding: 1px 8px; border-radius: 999px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.study-status-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.study-status-toggle .study-status-btn {
+  font-size: 11px; padding: 3px 8px; border: none; border-radius: 0; background: var(--bg); color: var(--muted);
+}
+.study-status-toggle .study-status-btn + .study-status-btn { border-left: 1px solid var(--border); }
+.study-status-toggle .study-status-btn:hover { background: var(--bg-soft); color: var(--fg); }
+.study-status-toggle .study-status-btn.active { background: var(--accent); color: #fff; }
+.study-delete-btn { font-size: 11px; color: var(--muted); padding: 3px 7px; }
+.study-delete-btn:hover { color: #d33; border-color: #d33; }
+.study-row-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 6px; }
+.study-sighting { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.study-sighting-text { flex: 1; line-height: 1.5; }
+.study-sighting a { white-space: nowrap; font-size: 12px; }
+
+/* Classification badges + WaniKani drill-down (Phase 3.2) */
+.study-badge-jlpt { background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.3); }
+.study-badge-common { background: rgba(22,163,74,0.10); color: #15803d; border-color: rgba(22,163,74,0.25); }
+.study-badge-wk { background: rgba(236,72,153,0.10); color: #db2777; border-color: rgba(236,72,153,0.3); }
+.study-links { margin-bottom: 4px; }
+.study-link { font-size: 12px; white-space: nowrap; }
+.wk-drilldown { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.wk-subject { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.wk-subject-kanji { border-left: 3px solid #db2777; }
+.wk-subject-radical { border-left: 3px solid #2563eb; }
+.wk-subject-vocabulary, .wk-subject-kana_vocabulary { border-left: 3px solid #a855f7; }
+.wk-subject-head { flex-wrap: wrap; }
+.wk-chars { font-size: 18px; font-weight: 600; }
+.wk-meta { font-size: 12px; color: var(--muted); }
+.wk-mnemonic { font-size: 13px; line-height: 1.55; margin-top: 6px; }
+.wk-user-notes { font-size: 13px; margin-top: 6px; padding: 6px 8px; background: var(--bg-soft); border-radius: 6px; }
+.wk-radicals { margin-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.wk-tag { padding: 0 3px; border-radius: 3px; font-weight: 500; }
+.wk-tag-radical { background: rgba(37,99,235,0.12); color: #2563eb; }
+.wk-tag-kanji { background: rgba(236,72,153,0.12); color: #db2777; }
+.wk-tag-vocabulary { background: rgba(168,85,247,0.12); color: #a855f7; }
+.wk-tag-reading, .wk-tag-ja { background: var(--bg-soft); }
+.wk-srs { text-transform: none; }
+.wk-srs-burned { background: rgba(107,114,128,0.15); color: #374151; border-color: rgba(107,114,128,0.35); }
+
+/* Curation & editing (Phase 3.3) */
+.study-select { align-self: center; accent-color: var(--accent); }
+.study-detail-head { flex-wrap: wrap; gap: 8px; }
+.study-detail-head .study-links { margin-bottom: 0; }
+.study-variants { font-size: 12px; color: var(--muted); }
+.study-edit-btn { font-size: 12px; padding: 3px 10px; }
+.study-notes {
+  font-size: 13px; padding: 6px 8px; background: var(--bg-soft);
+  border-radius: 6px; white-space: pre-wrap;
+}
+.study-edit-form { display: flex; flex-direction: column; gap: 8px; }
+.study-edit-field { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.study-edit-field > span { width: 90px; color: var(--muted); text-align: right; }
+.study-edit-field input, .study-edit-field textarea { flex: 1; }
+.choose-options { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; }
+.choose-option {
+  display: flex; align-items: baseline; gap: 8px; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 14px;
+}
+.choose-option:hover { border-color: var(--accent); }
+.choose-option:has(input:checked) { border-color: var(--accent); background: var(--bg-soft); }
+.choose-option input { accent-color: var(--accent); }
+.choose-option-hint { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+
+/* Known-word de-emphasis + store status in breakdowns (Phase 3.3) */
+.breakdown-vocab tr.bd-vocab-known { opacity: 0.45; }
+.bd-link.bd-link-known { opacity: 0.55; text-decoration-style: dotted; }
+.bd-popover-store { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.bd-popover-store .study-status-toggle { flex-wrap: nowrap; }
+.bd-popover-store-label { font-size: 11px; color: var(--muted); }
+
+/* Chapter vocab coverage chip (Phase 3.3) */
+.coverage-chip {
+  font-size: 11px; padding: 2px 10px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer;
+  background: var(--bg);
+}
+.coverage-chip:hover { border-color: var(--accent); color: var(--fg); }
+
+/* Flashcard study session (Phase 3.4) */
+.srs-session { max-width: 720px; }
+.srs-progress { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.srs-body { display: flex; flex-direction: column; }
+.srs-card {
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg-soft);
+  padding: 32px 24px; margin-top: 12px; display: flex; flex-direction: column;
+  align-items: center; gap: 14px; text-align: center;
+}
+.srs-card-meta { gap: 8px; align-self: flex-start; align-items: center; }
+.srs-card-type { font-size: 11px; color: var(--muted); }
+.srs-badge-new { background: rgba(37,99,235,0.12); color: #2563eb; border-color: rgba(37,99,235,0.3); }
+.srs-badge-due { background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.3); }
+.srs-front { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.srs-term { font-size: 42px; font-weight: 600; line-height: 1.3; }
+.srs-term-small { font-size: 26px; }
+.srs-sentence { font-size: 22px; line-height: 1.9; max-width: 34em; }
+.srs-surface { background: rgba(234,88,12,0.18); color: inherit; border-radius: 4px; padding: 0 3px; }
+.srs-front-hint { font-size: 12px; color: var(--muted); }
+.srs-back {
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  border-top: 1px dashed var(--border); padding-top: 14px; width: 100%;
+}
+.srs-back[hidden] { display: none; }
+.srs-reading { font-size: 20px; color: var(--muted); }
+.srs-meaning { font-size: 17px; max-width: 36em; }
+.srs-pos { font-size: 12px; color: var(--muted); }
+.srs-example { font-size: 15px; line-height: 1.8; color: var(--fg); opacity: 0.85; max-width: 34em; }
+.srs-notes {
+  font-size: 13px; padding: 6px 10px; background: var(--bg);
+  border-radius: 6px; white-space: pre-wrap; max-width: 36em;
+}
+.srs-links { justify-content: center; }
+.srs-controls { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+.srs-controls button { padding: 8px 18px; font-size: 14px; }
+.srs-grade-1 { border-color: rgba(211,51,51,0.5); color: #d33; }
+.srs-grade-1:hover { background: rgba(211,51,51,0.1); }
+.srs-grade-2 { border-color: rgba(234,88,12,0.5); color: #ea580c; }
+.srs-grade-2:hover { background: rgba(234,88,12,0.1); }
+.srs-grade-3 { border-color: rgba(22,163,74,0.5); color: #16a34a; }
+.srs-grade-3:hover { background: rgba(22,163,74,0.1); }
+.srs-grade-4 { border-color: rgba(37,99,235,0.5); color: #2563eb; }
+.srs-grade-4:hover { background: rgba(37,99,235,0.1); }
+.srs-done { padding: 40px 24px; }
