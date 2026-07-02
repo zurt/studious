@@ -125,6 +125,14 @@ then reload `/study`. Check what the server sees with
 `curl 'localhost:8000/api/study/queue?limit=5' | jq .counts` —
 `active_items: 0` means it's a status problem, not a scheduling one.
 
+### `make test` fails with "Failed to spawn: pytest" after touching backend deps
+Running plain `uv sync` uninstalls the dev tools: this project declares
+them as a `[project.optional-dependencies]` **extra** (`.[dev]`), which
+`uv sync` does not include by default, so it removes pytest/pip-audit
+from the venv. Reinstall with `cd backend && uv pip install -e ".[dev]"`
+(what `make install-backend` runs). After changing locked versions
+(`uv lock --upgrade-package …`), use that instead of `uv sync`.
+
 ### An element with the `hidden` attribute is still visible
 Any CSS rule that sets `display` on the element's class (e.g.
 `.srs-back { display: flex; }`) overrides the UA stylesheet's
