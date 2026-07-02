@@ -365,10 +365,31 @@ Shipped 2026-07-01.
 
 ### 3.4 Built-in SRS (web)
 
-- [ ] Append-only review event log (`data/store/reviews.jsonl`)
-- [ ] FSRS scheduler implemented in-repo (no new dependency)
-- [ ] Review queue API + flashcard UI (word-first and sentence-context
-      cards built from sightings)
+Shipped 2026-07-01.
+
+- [x] Append-only review event log (`data/store/reviews.jsonl`): one
+      JSON line per graded review (item, card type, grade 1–4, ts,
+      elapsed_ms); SRS state is always derived by replaying a card's
+      events, so the log stays the single source of truth and the
+      scheduling formula can change without a data migration
+- [x] FSRS-4.5 scheduler implemented in-repo (`services/srs.py`, default
+      reference weights, no new dependency): retention target 0.9 (next
+      interval = stability), whole-day intervals with a 10-minute
+      same-day relearn step after "Again"
+- [x] Cards per (item, card type), each scheduled independently: vocab
+      gets a word card (headword → reading/meaning) plus a
+      sentence-context card when a sighting carries the sentence;
+      grammar gets a pattern card — resolves the plan's open question 3
+      as "both card types"
+- [x] Queue API: `GET /api/study/queue` (due cards most-overdue first,
+      then new cards capped by `new_limit`, new vocab in dashboard
+      priority order; only curation-status `active` items enter) and
+      `POST /api/study/reviews` (appends an event, returns the new
+      derived state)
+- [x] Flashcard UI at `/study` (topbar "Study" link): reveal with
+      space/enter, grade Again/Hard/Good/Easy with 1–4 keys, elapsed-ms
+      capture, failed cards re-queued at the end of the session,
+      session-done summary with "Keep studying"
 
 ### 3.5 Sync groundwork (design only)
 

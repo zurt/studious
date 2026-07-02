@@ -307,7 +307,7 @@ cross-textbook store — dictionary-linked, graded, editable — that becomes th
 long-term core study artifact and eventually powers built-in SRS and an iOS
 companion app.
 
-**Design agreed 2026-07-01; milestones 3.1–3.3 shipped 2026-07-01** (see
+**Design agreed 2026-07-01; milestones 3.1–3.4 shipped 2026-07-01** (see
 roadmap for the item-level record). Full schemas, milestone breakdown (3.1–3.5),
 licensing notes, and open questions live in `docs/vocab-store-plan.md`. Key
 decisions:
@@ -350,15 +350,16 @@ decisions:
    grouping.
 3. **3.3 Curation** — manual add/edit, merge duplicates, bulk actions,
    known-word de-emphasis in breakdowns, chapter coverage stats.
-4. **3.4 Built-in SRS (web)** — review event log, in-repo FSRS, queue API,
-   flashcard UI (word-first + sentence-context cards from sightings).
+4. **3.4 Built-in SRS (web)** — review event log, in-repo FSRS-4.5, queue
+   API, flashcard UI at `/study` (word-first + sentence-context cards from
+   sightings, graded per card).
 5. **3.5 Sync groundwork** — CloudKit record-mapping design doc only.
 
 **State syncing:** status changes need to reflect across dashboard/breakdown
 views — add a simple pub/sub event bus (evaluate a reactive lib only if that
 gets painful).
 
-**Topbar:** Add "Vocab" and "Grammar" links.
+**Topbar:** Add "Study", "Vocab", and "Grammar" links.
 
 ## Phase 4: Export + Exercises
 
@@ -393,6 +394,7 @@ gets painful).
 | Dictionary-first enrichment (no LLM, no scraping) | Bundled JMdict is instant, free, offline, deterministic; LLM glosses only fill gaps; jisho.org unofficial API avoided entirely |
 | WaniKani SRS history is display-only | User finished WK long ago and knowledge atrophied; auto-marking burned items "known" would poison the study queue |
 | Curation status separate from SRS state | Status (`unreviewed/active/known/ignored`) is human judgment; SRS state is derived from an append-only review log — mixing them breaks both |
+| FSRS-4.5 in-repo, SRS state derived by event replay | Small, well-specified algorithm — no dependency; replaying `reviews.jsonl` per card means formula changes need no data migration and history is never lost |
 | CloudKit-ready schema from day one | UUIDs, `updated_at`, tombstones, append-only event logs cost nothing now and avoid a migration when the iOS companion arrives |
 | Cost estimation from API response tokens | Anthropic includes token counts in responses; combine with a pricing table for estimates. Not billing-accurate, but good enough for awareness |
 

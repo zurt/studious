@@ -90,6 +90,16 @@ Open <http://localhost:5173>.
    sentence breakdowns (each word's popover gets an in-store status
    toggle), and the chapter view shows a "Vocab N/M known" coverage
    chip. See `docs/vocab-store-plan.md` for the Phase 3 design.
+10. **Study with built-in flashcards** — the **Study** topbar link runs a
+    spaced-repetition session over everything marked **active** in the
+    store. Vocab gets a word→meaning card plus a sentence-context card
+    built from a real textbook sighting; grammar patterns get a
+    pattern→explanation card. Reveal with space, grade with 1–4
+    (Again/Hard/Good/Easy); failed cards return at the end of the
+    session. Scheduling is FSRS-4.5 implemented in-repo; every review is
+    appended to `data/store/reviews.jsonl` and card state is derived by
+    replay, so history is never lost and the scheduler can evolve
+    without migrations.
 
 ## Layout
 

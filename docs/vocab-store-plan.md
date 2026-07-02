@@ -1,9 +1,9 @@
 # Phase 3: Central Vocab/Grammar Store — Design & Plan
 
 **Status:** Design agreed 2026-07-01. Milestones 3.1 (store foundation +
-harvest + dashboards), 3.2 (enrichment + classification), and 3.3
-(curation & editing) shipped 2026-07-01 — see roadmap for the item-level
-record. Implementation notes:
+harvest + dashboards), 3.2 (enrichment + classification), 3.3
+(curation & editing), and 3.4 (built-in SRS) shipped 2026-07-01 — see
+roadmap for the item-level record. Implementation notes:
 
 - Dedup indexes are derived in memory from the JSONL (cached against file
   mtime+size) rather than written to `*.index.json` files — one less
@@ -23,6 +23,15 @@ record. Implementation notes:
 - Chapter coverage is served by `GET /api/store/coverage?chapter_id=…`
   (the chapter-scoped *list* is the existing `chapter_id` filter on
   `/api/vocab`, reachable from the coverage chip via `/vocab?chapter=…`).
+- SRS (3.4) is FSRS-4.5 with the reference default weights in
+  `services/srs.py`; state is derived by replaying `reviews.jsonl`
+  per card (cached against file mtime+size like the stores), never
+  stored. Cards are per (kind, item_id, card_type) with card types
+  `word`/`context` (vocab) and `pattern` (grammar), scheduled
+  independently. Retention target 0.9 (interval = stability); "Again"
+  schedules a 10-minute relearn step and the UI re-queues the card
+  within the session. Only `active` items enter the queue; new vocab
+  enters in dashboard priority order, word card before context card.
 
 ## Objective
 
@@ -279,9 +288,9 @@ until the iOS app starts (Phase 5).
    search URLs, or skip links for grammar. Decide when 3.2 starts.
 2. **Frequency dataset choice** (3.2): BCCWJ short-unit list vs
    wordfreq-derived. Compare coverage on real store contents.
-3. **Card design** (3.4): word-first vs sentence-first as the default
-   flashcard front; probably both card types per item with FSRS
-   scheduling per card.
+3. ~~**Card design** (3.4)~~ Resolved 2026-07-01: both card types per
+   item (word card always; sentence-context card when a sighting has
+   the sentence), FSRS-scheduled per card.
 4. **Sense granularity**: v1 tracks at word level (one item per JMdict
    entry), not per-sense. Revisit if polysemous words (かける…) become
    noisy in study.
