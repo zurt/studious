@@ -46,6 +46,17 @@ logs `harvest_vocab_list_error` / `harvest_breakdown_error` **without
 failing the parent job** — re-run `POST /api/store/backfill` (or the
 dashboard's Backfill button) to converge the store; it is idempotent.
 
+### SRS review history (built-in flashcards)
+`backend/data/store/reviews.jsonl` — append-only, one JSON line per graded
+review (`item_id`, `kind`, `card_type`, `grade` 1–4, `ts`, `elapsed_ms`).
+There is **no stored SRS state**: a card's stability/difficulty/due date is
+derived by replaying its events through the FSRS scheduler in
+`backend/app/services/srs.py` (cached against the file's mtime+size).
+Inspect one card's history with
+`jq 'select(.item_id == "<id>" and .card_type == "word")' backend/data/store/reviews.jsonl`.
+Deleting the file resets all scheduling (cards become "new") but nothing
+else. Reviews log as `review_recorded` under `studious.api.study`.
+
 ### Reference data (JMdict index, WaniKani cache)
 `backend/data/refs/jmdict/jmdict.sqlite` — read-only lookup index built by
 `make refs` (~70 MB; sources pinned by SHA-256 in `backend/refs.lock.json`,
@@ -103,6 +114,24 @@ the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
 - The E2E backend (`backend/e2e_server.py`, port 8765) logs at `WARNING` to Playwright's server output; transcriptions come from the mock VLM provider, so real-API failure modes (auth, rate limits) cannot occur in this suite. If an E2E run reports a port already in use, something is squatting on 8765 or 5273 (`lsof -i :8765`); the suite never reuses an existing server by design.
 
 ## Known failure modes
+
+### The Study page says "No cards to study yet" despite a full vocab store
+The queue only serves items with curation status **active** — that's the
+point of the curation lifecycle (see the status-vs-SRS-state distinction
+in `docs/vocab-store-plan.md`). Freshly harvested items are `unreviewed`
+and `known`/`ignored` items never appear. Accept items into study on the
+Vocab/Grammar dashboards (inbox → Active, or the per-row status toggle),
+then reload `/study`. Check what the server sees with
+`curl 'localhost:8000/api/study/queue?limit=5' | jq .counts` —
+`active_items: 0` means it's a status problem, not a scheduling one.
+
+### An element with the `hidden` attribute is still visible
+Any CSS rule that sets `display` on the element's class (e.g.
+`.srs-back { display: flex; }`) overrides the UA stylesheet's
+`[hidden] { display: none; }` because a class selector outweighs an
+attribute selector. The pages toggle visibility with `el.hidden` a lot, so
+when adding a `display:` rule to a toggled element, also add
+`.the-class[hidden] { display: none; }` (see `.srs-back` in `styles.css`).
 
 ### Vocab items show no JLPT/common badges (or the wrong meaning) after harvest
 Enrichment only runs when a source exists: the JMdict index (`make refs`)

@@ -928,3 +928,48 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   background: var(--bg);
 }
 .coverage-chip:hover { border-color: var(--accent); color: var(--fg); }
+
+/* Flashcard study session (Phase 3.4) */
+.srs-session { max-width: 720px; }
+.srs-progress { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.srs-body { display: flex; flex-direction: column; }
+.srs-card {
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg-soft);
+  padding: 32px 24px; margin-top: 12px; display: flex; flex-direction: column;
+  align-items: center; gap: 14px; text-align: center;
+}
+.srs-card-meta { gap: 8px; align-self: flex-start; align-items: center; }
+.srs-card-type { font-size: 11px; color: var(--muted); }
+.srs-badge-new { background: rgba(37,99,235,0.12); color: #2563eb; border-color: rgba(37,99,235,0.3); }
+.srs-badge-due { background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.3); }
+.srs-front { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.srs-term { font-size: 42px; font-weight: 600; line-height: 1.3; }
+.srs-term-small { font-size: 26px; }
+.srs-sentence { font-size: 22px; line-height: 1.9; max-width: 34em; }
+.srs-surface { background: rgba(234,88,12,0.18); color: inherit; border-radius: 4px; padding: 0 3px; }
+.srs-front-hint { font-size: 12px; color: var(--muted); }
+.srs-back {
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  border-top: 1px dashed var(--border); padding-top: 14px; width: 100%;
+}
+.srs-back[hidden] { display: none; }
+.srs-reading { font-size: 20px; color: var(--muted); }
+.srs-meaning { font-size: 17px; max-width: 36em; }
+.srs-pos { font-size: 12px; color: var(--muted); }
+.srs-example { font-size: 15px; line-height: 1.8; color: var(--fg); opacity: 0.85; max-width: 34em; }
+.srs-notes {
+  font-size: 13px; padding: 6px 10px; background: var(--bg);
+  border-radius: 6px; white-space: pre-wrap; max-width: 36em;
+}
+.srs-links { justify-content: center; }
+.srs-controls { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+.srs-controls button { padding: 8px 18px; font-size: 14px; }
+.srs-grade-1 { border-color: rgba(211,51,51,0.5); color: #d33; }
+.srs-grade-1:hover { background: rgba(211,51,51,0.1); }
+.srs-grade-2 { border-color: rgba(234,88,12,0.5); color: #ea580c; }
+.srs-grade-2:hover { background: rgba(234,88,12,0.1); }
+.srs-grade-3 { border-color: rgba(22,163,74,0.5); color: #16a34a; }
+.srs-grade-3:hover { background: rgba(22,163,74,0.1); }
+.srs-grade-4 { border-color: rgba(37,99,235,0.5); color: #2563eb; }
+.srs-grade-4:hover { background: rgba(37,99,235,0.1); }
+.srs-done { padding: 40px 24px; }

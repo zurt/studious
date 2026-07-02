@@ -5,6 +5,7 @@ import { mountDocumentView } from "./pages/document-view";
 import { mountChapterView } from "./pages/chapter-view";
 import { mountGrammarGuide } from "./pages/grammar-guide";
 import { mountVocabDashboard, mountGrammarDashboard } from "./pages/study-dashboard";
+import { mountStudySession } from "./pages/study-session";
 import { openSettingsModal, syncSettingsModalFromUrl } from "./modules/settings-modal";
 import {
   openShortcutsHelp,
@@ -20,6 +21,7 @@ root.innerHTML = `
     <div class="topbar" id="app-topbar">
       <h1><a href="/" id="home-link" style="color:inherit;text-decoration:none">Studious</a></h1>
       <nav class="topbar-nav">
+        <a href="/study" class="topbar-link-btn" data-nav-link>Study</a>
         <a href="/vocab" class="topbar-link-btn" data-nav-link>Vocab</a>
         <a href="/grammar" class="topbar-link-btn" data-nav-link>Grammar</a>
       </nav>
@@ -112,6 +114,7 @@ initRouter(pageContainer, [
   { pattern: "/doc/:id/chapter/:chapterId/grammar-guide", mount: mountGrammarGuide },
   { pattern: "/vocab", mount: mountVocabDashboard },
   { pattern: "/grammar", mount: mountGrammarDashboard },
+  { pattern: "/study", mount: mountStudySession },
 ]);
 
 // When the page changes while in fullscreen, ensure controls land in the new page's topbar.

@@ -24,6 +24,16 @@ const GROUPS: Group[] = [
     ],
   },
   {
+    title: "Study session",
+    items: [
+      { keys: ["Space"], desc: "Show answer" },
+      { keys: ["1"], desc: "Grade: Again" },
+      { keys: ["2"], desc: "Grade: Hard" },
+      { keys: ["3"], desc: "Grade: Good" },
+      { keys: ["4"], desc: "Grade: Easy" },
+    ],
+  },
+  {
     title: "Dialogs",
     items: [
       { keys: ["Enter"], desc: "Confirm / submit" },

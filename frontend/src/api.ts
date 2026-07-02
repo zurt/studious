@@ -682,6 +682,64 @@ export async function runStoreBackfill(): Promise<Record<string, number>> {
   return jpost("/api/store/backfill");
 }
 
+// ---------- Study (built-in SRS) ----------
+
+export type StudyCardType = "word" | "context" | "pattern";
+export type StudyGrade = 1 | 2 | 3 | 4; // Again, Hard, Good, Easy
+
+export type StudyCardState = {
+  reps: number;
+  lapses: number;
+  stability: number | null;
+  difficulty: number | null;
+  last_grade: StudyGrade | null;
+  last_ts: string | null;
+  due: string | null;
+  interval_days: number | null;
+};
+
+export type StudyCard = {
+  kind: StoreKind;
+  item_id: string;
+  card_type: StudyCardType;
+  item: {
+    headword?: string;
+    reading?: string;
+    meaning?: string;
+    pos?: string[];
+    pattern?: string;
+    explanation?: string;
+    notes: string;
+    links: Record<string, string>;
+    classifications: StoreClassifications;
+  };
+  sighting: StoreSighting | null;
+  state: StudyCardState;
+};
+
+export type StudyQueue = {
+  cards: StudyCard[];
+  counts: { due: number; new: number; active_items: number };
+};
+
+export async function getStudyQueue(limit = 20, newLimit = 10): Promise<StudyQueue> {
+  return jget(`/api/study/queue?limit=${limit}&new_limit=${newLimit}`);
+}
+
+export async function postStudyReview(
+  card: Pick<StudyCard, "kind" | "item_id" | "card_type">,
+  grade: StudyGrade,
+  elapsedMs?: number
+): Promise<{ state: StudyCardState }> {
+  return jpost("/api/study/reviews", {
+    kind: card.kind,
+    item_id: card.item_id,
+    card_type: card.card_type,
+    grade,
+    elapsed_ms: elapsedMs ?? null,
+  });
+}
+
 // ---------- Reference data (JMdict enrichment, WaniKani) ----------
 
 export type WkSubjectView = {
