@@ -10,6 +10,9 @@ import {
   syncWanikani,
   getVocabWanikani,
   runStoreEnrich,
+  mergeStoreItems,
+  lookupVocab,
+  getStoreCoverage,
 } from "../src/api";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -93,6 +96,39 @@ describe("store api", () => {
     fetchMock.mockResolvedValue(jsonResponse({ attempted: 0 }));
     await runStoreEnrich(true);
     expect(fetchMock.mock.calls[3][0]).toBe("/api/store/enrich?force=true");
+  });
+
+  it("mergeStoreItems posts the source id to the merge route", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ id: "keep" }));
+    await mergeStoreItems("vocab", "keep", "dup");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/vocab/keep/merge");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ source_id: "dup" });
+  });
+
+  it("lookupVocab posts entries and unwraps matches", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ matches: [{ id: "a", status: "known" }, null] }),
+    );
+    const matches = await lookupVocab([
+      { headword: "犬", reading: "いぬ" },
+      { headword: "謎" },
+    ]);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/vocab/lookup");
+    expect(JSON.parse(init.body).entries).toHaveLength(2);
+    expect(matches[0]).toEqual({ id: "a", status: "known" });
+    expect(matches[1]).toBeNull();
+  });
+
+  it("getStoreCoverage queries by chapter id", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ vocab: { total: 3, known: 1 }, grammar: { total: 0 } }),
+    );
+    const cov = await getStoreCoverage("ch1");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/store/coverage?chapter_id=ch1");
+    expect(cov.vocab.known).toBe(1);
   });
 
   it("getStoreStats and runStoreBackfill hit /api/store", async () => {

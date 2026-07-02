@@ -337,10 +337,31 @@ Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
 
 ### 3.3 Curation + editing
 
-- [ ] Manual add/edit entries, notes field
-- [ ] Merge-duplicates action; bulk status operations
-- [ ] Known-vocab de-emphasis in breakdown display
-- [ ] Chapter vocab coverage stats ("N of M chapter vocab known")
+Shipped 2026-07-01.
+
+- [x] Manual add (3.1) + inline edit of any entry's fields and notes in
+      the dashboard row detail; hand-edited meanings keep
+      `meaning_source: "user"` so enrichment never overwrites them
+- [x] Merge-duplicates: `POST /api/{vocab,grammar}/{id}/merge` unions
+      sightings, keeps the canonical entry's curated fields (an
+      unreviewed target adopts the source's status), records the losing
+      spelling in `surface_variants` (searchable), and tombstones the
+      source with `merged_into` — re-harvests of the merged-away
+      spelling redirect to the canonical item
+- [x] Bulk status operations via row checkboxes on both dashboards
+      (set any status on the selection; Merge needs 2+ selected and asks
+      which entry to keep); the inbox "accept/ignore all shown" from 3.1
+      stays
+- [x] Known-vocab de-emphasis in breakdowns: sentence vocab is
+      batch-resolved against the store (`POST /api/vocab/lookup`,
+      surface variants included); known words render dimmed in the vocab
+      table and inline links, and the word popover gains an in-store
+      status toggle
+- [x] Chapter vocab coverage: "Vocab N/M known" chip in the chapter
+      topbar (`GET /api/store/coverage?chapter_id=…`) linking to the
+      chapter-filtered vocab dashboard; updates live as statuses change
+      in the breakdown popover (new `modules/events.ts` pub/sub bus, per
+      the plan's state-syncing note)
 
 ### 3.4 Built-in SRS (web)
 

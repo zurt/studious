@@ -1,8 +1,9 @@
 # Phase 3: Central Vocab/Grammar Store — Design & Plan
 
 **Status:** Design agreed 2026-07-01. Milestones 3.1 (store foundation +
-harvest + dashboards) and 3.2 (enrichment + classification) shipped
-2026-07-01 — see roadmap for the item-level record. Implementation notes:
+harvest + dashboards), 3.2 (enrichment + classification), and 3.3
+(curation & editing) shipped 2026-07-01 — see roadmap for the item-level
+record. Implementation notes:
 
 - Dedup indexes are derived in memory from the JSONL (cached against file
   mtime+size) rather than written to `*.index.json` files — one less
@@ -14,6 +15,14 @@ harvest + dashboards) and 3.2 (enrichment + classification) shipped
 - WK enrichment stores only `wanikani_level` in classifications; SRS
   history appears in the drill-down payload only, keeping the
   display-signal-only rule structural.
+- Merge (3.3) tombstones the duplicate with a `merged_into` pointer;
+  harvest follows that pointer, so re-ingesting a merged-away spelling
+  lands on the canonical item instead of being dropped. The losing
+  spelling is kept in `surface_variants`, which both search and
+  `POST /api/vocab/lookup` match.
+- Chapter coverage is served by `GET /api/store/coverage?chapter_id=…`
+  (the chapter-scoped *list* is the existing `chapter_id` filter on
+  `/api/vocab`, reachable from the coverage chip via `/vocab?chapter=…`).
 
 ## Objective
 

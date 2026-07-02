@@ -1,9 +1,10 @@
 import {
   getDocument, getChapter, pageImageUrl,
   createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream, linkRegion,
-  requestGrammarGuide,
+  requestGrammarGuide, getStoreCoverage,
   type DocMeta, type Chapter, type Region,
 } from "../api";
+import { on, STORE_STATUS_CHANGED } from "../modules/events";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { navigate, replaceQuery } from "../router";
 import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawer";
@@ -66,6 +67,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           <button id="prev-chapter-btn" class="chapter-nav-btn" title="Previous chapter" aria-label="Previous chapter" disabled>&larr;</button>
           <button id="next-chapter-btn" class="chapter-nav-btn" title="Next chapter" aria-label="Next chapter" disabled>&rarr;</button>
           <div class="spacer"></div>
+          <button id="coverage-chip" class="coverage-chip" style="display:none" title="Chapter vocab coverage — open in the vocab dashboard"></button>
           <a id="grammar-guide-btn" class="topbar-link-btn" style="display:none" href=""></a>
           <button id="link-mode-btn" title="Link continuation region (L)">Link</button>
           <button id="tracker-btn" title="Untranscribed regions">0 pending</button>
@@ -434,7 +436,41 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     updateTrackerBtn();
     setupDrawer();
     updatePage();
+    void refreshCoverage();
   }
+
+  const coverageChip = container.querySelector<HTMLButtonElement>("#coverage-chip")!;
+  coverageChip.addEventListener("click", () => navigate(`/vocab?chapter=${chapterId}`));
+  let coverageTimer: number | undefined;
+
+  async function refreshCoverage() {
+    try {
+      const cov = await getStoreCoverage(chapterId);
+      const v = cov.vocab || {};
+      if (!v.total) {
+        coverageChip.style.display = "none";
+        return;
+      }
+      coverageChip.textContent = `Vocab ${v.known ?? 0}/${v.total} known`;
+      const parts = [
+        `${v.active ?? 0} active`,
+        `${v.unreviewed ?? 0} in inbox`,
+        `${v.ignored ?? 0} ignored`,
+      ];
+      if (cov.grammar?.total) parts.push(`grammar: ${cov.grammar.known ?? 0}/${cov.grammar.total} known`);
+      coverageChip.title = `Chapter vocab coverage (${parts.join(", ")}) — open in the vocab dashboard`;
+      coverageChip.style.display = "";
+    } catch (e: any) {
+      logError("ChapterView", "coverage_failed", { chapter_id: chapterId, error: e.message });
+    }
+  }
+
+  // Statuses toggled from the breakdown popover update the chip without
+  // a reload; debounce since bulk changes arrive as a burst of events.
+  const offCoverage = on(STORE_STATUS_CHANGED, () => {
+    window.clearTimeout(coverageTimer);
+    coverageTimer = window.setTimeout(() => void refreshCoverage(), 400);
+  });
 
   function setupDrawer() {
     if (drawer) drawer.destroy();
@@ -948,6 +984,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   return () => {
     document.removeEventListener("keydown", onKey);
     document.removeEventListener("click", onDocClick);
+    offCoverage();
+    window.clearTimeout(coverageTimer);
     if (breakdownDestroy) breakdownDestroy();
     drawer?.destroy();
     viewer.destroy();

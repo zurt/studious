@@ -3,6 +3,7 @@ import {
   createStoreItem,
   patchStoreItem,
   deleteStoreItem,
+  mergeStoreItems,
   getStoreStats,
   runStoreBackfill,
   listDocuments,
@@ -19,7 +20,8 @@ import {
   type WkDrilldown,
   type WkSubjectView,
 } from "../api";
-import { confirmDialog } from "../modules/confirm";
+import { chooseDialog, confirmDialog } from "../modules/confirm";
+import { emit, STORE_STATUS_CHANGED, type StoreStatusChange } from "../modules/events";
 import { toastError, toastInfo } from "../modules/toast";
 import { info, error as logError } from "../logger";
 import { navigate, replaceQuery } from "../router";
@@ -38,11 +40,14 @@ type State = {
   status: StoreStatus | "";
   q: string;
   docId: string;
+  chapterId: string;
   source: string;
   sort: "recent" | "updated" | "alpha" | "priority";
   items: StoreItem[];
   total: number;
   expanded: Set<string>;
+  selected: Set<string>;
+  editing: Set<string>;
 };
 
 export function mountVocabDashboard(_params: Record<string, string>, container: HTMLElement) {
@@ -126,11 +131,14 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     status: (query.get("status") as StoreStatus) || "",
     q: query.get("q") || "",
     docId: "",
+    chapterId: query.get("chapter") || "",
     source: "",
     sort: "recent",
     items: [],
     total: 0,
     expanded: new Set(),
+    selected: new Set(),
+    editing: new Set(),
   };
   if (state.status && !STATUSES.includes(state.status as StoreStatus)) state.status = "";
 
@@ -161,6 +169,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
           <option value="alpha">${kind === "vocab" ? "By reading" : "By pattern"}</option>
           ${kind === "vocab" ? `<option value="priority">By study priority</option>` : ""}
         </select>
+        ${state.chapterId ? `<button id="study-chapter-clear" title="Showing only items sighted in one chapter — click to clear">Chapter filter ✕</button>` : ""}
       </div>
       <div id="study-bulk-bar" class="row study-bulk-bar" hidden></div>
       <div id="study-list" class="study-list"></div>
@@ -192,6 +201,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
       status: (state.status || undefined) as StoreStatus | undefined,
       q: state.q || undefined,
       doc_id: state.docId || undefined,
+      chapter_id: state.chapterId || undefined,
       source: state.source || undefined,
       sort: state.sort,
       limit: PAGE_SIZE,
@@ -229,6 +239,8 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
       const res = await listStoreItems(state.kind, params(0));
       state.items = res.items;
       state.total = res.total;
+      state.selected.clear();
+      state.editing.clear();
       render();
       void refreshStats();
     } catch (e: any) {
@@ -252,7 +264,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     moreBtn.hidden = state.items.length >= state.total;
     renderBulkBar();
     if (state.items.length === 0) {
-      const filtered = state.status || state.q || state.docId || state.source;
+      const filtered = state.status || state.q || state.docId || state.chapterId || state.source;
       listEl.innerHTML = filtered
         ? `<p class="empty">No ${state.kind} items match the current filters.</p>`
         : `<p class="empty">Nothing here yet. Items are harvested automatically when you
@@ -265,38 +277,103 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
   }
 
   function renderBulkBar() {
-    const showBulk = state.status === "unreviewed" && state.items.length > 0;
-    bulkBar.hidden = !showBulk;
-    if (!showBulk) return;
+    const selCount = state.selected.size;
+    const showInbox = state.status === "unreviewed" && state.items.length > 0;
+    bulkBar.hidden = !selCount && !showInbox;
+    if (bulkBar.hidden) return;
+    if (selCount) {
+      bulkBar.innerHTML = `
+        <span class="study-bulk-label">${selCount} selected</span>
+        ${STATUSES.map((s) => `<button data-bulk-sel="${s}">${STATUS_LABELS[s]}</button>`).join("")}
+        <button data-bulk-merge ${selCount < 2 ? "disabled" : ""} title="Merge duplicates into one entry">Merge…</button>
+        <div class="grow"></div>
+        <button data-bulk-clear>Clear</button>
+      `;
+      bulkBar.querySelectorAll<HTMLButtonElement>("[data-bulk-sel]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const targets = state.items.filter((i) => state.selected.has(i.id));
+          void bulkSet(btn.dataset.bulkSel as StoreStatus, btn, targets, false);
+        });
+      });
+      bulkBar.querySelector<HTMLButtonElement>("[data-bulk-merge]")!
+        .addEventListener("click", () => void mergeSelected());
+      bulkBar.querySelector<HTMLButtonElement>("[data-bulk-clear]")!
+        .addEventListener("click", () => {
+          state.selected.clear();
+          render();
+        });
+      return;
+    }
     bulkBar.innerHTML = `
       <span class="study-bulk-label">${state.items.length} shown</span>
       <button data-bulk="active">Accept all shown</button>
       <button data-bulk="ignored">Ignore all shown</button>
     `;
     bulkBar.querySelectorAll<HTMLButtonElement>("[data-bulk]").forEach((btn) => {
-      btn.addEventListener("click", () => void bulkSet(btn.dataset.bulk as StoreStatus, btn));
+      btn.addEventListener("click", () =>
+        void bulkSet(btn.dataset.bulk as StoreStatus, btn, [...state.items], true));
     });
   }
 
-  async function bulkSet(status: StoreStatus, btn: HTMLButtonElement) {
-    const targets = [...state.items];
-    const ok = await confirmDialog(
-      status === "ignored" ? "Ignore all shown?" : "Accept all shown?",
-      `Set ${targets.length} shown item(s) to "${STATUS_LABELS[status]}"?`,
-      STATUS_LABELS[status],
-    );
-    if (!ok) return;
+  async function bulkSet(
+    status: StoreStatus,
+    btn: HTMLButtonElement,
+    targets: StoreItem[],
+    confirm: boolean,
+  ) {
+    if (confirm) {
+      const ok = await confirmDialog(
+        status === "ignored" ? "Ignore all shown?" : "Accept all shown?",
+        `Set ${targets.length} shown item(s) to "${STATUS_LABELS[status]}"?`,
+        STATUS_LABELS[status],
+      );
+      if (!ok) return;
+    }
     btn.disabled = true;
     let failures = 0;
     for (const item of targets) {
       try {
         await patchStoreItem(state.kind, item.id, { status });
+        emit<StoreStatusChange>(STORE_STATUS_CHANGED, { kind: state.kind, id: item.id, status });
       } catch {
         failures += 1;
       }
     }
     info("StudyDash", "bulk_status", { kind: state.kind, status, count: targets.length, failures });
     if (failures) toastError(`${failures} item(s) failed to update`);
+    await reload();
+  }
+
+  async function mergeSelected() {
+    const targets = state.items.filter((i) => state.selected.has(i.id));
+    if (targets.length < 2) return;
+    const canonicalId = await chooseDialog(
+      "Merge duplicates",
+      "The other entries fold into the one you keep: sightings and spellings are " +
+        "combined, and its word, meaning, and status win.",
+      targets.map((item) => ({
+        value: item.id,
+        label: isVocab(item)
+          ? `${item.headword}${item.reading && item.reading !== item.headword ? `（${item.reading}）` : ""} — ${item.meaning}`
+          : `${item.pattern} — ${(item as GrammarItem).explanation}`,
+        hint: `${item.sightings.length} sighting(s) · ${STATUS_LABELS[item.status]}`,
+      })),
+      "Merge",
+    );
+    if (!canonicalId) return;
+    let merged = 0;
+    try {
+      for (const item of targets) {
+        if (item.id === canonicalId) continue;
+        await mergeStoreItems(state.kind, canonicalId, item.id);
+        merged += 1;
+      }
+      info("StudyDash", "merge_done", { kind: state.kind, canonical: canonicalId, merged });
+      toastInfo(`Merged ${merged} duplicate(s)`);
+    } catch (e: any) {
+      logError("StudyDash", "merge_failed", { kind: state.kind, error: e.message });
+      toastError(`Merge failed after ${merged} item(s): ` + e.message);
+    }
     await reload();
   }
 
@@ -321,6 +398,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
 
     row.innerHTML = `
       <div class="study-row-main">
+        <input type="checkbox" class="study-select" aria-label="Select entry" ${state.selected.has(item.id) ? "checked" : ""} />
         <span class="study-term" lang="ja">${escapeHtml(term)}</span>
         ${sub && sub !== term ? `<span class="study-reading" lang="ja">${escapeHtml(sub)}</span>` : ""}
         <span class="study-gloss">${escapeHtml(gloss)}</span>
@@ -340,6 +418,12 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     `;
 
     const detail = row.querySelector<HTMLElement>(".study-row-detail")!;
+    row.querySelector<HTMLInputElement>(".study-select")!.addEventListener("change", (e) => {
+      const checked = (e.target as HTMLInputElement).checked;
+      if (checked) state.selected.add(item.id);
+      else state.selected.delete(item.id);
+      renderBulkBar();
+    });
     const sightingsBtn = row.querySelector<HTMLButtonElement>(".study-sightings-btn")!;
     sightingsBtn.addEventListener("click", () => {
       const open = !detail.hidden;
@@ -363,6 +447,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         try {
           const updated = await patchStoreItem(state.kind, item.id, { status });
           Object.assign(item, updated);
+          emit<StoreStatusChange>(STORE_STATUS_CHANGED, { kind: state.kind, id: item.id, status });
           row.replaceWith(renderRow(item));
           void refreshStats();
         } catch (e: any) {
@@ -393,6 +478,10 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
   }
 
   function renderDetail(item: StoreItem, detail: HTMLElement) {
+    if (state.editing.has(item.id)) {
+      renderEditForm(item, detail);
+      return;
+    }
     const links = Object.entries(item.links || {})
       .map(
         ([name, url]) =>
@@ -411,11 +500,24 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
           </div>`;
       })
       .join("");
+    const variants = (isVocab(item) && item.surface_variants?.length)
+      ? `<span class="study-variants">also: ${item.surface_variants.map((v) => `<span lang="ja">${escapeHtml(v)}</span>`).join("、")}</span>`
+      : "";
     detail.innerHTML = `
-      ${links ? `<div class="row study-links">${links}</div>` : ""}
+      <div class="row study-detail-head">
+        ${links ? `<div class="row study-links">${links}</div>` : ""}
+        ${variants}
+        <div class="grow"></div>
+        <button class="study-edit-btn" title="Edit fields and notes">Edit</button>
+      </div>
+      ${item.notes ? `<div class="study-notes">${escapeHtml(item.notes)}</div>` : ""}
       ${sightings || `<p class="empty">No sightings.</p>`}
       <div class="study-wk" hidden></div>
     `;
+    detail.querySelector<HTMLButtonElement>(".study-edit-btn")!.addEventListener("click", () => {
+      state.editing.add(item.id);
+      renderEditForm(item, detail);
+    });
     detail.querySelectorAll<HTMLAnchorElement>("[data-nav-chapter]").forEach((a) => {
       a.addEventListener("click", (e) => {
         e.preventDefault();
@@ -425,6 +527,75 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     if (state.kind === "vocab" && wkHasData) {
       void loadWkDrilldown(item.id, detail.querySelector<HTMLElement>(".study-wk")!);
     }
+  }
+
+  function renderEditForm(item: StoreItem, detail: HTMLElement) {
+    const fields = isVocab(item)
+      ? [
+          { name: "headword", label: "Word", value: item.headword, ja: true },
+          { name: "reading", label: "Reading", value: item.reading, ja: true },
+          { name: "meaning", label: "Meaning", value: item.meaning, ja: false },
+        ]
+      : [
+          { name: "pattern", label: "Pattern", value: item.pattern, ja: true },
+          { name: "explanation", label: "Explanation", value: (item as GrammarItem).explanation, ja: false },
+        ];
+    const form = document.createElement("form");
+    form.className = "study-edit-form";
+    form.innerHTML = `
+      ${fields
+        .map(
+          (f) => `
+        <label class="study-edit-field">
+          <span>${f.label}</span>
+          <input name="${f.name}" value="${escapeHtml(f.value)}" ${f.ja ? 'lang="ja"' : ""} ${f.name === "headword" || f.name === "pattern" ? "required" : ""} />
+        </label>`,
+        )
+        .join("")}
+      <label class="study-edit-field">
+        <span>Notes</span>
+        <textarea name="notes" rows="2" placeholder="Your own notes…"></textarea>
+      </label>
+      <div class="row">
+        <div class="grow"></div>
+        <button type="button" class="study-edit-cancel">Cancel</button>
+        <button type="submit">Save</button>
+      </div>
+    `;
+    form.querySelector<HTMLTextAreaElement>("textarea[name=notes]")!.value = item.notes || "";
+    detail.innerHTML = "";
+    detail.appendChild(form);
+
+    form.querySelector<HTMLButtonElement>(".study-edit-cancel")!.addEventListener("click", () => {
+      state.editing.delete(item.id);
+      renderDetail(item, detail);
+    });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries()) as Record<string, string>;
+      const changes: Record<string, string> = {};
+      for (const [key, value] of Object.entries(data)) {
+        if ((item as any)[key] !== value) changes[key] = value;
+      }
+      if (!Object.keys(changes).length) {
+        state.editing.delete(item.id);
+        renderDetail(item, detail);
+        return;
+      }
+      try {
+        const updated = await patchStoreItem(state.kind, item.id, changes);
+        Object.assign(item, updated);
+        state.editing.delete(item.id);
+        toastInfo("Saved");
+        const row = detail.closest(".study-row");
+        if (row) row.replaceWith(renderRow(item));
+        void refreshStats();
+      } catch (err: any) {
+        logError("StudyDash", "edit_failed", { item_id: item.id, error: err.message });
+        toastError("Save failed: " + err.message);
+      }
+    });
+    form.querySelector<HTMLInputElement>("input")!.focus();
   }
 
   async function loadWkDrilldown(itemId: string, el: HTMLElement) {
@@ -536,6 +707,12 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
 
   docFilter.addEventListener("change", () => {
     state.docId = docFilter.value;
+    void reload();
+  });
+  container.querySelector<HTMLButtonElement>("#study-chapter-clear")?.addEventListener("click", (e) => {
+    state.chapterId = "";
+    replaceQuery({ chapter: null });
+    (e.currentTarget as HTMLButtonElement).remove();
     void reload();
   });
   sourceFilter.addEventListener("change", () => {

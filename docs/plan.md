@@ -307,7 +307,8 @@ cross-textbook store — dictionary-linked, graded, editable — that becomes th
 long-term core study artifact and eventually powers built-in SRS and an iOS
 companion app.
 
-**Design agreed 2026-07-01.** Full schemas, milestone breakdown (3.1–3.5),
+**Design agreed 2026-07-01; milestones 3.1–3.3 shipped 2026-07-01** (see
+roadmap for the item-level record). Full schemas, milestone breakdown (3.1–3.5),
 licensing notes, and open questions live in `docs/vocab-store-plan.md`. Key
 decisions:
 

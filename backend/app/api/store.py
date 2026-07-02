@@ -38,6 +38,19 @@ class UpdateVocab(BaseModel):
     status: str | None = None
 
 
+class MergeBody(BaseModel):
+    source_id: str
+
+
+class LookupEntry(BaseModel):
+    headword: str
+    reading: str = ""
+
+
+class LookupBody(BaseModel):
+    entries: list[LookupEntry]
+
+
 class CreateGrammar(BaseModel):
     pattern: str
     explanation: str = ""
@@ -59,7 +72,12 @@ def _check_status(status: str | None) -> None:
 
 def _search_text(kind: str, item: dict[str, Any]) -> str:
     if kind == "vocab":
-        fields = (item.get("headword"), item.get("reading"), item.get("meaning"))
+        fields = (
+            item.get("headword"),
+            item.get("reading"),
+            item.get("meaning"),
+            *(item.get("surface_variants") or []),
+        )
     else:
         fields = (item.get("pattern"), item.get("pattern_normalized"), item.get("explanation"))
     return " ".join(f for f in fields if f).casefold()
@@ -162,6 +180,20 @@ def _update_item(kind: str, item_id: str, body: UpdateVocab | UpdateGrammar) -> 
     return updated
 
 
+def _merge_items(kind: str, item_id: str, body: MergeBody) -> dict[str, Any]:
+    try:
+        merged = store.merge_items(kind, item_id, body.source_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if merged is None:
+        raise HTTPException(404, f"{kind} item not found")
+    log.info(
+        f"{kind}_items_merged",
+        extra={"target_id": item_id, "source_id": body.source_id},
+    )
+    return merged
+
+
 def _delete_item(kind: str, item_id: str) -> dict[str, Any]:
     if not store.delete_item(kind, item_id):
         raise HTTPException(404, f"{kind} item not found")
@@ -208,6 +240,39 @@ def delete_vocab(item_id: str):
     return _delete_item("vocab", item_id)
 
 
+@router.post("/vocab/{item_id}/merge")
+def merge_vocab(item_id: str, body: MergeBody):
+    return _merge_items("vocab", item_id, body)
+
+
+@router.post("/vocab/lookup")
+def lookup_vocab(body: LookupBody):
+    """Batch-resolve headword+reading pairs to store items.
+
+    Used by the breakdown pane to mark words already in the store and
+    de-emphasize known ones. Each entry resolves to ``{id, status}`` or
+    ``null``; surface variants recorded by merges match too.
+    """
+    index = store.build_index("vocab")
+    variant_ids: dict[str, str] = {}
+    for item in store.list_items("vocab"):
+        for variant in item.get("surface_variants") or []:
+            variant_ids[variant] = item["id"]
+    matches: list[dict[str, Any] | None] = []
+    for entry in body.entries:
+        item_id = index.get(store.vocab_key(entry.headword, entry.reading))
+        if item_id is None:
+            item_id = variant_ids.get(entry.headword.strip())
+        item = store.get_item("vocab", item_id) if item_id else None
+        if item is None or item.get("deleted"):
+            matches.append(None)
+        else:
+            matches.append(
+                {"id": item["id"], "status": item.get("status") or "unreviewed"}
+            )
+    return {"matches": matches}
+
+
 @router.get("/grammar")
 def list_grammar(
     status: str | None = None,
@@ -245,6 +310,30 @@ def update_grammar(item_id: str, body: UpdateGrammar):
 @router.delete("/grammar/{item_id}")
 def delete_grammar(item_id: str):
     return _delete_item("grammar", item_id)
+
+
+@router.post("/grammar/{item_id}/merge")
+def merge_grammar(item_id: str, body: MergeBody):
+    return _merge_items("grammar", item_id, body)
+
+
+@router.get("/store/coverage")
+def store_coverage(chapter_id: str):
+    """Chapter coverage: per-kind status counts over items sighted in
+    the chapter ("N of M chapter vocab known")."""
+    out: dict[str, dict[str, int]] = {}
+    for kind in store.KINDS:
+        counts = {status: 0 for status in store.STATUSES}
+        total = 0
+        for item in store.list_items(kind):
+            if any(
+                s.get("chapter_id") == chapter_id for s in item.get("sightings", [])
+            ):
+                total += 1
+                status = item.get("status") or "unreviewed"
+                counts[status] = counts.get(status, 0) + 1
+        out[kind] = {"total": total, **counts}
+    return out
 
 
 @router.get("/store/stats")

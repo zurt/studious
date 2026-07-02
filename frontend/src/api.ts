@@ -559,6 +559,7 @@ export type VocabItem = {
   headword: string;
   reading: string;
   meaning: string;
+  surface_variants?: string[];
   meaning_source: string;
   pos: string[];
   jmdict_seq: number | null;
@@ -648,6 +649,29 @@ export async function patchStoreItem<T extends StoreItem>(
 
 export async function deleteStoreItem(kind: StoreKind, itemId: string): Promise<void> {
   return jdelete(`/api/${kind}/${itemId}`);
+}
+
+export async function mergeStoreItems<T extends StoreItem>(
+  kind: StoreKind,
+  targetId: string,
+  sourceId: string
+): Promise<T> {
+  return jpost(`/api/${kind}/${targetId}/merge`, { source_id: sourceId });
+}
+
+export type VocabLookupMatch = { id: string; status: StoreStatus } | null;
+
+export async function lookupVocab(
+  entries: { headword: string; reading?: string }[]
+): Promise<VocabLookupMatch[]> {
+  const r = await jpost<{ matches: VocabLookupMatch[] }>("/api/vocab/lookup", { entries });
+  return r.matches;
+}
+
+export type StoreCoverage = Record<StoreKind, Record<string, number>>;
+
+export async function getStoreCoverage(chapterId: string): Promise<StoreCoverage> {
+  return jget(`/api/store/coverage?chapter_id=${encodeURIComponent(chapterId)}`);
 }
 
 export async function getStoreStats(): Promise<StoreStats> {
