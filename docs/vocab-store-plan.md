@@ -1,8 +1,9 @@
 # Phase 3: Central Vocab/Grammar Store — Design & Plan
 
-**Status:** Design agreed 2026-07-01. Milestones 3.1 (store foundation +
-harvest + dashboards), 3.2 (enrichment + classification), 3.3
-(curation & editing), and 3.4 (built-in SRS) shipped 2026-07-01 — see
+**Status:** Design agreed 2026-07-01. All milestones complete 2026-07-01:
+3.1 (store foundation + harvest + dashboards), 3.2 (enrichment +
+classification), 3.3 (curation & editing), 3.4 (built-in SRS), and 3.5
+(sync groundwork — design doc at `docs/cloudkit-sync-plan.md`). See
 roadmap for the item-level record. Implementation notes:
 
 - Dedup indexes are derived in memory from the JSONL (cached against file
@@ -265,7 +266,7 @@ sentence-context cards from sightings). Anki export remains Phase 4.
 Document the CloudKit record mapping (items + review events as CKRecord
 types, tombstone handling, conflict policy: reviews append-only merge
 trivially; item fields last-writer-wins per `updated_at`). No code
-until the iOS app starts (Phase 5).
+until the iOS app starts (Phase 5). → `docs/cloudkit-sync-plan.md`
 
 ## Licensing & supply chain
 

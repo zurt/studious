@@ -393,9 +393,14 @@ Shipped 2026-07-01.
 
 ### 3.5 Sync groundwork (design only)
 
-- [ ] Document CloudKit record mapping for the eventual iOS companion
-      (items last-writer-wins; review events append-only merge); no
-      code until Phase 5
+Shipped 2026-07-01.
+
+- [x] CloudKit record mapping documented in `docs/cloudkit-sync-plan.md`:
+      `VocabItem`/`GrammarItem`/`ReviewEvent` record types in one custom
+      zone (private DB), items last-writer-wins on `updated_at` with
+      tombstone-wins, review events create-only (union merge, FSRS state
+      re-derived per device), JSONL stays canonical on the Mac; no code
+      until Phase 5
 
 ## Phase 4: Export + Exercises
 

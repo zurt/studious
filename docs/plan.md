@@ -307,8 +307,9 @@ cross-textbook store — dictionary-linked, graded, editable — that becomes th
 long-term core study artifact and eventually powers built-in SRS and an iOS
 companion app.
 
-**Design agreed 2026-07-01; milestones 3.1–3.4 shipped 2026-07-01** (see
-roadmap for the item-level record). Full schemas, milestone breakdown (3.1–3.5),
+**Design agreed 2026-07-01; all milestones (3.1–3.5) shipped 2026-07-01**
+(see roadmap for the item-level record; the 3.5 CloudKit design doc is
+`docs/cloudkit-sync-plan.md`). Full schemas, milestone breakdown (3.1–3.5),
 licensing notes, and open questions live in `docs/vocab-store-plan.md`. Key
 decisions:
 
@@ -353,7 +354,8 @@ decisions:
 4. **3.4 Built-in SRS (web)** — review event log, in-repo FSRS-4.5, queue
    API, flashcard UI at `/study` (word-first + sentence-context cards from
    sightings, graded per card).
-5. **3.5 Sync groundwork** — CloudKit record-mapping design doc only.
+5. **3.5 Sync groundwork** — CloudKit record-mapping design doc only
+   (`docs/cloudkit-sync-plan.md`).
 
 **State syncing:** status changes need to reflect across dashboard/breakdown
 views — add a simple pub/sub event bus (evaluate a reactive lib only if that
