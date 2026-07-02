@@ -295,6 +295,81 @@ def delete_item(kind: str, item_id: str) -> bool:
     return True
 
 
+# ---------- Curation: merge duplicates ----------
+
+
+def _sighting_key(s: dict[str, Any]) -> tuple:
+    return (
+        s.get("region_id"),
+        s.get("source"),
+        s.get("sentence_index"),
+        s.get("surface"),
+    )
+
+
+def merge_items(kind: str, target_id: str, source_id: str) -> dict[str, Any] | None:
+    """Merge a duplicate item into a canonical one.
+
+    The target keeps its curated fields; empty target fields are filled
+    from the source, sightings are unioned, and the source's spelling is
+    kept as a variant so search still finds it. The source becomes a
+    tombstone carrying ``merged_into`` for traceability. A target that
+    is still ``unreviewed`` adopts the source's curated status — merging
+    must never lose curation work.
+    """
+    if target_id == source_id:
+        raise ValueError("cannot merge an item into itself")
+    with _lock:
+        target = get_item(kind, target_id)
+        source = get_item(kind, source_id)
+        if target is None or target.get("deleted"):
+            return None
+        if source is None or source.get("deleted"):
+            return None
+        now = _now_iso()
+
+        merged = dict(target)
+        seen = {_sighting_key(s) for s in target.get("sightings", [])}
+        merged["sightings"] = [
+            *target.get("sightings", []),
+            *[s for s in source.get("sightings", []) if _sighting_key(s) not in seen],
+        ]
+
+        if kind == "vocab":
+            fill_fields = ("reading", "meaning", "meaning_source", "pos", "jmdict_seq")
+            variants = list(merged.get("surface_variants") or [])
+            for variant in (source.get("headword"), *(source.get("surface_variants") or [])):
+                if variant and variant != merged.get("headword") and variant not in variants:
+                    variants.append(variant)
+            merged["surface_variants"] = variants
+        else:
+            fill_fields = ("explanation",)
+        for field in fill_fields:
+            if not merged.get(field) and source.get(field):
+                merged[field] = source[field]
+        merged["classifications"] = {
+            **(source.get("classifications") or {}),
+            **(merged.get("classifications") or {}),
+        }
+        merged["links"] = {**(source.get("links") or {}), **(merged.get("links") or {})}
+        if source.get("notes"):
+            merged["notes"] = "\n".join(
+                n for n in (merged.get("notes"), source["notes"]) if n
+            )
+        if merged.get("status") == "unreviewed" and source.get("status") != "unreviewed":
+            merged["status"] = source["status"]
+        merged["updated_at"] = now
+
+        _append_lines(
+            kind,
+            [
+                merged,
+                {**source, "deleted": True, "merged_into": target_id, "updated_at": now},
+            ],
+        )
+    return merged
+
+
 # ---------- Harvest merge ----------
 
 
@@ -368,6 +443,13 @@ def replace_region_sightings(
             item_id = index.get(key)
             if item_id is not None:
                 item = touched.get(item_id) or get_item(kind, item_id)
+                # A merged-away duplicate redirects new sightings to its
+                # canonical item; a plain tombstone blocks re-ingest.
+                hops = 0
+                while item is not None and item.get("deleted") and item.get("merged_into") and hops < 10:
+                    item_id = item["merged_into"]
+                    item = touched.get(item_id) or get_item(kind, item_id)
+                    hops += 1
                 if item is None or item.get("deleted"):
                     continue  # tombstoned: a delete is final, don't resurrect
                 item = {**item, "sightings": [*item.get("sightings", []), sighting]}

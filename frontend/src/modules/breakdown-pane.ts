@@ -1,10 +1,12 @@
 import {
   getBreakdown, requestBreakdown, openJobStream,
   getExerciseCompletion, requestExerciseCompletion,
+  lookupVocab, patchStoreItem,
   type Breakdown, type BreakdownLink, type BreakdownSentence, type Region,
   type ExerciseCompletion, type ExerciseCompletionEntry,
-
+  type BreakdownVocab, type StoreStatus,
 } from "../api";
+import { emit, on, STORE_STATUS_CHANGED, type StoreStatusChange } from "./events";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
 import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "./collapsible";
@@ -57,11 +59,95 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   const completionErrors = new Map<number, string>();
   const completionNotExercise = new Map<number, string>();
   const completionStreams = new Map<number, () => void>();
+  // word|reading -> store item, for "in store" indicators and known-word
+  // de-emphasis. Loaded after the breakdown; failures just omit the feature.
+  let storeMatches = new Map<string, { id: string; status: StoreStatus }>();
+  const STORE_STATUSES: StoreStatus[] = ["unreviewed", "active", "known", "ignored"];
+  const STORE_STATUS_LABELS: Record<StoreStatus, string> = {
+    unreviewed: "Inbox", active: "Active", known: "Known", ignored: "Ignored",
+  };
+
+  function storeKey(v: BreakdownVocab): string {
+    return `${v.word}|${v.reading || ""}`;
+  }
+
+  async function loadStoreMatches() {
+    if (!breakdown) return;
+    const entries: { headword: string; reading: string }[] = [];
+    const seen = new Set<string>();
+    for (const s of breakdown.sentences) {
+      for (const v of s.vocab || []) {
+        const key = storeKey(v);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        entries.push({ headword: v.word, reading: v.reading || "" });
+      }
+    }
+    if (!entries.length) return;
+    try {
+      const matches = await lookupVocab(entries);
+      const map = new Map<string, { id: string; status: StoreStatus }>();
+      entries.forEach((e, i) => {
+        const m = matches[i];
+        if (m) map.set(`${e.headword}|${e.reading}`, m);
+      });
+      storeMatches = map;
+      if (!destroyed) render();
+    } catch (e: any) {
+      // De-emphasis is an enhancement; the breakdown itself still works.
+      logError("BreakdownPane", "store_lookup_failed", { region_id: ctx.region.id, error: e.message });
+    }
+  }
+
+  // Reflect a changed status everywhere the word appears without a
+  // re-render (which would close the popover).
+  function applyStoreStatus(key: string, status: StoreStatus) {
+    const match = storeMatches.get(key);
+    if (match) match.status = status;
+    container.querySelectorAll<HTMLElement>(`[data-store-key="${CSS.escape(key)}"]`).forEach((el) => {
+      if (el.classList.contains("bd-link")) el.classList.toggle("bd-link-known", status === "known");
+      else if (el.tagName === "TR") el.classList.toggle("bd-vocab-known", status === "known");
+    });
+    popover.querySelectorAll<HTMLButtonElement>("[data-store-status]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.storeStatus === status);
+    });
+  }
+
+  const offStatusChanged = on<StoreStatusChange>(STORE_STATUS_CHANGED, (change) => {
+    if (change.kind !== "vocab") return;
+    for (const [key, match] of storeMatches) {
+      if (match.id === change.id && match.status !== change.status) {
+        applyStoreStatus(key, change.status);
+      }
+    }
+  });
+
   const popover = document.createElement("div");
   popover.className = "bd-link-popover";
   popover.setAttribute("role", "dialog");
   popover.hidden = true;
   let activeLinkBtn: HTMLButtonElement | null = null;
+
+  popover.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest("[data-store-status]") as HTMLButtonElement | null;
+    if (!btn) return;
+    e.stopPropagation();
+    const status = btn.dataset.storeStatus as StoreStatus;
+    const id = btn.dataset.storeId!;
+    const key = btn.dataset.storeKeyBtn!;
+    const match = storeMatches.get(key);
+    if (!match || match.status === status) return;
+    void (async () => {
+      try {
+        await patchStoreItem("vocab", id, { status });
+        applyStoreStatus(key, status);
+        emit<StoreStatusChange>(STORE_STATUS_CHANGED, { kind: "vocab", id, status });
+        info("BreakdownPane", "store_status_set", { item_id: id, status });
+      } catch (err: any) {
+        logError("BreakdownPane", "store_status_failed", { item_id: id, error: err.message });
+      }
+    })();
+  });
 
   function closePopover(returnFocus = false) {
     if (popover.hidden) return;
@@ -96,11 +182,26 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
         const v = s.vocab?.[r.index];
         if (!v) continue;
         labels.push(`vocab: ${v.word}`);
+        const key = storeKey(v);
+        const match = storeMatches.get(key);
+        const storeBlock = match
+          ? `
+            <div class="bd-popover-store">
+              <span class="bd-popover-store-label">In store:</span>
+              <span class="study-status-toggle">
+                ${STORE_STATUSES.map(
+                  (st) =>
+                    `<button type="button" class="study-status-btn${match.status === st ? " active" : ""}" data-store-status="${st}" data-store-id="${match.id}" data-store-key-btn="${escapeHtml(key)}" title="${STORE_STATUS_LABELS[st]}">${STORE_STATUS_LABELS[st]}</button>`,
+                ).join("")}
+              </span>
+            </div>`
+          : "";
         sections.push(`
           <div class="bd-popover-section" data-kind="vocab">
             <div class="bd-popover-word" lang="ja">${escapeHtml(v.word)}</div>
             ${v.reading ? `<div class="bd-popover-reading" lang="ja">${escapeHtml(v.reading)}</div>` : ""}
             <div class="bd-popover-meaning">${escapeHtml(v.meaning)}</div>
+            ${storeBlock}
           </div>`);
       } else {
         const g = s.grammar?.[r.index];
@@ -212,8 +313,11 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     for (const l of links) {
       if (l.start > i) out.push(escapeHtml(text.slice(i, l.start)));
       const span = text.slice(l.start, l.end);
+      const v = l.kind === "vocab" ? s.vocab?.[l.index] : undefined;
+      const key = v ? storeKey(v) : "";
+      const known = v ? storeMatches.get(key)?.status === "known" : false;
       out.push(
-        `<button type="button" class="bd-link" data-s-idx="${sIdx}" data-kind="${l.kind}" data-idx="${l.index}" data-start="${l.start}">${escapeHtml(span)}</button>`,
+        `<button type="button" class="bd-link${known ? " bd-link-known" : ""}" data-s-idx="${sIdx}" data-kind="${l.kind}" data-idx="${l.index}" data-start="${l.start}"${v ? ` data-store-key="${escapeHtml(key)}"` : ""}>${escapeHtml(span)}</button>`,
       );
       i = l.end;
     }
@@ -329,12 +433,16 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     const metaText = meta.join(" · ");
 
     const cards = breakdown.sentences.map((s, i) => {
-      const vocab = (s.vocab || []).map((v) => `
-        <tr>
+      const vocab = (s.vocab || []).map((v) => {
+        const key = storeKey(v);
+        const known = storeMatches.get(key)?.status === "known";
+        return `
+        <tr class="${known ? "bd-vocab-known" : ""}" data-store-key="${escapeHtml(key)}">
           <td class="bd-vocab-word">${escapeHtml(v.word)}</td>
           <td class="bd-vocab-reading">${escapeHtml(v.reading || "")}</td>
           <td class="bd-vocab-meaning">${escapeHtml(v.meaning)}</td>
-        </tr>`).join("");
+        </tr>`;
+      }).join("");
       const grammar = (s.grammar || []).map((g) => `
         <li><span class="bd-grammar-pattern">${escapeHtml(g.pattern)}</span> — <span class="bd-grammar-explanation">${escapeHtml(g.explanation)}</span></li>`).join("");
       const hasAnswers = !!(vocab || grammar);
@@ -612,6 +720,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     render();
     try {
       breakdown = await getBreakdown(ctx.docId, ctx.chapterId, ctx.region.id);
+      if (breakdown) void loadStoreMatches();
       if (isExercise && breakdown) {
         try {
           completion = await getExerciseCompletion(ctx.docId, ctx.chapterId, ctx.region.id);
@@ -656,6 +765,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
         if (kind === "done") {
           try {
             breakdown = await getBreakdown(ctx.docId, ctx.chapterId, ctx.region.id);
+            if (breakdown) void loadStoreMatches();
           } catch (e: any) {
             errMsg = "Failed to reload breakdown: " + e.message;
           }
@@ -691,6 +801,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
 
   return () => {
     destroyed = true;
+    offStatusChanged();
     if (closeStream) { closeStream(); closeStream = null; }
     for (const close of completionStreams.values()) close();
     completionStreams.clear();

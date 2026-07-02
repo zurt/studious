@@ -83,9 +83,13 @@ Open <http://localhost:5173>.
    provenance). The **Vocab** and **Grammar** topbar links open
    dashboards with an inbox for newly harvested items, status tracking
    (inbox → active → known / ignored), search and filters, manual
-   add/edit, and per-item sightings that link back to the source
-   chapter. A **Backfill** button harvests data that predates the
-   store. See `docs/vocab-store-plan.md` for the Phase 3 design.
+   add/edit with notes, checkbox selection for bulk status changes and
+   merging duplicate entries, and per-item sightings that link back to
+   the source chapter. A **Backfill** button harvests data that
+   predates the store. Words marked **known** render de-emphasized in
+   sentence breakdowns (each word's popover gets an in-store status
+   toggle), and the chapter view shows a "Vocab N/M known" coverage
+   chip. See `docs/vocab-store-plan.md` for the Phase 3 design.
 
 ## Layout
 

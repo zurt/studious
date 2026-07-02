@@ -241,3 +241,96 @@ class TestReplaceRegionSightings:
         raw = store.store_path("vocab").read_text("utf-8")
         for line in raw.strip().splitlines():
             json.loads(line)
+
+
+class TestMerge:
+    def _two_dupes(self):
+        _ingest([_sighting_entry()])
+        _ingest(
+            [_sighting_entry(headword="口下手", surface="口下手")],
+            region_id="r2",
+        )
+        items = {i["headword"]: i for i in store.list_items("vocab")}
+        return items["口べた"], items["口下手"]
+
+    def test_merge_unions_sightings_and_tombstones_source(self, isolated_data_dir: Path):
+        target, source = self._two_dupes()
+        merged = store.merge_items("vocab", target["id"], source["id"])
+        assert merged is not None
+        assert len(merged["sightings"]) == 2
+        assert "口下手" in merged["surface_variants"]
+        live = store.list_items("vocab")
+        assert [i["id"] for i in live] == [target["id"]]
+        tomb = store.get_item("vocab", source["id"])
+        assert tomb["deleted"] is True
+        assert tomb["merged_into"] == target["id"]
+
+    def test_merge_keeps_target_curation_and_adopts_when_unreviewed(
+        self, isolated_data_dir: Path
+    ):
+        target, source = self._two_dupes()
+        store.update_item("vocab", source["id"], status="known", notes="dup note")
+        merged = store.merge_items("vocab", target["id"], source["id"])
+        # Target was unreviewed → adopts the source's curated status.
+        assert merged["status"] == "known"
+        assert "dup note" in merged["notes"]
+
+    def test_merge_does_not_downgrade_target_status(self, isolated_data_dir: Path):
+        target, source = self._two_dupes()
+        store.update_item("vocab", target["id"], status="active")
+        merged = store.merge_items("vocab", target["id"], source["id"])
+        assert merged["status"] == "active"
+
+    def test_merge_missing_or_deleted_returns_none(self, isolated_data_dir: Path):
+        target, source = self._two_dupes()
+        assert store.merge_items("vocab", target["id"], "nope") is None
+        store.delete_item("vocab", source["id"])
+        assert store.merge_items("vocab", target["id"], source["id"]) is None
+
+    def test_merge_self_raises(self, isolated_data_dir: Path):
+        target, _ = self._two_dupes()
+        with pytest.raises(ValueError):
+            store.merge_items("vocab", target["id"], target["id"])
+
+    def test_reharvest_of_merged_variant_lands_on_canonical(
+        self, isolated_data_dir: Path
+    ):
+        target, source = self._two_dupes()
+        store.merge_items("vocab", target["id"], source["id"])
+        # New sighting of the merged-away spelling redirects to the canonical.
+        _ingest(
+            [_sighting_entry(headword="口下手", surface="口下手", sentence_index=5)],
+            region_id="r3",
+        )
+        items = store.list_items("vocab")
+        assert len(items) == 1
+        assert items[0]["id"] == target["id"]
+        assert any(s["region_id"] == "r3" for s in items[0]["sightings"])
+
+    def test_merge_fills_empty_fields_from_source(self, isolated_data_dir: Path):
+        _ingest([_sighting_entry(meaning="")])
+        _ingest(
+            [_sighting_entry(headword="口下手", surface="口下手")],
+            region_id="r2",
+        )
+        items = {i["headword"]: i for i in store.list_items("vocab")}
+        merged = store.merge_items(
+            "vocab", items["口べた"]["id"], items["口下手"]["id"]
+        )
+        assert merged["meaning"] == "poor speaker"
+
+    def test_grammar_merge(self, isolated_data_dir: Path):
+        for pattern, region in (("〜に関わらず", "r1"), ("〜にかかわらず", "r2")):
+            store.replace_region_sightings(
+                "grammar",
+                doc_id="d1",
+                chapter_id="c1",
+                region_id=region,
+                source="breakdown",
+                entries=[{"pattern": pattern, "explanation": "regardless", "sentence_index": 0}],
+            )
+        items = store.list_items("grammar")
+        assert len(items) == 2
+        merged = store.merge_items("grammar", items[1]["id"], items[0]["id"])
+        assert len(merged["sightings"]) == 2
+        assert len(store.list_items("grammar")) == 1

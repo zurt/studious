@@ -150,3 +150,97 @@ class TestStoreOps:
         r = client.post("/api/store/backfill")
         assert r.status_code == 200
         assert r.json()["vocab_list_regions"] == 0
+
+
+class TestMergeEndpoint:
+    def _dupes(self):
+        _seed()
+        _seed(headword="口下手", surface="口下手", region_id="r2")
+        items = {i["headword"]: i for i in client.get("/api/vocab").json()["items"]}
+        return items["口べた"], items["口下手"]
+
+    def test_merge_vocab(self, isolated_data_dir: Path):
+        target, source = self._dupes()
+        r = client.post(
+            f"/api/vocab/{target['id']}/merge", json={"source_id": source["id"]}
+        )
+        assert r.status_code == 200
+        merged = r.json()
+        assert len(merged["sightings"]) == 2
+        assert client.get("/api/vocab").json()["total"] == 1
+
+    def test_merged_variant_searchable(self, isolated_data_dir: Path):
+        target, source = self._dupes()
+        client.post(f"/api/vocab/{target['id']}/merge", json={"source_id": source["id"]})
+        assert client.get("/api/vocab", params={"q": "口下手"}).json()["total"] == 1
+
+    def test_merge_missing_404(self, isolated_data_dir: Path):
+        target, _ = self._dupes()
+        r = client.post(f"/api/vocab/{target['id']}/merge", json={"source_id": "nope"})
+        assert r.status_code == 404
+
+    def test_merge_self_400(self, isolated_data_dir: Path):
+        target, _ = self._dupes()
+        r = client.post(
+            f"/api/vocab/{target['id']}/merge", json={"source_id": target["id"]}
+        )
+        assert r.status_code == 400
+
+    def test_merge_grammar(self, isolated_data_dir: Path):
+        a = client.post("/api/grammar", json={"pattern": "〜ようになる"}).json()
+        b = client.post("/api/grammar", json={"pattern": "ようになった形"}).json()
+        r = client.post(f"/api/grammar/{a['id']}/merge", json={"source_id": b["id"]})
+        assert r.status_code == 200
+        assert client.get("/api/grammar").json()["total"] == 1
+
+
+class TestVocabLookup:
+    def test_lookup_matches_and_misses(self, isolated_data_dir: Path):
+        _seed()
+        r = client.post(
+            "/api/vocab/lookup",
+            json={
+                "entries": [
+                    {"headword": "口べた", "reading": "くちべた"},
+                    {"headword": "存在しない", "reading": "そんざいしない"},
+                ]
+            },
+        )
+        assert r.status_code == 200
+        matches = r.json()["matches"]
+        assert matches[0]["status"] == "unreviewed"
+        assert matches[1] is None
+
+    def test_lookup_matches_merged_variant(self, isolated_data_dir: Path):
+        _seed()
+        _seed(headword="口下手", surface="口下手", region_id="r2")
+        items = {i["headword"]: i for i in client.get("/api/vocab").json()["items"]}
+        client.post(
+            f"/api/vocab/{items['口べた']['id']}/merge",
+            json={"source_id": items["口下手"]["id"]},
+        )
+        r = client.post(
+            "/api/vocab/lookup",
+            json={"entries": [{"headword": "口下手", "reading": "くちべた"}]},
+        )
+        assert r.json()["matches"][0]["id"] == items["口べた"]["id"]
+
+
+class TestCoverage:
+    def test_chapter_coverage_counts(self, isolated_data_dir: Path):
+        _seed()
+        _seed(headword="犬", reading="いぬ", meaning="dog", region_id="r2")
+        item = client.get("/api/vocab", params={"q": "犬"}).json()["items"][0]
+        client.patch(f"/api/vocab/{item['id']}", json={"status": "known"})
+        r = client.get("/api/store/coverage", params={"chapter_id": "c1"})
+        assert r.status_code == 200
+        cov = r.json()
+        assert cov["vocab"]["total"] == 2
+        assert cov["vocab"]["known"] == 1
+        assert cov["vocab"]["unreviewed"] == 1
+        assert cov["grammar"]["total"] == 0
+
+    def test_coverage_other_chapter_empty(self, isolated_data_dir: Path):
+        _seed()
+        cov = client.get("/api/store/coverage", params={"chapter_id": "cX"}).json()
+        assert cov["vocab"]["total"] == 0

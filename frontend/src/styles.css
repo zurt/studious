@@ -888,3 +888,43 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .wk-tag-reading, .wk-tag-ja { background: var(--bg-soft); }
 .wk-srs { text-transform: none; }
 .wk-srs-burned { background: rgba(107,114,128,0.15); color: #374151; border-color: rgba(107,114,128,0.35); }
+
+/* Curation & editing (Phase 3.3) */
+.study-select { align-self: center; accent-color: var(--accent); }
+.study-detail-head { flex-wrap: wrap; gap: 8px; }
+.study-detail-head .study-links { margin-bottom: 0; }
+.study-variants { font-size: 12px; color: var(--muted); }
+.study-edit-btn { font-size: 12px; padding: 3px 10px; }
+.study-notes {
+  font-size: 13px; padding: 6px 8px; background: var(--bg-soft);
+  border-radius: 6px; white-space: pre-wrap;
+}
+.study-edit-form { display: flex; flex-direction: column; gap: 8px; }
+.study-edit-field { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.study-edit-field > span { width: 90px; color: var(--muted); text-align: right; }
+.study-edit-field input, .study-edit-field textarea { flex: 1; }
+.choose-options { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; }
+.choose-option {
+  display: flex; align-items: baseline; gap: 8px; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 14px;
+}
+.choose-option:hover { border-color: var(--accent); }
+.choose-option:has(input:checked) { border-color: var(--accent); background: var(--bg-soft); }
+.choose-option input { accent-color: var(--accent); }
+.choose-option-hint { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+
+/* Known-word de-emphasis + store status in breakdowns (Phase 3.3) */
+.breakdown-vocab tr.bd-vocab-known { opacity: 0.45; }
+.bd-link.bd-link-known { opacity: 0.55; text-decoration-style: dotted; }
+.bd-popover-store { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.bd-popover-store .study-status-toggle { flex-wrap: nowrap; }
+.bd-popover-store-label { font-size: 11px; color: var(--muted); }
+
+/* Chapter vocab coverage chip (Phase 3.3) */
+.coverage-chip {
+  font-size: 11px; padding: 2px 10px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer;
+  background: var(--bg);
+}
+.coverage-chip:hover { border-color: var(--accent); color: var(--fg); }

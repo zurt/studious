@@ -140,6 +140,18 @@ header and skipped. Known miss modes:
 Check what the parser saw with the region's `transcription_md`, fix the
 transcription (or add the item manually via the dashboard), then Backfill.
 
+### After merging duplicates, a spelling seems to vanish (or you expect it back and it isn't)
+Merge (dashboard checkboxes → Merge…, or `POST /api/vocab/{id}/merge`)
+tombstones the losing entry with `merged_into: <canonical id>` — distinct
+from a plain delete. Consequences: re-harvesting the merged-away spelling
+adds its sightings to the *canonical* item (a plain delete blocks
+re-harvest entirely); the old spelling stays findable via search and the
+breakdown-pane lookup because it's recorded in the canonical item's
+`surface_variants` (shown as "also: …" in the row detail). To split a bad
+merge there is no unmerge — edit the canonical item, or delete it and
+re-create both entries by hand. Inspect the chain with
+`jq 'select(.merged_into != null)' backend/data/store/vocab.jsonl`.
+
 ### A job-progress wait hangs even though the job completed (batch transcribe stuck at "N pending")
 `GET /api/jobs/{id}/events` replays the job's current state as a `snapshot`
 event and only then streams live events. If the job reached a terminal state
