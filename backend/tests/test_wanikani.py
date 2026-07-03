@@ -121,7 +121,14 @@ class TestSync:
         wanikani.sync(full=True)
         assert len(wanikani._load_latest("subjects")) == 5
 
-    def test_sync_without_token_raises(self, isolated_data_dir: Path):
+    def test_sync_without_token_raises(self, isolated_data_dir: Path, monkeypatch: pytest.MonkeyPatch):
+        # A real WANIKANI_API_TOKEN in the developer's shell must not leak into
+        # this test (Settings is cached, so it also needs a cache_clear here).
+        monkeypatch.delenv("WANIKANI_API_TOKEN", raising=False)
+        from app import config
+
+        config.get_settings.cache_clear()
+
         with pytest.raises(RuntimeError):
             wanikani.sync()
 
@@ -192,7 +199,14 @@ class TestApi:
         assert r.status_code == 200
         assert r.json()["configured"] is True
 
-    def test_sync_endpoint_409_without_token(self, isolated_data_dir: Path):
+    def test_sync_endpoint_409_without_token(self, isolated_data_dir: Path, monkeypatch: pytest.MonkeyPatch):
+        # See test_sync_without_token_raises: strip a real shell-exported
+        # WANIKANI_API_TOKEN and clear the cached Settings so it doesn't leak in.
+        monkeypatch.delenv("WANIKANI_API_TOKEN", raising=False)
+        from app import config
+
+        config.get_settings.cache_clear()
+
         assert client.post("/api/refs/wanikani/sync").status_code == 409
 
     def test_sync_endpoint_runs_and_enriches(self, wk_env):
