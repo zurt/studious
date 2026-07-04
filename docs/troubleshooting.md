@@ -4,6 +4,30 @@ Where to look first when something goes wrong. Triage in this order: **job JSON 
 
 ## Where state and logs live
 
+### iOS companion (apple/)
+- The app's local store is the same JSONL format as the backend's, at
+  `Application Support/Studious/store/{vocab,grammar,reviews}.jsonl`
+  inside the app sandbox; CloudKit sync-engine state lives next to it
+  (`cksync-state.json`). Deleting the app resets both — data re-imports
+  or re-syncs.
+- `no such module 'XCTest'` from `swift test`: Command Line Tools
+  installs ship neither XCTest nor Swift Testing, so the suite is a
+  plain executable — run `make test-apple` (= `swift run studious-tests`).
+- `xcodebuild ... requires Xcode` means only CLT is installed; the
+  SwiftPM package still builds/tests fine, only the `.xcodeproj` app
+  shell needs a real Xcode install.
+- FSRS golden-parity failures after touching
+  `backend/app/services/srs.py` or `StudiousCore/FSRS.swift`: regenerate
+  with `make golden`, re-run `make test-apple`, commit the fixtures.
+  Rounding trap: Python `round()` is half-to-even, so the Swift interval
+  math uses `.rounded(.toNearestOrEven)` deliberately.
+- `studious-sync sync` failing with a CloudKit permission error: the CLI
+  binary must be codesigned with the iCloud entitlement
+  (`com.apple.developer.icloud-services = CloudKit`) for the container;
+  unsigned `swift build` output can't reach CloudKit. Use
+  `studious-sync merge/export` (manual file exchange, same merge
+  semantics) until signing is set up.
+
 ### Backend logs (stdout)
 Configured in `backend/app/main.py` with a single `StreamHandler` — logs go to the terminal running `make dev-backend`. Nothing is written to disk by default. To capture a session:
 
@@ -32,6 +56,47 @@ ls -lt backend/data/jobs/ | head    # most recent jobs
 
 ### Region state
 `backend/data/documents/<doc_id>/chapters/<chapter_id>/regions/<region_id>.json` — disk truth for a region. Check `transcribed_at` and `transcription_md` here to verify whether the data actually changed, independent of what the UI shows.
+
+### Central vocab/grammar store
+`backend/data/store/vocab.jsonl` and `grammar.jsonl` — append-only, one JSON
+object per line, the **latest line per `id` wins**, deletes are tombstone
+lines (`"deleted": true`). Nothing ever rewrites earlier lines, so the file
+is also its own history: to see how an item evolved,
+`jq 'select(.id == "<id>")' backend/data/store/vocab.jsonl`. The dedup
+indexes are derived in memory on read — there is no index file to rebuild or
+corrupt. Harvest events log as `harvest_vocab_list` / `harvest_breakdown`
+(with created/updated counts) and `harvest_backfill_done`; a failed harvest
+logs `harvest_vocab_list_error` / `harvest_breakdown_error` **without
+failing the parent job** — re-run `POST /api/store/backfill` (or the
+dashboard's Backfill button) to converge the store; it is idempotent.
+
+### SRS review history (built-in flashcards)
+`backend/data/store/reviews.jsonl` — append-only, one JSON line per graded
+review (`item_id`, `kind`, `card_type`, `grade` 1–4, `ts`, `elapsed_ms`).
+There is **no stored SRS state**: a card's stability/difficulty/due date is
+derived by replaying its events through the FSRS scheduler in
+`backend/app/services/srs.py` (cached against the file's mtime+size).
+Inspect one card's history with
+`jq 'select(.item_id == "<id>" and .card_type == "word")' backend/data/store/reviews.jsonl`.
+Deleting the file resets all scheduling (cards become "new") but nothing
+else. Reviews log as `review_recorded` under `studious.api.study`.
+
+### Reference data (JMdict index, WaniKani cache)
+`backend/data/refs/jmdict/jmdict.sqlite` — read-only lookup index built by
+`make refs` (~70 MB; sources pinned by SHA-256 in `backend/refs.lock.json`,
+downloads kept in `data/refs/downloads/`). Check what's loaded with
+`sqlite3 backend/data/refs/jmdict/jmdict.sqlite "SELECT * FROM meta"`.
+Rebuild with `make refs` after editing the lock file (`--force` via
+`uv run python scripts/fetch_refs.py --force` if the version didn't change).
+
+`backend/data/refs/wanikani/*.jsonl` — WaniKani subjects / study_materials /
+assignments cache (append-only latest-wins, personal-use content, never
+commit). `sync_state.json` holds the per-resource `updated_after` cursors;
+delete it (or `POST /api/refs/wanikani/sync?full=true`) to force a full
+re-pull. `GET /api/refs/wanikani/status` reports configuration + counts.
+
+Enrichment events log as `enrich_done` (attempted/linked counts) under
+`studious.enrich`; WK sync as `wanikani_sync_done` / `wanikani_rate_limited`.
 
 ### LLM audit log
 `backend/data/llm_audit.YYYY-MM.jsonl` — append-only record of every VLM API call (one JSON object per line), rotated monthly by UTC date. Each entry has `id`, `timestamp`, `provider`, `model`, `job_type`, `status` (`success` or `error`), `duration_ms`, token counts (including `cache_read_tokens` / `cache_creation_tokens`), `correlation_id`, `request_id` (Anthropic's), `prompt_hash`, `image_bytes`, `stop_reason`, and `doc_id` / `chapter_id` / `region_id` / `job_id` / `page` context. OCR calls are not logged (no API cost). Use this to confirm a call happened, see how long it took, and look up token counts after the fact.
@@ -91,6 +156,96 @@ Workaround when you need to run `uv lock` locally (e.g., to upgrade a package):
 3. Restore `exclude-newer = "7 days"` before committing — the `--frozen` installs in CI don't re-resolve and don't validate the cutoff format at install time.
 
 Note: changing the global cutoff causes uv to "Ignore existing lockfile due to change in timestamp cutoff" and re-resolves the full graph. Only packages whose upload timestamps fall inside the new window get updated, so all resolved versions still honour the 7-day rule, but more packages may bump than the single `--upgrade-package` target. Verify with `uv run pip-audit` and the test suite before committing the broader lock.
+
+### `make test-backend` fails only in tests/test_wanikani.py (2 failures)
+`test_sync_without_token_raises` and `test_sync_endpoint_409_without_token`
+assert the no-token error path, but the recommended shell setup exports
+`WANIKANI_API_TOKEN` from the Keychain in `~/.zshrc`, so any shell that
+sourced it leaked a real token into pytest and both tests failed. Fixed
+2026-07-03: the tests scrub the variable themselves. Gotcha for any
+future test asserting a missing-env-var path: `app.config.get_settings()`
+is `@lru_cache`d, so `monkeypatch.delenv` alone is not enough — also call
+`config.get_settings.cache_clear()` (the same pattern the `wk_env`
+fixture uses for `setenv`).
+
+### The Study page says "No cards to study yet" despite a full vocab store
+The queue only serves items with curation status **active** — that's the
+point of the curation lifecycle (see the status-vs-SRS-state distinction
+in `docs/vocab-store-plan.md`). Freshly harvested items are `unreviewed`
+and `known`/`ignored` items never appear. Accept items into study on the
+Vocab/Grammar dashboards (inbox → Active, or the per-row status toggle),
+then reload `/study`. Check what the server sees with
+`curl 'localhost:8000/api/study/queue?limit=5' | jq .counts` —
+`active_items: 0` means it's a status problem, not a scheduling one.
+
+### An element with the `hidden` attribute is still visible
+Any CSS rule that sets `display` on the element's class (e.g.
+`.srs-back { display: flex; }`) overrides the UA stylesheet's
+`[hidden] { display: none; }` because a class selector outweighs an
+attribute selector. The pages toggle visibility with `el.hidden` a lot, so
+when adding a `display:` rule to a toggled element, also add
+`.the-class[hidden] { display: none; }` (see `.srs-back` in `styles.css`).
+
+### Vocab items show no JLPT/common badges (or the wrong meaning) after harvest
+Enrichment only runs when a source exists: the JMdict index (`make refs`)
+and/or a synced WaniKani cache. Items harvested *before* the index was
+built carry `enriched_at: null` and get picked up by the next harvest's
+enrichment pass, or immediately via `POST /api/store/enrich`. After
+rebuilding the index or syncing WK, run `POST /api/store/enrich?force=true`
+to re-link everything (WK sync does this automatically). Two policy notes:
+a meaning you edited by hand (`meaning_source: "user"`) is never replaced
+by the JMdict gloss, and a JMdict miss still stamps `enriched_at` — force
+is the only way to retry those.
+
+### WaniKani sync returns 409/502 or seems to hang
+409 = `WANIKANI_API_TOKEN` not exported (store it in the Keychain like the
+Anthropic key; see README). 502 wraps the upstream error — check backend
+logs for `wanikani_sync_failed`. A first full sync makes ~30 requests
+against a 60/min rate limit and can take ~30s; on 429 the client honors
+`Retry-After` once (logged as `wanikani_rate_limited`). WK SRS state is
+display-only by design: a burned item still lands in the Inbox, because
+burned-years-ago knowledge is exactly what the store is re-learning.
+
+### A vocab-list entry didn't show up in the vocab store
+The harvest parser (`backend/app/services/harvest.py`) only ingests lines it
+can positively identify as entries; everything else is treated as a section
+header and skipped. Known miss modes:
+- **Reading not pure kana** — `term（reading）gloss` is only an entry when
+  the parenthesized text is kana (that's what separates it from headers like
+  `（p. 28）`). A transcription typo inside the reading drops the line.
+- **Kana-only entry with a non-English gloss** — `term　gloss` lines are
+  required to contain an ASCII letter in the gloss (rejects Japanese-only
+  headers containing an ideographic space). A gloss like `？` is skipped.
+- **Item deleted from the store** — deletes are tombstones and deliberately
+  block re-harvest of the same headword+reading; re-create manually if the
+  delete was a mistake.
+Check what the parser saw with the region's `transcription_md`, fix the
+transcription (or add the item manually via the dashboard), then Backfill.
+
+### After merging duplicates, a spelling seems to vanish (or you expect it back and it isn't)
+Merge (dashboard checkboxes → Merge…, or `POST /api/vocab/{id}/merge`)
+tombstones the losing entry with `merged_into: <canonical id>` — distinct
+from a plain delete. Consequences: re-harvesting the merged-away spelling
+adds its sightings to the *canonical* item (a plain delete blocks
+re-harvest entirely); the old spelling stays findable via search and the
+breakdown-pane lookup because it's recorded in the canonical item's
+`surface_variants` (shown as "also: …" in the row detail). To split a bad
+merge there is no unmerge — edit the canonical item, or delete it and
+re-create both entries by hand. Inspect the chain with
+`jq 'select(.merged_into != null)' backend/data/store/vocab.jsonl`.
+
+### A job-progress wait hangs even though the job completed (batch transcribe stuck at "N pending")
+`GET /api/jobs/{id}/events` replays the job's current state as a `snapshot`
+event and only then streams live events. If the job reached a terminal state
+*before* the EventSource connected — routine for fast jobs (mock provider in
+E2E, small crops) — **no `job-done`/`job-failed` event will ever arrive**;
+the snapshot is the only signal. Every `openJobStream` consumer must treat a
+snapshot whose `status` is `completed` / `completed_with_errors` / `failed`
+as terminal. The chapter-view batch-transcribe waiter missed this until
+2026-07-01, which made the E2E linking journey fail deterministically
+(tracker stuck at "1 pending" while all jobs on disk showed `completed`).
+Diagnosis tip: if the UI says pending but `data/jobs/*.json` say completed,
+it's the subscriber, not the queue.
 
 ### E2E test drawing a region times out waiting for `#tag-select` (or a card click shows an empty breakdown pane)
 Two chapter-view behaviors trip up new journey tests (both bit on 2026-06-12):

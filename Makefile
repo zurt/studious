@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-e2e audit audit-log logs clean benchmark
+.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-e2e test-apple audit audit-log logs clean benchmark refs golden
 
 install: install-backend install-frontend
 	@echo ""
@@ -37,11 +37,28 @@ test-backend:
 test-frontend:
 	cd frontend && npm test
 
+# Swift suite for the iOS companion (apple/StudiousKit): a plain
+# executable rather than `swift test`, because Command Line Tools
+# installs ship neither XCTest nor Swift Testing. Needs only CLT.
+test-apple:
+	cd apple/StudiousKit && swift run studious-tests
+
+# Regenerate the Swift FSRS/queue parity fixtures from the Python
+# scheduler. Run after any change to backend/app/services/srs.py, then
+# `make test-apple` and commit the updated fixtures.
+golden:
+	cd backend && uv run python scripts/generate_fsrs_golden.py
+
 # Browser smoke suite: Playwright boots an isolated backend (mock VLM
 # provider, fresh data dir) plus a vite dev server on dedicated ports.
 # One-time setup: cd frontend && npx playwright install chromium
 test-e2e:
 	cd frontend && npm run test:e2e
+
+# Fetch pinned reference datasets (JMdict, JLPT lists; see
+# backend/refs.lock.json) and build data/refs/jmdict/jmdict.sqlite.
+refs:
+	cd backend && uv run python scripts/fetch_refs.py
 
 audit:
 	@echo "==> npm audit (fail on high+critical)"
