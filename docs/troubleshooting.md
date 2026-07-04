@@ -171,6 +171,13 @@ against a 60/min rate limit and can take ~30s; on 429 the client honors
 display-only by design: a burned item still lands in the Inbox, because
 burned-years-ago knowledge is exactly what the store is re-learning.
 
+### WaniKani "without token" tests fail locally but pass in CI
+`test_sync_without_token_raises` / `test_sync_endpoint_409_without_token`
+failing with "DID NOT RAISE" / got 200: your shell exports
+`WANIKANI_API_TOKEN` (the README's recommended Keychain setup), and the
+config reads the process env. The tests `monkeypatch.delenv` the token;
+any new no-token test must do the same — don't assume a clean env.
+
 ### A vocab-list entry didn't show up in the vocab store
 The harvest parser (`backend/app/services/harvest.py`) only ingests lines it
 can positively identify as entries; everything else is treated as a section

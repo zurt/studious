@@ -402,6 +402,21 @@ Shipped 2026-07-01.
       re-derived per device), JSONL stays canonical on the Mac; no code
       until Phase 5
 
+### 3.6 iOS companion spike (in progress)
+
+Checked in 2026-07-04 on `cc/mobile-spike` (`apple/`, see
+`apple/README.md`).
+
+- [x] `StudiousKit` SwiftPM package: models + JSONL store, FSRS-4.5
+      scheduler with golden-file parity against the backend
+      (`make test-apple`; fixtures from
+      `backend/scripts/generate_fsrs_golden.py`), study queue, CloudKit
+      record mapping + `CKSyncEngine` adapter, SwiftUI app, Mac-side
+      `studious-sync` CLI
+- [ ] Run on a device end-to-end (needs Xcode 16+ signing; this Mac has
+      Command Line Tools only)
+- [ ] Deploy the CloudKit schema to production
+
 ## Phase 4: Export + Exercises
 
 - [ ] Anki TSV export for vocab/grammar items
@@ -412,5 +427,6 @@ Shipped 2026-07-01.
 
 - [ ] Bulk operations (transcribe/breakdown all regions in a chapter)
 - [ ] Region editing (resize, move, reorder)
-- [ ] Native macOS/iOS/iPad apps (SwiftUI, same backend API)
+- [ ] Native macOS/iOS/iPad apps (SwiftUI; iOS companion spike underway,
+      see 3.6)
 - [ ] Mobile-responsive web layout

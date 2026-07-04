@@ -338,7 +338,8 @@ decisions:
   an in-repo FSRS scheduler (milestone 3.4).
 - **CloudKit-ready schema now, sync later.** UUID ids, `updated_at`,
   tombstones, append-only logs, flat records. The iOS/CloudKit topology is
-  documented in milestone 3.5 but not built until Phase 5.
+  documented in milestone 3.5; a native implementation spike lives in
+  `apple/` (milestone 3.6).
 
 ### Milestones
 
@@ -356,6 +357,11 @@ decisions:
    sightings, graded per card).
 5. **3.5 Sync groundwork** — CloudKit record-mapping design doc only
    (`docs/cloudkit-sync-plan.md`).
+6. **3.6 iOS companion spike** — `apple/StudiousKit` SwiftPM package
+   (JSONL store, FSRS-4.5 with golden-file parity to the backend,
+   CloudKit sync engine, SwiftUI app) plus a thin Xcode shell; builds
+   and tests with Command Line Tools alone (`make test-apple`), device
+   deployment still needs Xcode signing.
 
 **State syncing:** status changes need to reflect across dashboard/breakdown
 views — add a simple pub/sub event bus (evaluate a reactive lib only if that

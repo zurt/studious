@@ -121,7 +121,10 @@ class TestSync:
         wanikani.sync(full=True)
         assert len(wanikani._load_latest("subjects")) == 5
 
-    def test_sync_without_token_raises(self, isolated_data_dir: Path):
+    def test_sync_without_token_raises(
+        self, isolated_data_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.delenv("WANIKANI_API_TOKEN", raising=False)
         with pytest.raises(RuntimeError):
             wanikani.sync()
 
@@ -192,7 +195,10 @@ class TestApi:
         assert r.status_code == 200
         assert r.json()["configured"] is True
 
-    def test_sync_endpoint_409_without_token(self, isolated_data_dir: Path):
+    def test_sync_endpoint_409_without_token(
+        self, isolated_data_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.delenv("WANIKANI_API_TOKEN", raising=False)
         assert client.post("/api/refs/wanikani/sync").status_code == 409
 
     def test_sync_endpoint_runs_and_enriches(self, wk_env):
