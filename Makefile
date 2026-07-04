@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-e2e audit audit-log logs clean benchmark refs
+.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-apple test-e2e audit audit-log logs clean benchmark refs
 
 install: install-backend install-frontend
 	@echo ""
@@ -36,6 +36,11 @@ test-backend:
 
 test-frontend:
 	cd frontend && npm test
+
+# Swift package tests run as a plain executable (Command Line Tools
+# ship no XCTest, so no `swift test` / xcodebuild).
+test-apple:
+	cd apple/StudiousKit && swift run studious-tests
 
 # Browser smoke suite: Playwright boots an isolated backend (mock VLM
 # provider, fresh data dir) plus a vite dev server on dedicated ports.

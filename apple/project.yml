@@ -1,0 +1,39 @@
+# XcodeGen fallback spec. The checked-in Studious.xcodeproj was written by
+# hand (this machine has no Xcode); if Xcode rejects it or it drifts,
+# regenerate an equivalent project with:
+#
+#   brew install xcodegen && cd apple && xcodegen generate
+#
+name: Studious
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  StudiousKit:
+    path: StudiousKit
+targets:
+  Studious:
+    type: application
+    platform: iOS
+    sources:
+      - Studious
+    dependencies:
+      - package: StudiousKit
+        product: StudiousUI
+    entitlements:
+      path: Studious/Studious.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.$(CFBundleIdentifier)
+        com.apple.developer.icloud-services:
+          - CloudKit
+        aps-environment: development
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.Studious
+        SUPPORTS_MACCATALYST: NO
+        TARGETED_DEVICE_FAMILY: "1,2"

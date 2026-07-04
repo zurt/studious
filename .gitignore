@@ -25,6 +25,12 @@ data/
 # Benchmarks
 benchmarks/results/
 
+# Swift / Xcode
+apple/StudiousKit/.build/
+.swiftpm/
+xcuserdata/
+DerivedData/
+
 # Editor / OS
 .DS_Store
 .idea/

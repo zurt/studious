@@ -1,0 +1,405 @@
+{
+ "now": "2026-06-01T12:00:00+00:00",
+ "store": {
+  "vocab": [
+   {
+    "id": "v1",
+    "headword": "勉強",
+    "reading": "べんきょう",
+    "meaning": "study",
+    "meaning_source": "llm",
+    "pos": [],
+    "jmdict_seq": null,
+    "status": "active",
+    "classifications": {},
+    "priority_group": 1,
+    "sightings": [
+     {
+      "doc_id": "docgold",
+      "chapter_id": "chgold",
+      "region_id": "rgold",
+      "sentence_index": 0,
+      "surface": "勉強",
+      "sentence_text": "私は日本語を勉強しています。",
+      "source": "breakdown",
+      "seen_at": "2026-01-05T00:00:00+00:00"
+     }
+    ],
+    "links": {},
+    "notes": "",
+    "created_at": "2026-01-05T00:00:00+00:00",
+    "updated_at": "2026-01-05T00:00:00+00:00",
+    "deleted": false
+   },
+   {
+    "id": "v2",
+    "headword": "先生",
+    "reading": "せんせい",
+    "meaning": "teacher",
+    "meaning_source": "llm",
+    "pos": [],
+    "jmdict_seq": null,
+    "status": "active",
+    "classifications": {},
+    "priority_group": null,
+    "sightings": [],
+    "links": {},
+    "notes": "",
+    "created_at": "2026-01-11T00:00:00+00:00",
+    "updated_at": "2026-01-11T00:00:00+00:00",
+    "deleted": false
+   },
+   {
+    "id": "v3",
+    "headword": "図書館",
+    "reading": "としょかん",
+    "meaning": "library",
+    "meaning_source": "llm",
+    "pos": [],
+    "jmdict_seq": null,
+    "status": "active",
+    "classifications": {},
+    "priority_group": 2,
+    "sightings": [
+     {
+      "doc_id": "docgold",
+      "chapter_id": "chgold",
+      "region_id": "rgold",
+      "sentence_index": 0,
+      "surface": "図書館",
+      "sentence_text": "図書館で本を読みながら、静かな午後を過ごしました。",
+      "source": "breakdown",
+      "seen_at": "2026-01-03T00:00:00+00:00"
+     }
+    ],
+    "links": {},
+    "notes": "",
+    "created_at": "2026-01-03T00:00:00+00:00",
+    "updated_at": "2026-01-03T00:00:00+00:00",
+    "deleted": false
+   },
+   {
+    "id": "v4",
+    "headword": "水",
+    "reading": "みず",
+    "meaning": "water",
+    "meaning_source": "llm",
+    "pos": [],
+    "jmdict_seq": null,
+    "status": "known",
+    "classifications": {},
+    "priority_group": null,
+    "sightings": [],
+    "links": {},
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "updated_at": "2026-01-01T00:00:00+00:00",
+    "deleted": false
+   },
+   {
+    "id": "v5",
+    "headword": "犬",
+    "reading": "いぬ",
+    "meaning": "dog",
+    "meaning_source": "llm",
+    "pos": [],
+    "jmdict_seq": null,
+    "status": "unreviewed",
+    "classifications": {},
+    "priority_group": null,
+    "sightings": [],
+    "links": {},
+    "notes": "",
+    "created_at": "2026-01-02T00:00:00+00:00",
+    "updated_at": "2026-01-02T00:00:00+00:00",
+    "deleted": false
+   },
+   {
+    "id": "v6",
+    "headword": "猫",
+    "reading": "ねこ",
+    "meaning": "cat",
+    "meaning_source": "llm",
+    "pos": [],
+    "jmdict_seq": null,
+    "status": "active",
+    "classifications": {},
+    "priority_group": null,
+    "sightings": [],
+    "links": {},
+    "notes": "",
+    "created_at": "2026-01-04T00:00:00+00:00",
+    "updated_at": "2026-01-04T00:00:00+00:00",
+    "deleted": true
+   },
+   {
+    "id": "v7",
+    "headword": "本",
+    "reading": "ほん",
+    "meaning": "book",
+    "meaning_source": "llm",
+    "pos": [],
+    "jmdict_seq": null,
+    "status": "active",
+    "classifications": {},
+    "priority_group": 1,
+    "sightings": [
+     {
+      "doc_id": "docgold",
+      "chapter_id": "chgold",
+      "region_id": "rgold",
+      "sentence_index": 0,
+      "surface": "本",
+      "sentence_text": "   ",
+      "source": "breakdown",
+      "seen_at": "2026-01-06T00:00:00+00:00"
+     }
+    ],
+    "links": {},
+    "notes": "",
+    "created_at": "2026-01-06T00:00:00+00:00",
+    "updated_at": "2026-01-06T00:00:00+00:00",
+    "deleted": false
+   }
+  ],
+  "grammar": [
+   {
+    "id": "g1",
+    "pattern": "〜ながら",
+    "pattern_normalized": "〜ながら",
+    "explanation": "while doing",
+    "status": "active",
+    "classifications": {},
+    "sightings": [],
+    "links": {},
+    "notes": "",
+    "created_at": "2026-01-07T00:00:00+00:00",
+    "updated_at": "2026-01-07T00:00:00+00:00",
+    "deleted": false
+   },
+   {
+    "id": "g2",
+    "pattern": "〜そうです",
+    "pattern_normalized": "〜そうです",
+    "explanation": "hearsay",
+    "status": "active",
+    "classifications": {},
+    "sightings": [],
+    "links": {},
+    "notes": "",
+    "created_at": "2026-01-08T00:00:00+00:00",
+    "updated_at": "2026-01-08T00:00:00+00:00",
+    "deleted": false
+   },
+   {
+    "id": "g3",
+    "pattern": "〜まま",
+    "pattern_normalized": "〜まま",
+    "explanation": "as is",
+    "status": "ignored",
+    "classifications": {},
+    "sightings": [],
+    "links": {},
+    "notes": "",
+    "created_at": "2026-01-09T00:00:00+00:00",
+    "updated_at": "2026-01-09T00:00:00+00:00",
+    "deleted": false
+   }
+  ],
+  "reviews": [
+   {
+    "id": "r1",
+    "item_id": "v1",
+    "kind": "vocab",
+    "card_type": "word",
+    "grade": 3,
+    "ts": "2026-01-21T00:00:00+00:00",
+    "elapsed_ms": 1500
+   },
+   {
+    "id": "r2",
+    "item_id": "v3",
+    "kind": "vocab",
+    "card_type": "word",
+    "grade": 4,
+    "ts": "2026-05-30T12:00:00+00:00",
+    "elapsed_ms": 1500
+   },
+   {
+    "id": "r3",
+    "item_id": "v3",
+    "kind": "vocab",
+    "card_type": "context",
+    "grade": 3,
+    "ts": "2026-01-11T00:00:00+00:00",
+    "elapsed_ms": 1500
+   },
+   {
+    "id": "r4",
+    "item_id": "g1",
+    "kind": "grammar",
+    "card_type": "pattern",
+    "grade": 1,
+    "ts": "2026-06-01T10:00:00+00:00",
+    "elapsed_ms": 1500
+   },
+   {
+    "id": "r5",
+    "item_id": "v4",
+    "kind": "vocab",
+    "card_type": "word",
+    "grade": 3,
+    "ts": "2026-01-21T00:00:00+00:00",
+    "elapsed_ms": 1500
+   }
+  ]
+ },
+ "cases": [
+  {
+   "limit": 50,
+   "new_limit": 10,
+   "counts": {
+    "due": 3,
+    "new": 4,
+    "active_items": 6
+   },
+   "expected": [
+    {
+     "kind": "vocab",
+     "item_id": "v3",
+     "card_type": "context",
+     "seen": true
+    },
+    {
+     "kind": "vocab",
+     "item_id": "v1",
+     "card_type": "word",
+     "seen": true
+    },
+    {
+     "kind": "grammar",
+     "item_id": "g1",
+     "card_type": "pattern",
+     "seen": true
+    },
+    {
+     "kind": "vocab",
+     "item_id": "v1",
+     "card_type": "context",
+     "seen": false
+    },
+    {
+     "kind": "vocab",
+     "item_id": "v7",
+     "card_type": "word",
+     "seen": false
+    },
+    {
+     "kind": "grammar",
+     "item_id": "g2",
+     "card_type": "pattern",
+     "seen": false
+    },
+    {
+     "kind": "vocab",
+     "item_id": "v2",
+     "card_type": "word",
+     "seen": false
+    }
+   ]
+  },
+  {
+   "limit": 3,
+   "new_limit": 2,
+   "counts": {
+    "due": 3,
+    "new": 4,
+    "active_items": 6
+   },
+   "expected": [
+    {
+     "kind": "vocab",
+     "item_id": "v3",
+     "card_type": "context",
+     "seen": true
+    },
+    {
+     "kind": "vocab",
+     "item_id": "v1",
+     "card_type": "word",
+     "seen": true
+    },
+    {
+     "kind": "grammar",
+     "item_id": "g1",
+     "card_type": "pattern",
+     "seen": true
+    }
+   ]
+  },
+  {
+   "limit": 5,
+   "new_limit": 0,
+   "counts": {
+    "due": 3,
+    "new": 4,
+    "active_items": 6
+   },
+   "expected": [
+    {
+     "kind": "vocab",
+     "item_id": "v3",
+     "card_type": "context",
+     "seen": true
+    },
+    {
+     "kind": "vocab",
+     "item_id": "v1",
+     "card_type": "word",
+     "seen": true
+    },
+    {
+     "kind": "grammar",
+     "item_id": "g1",
+     "card_type": "pattern",
+     "seen": true
+    }
+   ]
+  },
+  {
+   "limit": 50,
+   "new_limit": 1,
+   "counts": {
+    "due": 3,
+    "new": 4,
+    "active_items": 6
+   },
+   "expected": [
+    {
+     "kind": "vocab",
+     "item_id": "v3",
+     "card_type": "context",
+     "seen": true
+    },
+    {
+     "kind": "vocab",
+     "item_id": "v1",
+     "card_type": "word",
+     "seen": true
+    },
+    {
+     "kind": "grammar",
+     "item_id": "g1",
+     "card_type": "pattern",
+     "seen": true
+    },
+    {
+     "kind": "vocab",
+     "item_id": "v1",
+     "card_type": "context",
+     "seen": false
+    }
+   ]
+  }
+ ]
+}

@@ -111,6 +111,10 @@ Open <http://localhost:5173>.
   `llm_audit.YYYY-MM.jsonl` (append-only log of VLM calls; gitignored).
   Override the data root with `STUDIOUS_DATA_DIR`.
 - `benchmarks/` — quality benchmarking tools for tracking extraction accuracy.
+- `apple/` — native iOS/iPadOS companion app (SwiftUI + SwiftPM): browse and
+  curate harvested vocab/grammar, run FSRS flashcard sessions offline, sync
+  through your own iCloud private database. See `apple/README.md` and
+  `docs/cloudkit-sync-plan.md`.
 - `docs/` — project description, roadmap, and architecture documentation.
 
 ## Configuration
@@ -154,6 +158,7 @@ of the request, so repeated calls with the same prompt see cache hits
 make test            # backend (pytest + coverage) and frontend (vitest)
 make test-backend    # pytest only
 make test-frontend   # vitest only
+make test-apple      # Swift package tests (StudiousKit)
 make test-e2e        # browser smoke suite (Playwright)
 ```
 
