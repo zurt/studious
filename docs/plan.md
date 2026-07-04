@@ -10,6 +10,8 @@ Tesseract OCR proved too low-quality for Japanese textbook pages (~22% CER). The
 
 **Web MVP now, native later.** The web app is the fastest way to iterate on the VLM prompts, data model, and study workflow — the hard parts of this project. Once the workflow stabilizes, build SwiftUI apps (macOS/iOS/iPad) that call the same backend API. Don't invest in web-specific polish (animations, offline, PWA); the web app is a usable prototype.
 
+*Update 2026-07-02:* the first native piece shipped — an iOS/iPadOS study companion under `apple/` (SwiftPM package + Xcode shell) that syncs the vocab/grammar stores and review log through CloudKit rather than calling the backend API; see `docs/ios-app-plan.md`. The Mac web app remains the harvest/curation surface.
+
 **Frontend: vanilla TypeScript + Vite.** Dropping React. The app's needs (routes, fetch JSON, render HTML, canvas drawing) don't require a framework. Vite stays for HMR and build tooling. If reactive data binding is needed later (Phase 3 vocab status syncing), add Vue or a small reactive library then.
 
 ## Existing Foundation

@@ -1,8 +1,12 @@
-# CloudKit Sync Design (Phase 3.5 — design only, no code until Phase 5)
+# CloudKit Sync Design (Phase 3.5 design; implemented in Phase 5)
 
-**Status:** Design documented 2026-07-01. Implementation is deliberately
-deferred until the SwiftUI companion app starts (Phase 5); this document
-exists so nothing shipped in Phase 3 has to change shape when it does.
+**Status:** Design documented 2026-07-01. Implemented 2026-07-02 in
+`apple/StudiousKit` (`StudiousSync` library + `studious-sync` CLI) as
+part of the iOS companion app — see `docs/ios-app-plan.md`. One mapping
+refinement was made during implementation (noted inline below): item
+records carry the full raw store record as a single `payload` JSON
+string field, with the scalar fields below kept as duplicated,
+queryable mirrors.
 
 ## Goal
 
@@ -47,6 +51,16 @@ are stored as JSON-encoded `String` fields. That is acceptable because:
   `status` and `notes`.
 
 A `schema_version: Int` field on every record allows forward migration.
+
+**Implementation refinement (2026-07-02):** rather than mapping each
+field individually, the implementation stores the complete raw store
+record as one `payload` JSON string field and treats that as the source
+of truth on receive; the scalars above (`headword`, `reading`,
+`pattern`, `status`, `updated_at`, `deleted`) are still written as
+plain record fields, but only for CloudKit-dashboard queryability.
+This guarantees fields this list didn't enumerate (`meaning_source`,
+`enriched_at`, `pattern_normalized`) and any future fields survive
+transport without mapper churn. See `RecordMapper.swift`.
 
 ### `ReviewEvent`
 

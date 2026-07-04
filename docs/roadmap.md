@@ -412,5 +412,14 @@ Shipped 2026-07-01.
 
 - [ ] Bulk operations (transcribe/breakdown all regions in a chapter)
 - [ ] Region editing (resize, move, reorder)
-- [ ] Native macOS/iOS/iPad apps (SwiftUI, same backend API)
+- [x] iOS/iPadOS study companion (see `docs/ios-app-plan.md`): SwiftPM
+      package `apple/StudiousKit` with the FSRS-4.5 Swift port
+      (golden-file parity against `services/srs.py`), same-format JSONL
+      store, study/browse/curation SwiftUI app, CloudKit sync engine
+      (`CKSyncEngine`, per `docs/cloudkit-sync-plan.md`), Mac-side
+      `studious-sync` CLI (CloudKit push/pull + manual JSONL
+      merge/export fallback), and an Xcode app shell at
+      `apple/Studious.xcodeproj`. Needs a machine with Xcode + an Apple
+      Developer team to run on device — shipped 2026-07-02
+- [ ] Native macOS app
 - [ ] Mobile-responsive web layout
