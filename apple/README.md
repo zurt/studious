@@ -1,5 +1,8 @@
 # Studious for iOS/iPadOS
 
+(See "Studious for macOS" below for the native Mac companion, which also
+lives in this package.)
+
 Native study companion for the vocab/grammar harvested by the Mac app:
 browse and curate items (status + notes), run FSRS flashcard sessions
 offline, and sync through your own iCloud private database. Design:
@@ -15,6 +18,8 @@ offline, and sync through your own iCloud private database. Design:
   - `StudiousUI` — the SwiftUI app (Study / Vocabulary / Grammar /
     Settings).
   - `studious-sync` — Mac-side sync CLI.
+  - `studious-mac` — the native Mac companion app; see "Studious for
+    macOS" below.
   - `studious-tests` — the test suite (`swift run studious-tests` or
     `make test-apple` from the repo root; plain executable because
     Command Line Tools ship no XCTest).
@@ -82,3 +87,56 @@ make test-apple   # Swift suite must still pass bit-identically
 Run both after touching `backend/app/services/srs.py` or
 `StudiousKit/Sources/StudiousCore/FSRS.swift`, and commit the fixture
 changes.
+
+# Studious for macOS
+
+Native Mac companion with the same Study/Vocabulary/Grammar/Settings UI
+as the iOS app, plus a role the phone can't play: it reads and writes the
+backend's own `data/store/*.jsonl` files directly, so edits made in the
+Mac app, the web app, and the backend all show up in each other with no
+sync layer, no HTTP, and no Apple developer account. Design:
+`docs/mac-app-plan.md`.
+
+It's a plain SwiftPM executable (`studious-mac`), not a signed `.app`
+bundle — the Command-Line-Tools-only build in this repo has no way to
+codesign one. That's why the two modes below matter, and why CloudKit is
+out of reach here (see below).
+
+## Running it
+
+```bash
+make run-mac
+```
+
+This points the app at the repo's real `backend/data` via
+`STUDIOUS_DATA_DIR`, so by default you get **bridge mode**: the app is a
+second reader/writer of the canonical store the backend and frontend use.
+Edit an item's status or notes, or run a study session, and the change is
+visible in the web app immediately (a ~2s foreground poll picks up
+appends made by the backend too — see "External-change refresh" in the
+plan doc). Run it without `STUDIOUS_DATA_DIR` (or clear the data
+directory in Settings) to fall back to **standalone mode**: the same
+Application-Support-backed store the iOS app uses when unpaired.
+
+Settings → *Data directory* shows the resolved store path and lets you
+point at a different `data/` folder (`fileImporter`, persisted to
+UserDefaults, effective on relaunch). Settings → *Backend* is purely
+informational — a health check against `GET /api/health` and a link to
+the web app — the Mac app never depends on the backend running.
+
+## Import replaces `studious-sync merge` for the common case
+
+Settings → *Import store files…* on the Mac app runs the exact same
+LWW/union merge code (`AppModel.importJSONL`) as `studious-sync merge`,
+so pulling an iOS export into the canonical store no longer requires the
+terminal: export from the iPhone (AirDrop or Files), then import them
+here. The CLI still exists for scripting/automation.
+
+## No CloudKit here (yet)
+
+Settings hides the iCloud sync section on macOS (`AppModel.syncSupported
+== false`): an unsigned process has no iCloud entitlement, and touching
+`CKContainer` would throw. In bridge mode this doesn't matter — the Mac
+app *is* the canonical store, so it has nothing to sync. `studious-sync
+sync` remains the CloudKit path until a signed `.app` bundle exists (see
+"Later, on a machine with Xcode" in `docs/mac-app-plan.md`).

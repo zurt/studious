@@ -64,6 +64,16 @@ public final class ReviewLog {
         grouped[key, default: []].append(event)
     }
 
+    /// True if the file has been appended to by another process since the
+    /// last load, without paying for a reload (see `ItemStore.hasExternalChanges`).
+    public var hasExternalChanges: Bool {
+        switch (fileSignature(), loadedSignature) {
+        case (nil, nil): return false
+        case (let current?, let loaded?): return current != loaded
+        default: return true
+        }
+    }
+
     public func events(for key: CardKey) -> [ReviewEvent] {
         grouped[key] ?? []
     }

@@ -28,6 +28,34 @@ Where to look first when something goes wrong. Triage in this order: **job JSON 
   `studious-sync merge/export` (manual file exchange, same merge
   semantics) until signing is set up.
 
+### macOS companion (studious-mac)
+- Store location is whatever data dir the app resolved at launch
+  (`--data-dir` arg > `STUDIOUS_DATA_DIR` env > Settings pick > its own
+  Application Support store) + `store/`; Settings → Data directory
+  shows the resolved path. `make run-mac` always points at the repo's
+  `backend/data`.
+- The Settings-chosen data dir and backend URL persist in the
+  `studious-mac` UserDefaults domain (`defaults read studious-mac`);
+  the executable is unbundled, so the domain is the process name.
+- The app doesn't show a change made by the backend/web app: external
+  appends are picked up by a ~2s foreground poll, and an in-progress
+  study session's queue is a snapshot from when the session started —
+  lists/stats refresh, the current session deliberately doesn't.
+- No iCloud sync section in Settings on the Mac: intentional
+  (`AppModel.syncSupported == false`) — an unsigned executable has no
+  iCloud entitlement, and in bridge mode there's nothing to sync.
+
+### Screenshots of studious-mac (or any GUI) come out as wallpaper only
+`screencapture` from a terminal without Screen Recording permission
+silently captures the desktop and menu bar but blanks other apps'
+window contents — it looks like the app has no window when it does.
+Grant Terminal the permission in System Settings → Privacy & Security →
+Screen & System Audio Recording, or confirm the window exists without
+pixels: `swift -e 'import CoreGraphics; print(CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID)!)'`
+and look for the app's `kCGWindowOwnerName`/bounds. `osascript`/System
+Events needs the separate Accessibility permission and will pop a
+dialog if missing.
+
 ### Backend logs (stdout)
 Configured in `backend/app/main.py` with a single `StreamHandler` — logs go to the terminal running `make dev-backend`. Nothing is written to disk by default. To capture a session:
 

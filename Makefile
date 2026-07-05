@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-e2e test-apple audit audit-log logs clean benchmark refs golden
+.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-e2e test-apple run-mac audit audit-log logs clean benchmark refs golden
 
 install: install-backend install-frontend
 	@echo ""
@@ -42,6 +42,13 @@ test-frontend:
 # installs ship neither XCTest nor Swift Testing. Needs only CLT.
 test-apple:
 	cd apple/StudiousKit && swift run studious-tests
+
+# Native Mac companion (docs/mac-app-plan.md): a plain SwiftPM executable
+# that bridges directly to the backend's data/store/. STUDIOUS_DATA_DIR
+# points it at the repo's real backend data, so this is bridge mode
+# against the live store by default.
+run-mac:
+	cd apple/StudiousKit && STUDIOUS_DATA_DIR=$(CURDIR)/backend/data swift run studious-mac
 
 # Regenerate the Swift FSRS/queue parity fixtures from the Python
 # scheduler. Run after any change to backend/app/services/srs.py, then

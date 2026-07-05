@@ -55,6 +55,19 @@ public final class ItemStore {
         latestByID[id]
     }
 
+    /// True if the file has been appended to by another process (the
+    /// backend, `studious-sync`, or a second app instance) since the last
+    /// load, without paying for a reload — the same signature comparison
+    /// `reloadIfChanged()` uses, exposed for a cheap poll (see
+    /// `docs/mac-app-plan.md`, "External-change refresh").
+    public var hasExternalChanges: Bool {
+        switch (fileSignature(), loadedSignature) {
+        case (nil, nil): return false
+        case (let current?, let loaded?): return current != loaded
+        default: return true
+        }
+    }
+
     /// Live items, newest `created_at` first (matches `store.list_items`).
     public func list(includeDeleted: Bool = false) -> [StoreItem] {
         var items = Array(latestByID.values)

@@ -26,8 +26,8 @@ SwiftPM package:
 - `AppModel.init(directory:)` already takes an arbitrary store
   directory.
 - `JSONLStore` already mirrors the backend's mtime+size cache
-  invalidation (`reloadIfChanged()` runs on every read), so external
-  appends by the backend or the sync CLI are picked up automatically.
+  invalidation (`reloadIfChanged()`), so external appends by the
+  backend or the sync CLI are picked up by re-checking the signature.
   The backend's own caches work the same way in the other direction,
   and both sides write append+fsync — the file is the interface.
 
@@ -78,8 +78,10 @@ own mutations. Add:
 - `ItemStore`/`ReviewLog`: expose a cheap `hasExternalChanges` check
   (compare current file signature against the loaded one — the
   comparison `reloadIfChanged()` already performs, without the reload).
-- `AppModel.refreshIfChangedOnDisk()`: if any of the three files moved,
-  bump `storeGeneration`.
+- `AppModel.refreshIfChangedOnDisk()`: reload each of the three files
+  that moved, then bump `storeGeneration`. (The stores do *not* reload
+  lazily on read — `reloadIfChanged()` runs only at init — so the
+  refresh must reload explicitly for the bump to show fresh data.)
 - `studious-mac` calls it from a ~2 s foreground timer. Polling matches
   the mtime+size approach used everywhere else in the project; no
   DispatchSource/FSEvents machinery unless the poll proves inadequate.

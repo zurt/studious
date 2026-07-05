@@ -29,6 +29,15 @@ public final class AppModel {
     /// Bumped after any store mutation so SwiftUI re-queries lists.
     public private(set) var storeGeneration = 0
 
+    /// CloudKit needs a codesigned iCloud entitlement no unsigned macOS
+    /// executable has; the Mac app is a bridge onto the canonical store and
+    /// doesn't need sync anyway, so Settings hides the toggle there.
+    #if os(macOS)
+    public static let syncSupported = false
+    #else
+    public static let syncSupported = true
+    #endif
+
     public init(directory: URL? = nil) {
         let base = directory ?? FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
@@ -42,6 +51,23 @@ public final class AppModel {
 
     public func store(for kind: Kind) -> ItemStore {
         kind == .vocab ? vocab : grammar
+    }
+
+    // MARK: - External refresh (bridge mode: the backend or another process
+    // may append to these files while the app is running)
+
+    /// Poll for appends made by another process — the backend, the
+    /// `studious-sync` CLI, or a second app instance pointed at the same
+    /// store. Reloads only the files that actually moved, then bumps
+    /// `storeGeneration` so SwiftUI re-queries. Cheap enough for a ~2s
+    /// foreground timer (see `docs/mac-app-plan.md`,
+    /// "External-change refresh").
+    public func refreshIfChangedOnDisk() {
+        var changed = false
+        if vocab.hasExternalChanges { vocab.reloadIfChanged(); changed = true }
+        if grammar.hasExternalChanges { grammar.reloadIfChanged(); changed = true }
+        if reviews.hasExternalChanges { reviews.reloadIfChanged(); changed = true }
+        if changed { storeGeneration += 1 }
     }
 
     // MARK: - Browsing
@@ -122,7 +148,9 @@ public final class AppModel {
     public var lastError: String?
 
     private func startSyncIfEnabled() {
-        guard syncEnabled, syncEngine == nil else { return }
+        // Also guards against a stray `studious.syncEnabled` default in an
+        // unsigned macOS process, where touching CKContainer would throw.
+        guard Self.syncSupported, syncEnabled, syncEngine == nil else { return }
         let engine = StudiousSyncEngine(
             container: .default(),
             vocab: vocab, grammar: grammar, reviews: reviews,

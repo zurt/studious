@@ -158,6 +158,48 @@ enum StoreTests {
             s.reloadIfChanged()
             T.expect(s.get("b") != nil, "external append visible after reload")
         }
+
+        T.suite("hasExternalChanges detects another instance's append") {
+            _ = freshDir()
+            let url = dir.appendingPathComponent("vocab.jsonl")
+            let s1 = ItemStore(kind: .vocab, url: url)
+            try s1.append([makeItem(id: "a", updatedAt: "2026-01-01T00:00:00+00:00")])
+            T.expect(!s1.hasExternalChanges, "no external change right after our own append")
+
+            let s2 = ItemStore(kind: .vocab, url: url)
+            try s2.append([makeItem(id: "b", updatedAt: "2026-01-02T00:00:00+00:00")])
+
+            T.expect(s1.hasExternalChanges, "external append detected without reloading")
+            T.expectNil(s1.get("b"), "not visible until reloaded")
+            s1.reloadIfChanged()
+            T.expect(!s1.hasExternalChanges, "signature matches after reload")
+            T.expect(s1.get("b") != nil, "external item visible after reload")
+        }
+
+        T.suite("ReviewLog.hasExternalChanges detects another instance's append") {
+            _ = freshDir()
+            let url = dir.appendingPathComponent("reviews.jsonl")
+            let log1 = ReviewLog(url: url)
+            let event = ReviewEvent(
+                id: "e1", itemID: "a", kind: .vocab, cardType: "word",
+                grade: 3, ts: "2026-01-01T00:00:00+00:00"
+            )
+            try log1.record(event)
+            T.expect(!log1.hasExternalChanges, "no external change right after our own record")
+
+            let log2 = ReviewLog(url: url)
+            let other = ReviewEvent(
+                id: "e2", itemID: "a", kind: .vocab, cardType: "word",
+                grade: 1, ts: "2026-01-02T00:00:00+00:00"
+            )
+            try log2.record(other)
+
+            T.expect(log1.hasExternalChanges, "external record detected without reloading")
+            T.expectEqual(log1.eventCount, 1, "not visible until reloaded")
+            log1.reloadIfChanged()
+            T.expect(!log1.hasExternalChanges, "signature matches after reload")
+            T.expectEqual(log1.eventCount, 2, "external event visible after reload")
+        }
     }
 }
 

@@ -114,8 +114,10 @@ Open <http://localhost:5173>.
 - `apple/` — native iOS/iPadOS study companion (SwiftUI): `StudiousKit/`
   SwiftPM package (models, same-format JSONL store, FSRS-4.5 port,
   CloudKit sync, UI, Mac-side `studious-sync` CLI) plus a thin
-  `Studious.xcodeproj` app shell. See `apple/README.md` and
-  `docs/ios-app-plan.md`.
+  `Studious.xcodeproj` app shell. The same package also ships
+  `studious-mac`, a native macOS companion (`make run-mac`) that bridges
+  directly to `data/store/*.jsonl` — no sync layer needed on the Mac. See
+  `apple/README.md`, `docs/ios-app-plan.md`, and `docs/mac-app-plan.md`.
 - `docs/` — project description, roadmap, and architecture documentation.
 
 ## Configuration

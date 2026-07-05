@@ -31,6 +31,9 @@ public struct RootView: View {
             }
             .tabItem { Label("Settings", systemImage: "gearshape") }
         }
+        #if os(macOS)
+        .frame(minWidth: 720, minHeight: 480)
+        #endif
     }
 }
 

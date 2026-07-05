@@ -7,6 +7,7 @@ struct Main {
         StoreTests.run()
         ISO8601Tests.run()
         RecordMapperTests.run()
+        DataDirectoryTests.run()
         T.finish()
     }
 }
