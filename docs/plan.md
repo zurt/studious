@@ -12,6 +12,8 @@ Tesseract OCR proved too low-quality for Japanese textbook pages (~22% CER). The
 
 *Update 2026-07-02:* the first native piece shipped — an iOS/iPadOS study companion under `apple/` (SwiftPM package + Xcode shell) that syncs the vocab/grammar stores and review log through CloudKit rather than calling the backend API; see `docs/ios-app-plan.md`. The Mac web app remains the harvest/curation surface.
 
+*Update 2026-07-05:* next native piece planned — a macOS app (`docs/mac-app-plan.md`) reusing the same SwiftUI package for study/browse/curation, operating directly on the backend's canonical `data/store/` JSONL so it doubles as the bridge to the local FastAPI server. The web app still owns the harvest workflow (documents, transcription, regions).
+
 **Frontend: vanilla TypeScript + Vite.** Dropping React. The app's needs (routes, fetch JSON, render HTML, canvas drawing) don't require a framework. Vite stays for HMR and build tooling. If reactive data binding is needed later (Phase 3 vocab status syncing), add Vue or a small reactive library then.
 
 ## Existing Foundation

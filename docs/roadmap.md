@@ -424,5 +424,10 @@ Shipped 2026-07-01.
       checked into the repo 2026-07-04
 - [ ] Run the companion on a device end-to-end and deploy the CloudKit
       schema to the production environment
-- [ ] Native macOS app
+- [ ] Native macOS app (see `docs/mac-app-plan.md`, planned 2026-07-05):
+      `studious-mac` executable target in `apple/StudiousKit` reusing
+      the iOS companion's SwiftUI (study/browse/curation), pointed
+      directly at the backend's canonical `data/store/` JSONL — the
+      Mac app doubles as the bridge to the local FastAPI server, no
+      CloudKit or developer account needed. Builds/runs with CLT only
 - [ ] Mobile-responsive web layout
