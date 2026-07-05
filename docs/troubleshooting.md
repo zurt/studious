@@ -4,6 +4,30 @@ Where to look first when something goes wrong. Triage in this order: **job JSON 
 
 ## Where state and logs live
 
+### iOS companion (apple/)
+- The app's local store is the same JSONL format as the backend's, at
+  `Application Support/Studious/store/{vocab,grammar,reviews}.jsonl`
+  inside the app sandbox; CloudKit sync-engine state lives next to it
+  (`cksync-state.json`). Deleting the app resets both — data re-imports
+  or re-syncs.
+- `no such module 'XCTest'` from `swift test`: Command Line Tools
+  installs ship neither XCTest nor Swift Testing, so the suite is a
+  plain executable — run `make test-apple` (= `swift run studious-tests`).
+- `xcodebuild ... requires Xcode` means only CLT is installed; the
+  SwiftPM package still builds/tests fine, only the `.xcodeproj` app
+  shell needs a real Xcode install.
+- FSRS golden-parity failures after touching
+  `backend/app/services/srs.py` or `StudiousCore/FSRS.swift`: regenerate
+  with `make golden`, re-run `make test-apple`, commit the fixtures.
+  Rounding trap: Python `round()` is half-to-even, so the Swift interval
+  math uses `.rounded(.toNearestOrEven)` deliberately.
+- `studious-sync sync` failing with a CloudKit permission error: the CLI
+  binary must be codesigned with the iCloud entitlement
+  (`com.apple.developer.icloud-services = CloudKit`) for the container;
+  unsigned `swift build` output can't reach CloudKit. Use
+  `studious-sync merge/export` (manual file exchange, same merge
+  semantics) until signing is set up.
+
 ### Backend logs (stdout)
 Configured in `backend/app/main.py` with a single `StreamHandler` — logs go to the terminal running `make dev-backend`. Nothing is written to disk by default. To capture a session:
 
@@ -133,6 +157,17 @@ Workaround when you need to run `uv lock` locally (e.g., to upgrade a package):
 
 Note: changing the global cutoff causes uv to "Ignore existing lockfile due to change in timestamp cutoff" and re-resolves the full graph. Only packages whose upload timestamps fall inside the new window get updated, so all resolved versions still honour the 7-day rule, but more packages may bump than the single `--upgrade-package` target. Verify with `uv run pip-audit` and the test suite before committing the broader lock.
 
+### `make test-backend` fails only in tests/test_wanikani.py (2 failures)
+`test_sync_without_token_raises` and `test_sync_endpoint_409_without_token`
+assert the no-token error path, but the recommended shell setup exports
+`WANIKANI_API_TOKEN` from the Keychain in `~/.zshrc`, so any shell that
+sourced it leaked a real token into pytest and both tests failed. Fixed
+2026-07-03: the tests scrub the variable themselves. Gotcha for any
+future test asserting a missing-env-var path: `app.config.get_settings()`
+is `@lru_cache`d, so `monkeypatch.delenv` alone is not enough — also call
+`config.get_settings.cache_clear()` (the same pattern the `wk_env`
+fixture uses for `setenv`).
+
 ### The Study page says "No cards to study yet" despite a full vocab store
 The queue only serves items with curation status **active** — that's the
 point of the curation lifecycle (see the status-vs-SRS-state distinction
@@ -170,13 +205,6 @@ against a 60/min rate limit and can take ~30s; on 429 the client honors
 `Retry-After` once (logged as `wanikani_rate_limited`). WK SRS state is
 display-only by design: a burned item still lands in the Inbox, because
 burned-years-ago knowledge is exactly what the store is re-learning.
-
-### WaniKani "without token" tests fail locally but pass in CI
-`test_sync_without_token_raises` / `test_sync_endpoint_409_without_token`
-failing with "DID NOT RAISE" / got 200: your shell exports
-`WANIKANI_API_TOKEN` (the README's recommended Keychain setup), and the
-config reads the process env. The tests `monkeypatch.delenv` the token;
-any new no-token test must do the same — don't assume a clean env.
 
 ### A vocab-list entry didn't show up in the vocab store
 The harvest parser (`backend/app/services/harvest.py`) only ingests lines it

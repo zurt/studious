@@ -2,7 +2,7 @@ import StudiousCore
 import SwiftUI
 
 /// Sync controls, manual JSONL import/export (the zero-setup fallback
-/// when CloudKit isn't configured), and store stats.
+/// documented in `docs/ios-app-plan.md`), and store stats.
 struct SettingsView: View {
     @Bindable var model: AppModel
 

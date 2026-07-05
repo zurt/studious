@@ -2,8 +2,8 @@
 
 Native study companion for the vocab/grammar harvested by the Mac app:
 browse and curate items (status + notes), run FSRS flashcard sessions
-offline, and sync through your own iCloud private database. Sync
-protocol: `docs/cloudkit-sync-plan.md`.
+offline, and sync through your own iCloud private database. Design:
+`docs/ios-app-plan.md`; sync protocol: `docs/cloudkit-sync-plan.md`.
 
 ## What's here
 

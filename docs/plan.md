@@ -10,6 +10,8 @@ Tesseract OCR proved too low-quality for Japanese textbook pages (~22% CER). The
 
 **Web MVP now, native later.** The web app is the fastest way to iterate on the VLM prompts, data model, and study workflow — the hard parts of this project. Once the workflow stabilizes, build SwiftUI apps (macOS/iOS/iPad) that call the same backend API. Don't invest in web-specific polish (animations, offline, PWA); the web app is a usable prototype.
 
+*Update 2026-07-02:* the first native piece shipped — an iOS/iPadOS study companion under `apple/` (SwiftPM package + Xcode shell) that syncs the vocab/grammar stores and review log through CloudKit rather than calling the backend API; see `docs/ios-app-plan.md`. The Mac web app remains the harvest/curation surface.
+
 **Frontend: vanilla TypeScript + Vite.** Dropping React. The app's needs (routes, fetch JSON, render HTML, canvas drawing) don't require a framework. Vite stays for HMR and build tooling. If reactive data binding is needed later (Phase 3 vocab status syncing), add Vue or a small reactive library then.
 
 ## Existing Foundation
@@ -338,8 +340,8 @@ decisions:
   an in-repo FSRS scheduler (milestone 3.4).
 - **CloudKit-ready schema now, sync later.** UUID ids, `updated_at`,
   tombstones, append-only logs, flat records. The iOS/CloudKit topology is
-  documented in milestone 3.5; a native implementation spike lives in
-  `apple/` (milestone 3.6).
+  documented in milestone 3.5 and implemented by the Phase 5 iOS
+  companion under `apple/` (see `docs/ios-app-plan.md`).
 
 ### Milestones
 
@@ -357,11 +359,6 @@ decisions:
    sightings, graded per card).
 5. **3.5 Sync groundwork** — CloudKit record-mapping design doc only
    (`docs/cloudkit-sync-plan.md`).
-6. **3.6 iOS companion spike** — `apple/StudiousKit` SwiftPM package
-   (JSONL store, FSRS-4.5 with golden-file parity to the backend,
-   CloudKit sync engine, SwiftUI app) plus a thin Xcode shell; builds
-   and tests with Command Line Tools alone (`make test-apple`), device
-   deployment still needs Xcode signing.
 
 **State syncing:** status changes need to reflect across dashboard/breakdown
 views — add a simple pub/sub event bus (evaluate a reactive lib only if that
