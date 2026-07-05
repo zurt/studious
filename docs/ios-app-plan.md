@@ -16,12 +16,14 @@ Mac's JSONL store stays canonical; CloudKit is a transport.
 ```
 apple/
   StudiousKit/            SwiftPM package — all logic and UI, testable with
-    Sources/                `swift build` / `swift test` (CLT-only, no Xcode)
+    Sources/                `swift build` + `make test-apple` (CLT-only, no Xcode)
       StudiousCore/       models, JSONL store, FSRS-4.5 port, study queue
       StudiousSync/       CKRecord mapping, LWW conflict logic, CKSyncEngine
       StudiousUI/         SwiftUI views (cross-platform: iOS app + macOS compile check)
       studious-sync/      Mac-side sync CLI (executable target, macOS only)
-    Tests/StudiousCoreTests/   golden-file FSRS parity + store/queue/sync-logic tests
+      studious-tests/     golden-file FSRS parity + store/queue/sync-logic tests
+                          (plain executable, `swift run studious-tests` —
+                          CLT installs ship no XCTest, so no `swift test`)
   Studious.xcodeproj      minimal app shell (Xcode 16 synchronized folders)
   Studious/               @main app entry, entitlements
   project.yml             XcodeGen spec (regenerate the project if pbxproj drifts)
