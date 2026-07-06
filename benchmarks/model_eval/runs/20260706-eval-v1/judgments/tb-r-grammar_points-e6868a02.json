@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-sonnet-5",
+    "C": "claude-haiku-4-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-sonnet-5": "B",
+    "claude-haiku-4-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text is fully accurate. Rendering the unit banner as a one-row table is slightly awkward but faithful in content. Connection-form box table is well structured. Underline on 「に関して」 in the example is not marked (true of all candidates).",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "All text accurate; uses proper markdown headers for the unit title and section. Table preserves the box layout with the right column. Minor: indentation of ただし/ナ形 lines slightly flattened; example underline not represented.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Inserted an extra 「は」: 「～に関しては」は「～に関して言えば」 — a small hallucination that changes the sentence. Uses half-width '/' instead of the full-width '／' in the image. Table merges 接続の形 and N into one cell, losing the two-column box structure; last paragraph split into two unnecessarily.",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 6,
+      "hallucination_control": 8,
+      "overall": 7
+    }
+  ],
+  "ranking": [
+    "B",
+    "A",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "B and A are both character-perfect and complete; B ranks first because its markdown headers reflect the layout more naturally than A's one-row table for the unit banner, while both handle the connection-form box similarly. C ranks last due to an inserted extra 「は」 that corrupts the final paragraph, consistent use of half-width slashes instead of the full-width slashes visible in the image, and a table structure that collapses the box's left-column label into the content, misrepresenting the layout.",
+  "usage": {
+    "input_tokens": 2765,
+    "output_tokens": 1044,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.07985,
+  "duration_ms": 15820
+}

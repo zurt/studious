@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-haiku-4-5",
+  "markdown": "好む（このむ）like; prefer  \n9 昔（むかし）old times; long ago  \n頃（ころ）period; time  \n手法（しゅほう）method; technique  \n10 重宝する（ちょうほうする）be very useful  \nオーナー　owner  \n誘う（さそう）invite; tempt  \n～ものの　although; while  \nさすがに　after all; as expected  \n11 なんといっても　above all; in any case  \n雇主（やといぬし）employer; boss  \n12 ～に応じる（おうじる）respond to; comply with  \n常套句（じょうとうく）stock phrase; cliché  \n13 催促する（さいそくする）urge; press  \nうろたえる　be flustered; panic  \n14 意図（いと）intention; purpose  \n15 きまり悪い（きまりわるい）awkward; uncomfortable  \n断る（ことわる）refuse; decline  \n略（りゃく）abbreviation; omission  \n以外（いがい）except; other than  \n16 ～にとって　for; to  \n紛れもない（まぎれもない）unmistakable; undeniable  \n否（いな）no; denial  \n示す（しめす）show; indicate  \n18 ごうした　stubborn; obstinate  \n曖昧な（あいまいな）ambiguous; vague  \nプライベートな　private  \n19 公（おおやけ）public  \n場（ば）place; situation  \n耳にする（みみにする）hear; come to one's ears  \nまずない　hardly; scarcely  \nところが　however; but  \n口にする（くちにする）say; speak  \n20 温床（おんしょう）hotbed; breeding ground  \nかの　that; aforementioned  \nニクソン　[person name]  \n佐藤（さとう）[person name]  \n会談する（かいだんする）hold talks; confer  \n一例（いちれい）example; instance  \n繊維（せんい）fiber; textile  \n21 市場（しじょう）market",
+  "meta": {
+    "model": "claude-haiku-4-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQnmVyqjX8DTHCrZeTo",
+    "prompt_hash": "3d778a54",
+    "image_bytes": 290712,
+    "usage": {
+      "input_tokens": 1687,
+      "output_tokens": 586,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 0
+    }
+  },
+  "duration_ms": 6899,
+  "estimated_cost_usd": 0.004617
+}

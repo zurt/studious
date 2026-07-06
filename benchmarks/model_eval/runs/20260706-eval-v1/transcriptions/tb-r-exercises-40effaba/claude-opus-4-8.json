@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-opus-4-8",
+  "markdown": "この漫画の（①　　　　　　）は21歳の女性で、東京にある有名大学の理学部に通う学生という（②　　　　　　）だ。（③　　　　　　）であるＡ氏は、学生の日常にあふれる（④　　　　　）を描きたかったと話している。第８話が（⑤　　　　　　）された10月６日（⑥　　　　　）の「コミックサタデー」は10万部の売れ行きで、（⑦　　　　　）も驚いているということだ。（⑧　　　　　　）はやはり学生が多く、自らの学生生活と重ね合わせながら、（⑨　　　　　　）を読んでいるのであろう。",
+  "meta": {
+    "model": "claude-opus-4-8",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQNNafkGUoyM15grjdt",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 257385,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 232,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1116
+    }
+  },
+  "duration_ms": 6557,
+  "estimated_cost_usd": 0.01278
+}

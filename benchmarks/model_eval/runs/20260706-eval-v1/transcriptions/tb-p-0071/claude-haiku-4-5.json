@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-haiku-4-5",
+  "markdown": "069\n\n■読んだあとで(p. 64)\n\n10. ~にとって／~にとってのN　for ~ / N for ~　🔊CD2-35\n\n①人間がされて嫌なことは、動物にとっても同じだろう。\n\n②この夏、私にとっての一番の思い出は、新しいプロジェクトのため毎晩同僚たちと選くまで仕事に打ち込んだことだ。\n\n① _______________にとって _______________は欠かせない。\n\n②仕事を選ぶとき、あなたにとって_______________何ですか。",
+  "meta": {
+    "model": "claude-haiku-4-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQCenDiKM5qXtRWpEXo",
+    "prompt_hash": "506f3354",
+    "image_bytes": 215400,
+    "usage": {
+      "input_tokens": 2099,
+      "output_tokens": 176,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 0
+    }
+  },
+  "duration_ms": 3282,
+  "estimated_cost_usd": 0.002979
+}

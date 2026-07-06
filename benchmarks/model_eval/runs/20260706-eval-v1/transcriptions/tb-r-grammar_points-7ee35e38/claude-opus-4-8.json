@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-opus-4-8",
+  "markdown": "## 3. ～といったふうに／～というふうに\n\n　　例をいくつか挙げるときに用いる表現。「A、BといったふうにX」で、Xという結論をわかりやすく述べるために、A、Bという例を挙げる。似た表現に「A、BといったY」という表現があるが、用法が異なる。「A、BといったY」はYに名詞をとり、その名詞が具体的にどのようなものかを、A、Bで例示する。\n\n　　例）○彼女は昼は会社で仕事、夜は英会話の勉強といったふうに、毎日非常に忙しい。\n　　　　×彼女は昼は会社で仕事、夜は英会話の勉強といった、毎日非常に忙しい。\n　　　　○彼女は昼は会社で仕事、夜は英会話の勉強といった非常に忙しい生活を送っている。\n\n| 黒澤、小津 | ×といったふうに<br>○といった | 監督は世界でも有名だ。 |\n\n## 4. ～(の) 代わりに\n\n| 接続の形： | Nの<br>V[辞書形] | 代わりに |\n\n　　「XかわりにY」の形で「Xをしないで、あるいは、Xではなく、それに代わるものとしてY」という意味を表す。\n\n　　例）大学へ行く代わりに4年間世界中を旅行した。",
+  "meta": {
+    "model": "claude-opus-4-8",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQX75m29Xz2rXqgvYxU",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 524451,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 454,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1818
+    }
+  },
+  "duration_ms": 9007,
+  "estimated_cost_usd": 0.0227175
+}

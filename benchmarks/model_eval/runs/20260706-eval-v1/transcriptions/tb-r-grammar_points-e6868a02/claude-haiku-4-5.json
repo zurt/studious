@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-haiku-4-5",
+  "markdown": "# ユニット2　若者の自己評価\n\n## 1. ～に関するN/～に関して\n\n| 接続の形：N | に関するN/に関して |\n|---|---|\n| [普通形]こと | |\n| ただし　N である/の | |\n| ナ形 [で]ある/[な] | |\n\n主に「調べる/述べる/話す」などの言語・知的活動を表す動詞を後ろにとって、その取り扱う対象を示す。「～について」と意味はほぼ同じだが、より堅い表現になる。\n\n例）今後のエネルギー需要に関して、意見を述べたい。\n\n「～に関しては」は「～に関して言えば」は話し手が話題を限定するときに使う慣用的な表現。\n\n丁寧な話し言葉では「～に関しまして」という表現も使われる。",
+  "meta": {
+    "model": "claude-haiku-4-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQYWAMeb8ZmCCSurPwL",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 330076,
+    "usage": {
+      "input_tokens": 1479,
+      "output_tokens": 267,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 0
+    }
+  },
+  "duration_ms": 5115,
+  "estimated_cost_usd": 0.002814
+}

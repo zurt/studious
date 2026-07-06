@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-haiku-4-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-haiku-4-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text fully accurate including V₁ subscript and 一対. Table restructured with an odd empty header row spanning four columns rather than the ground-truth layout of one left label column; underlines on example words (先輩, 好き, できる, etc.) not preserved. Right-aligned parenthetical (やりたいかどうか…) approximated with spaces.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "Errors: 「ー対」uses long-vowel mark instead of 一 (一対); brackets rendered as 【】 instead of [ ]; V lacks the subscript ₁ (V₁ in image). Table collapsed into a single row using <br/>, which loses the row alignment; underlines not preserved; example indentation lost.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 9,
+      "overall": 7
+    },
+    {
+      "label": "C",
+      "notes": "Most faithful: 5-column table mirrors the boxed layout, V₁[辞書形]/V₁[ない] correct, 一対 correct, paragraph leading spaces and example indentation reproduced. Only losses are the underlines on example words and exact right-alignment of the final parenthetical note.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "A",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "C is best: its table structure most closely mirrors the boxed 接続の形 layout, all characters (including V₁ and 一対) are correct, and indentation is preserved; its only shortfall is the missing underlines, common to all candidates. A has equally accurate text but a slightly awkward table restructuring (empty spanning header row) that deviates from the visual layout. B ranks last due to actual character errors (ー instead of 一 in 一対, 【】 instead of [ ], missing V₁ subscript) and a collapsed single-row table that loses the layout.",
+  "usage": {
+    "input_tokens": 3520,
+    "output_tokens": 1200,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.0952,
+  "duration_ms": 18476
+}

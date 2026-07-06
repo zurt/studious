@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Multiple text errors: 「どくらい」 (dropped れ from どれくらい), 「122号」 instead of 22号, spurious extra 『 before 大阪大学. Table header mislabels the D group as 「D 職業」 and omits that C spans both 家事・育児 and 職業; the markdown table is malformed (column labels placed in the separator row, so it won't render). All furigana omitted. Questions arbitrarily promoted to ## headers.",
+      "character_accuracy": 6,
+      "completeness": 6,
+      "formatting": 4,
+      "hallucination_control": 6,
+      "overall": 5
+    },
+    {
+      "label": "B",
+      "notes": "Body text and all numbers correct. Attempts to preserve the two-tier A/B/C/D header structure, though cell alignment in the group-label rows is imperfect (家事・育児/職業/総労働時間 spans don't line up). Furigana partially captured (たなかしげと, ばっすい) but けんきゅうか, ねんぼう, さ omitted. Answer table for (3) puts 日本 in the header row, a minor structural flaw.",
+      "character_accuracy": 9,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "All numbers and text correct; sensible flattening of the multi-row header into combined column labels (A 家事・育児 女性 etc.) that preserves meaning unambiguously. Most furigana captured (たなかしげと, けんきゅうか, ばっすい), though ねんぽう vs image's ねんぼう is a tiny discrepancy and さ (for 差) omitted. Answer table for (3) uses 日本 as header row, minor issue.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "B",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "C is the most accurate: every number and character matches, the flattened table headers are unambiguous and faithful, and it captures the most furigana with no inventions (only a trivial ねんぽう/ねんぼう rendaku discrepancy). B is close behind — text and data are equally correct — but its group-header rows are misaligned and it captures less furigana. A ranks last due to substantive character errors (どくらい, 122号 instead of 22号, extra 『), a mislabeled/incorrect header structure (calling D 「職業」), a broken markdown table separator, and complete omission of furigana.",
+  "usage": {
+    "input_tokens": 4861,
+    "output_tokens": 1692,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.13321,
+  "duration_ms": 24197
+}

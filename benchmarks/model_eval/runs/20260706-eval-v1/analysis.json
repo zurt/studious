@@ -1,0 +1,894 @@
+{
+  "run_id": "20260706-eval-v1",
+  "dataset_dir": "/Users/kurt/Library/Mobile Documents/com~apple~CloudDocs/dev/cc/studious/.claude/worktrees/model-eval/benchmarks/model_eval/dataset/v1",
+  "git_sha": "95be7f3",
+  "created_at": "2026-07-06T20:43:53.802499+00:00",
+  "overall": {
+    "per_model": {
+      "claude-haiku-4-5": {
+        "n_scored": 31,
+        "mean_dims": {
+          "character_accuracy": 6.709677419354839,
+          "completeness": 8.129032258064516,
+          "formatting": 5.935483870967742,
+          "hallucination_control": 6.225806451612903,
+          "overall": 5.580645161290323
+        },
+        "mean_rank": 2.935483870967742,
+        "rank1_count": 1,
+        "n_ranked": 31
+      },
+      "claude-sonnet-5": {
+        "n_scored": 31,
+        "mean_dims": {
+          "character_accuracy": 9.32258064516129,
+          "completeness": 9.290322580645162,
+          "formatting": 7.774193548387097,
+          "hallucination_control": 8.774193548387096,
+          "overall": 8.387096774193548
+        },
+        "mean_rank": 1.6129032258064515,
+        "rank1_count": 13,
+        "n_ranked": 31
+      },
+      "claude-opus-4-8": {
+        "n_scored": 31,
+        "mean_dims": {
+          "character_accuracy": 9.483870967741936,
+          "completeness": 9.483870967741936,
+          "formatting": 8.0,
+          "hallucination_control": 8.35483870967742,
+          "overall": 8.451612903225806
+        },
+        "mean_rank": 1.4516129032258065,
+        "rank1_count": 17,
+        "n_ranked": 31
+      }
+    },
+    "win_matrix": {
+      "claude-opus-4-8": {
+        "claude-sonnet-5": 18,
+        "claude-haiku-4-5": 30
+      },
+      "claude-sonnet-5": {
+        "claude-haiku-4-5": 30,
+        "claude-opus-4-8": 13
+      },
+      "claude-haiku-4-5": {
+        "claude-opus-4-8": 1,
+        "claude-sonnet-5": 1
+      }
+    },
+    "n_judgments": 31
+  },
+  "sign_tests": [
+    {
+      "model_a": "claude-haiku-4-5",
+      "model_b": "claude-opus-4-8",
+      "wins_a": 1,
+      "wins_b": 30,
+      "n": 31,
+      "preferred": "claude-opus-4-8",
+      "p_value": 2.9802322387695312e-08
+    },
+    {
+      "model_a": "claude-haiku-4-5",
+      "model_b": "claude-sonnet-5",
+      "wins_a": 1,
+      "wins_b": 30,
+      "n": 31,
+      "preferred": "claude-sonnet-5",
+      "p_value": 2.9802322387695312e-08
+    },
+    {
+      "model_a": "claude-opus-4-8",
+      "model_b": "claude-sonnet-5",
+      "wins_a": 18,
+      "wins_b": 13,
+      "n": 31,
+      "preferred": "claude-opus-4-8",
+      "p_value": 0.47312965989112854
+    }
+  ],
+  "cost_latency": {
+    "claude-haiku-4-5": {
+      "n": 31,
+      "avg_duration_ms": 6220.935483870968,
+      "avg_cost_usd": 0.0040000322580645165,
+      "total_cost_usd": 0.124001,
+      "output_chars": {
+        "mean": 574.3225806451613,
+        "median": 491,
+        "min": 106,
+        "max": 1409
+      }
+    },
+    "claude-opus-4-8": {
+      "n": 31,
+      "avg_duration_ms": 30808.58064516129,
+      "avg_cost_usd": 0.02630939516129032,
+      "total_cost_usd": 0.81559125,
+      "output_chars": {
+        "mean": 599.5483870967741,
+        "median": 467,
+        "min": 80,
+        "max": 1446
+      }
+    },
+    "claude-sonnet-5": {
+      "n": 31,
+      "avg_duration_ms": 9335.58064516129,
+      "avg_cost_usd": 0.011243112903225808,
+      "total_cost_usd": 0.3485365,
+      "output_chars": {
+        "mean": 588.6129032258065,
+        "median": 457,
+        "min": 79,
+        "max": 1503
+      }
+    }
+  },
+  "by_source": {
+    "textbook": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 22,
+          "mean_dims": {
+            "character_accuracy": 6.7727272727272725,
+            "completeness": 8.409090909090908,
+            "formatting": 5.909090909090909,
+            "hallucination_control": 6.5,
+            "overall": 5.590909090909091
+          },
+          "mean_rank": 2.909090909090909,
+          "rank1_count": 1,
+          "n_ranked": 22
+        },
+        "claude-sonnet-5": {
+          "n_scored": 22,
+          "mean_dims": {
+            "character_accuracy": 9.5,
+            "completeness": 9.363636363636363,
+            "formatting": 7.7727272727272725,
+            "hallucination_control": 8.863636363636363,
+            "overall": 8.227272727272727
+          },
+          "mean_rank": 1.7272727272727273,
+          "rank1_count": 7,
+          "n_ranked": 22
+        },
+        "claude-opus-4-8": {
+          "n_scored": 22,
+          "mean_dims": {
+            "character_accuracy": 9.681818181818182,
+            "completeness": 9.590909090909092,
+            "formatting": 8.045454545454545,
+            "hallucination_control": 8.454545454545455,
+            "overall": 8.545454545454545
+          },
+          "mean_rank": 1.3636363636363635,
+          "rank1_count": 14,
+          "n_ranked": 22
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 15,
+          "claude-haiku-4-5": 21
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 21,
+          "claude-opus-4-8": 7
+        },
+        "claude-haiku-4-5": {
+          "claude-opus-4-8": 1,
+          "claude-sonnet-5": 1
+        }
+      },
+      "n_judgments": 22
+    },
+    "workbook": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 9,
+          "mean_dims": {
+            "character_accuracy": 6.555555555555555,
+            "completeness": 7.444444444444445,
+            "formatting": 6.0,
+            "hallucination_control": 5.555555555555555,
+            "overall": 5.555555555555555
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 9
+        },
+        "claude-sonnet-5": {
+          "n_scored": 9,
+          "mean_dims": {
+            "character_accuracy": 8.88888888888889,
+            "completeness": 9.11111111111111,
+            "formatting": 7.777777777777778,
+            "hallucination_control": 8.555555555555555,
+            "overall": 8.777777777777779
+          },
+          "mean_rank": 1.3333333333333333,
+          "rank1_count": 6,
+          "n_ranked": 9
+        },
+        "claude-opus-4-8": {
+          "n_scored": 9,
+          "mean_dims": {
+            "character_accuracy": 9.0,
+            "completeness": 9.222222222222221,
+            "formatting": 7.888888888888889,
+            "hallucination_control": 8.11111111111111,
+            "overall": 8.222222222222221
+          },
+          "mean_rank": 1.6666666666666667,
+          "rank1_count": 3,
+          "n_ranked": 9
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 3,
+          "claude-haiku-4-5": 9
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 9,
+          "claude-opus-4-8": 6
+        }
+      },
+      "n_judgments": 9
+    }
+  },
+  "by_tag": {
+    "null": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 5.5,
+            "completeness": 6.833333333333333,
+            "formatting": 5.666666666666667,
+            "hallucination_control": 6.0,
+            "overall": 4.833333333333333
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 6
+        },
+        "claude-sonnet-5": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 9.166666666666666,
+            "completeness": 9.0,
+            "formatting": 7.833333333333333,
+            "hallucination_control": 9.5,
+            "overall": 8.666666666666666
+          },
+          "mean_rank": 1.6666666666666667,
+          "rank1_count": 2,
+          "n_ranked": 6
+        },
+        "claude-opus-4-8": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 9.333333333333334,
+            "completeness": 9.5,
+            "formatting": 8.5,
+            "hallucination_control": 9.166666666666666,
+            "overall": 9.0
+          },
+          "mean_rank": 1.3333333333333333,
+          "rank1_count": 4,
+          "n_ranked": 6
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 4,
+          "claude-haiku-4-5": 6
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 6,
+          "claude-opus-4-8": 2
+        }
+      },
+      "n_judgments": 6
+    },
+    "exercises": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 12,
+          "mean_dims": {
+            "character_accuracy": 6.833333333333333,
+            "completeness": 8.083333333333334,
+            "formatting": 5.833333333333333,
+            "hallucination_control": 6.166666666666667,
+            "overall": 5.75
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 12
+        },
+        "claude-sonnet-5": {
+          "n_scored": 12,
+          "mean_dims": {
+            "character_accuracy": 9.0,
+            "completeness": 9.166666666666666,
+            "formatting": 7.833333333333333,
+            "hallucination_control": 9.166666666666666,
+            "overall": 8.666666666666666
+          },
+          "mean_rank": 1.5,
+          "rank1_count": 6,
+          "n_ranked": 12
+        },
+        "claude-opus-4-8": {
+          "n_scored": 12,
+          "mean_dims": {
+            "character_accuracy": 9.166666666666666,
+            "completeness": 9.416666666666666,
+            "formatting": 8.0,
+            "hallucination_control": 8.333333333333334,
+            "overall": 8.416666666666666
+          },
+          "mean_rank": 1.5,
+          "rank1_count": 6,
+          "n_ranked": 12
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 6,
+          "claude-haiku-4-5": 12
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 12,
+          "claude-opus-4-8": 6
+        }
+      },
+      "n_judgments": 12
+    },
+    "grammar_points": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 7.4,
+            "completeness": 9.0,
+            "formatting": 6.0,
+            "hallucination_control": 8.6,
+            "overall": 6.8
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 5
+        },
+        "claude-sonnet-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.6,
+            "completeness": 9.8,
+            "formatting": 8.0,
+            "hallucination_control": 10.0,
+            "overall": 8.6
+          },
+          "mean_rank": 1.6,
+          "rank1_count": 2,
+          "n_ranked": 5
+        },
+        "claude-opus-4-8": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.6,
+            "completeness": 9.8,
+            "formatting": 8.4,
+            "hallucination_control": 10.0,
+            "overall": 9.2
+          },
+          "mean_rank": 1.4,
+          "rank1_count": 3,
+          "n_ranked": 5
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 3,
+          "claude-haiku-4-5": 5
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 5,
+          "claude-opus-4-8": 2
+        }
+      },
+      "n_judgments": 5
+    },
+    "instructions": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 1,
+          "mean_dims": {
+            "character_accuracy": 6.0,
+            "completeness": 10.0,
+            "formatting": 6.0,
+            "hallucination_control": 9.0,
+            "overall": 6.0
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 1
+        },
+        "claude-sonnet-5": {
+          "n_scored": 1,
+          "mean_dims": {
+            "character_accuracy": 8.0,
+            "completeness": 10.0,
+            "formatting": 8.0,
+            "hallucination_control": 10.0,
+            "overall": 8.0
+          },
+          "mean_rank": 2.0,
+          "rank1_count": 0,
+          "n_ranked": 1
+        },
+        "claude-opus-4-8": {
+          "n_scored": 1,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 8.0,
+            "hallucination_control": 10.0,
+            "overall": 9.0
+          },
+          "mean_rank": 1.0,
+          "rank1_count": 1,
+          "n_ranked": 1
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 1,
+          "claude-haiku-4-5": 1
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 1
+        }
+      },
+      "n_judgments": 1
+    },
+    "reading_passage": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 3,
+          "mean_dims": {
+            "character_accuracy": 6.666666666666667,
+            "completeness": 7.0,
+            "formatting": 6.0,
+            "hallucination_control": 6.333333333333333,
+            "overall": 5.333333333333333
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 3
+        },
+        "claude-sonnet-5": {
+          "n_scored": 3,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 8.333333333333334,
+            "formatting": 7.666666666666667,
+            "hallucination_control": 10.0,
+            "overall": 8.666666666666666
+          },
+          "mean_rank": 1.6666666666666667,
+          "rank1_count": 1,
+          "n_ranked": 3
+        },
+        "claude-opus-4-8": {
+          "n_scored": 3,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 8.333333333333334,
+            "formatting": 8.0,
+            "hallucination_control": 10.0,
+            "overall": 8.666666666666666
+          },
+          "mean_rank": 1.3333333333333333,
+          "rank1_count": 2,
+          "n_ranked": 3
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 2,
+          "claude-haiku-4-5": 3
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 3,
+          "claude-opus-4-8": 1
+        }
+      },
+      "n_judgments": 3
+    },
+    "vocab_list": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 7.5,
+            "completeness": 9.5,
+            "formatting": 6.5,
+            "hallucination_control": 3.0,
+            "overall": 4.75
+          },
+          "mean_rank": 2.5,
+          "rank1_count": 1,
+          "n_ranked": 4
+        },
+        "claude-sonnet-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 7.25,
+            "hallucination_control": 3.75,
+            "overall": 6.75
+          },
+          "mean_rank": 1.75,
+          "rank1_count": 2,
+          "n_ranked": 4
+        },
+        "claude-opus-4-8": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 6.75,
+            "hallucination_control": 3.5,
+            "overall": 6.5
+          },
+          "mean_rank": 1.75,
+          "rank1_count": 1,
+          "n_ranked": 4
+        }
+      },
+      "win_matrix": {
+        "claude-sonnet-5": {
+          "claude-opus-4-8": 2,
+          "claude-haiku-4-5": 3
+        },
+        "claude-opus-4-8": {
+          "claude-haiku-4-5": 3,
+          "claude-sonnet-5": 2
+        },
+        "claude-haiku-4-5": {
+          "claude-opus-4-8": 1,
+          "claude-sonnet-5": 1
+        }
+      },
+      "n_judgments": 4
+    }
+  },
+  "by_kind": {
+    "page": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 5.5,
+            "completeness": 6.833333333333333,
+            "formatting": 5.666666666666667,
+            "hallucination_control": 6.0,
+            "overall": 4.833333333333333
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 6
+        },
+        "claude-sonnet-5": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 9.166666666666666,
+            "completeness": 9.0,
+            "formatting": 7.833333333333333,
+            "hallucination_control": 9.5,
+            "overall": 8.666666666666666
+          },
+          "mean_rank": 1.6666666666666667,
+          "rank1_count": 2,
+          "n_ranked": 6
+        },
+        "claude-opus-4-8": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 9.333333333333334,
+            "completeness": 9.5,
+            "formatting": 8.5,
+            "hallucination_control": 9.166666666666666,
+            "overall": 9.0
+          },
+          "mean_rank": 1.3333333333333333,
+          "rank1_count": 4,
+          "n_ranked": 6
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 4,
+          "claude-haiku-4-5": 6
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 6,
+          "claude-opus-4-8": 2
+        }
+      },
+      "n_judgments": 6
+    },
+    "region": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 25,
+          "mean_dims": {
+            "character_accuracy": 7.0,
+            "completeness": 8.44,
+            "formatting": 6.0,
+            "hallucination_control": 6.28,
+            "overall": 5.76
+          },
+          "mean_rank": 2.92,
+          "rank1_count": 1,
+          "n_ranked": 25
+        },
+        "claude-sonnet-5": {
+          "n_scored": 25,
+          "mean_dims": {
+            "character_accuracy": 9.36,
+            "completeness": 9.36,
+            "formatting": 7.76,
+            "hallucination_control": 8.6,
+            "overall": 8.32
+          },
+          "mean_rank": 1.6,
+          "rank1_count": 11,
+          "n_ranked": 25
+        },
+        "claude-opus-4-8": {
+          "n_scored": 25,
+          "mean_dims": {
+            "character_accuracy": 9.52,
+            "completeness": 9.48,
+            "formatting": 7.88,
+            "hallucination_control": 8.16,
+            "overall": 8.32
+          },
+          "mean_rank": 1.48,
+          "rank1_count": 13,
+          "n_ranked": 25
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 14,
+          "claude-haiku-4-5": 24
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 24,
+          "claude-opus-4-8": 11
+        },
+        "claude-haiku-4-5": {
+          "claude-opus-4-8": 1,
+          "claude-sonnet-5": 1
+        }
+      },
+      "n_judgments": 25
+    }
+  },
+  "by_prompt_kind": {
+    "page": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 5.5,
+            "completeness": 6.833333333333333,
+            "formatting": 5.666666666666667,
+            "hallucination_control": 6.0,
+            "overall": 4.833333333333333
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 6
+        },
+        "claude-sonnet-5": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 9.166666666666666,
+            "completeness": 9.0,
+            "formatting": 7.833333333333333,
+            "hallucination_control": 9.5,
+            "overall": 8.666666666666666
+          },
+          "mean_rank": 1.6666666666666667,
+          "rank1_count": 2,
+          "n_ranked": 6
+        },
+        "claude-opus-4-8": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 9.333333333333334,
+            "completeness": 9.5,
+            "formatting": 8.5,
+            "hallucination_control": 9.166666666666666,
+            "overall": 9.0
+          },
+          "mean_rank": 1.3333333333333333,
+          "rank1_count": 4,
+          "n_ranked": 6
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 4,
+          "claude-haiku-4-5": 6
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 6,
+          "claude-opus-4-8": 2
+        }
+      },
+      "n_judgments": 6
+    },
+    "region": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 21,
+          "mean_dims": {
+            "character_accuracy": 6.904761904761905,
+            "completeness": 8.238095238095237,
+            "formatting": 5.904761904761905,
+            "hallucination_control": 6.904761904761905,
+            "overall": 5.9523809523809526
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 21
+        },
+        "claude-sonnet-5": {
+          "n_scored": 21,
+          "mean_dims": {
+            "character_accuracy": 9.238095238095237,
+            "completeness": 9.238095238095237,
+            "formatting": 7.857142857142857,
+            "hallucination_control": 9.523809523809524,
+            "overall": 8.619047619047619
+          },
+          "mean_rank": 1.5714285714285714,
+          "rank1_count": 9,
+          "n_ranked": 21
+        },
+        "claude-opus-4-8": {
+          "n_scored": 21,
+          "mean_dims": {
+            "character_accuracy": 9.428571428571429,
+            "completeness": 9.380952380952381,
+            "formatting": 8.095238095238095,
+            "hallucination_control": 9.047619047619047,
+            "overall": 8.666666666666666
+          },
+          "mean_rank": 1.4285714285714286,
+          "rank1_count": 12,
+          "n_ranked": 21
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 12,
+          "claude-haiku-4-5": 21
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-4-5": 21,
+          "claude-opus-4-8": 9
+        }
+      },
+      "n_judgments": 21
+    },
+    "vocab_list": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 7.5,
+            "completeness": 9.5,
+            "formatting": 6.5,
+            "hallucination_control": 3.0,
+            "overall": 4.75
+          },
+          "mean_rank": 2.5,
+          "rank1_count": 1,
+          "n_ranked": 4
+        },
+        "claude-sonnet-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 7.25,
+            "hallucination_control": 3.75,
+            "overall": 6.75
+          },
+          "mean_rank": 1.75,
+          "rank1_count": 2,
+          "n_ranked": 4
+        },
+        "claude-opus-4-8": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 6.75,
+            "hallucination_control": 3.5,
+            "overall": 6.5
+          },
+          "mean_rank": 1.75,
+          "rank1_count": 1,
+          "n_ranked": 4
+        }
+      },
+      "win_matrix": {
+        "claude-sonnet-5": {
+          "claude-opus-4-8": 2,
+          "claude-haiku-4-5": 3
+        },
+        "claude-opus-4-8": {
+          "claude-haiku-4-5": 3,
+          "claude-sonnet-5": 2
+        },
+        "claude-haiku-4-5": {
+          "claude-opus-4-8": 1,
+          "claude-sonnet-5": 1
+        }
+      },
+      "n_judgments": 4
+    }
+  },
+  "worst_items": [
+    {
+      "item_id": "tb-r-vocab_list-fa1d820f",
+      "mean_overall": 5.333333333333333,
+      "worst_model": "claude-haiku-4-5",
+      "worst_overall": 4,
+      "notes": "Misreads こうした as ごうした (and glosses it wrongly as 'stubborn; obstinate'). Alters furigana against the image: ちょうほうする, さいそくする, かいだんする, あいまいな where the image shows ちょうほう, さいそく, かいだん, あいまい. Replaces 〔人名〕 with [person name]. Also invents English glosses not in the image."
+    },
+    {
+      "item_id": "tb-r-vocab_list-5f7efb40",
+      "mean_overall": 6.0,
+      "worst_model": "claude-sonnet-5",
+      "worst_overall": 6,
+      "notes": "All Japanese headwords and furigana (望む/のぞむ, 異文化/いぶんか, 内容/ないよう, 距離/きょり, 当たり前/あたりまえ, 故郷/こきょう, 初めて/はじめて, 具体例/ぐたいれい, 挙げる/あげる) transcribed correctly. However, the image contains NO English glosses; all definitions (e.g. 'to hope; to wish for', 'natural; obvious; taken for granted') are invented. This candidate adds the longest/most elaborate hallucinated glosses. Line/indent structure roughly preserved."
+    },
+    {
+      "item_id": "tb-r-vocab_list-7ed82817",
+      "mean_overall": 6.0,
+      "worst_model": "claude-haiku-4-5",
+      "worst_overall": 5,
+      "notes": "Furigana error: 設定する transcribed as （せっている） instead of （せってい）. Replaced 〔人名〕 with '[person name]' and dropped the 〔大学名〕 annotation for 京都精華大, substituting an English translation. Also adds invented English glosses throughout."
+    },
+    {
+      "item_id": "tb-r-exercises-ab46750d",
+      "mean_overall": 6.666666666666667,
+      "worst_model": "claude-haiku-4-5",
+      "worst_overall": 5,
+      "notes": "Spurious spaces inserted ('うもの なら' throughout), incorrect bold spans ('つこう**もの なら**', '**しよう**もの なら'), exercise bullets rendered as ①② instead of ❶❷, added furigana 叱(しか) not visible in image, and missed the 逆(さか) furigana."
+    },
+    {
+      "item_id": "tb-r-vocab_list-01378521",
+      "mean_overall": 6.666666666666667,
+      "worst_model": "claude-haiku-4-5",
+      "worst_overall": 4,
+      "notes": "Multiple serious character errors: ニンジャライス for ニンジンライス, 励まず（はげまず）for 励ます（はげます）, 魅める（なぐめる）for 慰める（なぐさめる）, レジピ for レシピ, ごうした for こうした, 【地名】 instead of 〔地名〕. Also invented English glosses not present in the image (including nonsense glosses like 'does not encourage', 'ninja rice'). Lost the indentation of the ＊腕をふるう sub-entry."
+    }
+  ],
+  "n_items_judged": 31
+}

@@ -84,7 +84,11 @@ Open <http://localhost:5173>.
 - `data/` — uploaded documents, rasterized pages, transcriptions, chapters,
   regions, and monthly-rotated `llm_audit.YYYY-MM.jsonl` (append-only log of
   VLM calls; gitignored). Override the data root with `STUDIOUS_DATA_DIR`.
-- `benchmarks/` — quality benchmarking tools for tracking extraction accuracy.
+- `benchmarks/` — quality benchmarking tools for tracking extraction accuracy,
+  including `benchmarks/model_eval/`, a model-comparison framework (frozen
+  stratified datasets sampled from the live store, multi-model transcription
+  runs, blind LLM-judge scoring, per-tag/source analysis). See
+  `benchmarks/model_eval/README.md`.
 - `docs/` — project description, roadmap, and architecture documentation.
 
 ## Configuration

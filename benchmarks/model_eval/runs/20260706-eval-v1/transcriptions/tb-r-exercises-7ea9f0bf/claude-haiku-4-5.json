@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-haiku-4-5",
+  "markdown": "# 1. 〜ような もの だ　(it is) like 〜　　🔊 CD2-26\n\n① 人生(じんせい)とはマラソンのようなものだ。大変(たいへん)な時(とき)があろうとも、長(なが)い道(みち)のり を最後(さいご)まであきらめずに走(はし)りきることが大切(たいせつ)なのである。\n\n② 月末(げつまつ)までにレポートを提出(ていしゅつ)しなければならないが、書(か)きたいことはもう決(き)まっている。半分(はんぶん)終(お)わったようなものだ。\n\n① 結婚(けっこん)とは______________________________________________ような もの だ。\n\n② ______________________________________________________________なんて、お金(かね)をどぶに捨(す)てるようなものだ。",
+  "meta": {
+    "model": "claude-haiku-4-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQQktewRBgnvK61q7TC",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 283572,
+    "usage": {
+      "input_tokens": 1183,
+      "output_tokens": 262,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 0
+    }
+  },
+  "duration_ms": 5010,
+  "estimated_cost_usd": 0.002493
+}

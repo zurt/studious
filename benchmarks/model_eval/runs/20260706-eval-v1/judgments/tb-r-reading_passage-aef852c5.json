@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-sonnet-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Misreads 第千話 as 第十話 (a meaningful error, since the article is about the 1000th installment). Omits all furigana glosses (いくきゅう, よしむらかずま, ちょうじゅ) visible in the image. Margin line numbers (26, 30, 35) omitted, as in all candidates. Otherwise body text is accurate.",
+      "character_accuracy": 8,
+      "completeness": 8,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 7
+    },
+    {
+      "label": "B",
+      "notes": "All kanji correct including 第千話; furigana rendered as parenthetical readings (いくきゅう, よしむらかずま, ちょうじゅ). Caption line break after ／ matches the two-line caption in the image. Margin line numbers omitted. No invented content.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Essentially identical to B: correct 第千話 and all furigana included. Caption '©うえやまとち／講談社' collapsed to one line rather than the two-line layout in the image. Margin line numbers omitted. No hallucinations.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "B and C are nearly identical, fully accurate transcriptions that correctly read 第千話 and preserve all three furigana glosses; B edges out C only because it reproduces the two-line copyright caption break as shown in the image. A ranks last: it drops all furigana and, more importantly, misreads 第千話 (the 1000th chapter, a key fact in the article) as 第十話, a substantive character-accuracy error.",
+  "usage": {
+    "input_tokens": 3146,
+    "output_tokens": 888,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.07586,
+  "duration_ms": 13710
+}

@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-sonnet-5",
+    "C": "claude-haiku-4-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-sonnet-5": "B",
+    "claude-haiku-4-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Very complete: pie chart labels, poll table, bar chart values all transcribed accurately. Correctly reads 給湯, 内閣府（旧総理府）. Main issue: inserts answer labels（円グラフ）（棒グラフ）（折れ線グラフ）which are NOT in the image — the blanks are unanswered — a mild hallucination. Table places 3.2 in wrong column for 2007 row (3.2 is わからない, positioned oddly in image but A's ordering is defensible). Line graph data points omitted but axis values mostly given.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 7,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "Complete transcription of all chart data. Error: 旧経理府 should be 旧総理府 (image is somewhat ambiguous but 総理府 is correct). Bar chart transcription as raw axis numbers is messy and misaligned (values interleaved with axis ticks). Does not invent answers for blanks — good. Line graph axis values included. 高(たか)さ furigana added appropriately.",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Multiple misreadings in pie chart: 家庭器具 (should be 家電製品), 新聞 (should be 給湯), 洗濯 (should be 冷房/水道 confusion — 水道 1.8% mislabeled 冷房, 冷房 1.5% mislabeled 洗濯). Poll table data entirely omitted, replaced with vague summary; wrongly states 1978年8月 instead of 1979年5月. Bar chart legend (回収率/利用率) omitted. Uses bracketed descriptions rather than transcribing data. Excess furigana added that may not all match image placement.",
+      "character_accuracy": 5,
+      "completeness": 4,
+      "formatting": 6,
+      "hallucination_control": 4,
+      "overall": 4
+    }
+  ],
+  "ranking": [
+    "A",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "A and B are close: both transcribe nearly all textual and numeric content accurately. A has the best table formatting and correctly reads 旧総理府, but hallucinates answers (円グラフ etc.) into the blank answer lines, which is a real invention penalty. B avoids any invented answers and is nearly as complete, but misreads 総理府 as 経理府 and renders the bar chart numbers in a confusing interleaved way. On balance A's superior accuracy, structure, and table fidelity slightly outweigh its answer-label insertions, since those are clearly marked parenthetically. C is clearly worst: it summarizes charts instead of transcribing them, omits the entire poll table data, and contains several outright misread labels (家庭器具, 新聞, 洗濯, 1978年8月).",
+  "usage": {
+    "input_tokens": 5655,
+    "output_tokens": 984,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.10575,
+  "duration_ms": 22734
+}

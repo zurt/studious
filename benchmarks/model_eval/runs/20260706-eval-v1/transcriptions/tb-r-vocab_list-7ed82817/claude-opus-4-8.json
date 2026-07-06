@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-opus-4-8",
+  "markdown": "設定する（せってい）to set; to establish  \n17 結局（けっきょく）after all; in the end  \n隠す（かくす）to hide; to conceal  \nスタートする　to start  \n19 家事（かじ）housework; household chores  \n出産後（しゅっさんご）after childbirth  \n一家（いっか）the whole family; household  \n共感する（きょうかん）to sympathize; to empathize  \n20 友人（ゆうじん）friend  \n自宅（じたく）one's home; one's house  \n奥さん（おくさん）wife (someone else's)  \n21 サッと　quickly; swiftly  \n22 掲載する（けいさい）to publish; to carry (in a magazine)  \n第〜話（だい〜わ）episode number 〜  \n同級生（どうきゅうせい）classmate  \n23 尋ねる（たずねる）to ask; to inquire  \n場面（ばめん）scene; situation  \n笑顔（えがお）smiling face; smile  \n26 物語（ものがたり）story; tale  \n悩み（なやみ）worry; trouble  \n織り込む（おりこむ）to weave in; to incorporate  \n育休後（いくきゅうご）after childcare leave  \n職場（しょくば）workplace  \n復帰する（ふっき）to return; to come back  \n27 育児（いくじ）childcare; child-rearing  \n両立する（りょうりつ）to balance; to be compatible  \nジレンマ　dilemma  \n28 テレビアニメ　TV anime  \n出身（しゅっしん）hometown; origin  \n吉村和真（よしむらかずま）〔人名〕Yoshimura Kazuma (personal name)  \n京都精華大（きょうとせいかだい）〔大学名〕Kyoto Seika University (university name)  \n学部（がくぶ）faculty; department  \n准教授（じゅんきょうじゅ）associate professor  \n29 逆転する（ぎゃくてん）to reverse; to turn around  \n結婚する（けっこん）to marry  \n自立する（じりつ）to become independent  \n人生（じんせい）life; one's life  \n重ね合わせる（かさねあわせる）to superimpose; to overlap  \n30 点（てん）point; aspect  \n受け入れる（うけいれる）to accept; to receive  \n長寿（ちょうじゅ）longevity; long life",
+  "meta": {
+    "model": "claude-opus-4-8",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQmXrAqiPbMq6StZ67i",
+    "prompt_hash": "3d778a54",
+    "image_bytes": 370503,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 812,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 2017
+    }
+  },
+  "duration_ms": 16878,
+  "estimated_cost_usd": 0.03291125
+}

@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-sonnet-5",
+  "markdown": "設定する（せってい）to set; to establish  \n17 結局（けっきょく）in the end; after all  \n隠す（かくす）to hide  \nスタートする　to start  \n\n19 家事（かじ）housework  \n出産後（しゅっさんご）after childbirth  \n一家（いっか）a family; household  \n共感する（きょうかん）to sympathize; to empathize  \n\n20 友人（ゆうじん）friend  \n自宅（じたく）one's own home  \n奥さん（おくさん）wife  \n\n21 サッと　quickly; swiftly  \n\n22 掲載する（けいさい）to publish; to print  \n第〜話（だい〜わ）episode ~  \n同級生（どうきゅうせい）classmate  \n\n23 尋ねる（たずねる）to ask  \n場面（ばめん）scene  \n笑顔（えがお）smiling face  \n\n26 物語（ものがたり）story; tale  \n悩み（なやみ）worry; trouble  \n織り込む（おりこむ）to weave in; to incorporate  \n育休後（いくきゅうご）after childcare leave  \n職場（しょくば）workplace  \n復帰する（ふっき）to return  \n\n27 育児（いくじ）childcare  \n両立する（りょうりつ）to balance; to manage both  \nジレンマ　dilemma  \n\n28 テレビアニメ　TV anime  \n出身（しゅっしん）hometown; origin  \n吉村和真（よしむらかずま）〔人名〕  \n京都精華大（きょうとせいかだい）〔大学名〕  \n学部（がくぶ）department; faculty  \n准教授（じゅんきょうじゅ）associate professor  \n\n29 逆転する（ぎゃくてん）to reverse; to turn around  \n結婚する（けっこん）to marry  \n自立する（じりつ）to become independent  \n人生（じんせい）life  \n重ね合わせる（かさねあわせる）to overlap; to superimpose  \n\n30 点（てん）point  \n受け入れる（うけいれる）to accept  \n長寿（ちょうじゅ）longevity",
+  "meta": {
+    "model": "claude-sonnet-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQkHUCcEyuYgBEv3jTQ",
+    "prompt_hash": "3d778a54",
+    "image_bytes": 370503,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 1375,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 2017
+    }
+  },
+  "duration_ms": 16805,
+  "estimated_cost_usd": 0.0187945
+}
