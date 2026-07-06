@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-haiku-4-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-haiku-4-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All kanji, kana, and furigana match the image exactly. Glosses are accurate and appropriately dictionary-style. Minor formatting quirk: an extra blank line inserted between the (1) and (2) groups that isn't reflected as a break in the image, and the indentation of sub-entries under (1)/(2) is flattened.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "All Japanese text and readings match the image exactly. Glosses are accurate. Sub-entry indentation under (1)/(2) is flattened relative to the image layout, but line order and grouping are preserved without extra breaks.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "All Japanese text and readings correct; full-width spaces after indices mirror the visual spacing reasonably. Glosses are accurate though slightly terser (e.g., 内容 = 'content' only). Indentation of sub-entries also flattened.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "B",
+    "A",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "All three candidates transcribe every entry with perfect kanji, kana, and furigana accuracy, and all supplied English glosses are correct dictionary translations (expected per the pipeline instructions, so no hallucination penalty). Differences are marginal. B is ranked first because its glosses are accurate and its structure most cleanly mirrors the image's continuous list without spurious breaks. A is a very close second: its glosses are the richest and fully accurate, but it inserts an extra blank line between groups (1) and (2) not present in the image. C is last only because its glosses are the most minimal (e.g., 内容 rendered just as 'content', 挙げる as 'to raise; to give' which is slightly vaguer), though it remains a fully accurate transcription.",
+  "usage": {
+    "input_tokens": 1748,
+    "output_tokens": 897,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.06233,
+  "duration_ms": 13509
+}

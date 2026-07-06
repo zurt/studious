@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-opus-4-8",
+  "markdown": "要するに、「ノー」という言葉を使わないからといって、日本人はなんでもかんでもイエスと言っているわけではないということ。(略) ある言葉が他言語でどう用いられてい",
+  "meta": {
+    "model": "claude-opus-4-8",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQeNLjFFhfU9C81HY3L",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 106649,
+    "usage": {
+      "input_tokens": 722,
+      "output_tokens": 69,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 0
+    }
+  },
+  "duration_ms": 6817,
+  "estimated_cost_usd": 0.005335
+}

@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-haiku-4-5",
+  "markdown": "要(よう)するに、「ノー」という言葉(ことば)を使(つか)わないからといって、日本人(にほんじん)はなんでもかんでもイエストと言(い)っているわけではないということ。(略(りゃく))ある言葉(ことば)が他言語(たげんご)でどう用(もち)いられてい",
+  "meta": {
+    "model": "claude-haiku-4-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQdwiPycvju1HEz24pj",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 106649,
+    "usage": {
+      "input_tokens": 609,
+      "output_tokens": 114,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 0
+    }
+  },
+  "duration_ms": 2556,
+  "estimated_cost_usd": 0.001179
+}

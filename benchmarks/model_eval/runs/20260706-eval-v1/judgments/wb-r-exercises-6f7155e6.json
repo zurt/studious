@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-haiku-4-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-haiku-4-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Faithful transcription; furigana reproduced only where actually printed in the image (はな, く, はたら, しつぎょう, こうはい, そうだん, う, とうさん, しゅじゅつ, しゅっさん, いくじ, りょうりつ, しょくば, しんらい). Minor issues: name 'ゆ　い' rendered as 'ゆい' (spacing lost), furigana placement after full words like 暮らす（はな）（く） is a bit crude, and the choice box's 2-column table layout compresses the original 3+2 arrangement.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Adds extensive furigana not present in the image (てきせつ, ひょうげん, えらび, きごう, かきなさい, にゅういん, かいしゃ, あした, しごと, りゅうがく, etc.) — significant invented content. Uses ## headings for each numbered item, which misrepresents the layout. Box indicator before から適切な… is omitted. Table row for d/e is missing a cell. Core text characters are otherwise correct and item ① spacing 'ゆ　い' is preserved.",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 6,
+      "hallucination_control": 4,
+      "overall": 6
+    },
+    {
+      "label": "C",
+      "notes": "Accurate text and mostly faithful furigana, but adds かぞく (not printed in the image) to 家族. Renders the choice box as a bullet list rather than a boxed table, losing the original two-row layout. Preserves 'ゆ　い' spacing and the □ box marker in the instruction line. ④ furigana しゅっさん attached only to 出産後 slightly loosely but acceptable.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 8,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "A",
+    "C",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "A is the most faithful: it transcribes exactly the furigana visible in the scan and nothing more, with correct text throughout; its only flaws are minor spacing/layout compromises. C is nearly as accurate but invents one furigana reading (かぞく) and flattens the boxed choices into a bullet list. B, while textually complete, hallucinates furigana for dozens of words that carry no ruby in the image and imposes heading structure on the numbered items, making it the least faithful reproduction despite good base-character accuracy.",
+  "usage": {
+    "input_tokens": 4540,
+    "output_tokens": 2011,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.14595,
+  "duration_ms": 30469
+}

@@ -178,6 +178,34 @@ Priority 2 (second pass, bundled):
 - [ ] SBOM on release tags
 - [ ] Document API key rotation; sandbox PDF rendering
 
+## Phase 1.10: Transcription Model Evaluation
+
+- [x] `benchmarks/model_eval/` framework: frozen stratified datasets sampled
+      from the live store (regions by tag + full pages, textbook + workbook),
+      multi-model transcription runs through the production pipeline, blind
+      Fable-judged rubric scoring + ranking, per-tag/source/kind analysis
+      with pairwise sign tests, cost/latency tracking
+- [x] `claude-sonnet-5` registered in the Anthropic VLM provider
+- [x] First run (`20260706-eval-v1`, 31 items × haiku-4-5/sonnet-5/opus-4-8,
+      Fable judge): Opus 4.8 and Sonnet 5 statistically tied on quality
+      (p=0.47); Sonnet 5 wins on low-quality workbook scans and costs ~2.3×
+      less at lower latency (median 8.1s vs 10.5s; Opus mean skewed by one
+      10-min SDK-retry call); Haiku 4.5 far behind (p<0.0001)
+- [x] Vocab-gloss follow-up: investigation showed supplied glosses are
+      *intended* (`VOCAB_LIST_TRANSCRIBE_PROMPT` explicitly asks for a
+      dictionary gloss when none is printed) — the eval judge, not the
+      prompt, was fixed to score gloss accuracy instead of gloss presence.
+      Re-judge (`20260706-eval-v1-judge2`): Opus/Sonnet vocab 6.5/6.75 →
+      9.25 both; Haiku stays low (6.5) because its glosses are wrong.
+      Corrected league: Opus 8.81, Sonnet 8.71 (still tied, p=0.28),
+      Haiku 5.81 (0 first-place finishes)
+- [x] Default VLM switched to `claude-sonnet-5` (tied quality, ~2.3× cheaper,
+      wins workbook scans); Opus 4.8/4.7 remain selectable in settings
+- [x] Curated report: `benchmarks/model_eval/reports/2026-07-06-model-comparison.md`
+- [ ] Re-run the 31-item benchmark when a new model tier ships or
+      transcription prompts / image preprocessing change (~$4.50/run);
+      expand a stratum only when a decision hinges on it
+
 ## Phase 2: Sentence Breakdowns
 
 - [x] Sentence-by-sentence breakdown (vocab, grammar, gloss) per region

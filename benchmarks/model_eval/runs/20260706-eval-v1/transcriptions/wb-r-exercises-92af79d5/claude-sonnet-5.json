@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-sonnet-5",
+  "markdown": "【まとめと考察(こうさつ)】(p.43 も参照(さんしょう))\n\n③傾向(けいこう)について述(の)べる場合(ばあい)\n\n・結婚後(けっこんご)も女性(じょせい)が働(はたら)くという傾向(けいこう)が強くなっている。",
+  "meta": {
+    "model": "claude-sonnet-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmSTNvsqtFNGAUNGpSx5",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 54395,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 105,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1160
+    }
+  },
+  "duration_ms": 3386,
+  "estimated_cost_usd": 0.003952
+}

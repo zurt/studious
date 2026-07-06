@@ -15,13 +15,14 @@ def client(isolated_data_dir):
         yield c
 
 
-def test_defaults_to_opus_4_8(client):
+def test_defaults_to_sonnet_5(client):
     r = client.get("/api/preferences")
     assert r.status_code == 200
     body = r.json()
-    assert body["default_vlm_model"] == "claude-opus-4-8"
-    assert body["vlm_model"] == "claude-opus-4-8"
+    assert body["default_vlm_model"] == "claude-sonnet-5"
+    assert body["vlm_model"] == "claude-sonnet-5"
     assert body["vlm_model_override"] is None
+    assert "claude-sonnet-5" in body["available_vlm_models"]
     assert "claude-opus-4-8" in body["available_vlm_models"]
     assert "claude-opus-4-7" in body["available_vlm_models"]
 
@@ -53,7 +54,7 @@ def test_empty_string_clears_override(client):
     assert r.status_code == 200
     body = r.json()
     assert body["vlm_model_override"] is None
-    assert body["vlm_model"] == "claude-opus-4-8"
+    assert body["vlm_model"] == "claude-sonnet-5"
 
 
 def test_providers_endpoint_reflects_preference(client):

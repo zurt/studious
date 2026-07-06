@@ -404,6 +404,7 @@ gets painful).
 | FSRS-4.5 in-repo, SRS state derived by event replay | Small, well-specified algorithm — no dependency; replaying `reviews.jsonl` per card means formula changes need no data migration and history is never lost |
 | CloudKit-ready schema from day one | UUIDs, `updated_at`, tombstones, append-only event logs cost nothing now and avoid a migration when the iOS companion arrives |
 | Cost estimation from API response tokens | Anthropic includes token counts in responses; combine with a pricing table for estimates. Not billing-accurate, but good enough for awareness |
+| Blind LLM-judge model eval (image-grounded rubric + ranking) | No verified ground truth exists for most regions; judging against the source image with anonymized, order-shuffled candidates avoids anchoring on any one model's style. Frozen seeded datasets keep runs reproducible/expandable |
 
 ## Critical Files
 

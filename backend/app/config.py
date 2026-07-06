@@ -480,6 +480,9 @@ BREAKDOWN_TOOL_SCHEMA: dict = {
 MODEL_PRICING: dict[str, dict[str, float]] = {
     # Claude 4 family. Opus pricing dropped to $5/$25 with Opus 4.5; the
     # original Opus 4 and 4.1 remain at the launch $15/$75.
+    # Sonnet 5 launch pricing ($2/$10) applies through 2026-08-31, then
+    # reverts to the $3/$15 sticker — bump this entry at that point.
+    "claude-sonnet-5": {"input": 2.0, "output": 10.0},
     "claude-opus-4-8": {"input": 5.0, "output": 25.0},
     "claude-opus-4-7": {"input": 5.0, "output": 25.0},
     "claude-opus-4-6": {"input": 5.0, "output": 25.0},
@@ -499,11 +502,12 @@ class Settings(BaseModel):
     anthropic_api_key: str | None
     wanikani_api_token: str | None = None
     tesseract_cmd: str | None
-    default_vlm_model: str = "claude-opus-4-8"
+    default_vlm_model: str = "claude-sonnet-5"
     # Models offered in the settings UI for VLM selection. The first entry
     # is treated as the canonical default; anything outside this list is
     # still accepted server-side for forward compatibility.
     selectable_vlm_models: list[str] = [
+        "claude-sonnet-5",
         "claude-opus-4-8",
         "claude-opus-4-7",
     ]

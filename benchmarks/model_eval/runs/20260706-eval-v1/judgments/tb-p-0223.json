@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-sonnet-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Multiple character errors: 遺刻する for 遅刻する, 寄（きょく）for 客（きゃく）, 違う/気を違う for 遣う/気を遣う, 訳く for 訊く, ～かわない for ～かねない, （けいけんする）for （けいけん）. Numbering badly corrupted (留学/誕生日/遣う mislabeled ②③, お礼 given a '4' it doesn't have). Stray/unbalanced bold markers, messy layout.",
+      "character_accuracy": 5,
+      "completeness": 8,
+      "formatting": 4,
+      "hallucination_control": 5,
+      "overall": 4
+    },
+    {
+      "label": "B",
+      "notes": "Very accurate: 遅刻, 客, 遣う, 訊く, ～かねない all correct; numbering (1/(2)/(3) distinctions) preserved. Minor issues: 不十分な reading given as（ふじゅうぶんな）where image shows（ふじゅうぶん）; furigana repositioned inline (履修(りしゅう)する) rather than trailing as in image.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "All characters and readings match the image, including 遣う, 訊く, ～かねない, （けいけん）, （ふじゅうぶん）. Furigana kept in original trailing position. Nesting of sub-numbered items (e.g. 1 留学する under item 3) is slightly artificial but numbering values are correct; お礼 correctly unnumbered.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "B",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "C is essentially error-free on characters and readings and invents nothing, with only mildly artificial list nesting, so it ranks first. B is nearly as good and complete but adds な to the reading of 不十分な and restructures furigana placement, ranking second. A contains numerous OCR-style kanji errors (遺刻, 寄/きょく, 違う for 遣う, 訳く, ～かわない), corrupted item numbering, and messy bold formatting, placing it clearly last.",
+  "usage": {
+    "input_tokens": 5812,
+    "output_tokens": 1974,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.15682,
+  "duration_ms": 30574
+}

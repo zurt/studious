@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-sonnet-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All base text correct, but invents furigana readings not present in the image (e.g., 適切(てきせつ), 表現(ひょうげん), 仕事(しごと), 頭(あたま), 来週(らいしゅう), 彼女(かのじょ) and many more — image only shows selective rubi like はや, いた, こども, ふ, し, ひま, etc.). Uses a malformed 3-column table for the answer box (second row has only 2 cells). Uses ⑴⑵… instead of the circled numbers ①②….",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 5,
+      "hallucination_control": 5,
+      "overall": 6
+    },
+    {
+      "label": "B",
+      "notes": "Text content accurate; converts the boxed a–e choices into a bullet list, losing the two-line horizontal box layout. Adds a fair number of furigana readings not in the image (しごと, あたま, つく, ふうふ, おお, らいしゅう, あそ, い, ひと, りょうり, ほんとう, かのじょ, たか, きょう, やす), though instruction line kept clean. Circled numbers ①–⑤ preserved correctly.",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 6,
+      "overall": 7
+    },
+    {
+      "label": "C",
+      "notes": "Closest to the original layout: answer box rendered as two lines with items a–c and d–e separated by rules, matching the image; circled numbers ①–⑤ preserved; blank-box glyph before 'から' represented. Same issue as B of adding extra furigana beyond the selective rubi in the image (しごと, あたま, ふうふ, おお, らいしゅう, etc.).",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 6,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "C",
+    "B",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "All three candidates transcribe the base Japanese text accurately and completely; they differ in layout fidelity and invented furigana. C best reproduces the answer box's two-line layout and keeps circled item numbers, with moderate extra furigana. B has the same text quality but flattens the box into a bullet list, altering structure. A is weakest: it hallucinates furigana on nearly every kanji including the instruction line, uses a broken 3-column markdown table for the box, and replaces circled numbers ① with ⑴, deviating most from the source.",
+  "usage": {
+    "input_tokens": 4479,
+    "output_tokens": 1590,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.12429,
+  "duration_ms": 24896
+}

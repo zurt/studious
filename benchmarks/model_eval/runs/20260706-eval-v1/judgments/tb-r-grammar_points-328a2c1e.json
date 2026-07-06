@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-sonnet-5",
+    "C": "claude-haiku-4-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-sonnet-5": "B",
+    "claude-haiku-4-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Very faithful. Uses 〜 (wave dash) in header where image shows ～ (trivial). Table layout with 接続の形：/［普通形］/ものの columns matches the boxed layout well; 「ただし　Nである」 kept together as in the image. Full-width brackets ［］ preserved. Extra space in 「Xものの Y」 is a minor deviation.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Accurate text; correct ～. Inconsistent bracket width: [普通形] rendered half-width while ［で］／［な］ full-width. Table places 「ただし」 in the first column of its own row, splitting it from Nである, which slightly misrepresents the indented sub-note layout. Otherwise complete and clean.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Substitutes 【】 for the image's ［］ brackets throughout (【普通形】,【で】,【な】), a real character-level deviation. Table merges 接続の形：【普通形】 into one cell and puts both Nである and ナ形 lines under 「ただし」 via <br>, losing the layout where ものの stands beside the whole conjugation column. Body paragraph accurate.",
+      "character_accuracy": 7,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 9,
+      "overall": 7
+    }
+  ],
+  "ranking": [
+    "A",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "All three transcribe the explanatory paragraph correctly with no hallucinations. A is best: it preserves the full-width square brackets, keeps 「ただし　Nである」 together matching the boxed layout, and structures the table with ものの correctly to the side; its only flaws are the 〜 variant and a stray space. B is close behind but uses a half-width bracket inconsistently for [普通形] and separates ただし into its own column cell, slightly distorting the layout. C ranks last because it replaces all square brackets with lenticular 【】 brackets (a character-accuracy error affecting multiple tokens) and its table structure less faithfully represents the box, with ものの confined to one row instead of spanning.",
+  "usage": {
+    "input_tokens": 1958,
+    "output_tokens": 1334,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.08628,
+  "duration_ms": 20881
+}

@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-opus-4-8",
+  "markdown": "**069**\n\n## ■読んだあとで(p. 64)\n\n### 10. 〜にとって／〜にとってのN　for 〜 / N for 〜　 ● CD2-35\n\n① 人間がされて嫌なことは、動物**にとって**も同じだろう。\n\n② この夏、私**にとっての**一番の思い出は、新しいプロジェクトのため毎晩同僚たち\n　と遅くまで仕事に打ち込んだことだ。\n\n❶ ＿＿＿＿＿＿＿＿にとって＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿は欠かせない。\n\n❷ 仕事を選ぶとき、あなたにとって＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿何ですか。\n\nユニット\n\n**4**\n\nことばと文化",
+  "meta": {
+    "model": "claude-opus-4-8",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQDLMUbof7C8sB2x1PU",
+    "prompt_hash": "506f3354",
+    "image_bytes": 215400,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 299,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 2966
+    }
+  },
+  "duration_ms": 7167,
+  "estimated_cost_usd": 0.0260175
+}

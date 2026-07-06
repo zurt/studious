@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-sonnet-5",
+  "markdown": "# 日本人は「ノー」と言わない？\n\nなぜ日本人はノーと言えない（あるいは言わない）のか。よく持ち上がる質問だ。しかしこれは、サッカーの選手になぜボールを手に持って走らないのかと訊くようなもの。どちらの場合も、質問者は自分のやり方のほうがずっと早くて効果的で「優れている」と考えている。ただし、別なゲームのプレイヤーだ。（略）\n\n日米では「ノー」の使い方にも違いがあるが、かけ離れてはいない。日本語には「いいえ」と言わずにノーを伝える表現がいろいろある。前章で紹介した「それはちょっと……」もそのひとつ。「ぜったいだめです」などと言おうものなら相手との人間関係にひびが入りかねないので、そうしたソフトな言い回しが好まれる。",
+  "meta": {
+    "model": "claude-sonnet-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQb1BfQo6C2phLPiJpC",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 430190,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 300,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1295
+    }
+  },
+  "duration_ms": 6253,
+  "estimated_cost_usd": 0.0062395
+}

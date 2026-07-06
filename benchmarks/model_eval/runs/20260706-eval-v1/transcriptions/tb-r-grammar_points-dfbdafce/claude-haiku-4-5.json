@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-haiku-4-5",
+  "markdown": "# 8. ～に反して\n\n**接続の形：N に反して**\n\n物事の結果が予想や期待と異なることを表す表現。Nには「予想／期待／意図」などの将来を予測する言葉が使われ、後半にはそれとは異なった結果が述べられる。話し言葉では「Nと反対に」「Nと違って」となる。",
+  "meta": {
+    "model": "claude-haiku-4-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQXmaHEpWBqUVqTdD61",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 159410,
+    "usage": {
+      "input_tokens": 950,
+      "output_tokens": 118,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 0
+    }
+  },
+  "duration_ms": 2455,
+  "estimated_cost_usd": 0.00154
+}

@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-haiku-4-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-haiku-4-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text is highly accurate with proper full-width A/B/X/Y equivalents and correct ○/× marks. The 黒澤/小津 box rendered as pipe-separated plain text, which is acceptable. The 接続の形 table is valid markdown and includes both Nの and V［辞書形］, though the merged '代わりに' cell placement is slightly off. Underlines from the image are not reproduced (true of all candidates).",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Accurate text; preserves paragraph indentation. Uses <br> in single-row tables for the 黒澤/小津 box and 接続の形 box, which captures the merged-cell layout well but lacks markdown separator rows (won't render as tables). No underlines reproduced. No invented content.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Heading typo '～といういふうに' (extra い); uses lowercase full-width ｘ/ｙ instead of X/Y throughout; the 接続の形 box drops the 'V' and merges 'Nの[辞書形]' incorrectly; adds furigana '大学(だいがく)' not present in the image (hallucination); uses half-width ~ instead of ～.",
+      "character_accuracy": 6,
+      "completeness": 6,
+      "formatting": 5,
+      "hallucination_control": 7,
+      "overall": 5
+    }
+  ],
+  "ranking": [
+    "A",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "A and B are nearly tied: both transcribe the text with high character accuracy, complete content, and no hallucinations. A edges out B because its 接続の形 table is valid markdown and cleanly separates Nの and V［辞書形］, while B's tables lack separator rows and rely on <br>, though B better preserves indentation and merged-cell structure. C is clearly last due to a heading typo (といういふうに), systematic substitution of lowercase ｘ/ｙ for X/Y, an incomplete 接続の形 box that drops 'V', and an invented furigana reading (大学(だいがく)) not present in the image.",
+  "usage": {
+    "input_tokens": 3565,
+    "output_tokens": 1690,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.12015,
+  "duration_ms": 24614
+}

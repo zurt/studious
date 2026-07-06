@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-sonnet-5",
+    "C": "claude-haiku-4-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-sonnet-5": "B",
+    "claude-haiku-4-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All Japanese headwords and furigana match the image exactly (e.g., 重宝する（ちょうほう）, 曖昧な（あいまい）, こうした, 〔人名〕 brackets preserved). However, the image contains NO English glosses — every English definition (to like; to prefer, etc.) is invented content not present in the source. Line/number structure otherwise faithful.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 3,
+      "overall": 6
+    },
+    {
+      "label": "B",
+      "notes": "Japanese text and furigana all correct and complete, matching the image (こうした, 常套句（じょうとうく）, furigana forms unaltered). Like A, it fabricates English glosses for every entry that do not exist in the image, plus extra '(name)' annotations after 〔人名〕. Layout otherwise faithful.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 3,
+      "overall": 6
+    },
+    {
+      "label": "C",
+      "notes": "Misreads こうした as ごうした (and glosses it wrongly as 'stubborn; obstinate'). Alters furigana against the image: ちょうほうする, さいそくする, かいだんする, あいまいな where the image shows ちょうほう, さいそく, かいだん, あいまい. Replaces 〔人名〕 with [person name]. Also invents English glosses not in the image.",
+      "character_accuracy": 7,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 2,
+      "overall": 4
+    }
+  ],
+  "ranking": [
+    "A",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "The source image is a plain Japanese vocabulary list (word + furigana + item numbers) with no English at all, so every candidate loses heavily on hallucination control for inventing English definitions. A and B are otherwise essentially perfect: all kanji, kana, furigana, item numbers, and the 〔人名〕 tags match the image. A edges out B very slightly because B adds further extraneous '(name)' annotations. C ranks last: beyond the shared hallucinated glosses, it introduces a genuine character error (ごうした for こうした, with a fabricated wrong meaning), silently modifies four furigana readings, and replaces the 〔人名〕 notation, making it the least faithful transcription.",
+  "usage": {
+    "input_tokens": 3794,
+    "output_tokens": 1857,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.13079,
+  "duration_ms": 27553
+}

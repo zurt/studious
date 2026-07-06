@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-haiku-4-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-haiku-4-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Very faithful overall. Missed the furigana ぜんたいぞう on 全体像 and こと on 異なる in ②. Rendered the header icon as '(Ⅰ)', an interpretation of the decorative box. Circled numbers ①-⑩ preserved, furigana otherwise complete (むかし, たが, たす, や, せ, あ, ねんれいべつ, ちょうさ, ずいぶん, さい, せいじん), instruction line correct (必要なら).",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Instruction line misread: '必要な形を変えて' should be '必要なら形を変えて'. ⑩ '成人だったが' should be '成人だが'. Invented furigana not in the image: 必要(ひつよう) in ③ and 意見(いけん) in ⑩; misattributed ずいぶん furigana as 異(ことな)った in ⑨. Missed むかし in ① and たす in ③. Uses (1)-(10) instead of circled numbers ①-⑩.",
+      "character_accuracy": 7,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 6,
+      "overall": 7
+    },
+    {
+      "label": "C",
+      "notes": "Most complete furigana coverage, including ぜんたいぞう in ②, though こと is awkwardly placed after the period as '異なる。(こと)'. Header rendered with an invented 📖 emoji instead of the boxed icon. Circled numbers preserved, table box represented with an empty header row, all sentence text accurate.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "A",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "C and A are both highly accurate transcriptions with correct circled numbering, correct instruction text, and no substantive text errors. C edges out A because it captures all visible furigana (A misses ぜんたいぞう and こと in ②), despite C's slightly awkward furigana placement in ② and a decorative emoji in the header. B ranks last due to multiple substantive errors: a misread instruction line (dropping ら from 必要なら), a text error in ⑩ (だったが for だが), invented furigana (ひつよう, いけん) that are not in the image, a misattributed reading in ⑨, and loss of the circled-number formatting.",
+  "usage": {
+    "input_tokens": 5423,
+    "output_tokens": 2105,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.15948,
+  "duration_ms": 33103
+}

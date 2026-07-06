@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-sonnet-5",
+  "markdown": "2. ～（よ）うものなら　if ～ was/were to occur　🔊CD2-27\n\n---\n①昔は、若い女性が男性と二人で出かけようものなら、町中の噂(うわさ)になったものだ。\n②食事中、ひじをつこうものなら、しつけに厳しい父に「行儀が悪い」と大声で叱られたものだ。\n\n---\n\n❶ ________________________________________________うものなら、\n\n白い目で見られる。\n\n❷上司に逆(さか)らったりしようものなら、________________________________\n\n________________________________________________",
+  "meta": {
+    "model": "claude-sonnet-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQSKNJgFj8uNU1kW1xF",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 245118,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 207,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1336
+    }
+  },
+  "duration_ms": 5245,
+  "estimated_cost_usd": 0.005412
+}

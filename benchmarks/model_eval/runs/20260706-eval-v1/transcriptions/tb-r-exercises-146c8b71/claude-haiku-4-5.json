@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-haiku-4-5",
+  "markdown": "# 4. ～合わせる　下の□から適当な言葉を選び、必要なら形を変えて___に書きなさい。\n\n| 重ね合わせる | 打ち合わせる | 組み合わせる |\n|---|---|---|\n| 聞い合わせる | 見合わせる | |\n\n① 自分の若いころの姿と___________、共働きでがんばる娘夫婦を応援しようと思った。\n\n② 雑誌のバックナンバーが欲しくて出版社に___________が、絶版で、在庫もないそうだ。\n\n③ 連載小説に対して読者から多くの批判が寄せられたので、今回は掲載を___________だ。\n\n④ 担当者が事前に集まって、業務の分担を___________必要がある。\n\n⑤「2、3種類の花を___________、かわいい感じの花束にしてくださいますか」",
+  "meta": {
+    "model": "claude-haiku-4-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQLNyviTthRhhmwBFN3",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 359876,
+    "usage": {
+      "input_tokens": 1511,
+      "output_tokens": 280,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 0
+    }
+  },
+  "duration_ms": 4639,
+  "estimated_cost_usd": 0.002911
+}

@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Several errors: 「訊く」を「訳く」と誤読、「プレイヤーだ」を「プレイヤーである」に改変、「いろいろある」が「いろいろあある」と重複、「言おうものなら相手」が「言おうも、相手」と脱落。行番号(1,5)と下線注記番号(1,2,3)は省略。半角「?」使用。",
+      "character_accuracy": 6,
+      "completeness": 6,
+      "formatting": 6,
+      "hallucination_control": 6,
+      "overall": 5
+    },
+    {
+      "label": "B",
+      "notes": "本文は全文字正確（訊く・言おうものなら等も正しい）。行番号(1,5)と点線下線＋注番号(1,2,3)は再現されず、段落頭の字下げもなし。",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "本文は全文字正確。段落頭の全角スペースによる字下げも再現。行番号(1,5)と下線注番号(1,2,3)のみ未再現。",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "B",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "CとBはどちらも本文を一字違わず正確に転写しており、原文にない内容の追加もない。CはBに加えて段落冒頭の字下げを再現しているため、レイアウト忠実度でわずかに上回る。両者とも欄外の行番号や点線下線の注番号は省略しているが、これは軽微な減点。Aは「訊く→訳く」の誤字、「プレイヤーだ→である」の改変、「あある」の重複、「ものなら」の脱落など複数の文字レベルの誤りがあり、最下位。",
+  "usage": {
+    "input_tokens": 2532,
+    "output_tokens": 916,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.07112,
+  "duration_ms": 18789
+}

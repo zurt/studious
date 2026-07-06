@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-sonnet-5",
+  "markdown": "7. ～ってことは、……ってこと／～ということは、……ということ\n\n[　　]から適切な表現を選び、記号を（　　）に書きなさい。\n\n| a. 入院する | b. 家族と離れて暮らす（はな）（く） | c. 働く（はたら） |\n| --- | --- | --- |\n| d. 失業した（しつぎょう） | e. 後輩からよく相談を受ける（こうはい）（そうだん）（う） | |\n\n① ゆい：会社が倒産（とうさん）したってことは、（　　）ってこと？\n　たける：そういうこと。明日から仕事がないんだよ。\n\n②「手術（しゅじゅつ）を受けなきゃいけないってことは、しばらく（　　）ってことだ」\n\n③ ３年間留学するということは、その間（　　）ということだ。\n\n④ 出産（しゅっさん）後（　　）ということは、仕事と育児（いくじ）を両立（りょうりつ）しなくてはならないということだ。\n\n⑤ 職場（しょくば）で（　　）ということは、それだけ信頼（しんらい）されているということだ。",
+  "meta": {
+    "model": "claude-sonnet-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmSNnNtCjqpW262ZVNw5",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 390986,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 393,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 2980
+    }
+  },
+  "duration_ms": 8089,
+  "estimated_cost_usd": 0.011382
+}

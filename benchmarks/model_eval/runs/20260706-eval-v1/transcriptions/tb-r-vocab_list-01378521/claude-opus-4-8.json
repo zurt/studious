@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-opus-4-8",
+  "markdown": "優しい（やさしい）kind; gentle  \n性格（せいかく）personality; character  \n失恋する（しつれん）to be disappointed in love; to have a broken heart  \n後輩（こうはい）junior (colleague, classmate)  \n8 もつ鍋（もつなべ）motsunabe; offal hot pot  \n受験勉強（じゅけんべんきょう）studying for entrance exams  \n長男（ちょうなん）eldest son  \nニンジンライス　carrot rice  \n〜風に（〜ふうに）in the style of 〜  \n言葉（ことば）word; language  \n〜(の)代わりに（かわりに）instead of 〜  \n励ます（はげます）to encourage; to cheer up  \n9 慰める（なぐさめる）to comfort; to console  \n10 うえやまとち〔人名〕Ueyama Tochi (personal name)  \n福岡県福津市（ふくおかけんふくつし）〔地名〕Fukutsu City, Fukuoka Prefecture (place name)  \n在住する（ざいじゅう）to reside; to live (in)  \n理想（りそう）ideal  \n男性像（だんせいぞう）image of a man; ideal man  \n11 自身（じしん）oneself  \n転勤する（てんきん）to be transferred (to another workplace)  \n暮らす（くらす）to live; to get by  \n覚える（おぼえる）to remember; to learn  \n12 紹介する（しょうかい）to introduce  \nレシピ　recipe  \nすべて　all; everything  \n自ら（みずから）oneself; personally  \n腕（うで）arm; skill  \n＊腕をふるう（うでをふるう）to show one's skill; to exercise one's talent  \n13 だが　but; however  \n開始時（かいしじ）at the start; starting time  \nこうした　such; like this  \n一般的な（いっぱんてき）general; typical  \n総理府（そうりふ）Prime Minister's Office  \n14 現内閣府（げんないかくふ）the current Cabinet Office  \n世論調査（よろんちょうさ）public opinion poll  \n15 どちらかといえば　if anything; if I had to say  \n含める（ふくめる）to include  \n16 事前（じぜん）in advance; beforehand  \n出版社（しゅっぱんしゃ）publishing company  \n打ち合わせ（うちあわせ）meeting; arrangement  \n単身赴任（たんしんふにん）job transfer away from one's family",
+  "meta": {
+    "model": "claude-opus-4-8",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQhEpskNo6XWYdSK8U7",
+    "prompt_hash": "3d778a54",
+    "image_bytes": 381432,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 846,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1961
+    }
+  },
+  "duration_ms": 19102,
+  "estimated_cost_usd": 0.03341125
+}
