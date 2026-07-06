@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Multiple serious misreads: ニンジャライス for ニンジンライス (with invented gloss 'ninja rice'), 励まず（はげまず）'does not encourage' for 励ます（はげます）, 魅める（なぐめる）'charm' for 慰める（なぐさめる）, レジピ for レシピ, ごうした for こうした (gloss left as '[?]'). Also used 【地名】 instead of 〔地名〕. Wrong glosses cascade from the misreadings.",
+      "character_accuracy": 4,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 5,
+      "overall": 4
+    },
+    {
+      "label": "B",
+      "notes": "All Japanese text, readings, and index numbers match the image, including 慰める（なぐさめる）, ニンジンライス, こうした, and the 〔人名〕/〔地名〕 brackets. Preserves the indent before ＊腕をふるう as in the image. Supplied English glosses are all accurate dictionary translations.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "C",
+      "notes": "All Japanese text and readings correct; brackets 〔人名〕/〔地名〕 preserved. Uses 〜 (wave dash variant) instead of ～ — trivial. Does not reproduce the extra indentation on ＊腕をふるう. Glosses are accurate; '(personal name)/(place name)' parentheticals are reasonable renderings.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "B and C are both near-perfect transcriptions with accurate kanji, kana, furigana, indices, and appropriate English glosses. B edges out C by preserving the indentation of the sub-entry ＊腕をふるう and using the exact ～ character. A contains at least five substantive character errors (ニンジャライス, 励まず, 魅める/なぐめる, レジピ, ごうした), several of which propagated into incorrect or missing glosses ('ninja rice', 'does not encourage', 'charm', '[?]'), significantly hurting both accuracy and hallucination control, so it ranks last.",
+  "usage": {
+    "input_tokens": 4427,
+    "output_tokens": 1483,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.11842,
+  "duration_ms": 22787
+}

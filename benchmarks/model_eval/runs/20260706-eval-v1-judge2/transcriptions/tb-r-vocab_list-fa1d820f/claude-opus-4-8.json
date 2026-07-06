@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-opus-4-8",
+  "markdown": "好む（このむ）to like; to prefer  \n9 昔（むかし）old days; long ago  \n頃（ころ）time; period  \n手法（しゅほう）technique; method  \n10 重宝する（ちょうほう）to find useful; to value  \nオーナー　owner  \n誘う（さそう）to invite; to tempt  \n〜ものの　although; even though  \nさすがに　as expected; indeed  \n11 なんといっても　after all; above all  \n雇主（やといぬし）employer  \n12 〜に応じる（おうじる）to respond to; to comply with  \n常套句（じょうとうく）cliché; stock phrase  \n13 催促する（さいそく）to urge; to press  \nうろたえる　to be flustered; to lose one's composure  \n14 意図（いと）intention; aim  \n15 きまり悪い（きまりわるい）embarrassed; awkward  \n断る（ことわる）to refuse; to decline  \n略（りゃく）abbreviation; omission  \n以外（いがい）except; other than  \n16 〜にとって　for; to; as far as ~ is concerned  \n紛れもない（まぎれもない）unmistakable; certain  \n否（いな）no; nay  \n示す（しめす）to show; to indicate  \n18 こうした　such; like this  \n曖昧な（あいまい）vague; ambiguous  \nプライベートな　private  \n19 公（おおやけ）public; official  \n場（ば）place; occasion  \n耳にする（みみにする）to hear; to overhear  \nまずない　hardly ever; rarely  \nところが　however; but  \n口にする（くちにする）to speak of; to mention  \n20 温床（おんしょう）hotbed; breeding ground  \nかの　that; the well-known  \nニクソン　〔人名〕Nixon  \n佐藤（さとう）〔人名〕Sato  \n会談する（かいだん）to hold talks; to have a conference  \n一例（いちれい）an example; an instance  \n繊維（せんい）fiber; textile  \n21 市場（しじょう）market",
+  "meta": {
+    "model": "claude-opus-4-8",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQpStMeieSdK5uQQPBi",
+    "prompt_hash": "3d778a54",
+    "image_bytes": 290712,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 688,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1905
+    }
+  },
+  "duration_ms": 16568,
+  "estimated_cost_usd": 0.02911125
+}

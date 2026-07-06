@@ -1,0 +1,17 @@
+{
+  "run_id": "20260706-eval-v1-judge2",
+  "dataset_dir": "/Users/kurt/Library/Mobile Documents/com~apple~CloudDocs/dev/cc/studious/.claude/worktrees/model-eval/benchmarks/model_eval/dataset/v1",
+  "judge_model": "claude-fable-5",
+  "fallback_model": "claude-opus-4-8",
+  "seed": 20260706,
+  "git_sha": "0f18363",
+  "started_at": "2026-07-06T21:17:31.321952+00:00",
+  "finished_at": "2026-07-06T21:18:52.152617+00:00",
+  "totals": {
+    "attempted": 4,
+    "skipped": 0,
+    "ok": 4,
+    "refused": 0,
+    "error": 0
+  }
+}

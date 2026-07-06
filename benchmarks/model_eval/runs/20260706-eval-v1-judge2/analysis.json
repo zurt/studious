@@ -1,0 +1,382 @@
+{
+  "run_id": "20260706-eval-v1-judge2",
+  "dataset_dir": "/Users/kurt/Library/Mobile Documents/com~apple~CloudDocs/dev/cc/studious/.claude/worktrees/model-eval/benchmarks/model_eval/dataset/v1",
+  "git_sha": "0f18363",
+  "created_at": "2026-07-06T21:20:04.093520+00:00",
+  "overall": {
+    "per_model": {
+      "claude-haiku-4-5": {
+        "n_scored": 4,
+        "mean_dims": {
+          "character_accuracy": 7.0,
+          "completeness": 9.25,
+          "formatting": 7.75,
+          "hallucination_control": 7.5,
+          "overall": 6.5
+        },
+        "mean_rank": 3.0,
+        "rank1_count": 0,
+        "n_ranked": 4
+      },
+      "claude-opus-4-8": {
+        "n_scored": 4,
+        "mean_dims": {
+          "character_accuracy": 10.0,
+          "completeness": 10.0,
+          "formatting": 9.0,
+          "hallucination_control": 10.0,
+          "overall": 9.25
+        },
+        "mean_rank": 1.25,
+        "rank1_count": 3,
+        "n_ranked": 4
+      },
+      "claude-sonnet-5": {
+        "n_scored": 4,
+        "mean_dims": {
+          "character_accuracy": 10.0,
+          "completeness": 9.75,
+          "formatting": 9.0,
+          "hallucination_control": 10.0,
+          "overall": 9.25
+        },
+        "mean_rank": 1.75,
+        "rank1_count": 1,
+        "n_ranked": 4
+      }
+    },
+    "win_matrix": {
+      "claude-sonnet-5": {
+        "claude-opus-4-8": 1,
+        "claude-haiku-4-5": 4
+      },
+      "claude-opus-4-8": {
+        "claude-haiku-4-5": 4,
+        "claude-sonnet-5": 3
+      }
+    },
+    "n_judgments": 4
+  },
+  "sign_tests": [
+    {
+      "model_a": "claude-haiku-4-5",
+      "model_b": "claude-opus-4-8",
+      "wins_a": 0,
+      "wins_b": 4,
+      "n": 4,
+      "preferred": "claude-opus-4-8",
+      "p_value": 0.125
+    },
+    {
+      "model_a": "claude-haiku-4-5",
+      "model_b": "claude-sonnet-5",
+      "wins_a": 0,
+      "wins_b": 4,
+      "n": 4,
+      "preferred": "claude-sonnet-5",
+      "p_value": 0.125
+    },
+    {
+      "model_a": "claude-opus-4-8",
+      "model_b": "claude-sonnet-5",
+      "wins_a": 3,
+      "wins_b": 1,
+      "n": 4,
+      "preferred": "claude-opus-4-8",
+      "p_value": 0.625
+    }
+  ],
+  "cost_latency": {
+    "claude-haiku-4-5": {
+      "n": 4,
+      "avg_duration_ms": 5997.5,
+      "avg_cost_usd": 0.0041155,
+      "total_cost_usd": 0.016462,
+      "output_chars": {
+        "mean": 915.75,
+        "median": 1104.0,
+        "min": 248,
+        "max": 1207
+      }
+    },
+    "claude-opus-4-8": {
+      "n": 4,
+      "avg_duration_ms": 14968.5,
+      "avg_cost_usd": 0.026767500000000003,
+      "total_cost_usd": 0.10707000000000001,
+      "output_chars": {
+        "mean": 1053.0,
+        "median": 1266.5,
+        "min": 277,
+        "max": 1402
+      }
+    },
+    "claude-sonnet-5": {
+      "n": 4,
+      "avg_duration_ms": 15624.75,
+      "avg_cost_usd": 0.016944499999999998,
+      "total_cost_usd": 0.06777799999999999,
+      "output_chars": {
+        "mean": 946.25,
+        "median": 1098.5,
+        "min": 320,
+        "max": 1268
+      }
+    }
+  },
+  "by_source": {
+    "textbook": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 7.0,
+            "completeness": 9.25,
+            "formatting": 7.75,
+            "hallucination_control": 7.5,
+            "overall": 6.5
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 4
+        },
+        "claude-opus-4-8": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 9.0,
+            "hallucination_control": 10.0,
+            "overall": 9.25
+          },
+          "mean_rank": 1.25,
+          "rank1_count": 3,
+          "n_ranked": 4
+        },
+        "claude-sonnet-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.75,
+            "formatting": 9.0,
+            "hallucination_control": 10.0,
+            "overall": 9.25
+          },
+          "mean_rank": 1.75,
+          "rank1_count": 1,
+          "n_ranked": 4
+        }
+      },
+      "win_matrix": {
+        "claude-sonnet-5": {
+          "claude-opus-4-8": 1,
+          "claude-haiku-4-5": 4
+        },
+        "claude-opus-4-8": {
+          "claude-haiku-4-5": 4,
+          "claude-sonnet-5": 3
+        }
+      },
+      "n_judgments": 4
+    }
+  },
+  "by_tag": {
+    "vocab_list": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 7.0,
+            "completeness": 9.25,
+            "formatting": 7.75,
+            "hallucination_control": 7.5,
+            "overall": 6.5
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 4
+        },
+        "claude-opus-4-8": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 9.0,
+            "hallucination_control": 10.0,
+            "overall": 9.25
+          },
+          "mean_rank": 1.25,
+          "rank1_count": 3,
+          "n_ranked": 4
+        },
+        "claude-sonnet-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.75,
+            "formatting": 9.0,
+            "hallucination_control": 10.0,
+            "overall": 9.25
+          },
+          "mean_rank": 1.75,
+          "rank1_count": 1,
+          "n_ranked": 4
+        }
+      },
+      "win_matrix": {
+        "claude-sonnet-5": {
+          "claude-opus-4-8": 1,
+          "claude-haiku-4-5": 4
+        },
+        "claude-opus-4-8": {
+          "claude-haiku-4-5": 4,
+          "claude-sonnet-5": 3
+        }
+      },
+      "n_judgments": 4
+    }
+  },
+  "by_kind": {
+    "region": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 7.0,
+            "completeness": 9.25,
+            "formatting": 7.75,
+            "hallucination_control": 7.5,
+            "overall": 6.5
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 4
+        },
+        "claude-opus-4-8": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 9.0,
+            "hallucination_control": 10.0,
+            "overall": 9.25
+          },
+          "mean_rank": 1.25,
+          "rank1_count": 3,
+          "n_ranked": 4
+        },
+        "claude-sonnet-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.75,
+            "formatting": 9.0,
+            "hallucination_control": 10.0,
+            "overall": 9.25
+          },
+          "mean_rank": 1.75,
+          "rank1_count": 1,
+          "n_ranked": 4
+        }
+      },
+      "win_matrix": {
+        "claude-sonnet-5": {
+          "claude-opus-4-8": 1,
+          "claude-haiku-4-5": 4
+        },
+        "claude-opus-4-8": {
+          "claude-haiku-4-5": 4,
+          "claude-sonnet-5": 3
+        }
+      },
+      "n_judgments": 4
+    }
+  },
+  "by_prompt_kind": {
+    "vocab_list": {
+      "per_model": {
+        "claude-haiku-4-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 7.0,
+            "completeness": 9.25,
+            "formatting": 7.75,
+            "hallucination_control": 7.5,
+            "overall": 6.5
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 4
+        },
+        "claude-opus-4-8": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 9.0,
+            "hallucination_control": 10.0,
+            "overall": 9.25
+          },
+          "mean_rank": 1.25,
+          "rank1_count": 3,
+          "n_ranked": 4
+        },
+        "claude-sonnet-5": {
+          "n_scored": 4,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.75,
+            "formatting": 9.0,
+            "hallucination_control": 10.0,
+            "overall": 9.25
+          },
+          "mean_rank": 1.75,
+          "rank1_count": 1,
+          "n_ranked": 4
+        }
+      },
+      "win_matrix": {
+        "claude-sonnet-5": {
+          "claude-opus-4-8": 1,
+          "claude-haiku-4-5": 4
+        },
+        "claude-opus-4-8": {
+          "claude-haiku-4-5": 4,
+          "claude-sonnet-5": 3
+        }
+      },
+      "n_judgments": 4
+    }
+  },
+  "worst_items": [
+    {
+      "item_id": "tb-r-vocab_list-01378521",
+      "mean_overall": 7.666666666666667,
+      "worst_model": "claude-haiku-4-5",
+      "worst_overall": 4,
+      "notes": "Multiple serious misreads: ニンジャライス for ニンジンライス (with invented gloss 'ninja rice'), 励まず（はげまず）'does not encourage' for 励ます（はげます）, 魅める（なぐめる）'charm' for 慰める（なぐさめる）, レジピ for レシピ, ごうした for こうした (gloss left as '[?]'). Also used 【地名】 instead of 〔地名〕. Wrong glosses cascade from the misreadings."
+    },
+    {
+      "item_id": "tb-r-vocab_list-fa1d820f",
+      "mean_overall": 7.666666666666667,
+      "worst_model": "claude-haiku-4-5",
+      "worst_overall": 5,
+      "notes": "Misreads こうした as ごうした and invents an incorrect gloss 'stubborn; obstinate'. Alters printed readings by appending する/な (ちょうほうする, さいそくする, かいだんする, あいまいな) where the image shows the bare readings. Replaces 〔人名〕 with '[person name]' rather than preserving the Japanese label, and omits an English gloss for ニクソン. Uses ～ instead of 〜."
+    },
+    {
+      "item_id": "tb-r-vocab_list-5f7efb40",
+      "mean_overall": 9.0,
+      "worst_model": "claude-sonnet-5",
+      "worst_overall": 9,
+      "notes": "All kanji, kana, and furigana match the image exactly. Glosses are accurate and appropriately dictionary-style. Minor formatting quirk: an extra blank line inserted between the (1) and (2) groups that isn't reflected as a break in the image, and the indentation of sub-entries under (1)/(2) is flattened."
+    },
+    {
+      "item_id": "tb-r-vocab_list-7ed82817",
+      "mean_overall": 9.0,
+      "worst_model": "claude-haiku-4-5",
+      "worst_overall": 8,
+      "notes": "Furigana error on first entry: （せっている）instead of （せってい）. Replaced 〔人名〕 with '[person name]' and dropped the 〔大学名〕 label entirely for 京都精華大, so the printed bracketed annotations are not faithfully reproduced. Glosses otherwise accurate."
+    }
+  ],
+  "n_items_judged": 4
+}

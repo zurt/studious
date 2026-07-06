@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-sonnet-5",
+    "C": "claude-haiku-4-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-sonnet-5": "B",
+    "claude-haiku-4-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All Japanese entries, readings, indices, and 〔人名〕 tags match the image exactly (including the reading forms ちょうほう, さいそく, かいだん, あいまい without する/な). Supplied English glosses are accurate dictionary translations throughout. Layout as a line-per-entry list mirrors the image well.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Fully faithful transcription: all entries, readings, and indices match, 〔人名〕 preserved. Glosses are accurate; the added '(name)' after Nixon/Sato is a harmless expected gloss. Slightly terser glosses than A (e.g., 誘う 'to invite' only), but nothing incorrect.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Misreads こうした as ごうした and invents an incorrect gloss 'stubborn; obstinate'. Alters printed readings by appending する/な (ちょうほうする, さいそくする, かいだんする, あいまいな) where the image shows the bare readings. Replaces 〔人名〕 with '[person name]' rather than preserving the Japanese label, and omits an English gloss for ニクソン. Uses ～ instead of 〜.",
+      "character_accuracy": 6,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 6,
+      "overall": 5
+    }
+  ],
+  "ranking": [
+    "A",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "A and B are both essentially perfect against the image: every kanji, kana reading, index number, and 〔人名〕 tag matches, and all supplied glosses are accurate dictionary translations as the pipeline expects. A edges out B only on marginally fuller, more informative glosses (e.g., 誘う, さすがに). C is clearly last: it contains a genuine character misreading (ごうした for こうした) compounded by a fabricated wrong gloss ('stubborn; obstinate'), silently changes several printed readings by adding する/な, and replaces the 〔人名〕 labels with English bracketed text, losing fidelity to the source.",
+  "usage": {
+    "input_tokens": 3988,
+    "output_tokens": 2052,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.14248,
+  "duration_ms": 29794
+}

@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-sonnet-5",
+  "markdown": "36 望む（のぞむ）to hope; to wish for  \n38 異文化（いぶんか）different culture; cross-culture  \n(1) 内容（ないよう）content; substance  \n距離（きょり）distance  \n当たり前（あたりまえ）natural; obvious; taken for granted  \n\n(2) 故郷（こきょう）hometown; birthplace  \n初めて（はじめて）for the first time  \n具体例（ぐたいれい）concrete example  \n挙げる（あげる）to raise; to cite; to give an example",
+  "meta": {
+    "model": "claude-sonnet-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQiqk7PG8udqjr9QAPr",
+    "prompt_hash": "3d778a54",
+    "image_bytes": 91563,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 178,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1161
+    }
+  },
+  "duration_ms": 5434,
+  "estimated_cost_usd": 0.0046845
+}

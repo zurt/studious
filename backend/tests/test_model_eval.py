@@ -422,3 +422,18 @@ def test_aggregate_transcriptions_cost_and_duration():
     assert agg["sonnet"]["avg_duration_ms"] == pytest.approx(1500)
     assert agg["sonnet"]["avg_cost_usd"] == pytest.approx(0.015)
     assert agg["sonnet"]["output_chars"]["mean"] == pytest.approx((3 + 6) / 2)
+
+def test_judge_content_explains_vocab_gloss_policy():
+    from benchmarks.model_eval.judge_cmd import build_judge_content
+
+    vocab_meta = {"kind": "region", "tag": "vocab_list", "source": "textbook", "prompt_kind": "vocab_list"}
+    other_meta = {"kind": "region", "tag": "exercises", "source": "textbook", "prompt_kind": "region"}
+    candidates = {"A": "x", "B": "y"}
+
+    vocab_text = build_judge_content("aW1n", vocab_meta, candidates)[1]["text"]
+    other_text = build_judge_content("aW1n", other_meta, candidates)[1]["text"]
+
+    # Vocab items: judge must be told supplied glosses are intended behavior.
+    assert "Supplied glosses are therefore EXPECTED" in vocab_text
+    # Non-vocab items must not get the exemption.
+    assert "Supplied glosses" not in other_text
