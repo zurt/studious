@@ -284,3 +284,60 @@ async def test_breakdown_job_harvests_store(isolated_data_dir):
     assert final["status"] == "completed"
     assert {i["headword"] for i in store.list_items("vocab")} == {"口べた"}
     assert {i["pattern"] for i in store.list_items("grammar")} == {"〜に関わらず"}
+
+
+class TestHarvestLoggingSafety:
+    """The server runs at INFO level, where every log call builds a real
+    LogRecord — `extra` keys that collide with reserved LogRecord
+    attributes (`created`, `module`, ...) raise KeyError there while
+    passing silently anywhere INFO is suppressed. Regression for the
+    backfill 500: harvest logged `**replace_region_sightings(...)`,
+    whose `created` count collided."""
+
+    def test_ingest_vocab_list_logs_at_info(self, isolated_data_dir: Path, caplog):
+        import logging
+
+        meta = _make_doc()
+        ch = storage.create_chapter(meta["id"], title="Ch", page_start=1, page_end=1)
+        region = storage.create_region(
+            meta["id"], ch["id"], page=1, bbox=[0, 0, 1, 1], tag="vocab_list"
+        )
+        region = storage.update_region(
+            meta["id"], ch["id"], region["id"], transcription_md=VOCAB_LIST_MD
+        )
+        with caplog.at_level(logging.INFO, logger="studious.harvest"):
+            result = harvest.ingest_vocab_list_region(meta["id"], ch["id"], region)
+        assert result["created"] == 4
+
+    def test_ingest_breakdown_logs_at_info(self, isolated_data_dir: Path, caplog):
+        import logging
+
+        with caplog.at_level(logging.INFO, logger="studious.harvest"):
+            harvest.ingest_breakdown("d1", "c1", "r1", BREAKDOWN)
+
+    def test_backfill_survives_one_bad_region(self, isolated_data_dir: Path, monkeypatch, caplog):
+        import logging
+
+        meta = _make_doc()
+        ch = storage.create_chapter(meta["id"], title="Ch", page_start=1, page_end=1)
+        for md in ("1 国民（こくみん）the people", "口べた（くちべた）poor speaker"):
+            region = storage.create_region(
+                meta["id"], ch["id"], page=1, bbox=[0, 0, 1, 1], tag="vocab_list"
+            )
+            storage.update_region(meta["id"], ch["id"], region["id"], transcription_md=md)
+
+        real_ingest = harvest.ingest_vocab_list_region
+        calls = {"n": 0}
+
+        def flaky(doc_id, chapter_id, region, **kw):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("synthetic harvest failure")
+            return real_ingest(doc_id, chapter_id, region, **kw)
+
+        monkeypatch.setattr(harvest, "ingest_vocab_list_region", flaky)
+        with caplog.at_level(logging.INFO, logger="studious.harvest"):
+            totals = harvest.backfill()
+        assert totals["errors"] == 1
+        assert totals["vocab_list_regions"] == 1
+        assert totals["vocab_created"] == 1

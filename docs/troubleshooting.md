@@ -182,6 +182,24 @@ Remedy: stop whatever is editing backend files (do feature work in a
 git worktree while the dev server runs), then re-run the backfill —
 it's idempotent and converges. Re-trigger any jobs that disappeared.
 
+(Historical note: the 2026-07-05 backfill 500 was first blamed on this
+mechanism but was actually the LogRecord collision below — check the
+traceback before assuming a reload kill.)
+
+### An endpoint 500s with `KeyError: "Attempt to overwrite 'created' in LogRecord"`
+Structured-logging trap: `log.info(..., extra={...})` raises KeyError
+if any extra key collides with a reserved `LogRecord` attribute
+(`created`, `module`, `name`, `filename`, `message`, `args`, …), and it
+only fires where a handler is active — the server runs at INFO, but a
+bare script or default-level pytest suppresses the call entirely, so
+the crash reproduces *only* in server context (a false-negative trap
+for sandbox repros; enable INFO via `caplog.at_level` in tests). This
+500'd `POST /api/store/backfill`: harvest spread
+`**replace_region_sightings(...)` (which returns a `created` count)
+into `extra`. Never spread result dicts into `extra` — name each key.
+Data written before the log line survives; the backfill is idempotent,
+so re-running after the fix converges.
+
 ### `make test` fails with "Failed to spawn: pytest" after touching backend deps
 Running plain `uv sync` uninstalls the dev tools: this project declares
 them as a `[project.optional-dependencies]` **extra** (`.[dev]`), which

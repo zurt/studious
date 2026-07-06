@@ -116,6 +116,10 @@ def ingest_vocab_list_region(
         source="vocab_list",
         entries=entries,
     )
+    # Explicit keys, not **result: `created` is a reserved LogRecord
+    # attribute and logging raises KeyError on any collision — but only
+    # once a handler is active (the server runs at INFO), so the crash
+    # never surfaces in bare scripts or default-level tests.
     log.info(
         "harvest_vocab_list",
         extra={
@@ -123,7 +127,9 @@ def ingest_vocab_list_region(
             "chapter_id": chapter_id,
             "region_id": region["id"],
             "parsed": len(entries),
-            **result,
+            "items_created": result["created"],
+            "items_updated": result["updated"],
+            "sightings": result["sightings"],
         },
     )
     if enrich_after:
@@ -212,26 +218,42 @@ def backfill() -> dict[str, Any]:
         "breakdowns": 0,
         "vocab_created": 0,
         "grammar_created": 0,
+        "errors": 0,
     }
     for doc in storage.list_documents():
         doc_id = doc["id"]
         for chapter in storage.list_chapters(doc_id):
             chapter_id = chapter["id"]
             for region in storage.list_regions(doc_id, chapter_id):
+                region_extra = {
+                    "doc_id": doc_id,
+                    "chapter_id": chapter_id,
+                    "region_id": region["id"],
+                }
+                # One bad region must not abort the whole backfill —
+                # same stance as the harvest hooks in jobs.py.
                 if region.get("tag") == "vocab_list" and region.get("transcription_md"):
-                    result = ingest_vocab_list_region(
-                        doc_id, chapter_id, region, enrich_after=False
-                    )
-                    totals["vocab_list_regions"] += 1
-                    totals["vocab_created"] += result["created"]
+                    try:
+                        result = ingest_vocab_list_region(
+                            doc_id, chapter_id, region, enrich_after=False
+                        )
+                        totals["vocab_list_regions"] += 1
+                        totals["vocab_created"] += result["created"]
+                    except Exception:
+                        totals["errors"] += 1
+                        log.exception("backfill_vocab_list_error", extra=region_extra)
                 breakdown = storage.load_breakdown(doc_id, chapter_id, region["id"])
                 if breakdown:
-                    result = ingest_breakdown(
-                        doc_id, chapter_id, region["id"], breakdown, enrich_after=False
-                    )
-                    totals["breakdowns"] += 1
-                    totals["vocab_created"] += result["vocab"]["created"]
-                    totals["grammar_created"] += result["grammar"]["created"]
+                    try:
+                        result = ingest_breakdown(
+                            doc_id, chapter_id, region["id"], breakdown, enrich_after=False
+                        )
+                        totals["breakdowns"] += 1
+                        totals["vocab_created"] += result["vocab"]["created"]
+                        totals["grammar_created"] += result["grammar"]["created"]
+                    except Exception:
+                        totals["errors"] += 1
+                        log.exception("backfill_breakdown_error", extra=region_extra)
     # One enrichment pass at the end instead of per-region (cheaper).
     enrich_result = enrich.enrich_pending()
     totals["enriched"] = enrich_result["attempted"]
