@@ -167,6 +167,21 @@ the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
 
 ## Known failure modes
 
+### A long request (e.g. `POST /api/store/backfill`) 500s; store/dashboard left partial
+
+`make dev-backend` runs uvicorn with `--reload`, which watches every
+`.py` under `backend/` — including `tests/`. Any concurrent edit to a
+backend Python file (an agent implementing a feature, a stray save)
+restarts the server and kills in-flight requests and the in-process
+job queue: a running backfill dies mid-harvest (partial store, no
+enrichment pass), and queued transcription/breakdown jobs vanish
+silently. The store itself stays consistent (append-only) — just
+incomplete.
+
+Remedy: stop whatever is editing backend files (do feature work in a
+git worktree while the dev server runs), then re-run the backfill —
+it's idempotent and converges. Re-trigger any jobs that disappeared.
+
 ### `make test` fails with "Failed to spawn: pytest" after touching backend deps
 Running plain `uv sync` uninstalls the dev tools: this project declares
 them as a `[project.optional-dependencies]` **extra** (`.[dev]`), which
