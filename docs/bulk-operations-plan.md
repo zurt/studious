@@ -1,7 +1,12 @@
 # Chapter Bulk Operations ("Prepare chapter")
 
-**Status:** Planned 2026-07-05. Implements the Phase 5 roadmap item
-"Bulk operations (transcribe/breakdown all regions in a chapter)".
+**Status:** Shipped 2026-07-06, **beta**. Implements the Phase 5
+roadmap item "Bulk operations (transcribe/breakdown all regions in a
+chapter)". Beta because it has not yet been exercised on a live
+chapter with real VLM calls — the runner is tested with mock providers
+and verified against an isolated server (dry-run plans, per-region
+failure isolation, SSE progress, terminal snapshot race). First real
+"Prepare chapter" run promotes it.
 
 ## Goal
 

@@ -30,6 +30,8 @@ both; grammar patterns from the breakdown). Instead of clicking
 transcribe/breakdown per region, try the chapter view's **Prepare
 chapter…** button — it's a one-click alternative that queues both
 phases for the whole chapter and shows live per-region progress.
+(Beta: your first run here is its first run on real data — the confirm
+dialog shows exactly what it will bill before you commit.)
 
 ## 2. Curate the inbox
 

@@ -410,9 +410,12 @@ Shipped 2026-07-01.
 
 ## Phase 5: Polish + Native
 
-- [ ] Bulk operations (transcribe/breakdown all regions in a chapter):
-      one-click "Prepare chapter" — see `docs/bulk-operations-plan.md`
-      (planned 2026-07-05, in progress)
+- [x] Bulk operations (transcribe/breakdown all regions in a chapter):
+      one-click "Prepare chapter" — see `docs/bulk-operations-plan.md`.
+      Shipped 2026-07-06 as **beta**: covered by tests and verified
+      against an isolated server (dry-run plan, failure isolation,
+      SSE progress), but not yet exercised on a live chapter with real
+      VLM calls — promote out of beta after first real use
 - [ ] Region editing (resize, move, reorder)
 - [x] iOS/iPadOS study companion (see `docs/ios-app-plan.md`): SwiftPM
       package `apple/StudiousKit` with the FSRS-4.5 Swift port

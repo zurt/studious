@@ -69,8 +69,9 @@ Open <http://localhost:5173>.
    continuation. The chain is followed at sentence-breakdown and
    exercise-completion time so the VLM sees the combined text. Per-region
    transcription is unchanged. Press Esc to cancel.
-8. **Prepare a whole chapter** — the chapter view's **Prepare
-   chapter…** button is a one-click alternative to steps 4 and 6: it
+8. **Prepare a whole chapter** (beta — not yet exercised on a live
+   chapter) — the chapter view's **Prepare chapter…** button is a
+   one-click alternative to steps 4 and 6: it
    transcribes every untranscribed region, then breaks down every
    eligible one (skipping `vocab_list` regions and continuation
    targets), as a single queued job with live per-region progress. A
