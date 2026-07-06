@@ -72,6 +72,30 @@ the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
 - `backend/.e2e-data/` — the isolated data dir for the E2E backend, wiped at the start of every run (the wipe happens in the backend `webServer` command in `frontend/playwright.config.ts`). Documents/jobs left here after a failed run reflect the state the failing test saw.
 - The E2E backend (`backend/e2e_server.py`, port 8765) logs at `WARNING` to Playwright's server output; transcriptions come from the mock VLM provider, so real-API failure modes (auth, rate limits) cannot occur in this suite. If an E2E run reports a port already in use, something is squatting on 8765 or 5273 (`lsof -i :8765`); the suite never reuses an existing server by design.
 
+### Model-eval runs (benchmarks/model_eval)
+State lives entirely on disk under `benchmarks/model_eval/`:
+
+- `dataset/<name>/manifest.json` — seed, quotas, per-stratum counts, item ids.
+  The dataset itself (`items/*/input.png`) is **gitignored** but rebuilds
+  byte-identically: `python -m benchmarks.model_eval build-dataset --data-dir
+  backend/data --seed <manifest seed> --name <name>`.
+- `runs/<run_id>/transcriptions/<item>/<model>.json` — one file per call, with
+  `status`, provider `meta` (usage, `request_id` for Anthropic support),
+  `duration_ms`, `estimated_cost_usd`. A failed call is written with
+  `status: "error"` and the exception text.
+- `runs/<run_id>/judgments/<item>.json` — judge output incl. the blind
+  `label_to_model` mapping; `status` is `ok` / `refused` / `error`.
+
+Both `run` and `judge` are resumable: re-running the same `--run-id` skips
+any (item, model) / item whose output file already exists and parses, so a
+partially failed run is fixed by deleting the bad files and re-running.
+Progress prints to stdout only (no backend logger).
+
+Symptom: a single transcription call takes ~10 minutes but succeeds — the
+Anthropic SDK auto-retries 5xx/429/timeouts with backoff (seen once on a
+full workbook page with opus-4-8, run 20260706-eval-v1). Not a hang; only
+investigate if calls exceed the SDK's retry budget and return errors.
+
 ## Known failure modes
 
 ### `make test` fails with "Failed to spawn: pytest" after touching backend deps

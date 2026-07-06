@@ -175,6 +175,24 @@ Priority 2 (second pass, bundled):
 - [ ] SBOM on release tags
 - [ ] Document API key rotation; sandbox PDF rendering
 
+## Phase 1.10: Transcription Model Evaluation
+
+- [x] `benchmarks/model_eval/` framework: frozen stratified datasets sampled
+      from the live store (regions by tag + full pages, textbook + workbook),
+      multi-model transcription runs through the production pipeline, blind
+      Fable-judged rubric scoring + ranking, per-tag/source/kind analysis
+      with pairwise sign tests, cost/latency tracking
+- [x] `claude-sonnet-5` registered in the Anthropic VLM provider
+- [x] First run (`20260706-eval-v1`, 31 items × haiku-4-5/sonnet-5/opus-4-8,
+      Fable judge): Opus 4.8 and Sonnet 5 statistically tied on quality
+      (p=0.47); Sonnet 5 wins on low-quality workbook scans and costs ~2.3×
+      less at lower latency (median 8.1s vs 10.5s; Opus mean skewed by one
+      10-min SDK-retry call); Haiku 4.5 far behind (p<0.0001)
+- [ ] Fix `VOCAB_LIST_TRANSCRIBE_PROMPT` gloss requirement: entry format
+      forces an English gloss, so all models invent glosses on
+      Japanese-only vocab lists (surfaced by eval run 20260706-eval-v1)
+- [ ] Expand dataset (v2) once more workbook regions/tags are marked
+
 ## Phase 2: Sentence Breakdowns
 
 - [x] Sentence-by-sentence breakdown (vocab, grammar, gloss) per region

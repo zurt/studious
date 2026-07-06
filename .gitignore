@@ -34,3 +34,6 @@ benchmarks/results/
 backend/.e2e-data/
 frontend/test-results/
 frontend/playwright-report/
+
+# Model-eval frozen datasets (rebuildable: same seed + local store)
+benchmarks/model_eval/dataset/

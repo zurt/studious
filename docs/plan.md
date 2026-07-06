@@ -377,6 +377,7 @@ data/
 | Single job queue with job_type dispatch | Simple, prevents API rate limiting, reuses SSE broadcast pattern |
 | JSONL audit log for LLM calls | Same append-only pattern as vocab store; human-readable, no DB dependency; enables cost tracking without external services |
 | Cost estimation from API response tokens | Anthropic includes token counts in responses; combine with a pricing table for estimates. Not billing-accurate, but good enough for awareness |
+| Blind LLM-judge model eval (image-grounded rubric + ranking) | No verified ground truth exists for most regions; judging against the source image with anonymized, order-shuffled candidates avoids anchoring on any one model's style. Frozen seeded datasets keep runs reproducible/expandable |
 
 ## Critical Files
 

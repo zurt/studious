@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-sonnet-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text fully accurate. Uses halfwidth 'A' and '8'/'6' where the image appears to use fullwidth Ａ氏/第８話/６日; blank spaces inside parentheses rendered narrower than in the image. No content missing, nothing invented.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Fully accurate; correctly uses fullwidth Ａ氏, 第８話, １０月６日-style fullwidth digits matching Japanese typesetting in the image. Blank widths approximate the image best. No errors or inventions.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "C",
+      "notes": "Text fully accurate; same halfwidth 'A'/'8'/'6' issue as Candidate A. All nine numbered blanks present, no hallucinations. Blank widths uniform and slightly narrower than the image.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "All three candidates transcribe the passage completely and correctly with all nine circled-number blanks and no hallucinated fill-ins, so differences are marginal. Candidate B is ranked first because it best matches the image's Japanese typesetting (fullwidth Ａ, ８, ６) and renders the blank widths closest to the original. Candidates C and A are nearly identical in quality, both using halfwidth Latin/digit characters; C is placed slightly ahead of A only because its slightly wider blanks are marginally closer to the visual layout of the image.",
+  "usage": {
+    "input_tokens": 2103,
+    "output_tokens": 875,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.06478,
+  "duration_ms": 16079
+}

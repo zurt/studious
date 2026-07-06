@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-sonnet-5",
+  "markdown": "## 4. ～ものの\n\n| 接続の形： | [普通形] | ものの |\n|---|---|---|\n| ただし | Nである | |\n| | ナ形［で］ある／［な］ | |\n\n「XもののY」で、Xで過去の出来事や現在の状況を述べ、Yには「しかし、普通に予想されるとおりにはいかない、現実は違っている（いた）」という意味の表現がくる逆接の表現。書き言葉で使われる。",
+  "meta": {
+    "model": "claude-sonnet-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQVQnpMVepB1Uy3BWYZ",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 172943,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 158,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1146
+    }
+  },
+  "duration_ms": 4336,
+  "estimated_cost_usd": 0.004447
+}

@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-sonnet-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Misreads 遅くまで as 選くまで. Omits the vertical sidebar text (ユニット / 4 / ことばと文化). Loses bold emphasis on にとって/にとっての, and uses ①② instead of the filled ❶❷ for the exercise blanks. Dashed example box not represented.",
+      "character_accuracy": 8,
+      "completeness": 6,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 6
+    },
+    {
+      "label": "B",
+      "notes": "Accurate throughout: 遅くまで correct, bold にとって preserved, filled ❶❷ used, sidebar ユニット/4/ことばと文化 included, CD icon noted, even the line break in example ② mirrored. Dashed box itself not drawn, but content faithful.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "C",
+      "notes": "Text fully accurate (遅くまで correct), ❶❷ preserved, sidebar included, box suggested via horizontal rules. Loses bold emphasis on にとって/にとっての and drops the CD speaker-icon nuance; relative blank lengths reasonably shown.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "B is best: fully accurate characters, retains the bold emphasis on にとって, the filled ❶❷ markers, the sidebar (ユニット 4 ことばと文化), and even the mid-sentence line break. C is nearly as complete and accurate (including the sidebar and correct 遅くまで) but drops the bold emphasis found in the source. A ranks last due to a clear character error (選く for 遅く), omission of the entire sidebar text, and loss of both the bold emphasis and the ❶❷ list markers.",
+  "usage": {
+    "input_tokens": 3762,
+    "output_tokens": 981,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.08667,
+  "duration_ms": 15557
+}

@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-haiku-4-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-haiku-4-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Uses 總子 instead of the correct 総子 for Fusako Beuckmann; otherwise all text correct including 冨山. Good layout order (tagline first), markdown header used, English line breaks preserved.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "Two name errors: 綾子 should be 総子, and 富山 should be 冨山 (ワ冠 variant). Also reorders the tagline 生・き・た・素・材・で・学・ぶ below the title, though it appears above it in the image; English subtitle collapsed to one line.",
+      "character_accuracy": 6,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 9,
+      "overall": 6
+    },
+    {
+      "label": "C",
+      "notes": "All characters correct including 総子 and 冨山. Layout order faithful (tagline, 新 badge, title split across lines as in image). No markdown headers used, but structure is otherwise accurate.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "A",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "C is the only candidate with all names transcribed correctly (総子, 冨山) and preserves the visual layout order, earning top rank despite lacking markdown headers. A has one kanji error (總子 for 総子) but otherwise correct content and good ordering. B ranks last with two name errors (綾子 for 総子, 富山 for 冨山) plus a misordered tagline placed below the title.",
+  "usage": {
+    "input_tokens": 3437,
+    "output_tokens": 849,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.07682,
+  "duration_ms": 13045
+}

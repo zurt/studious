@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-haiku-4-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-haiku-4-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text is essentially error-free (静かな, 冬のほうが, ことではないか all correct). All sections and the page number transcribed. Boxes rendered as markdown tables, which works but slightly flattens the two-column box layout (e.g., first box merged into a 3-column table row). Underlines in example sentences not represented (minor).",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Many character errors: 「晴かな」 for 静かな, 「Nであるの」 missing ／, 「ナ形「である/な」」 dropping ［で］, 「そであるか」「といいうこと」 typos, 「少しこのほうが」 for 冬のほうが, 「ここではないか」「こうだろう」 for ことではないか/ことだろう, 「～てってこと」 in header. Also invents content: fake furigana 仕(し)事 and a fabricated parenthetical (少し消極的、消極的ともいえるが…) replacing the actual note. Box layout garbled (代わりに split into stray table).",
+      "character_accuracy": 4,
+      "completeness": 8,
+      "formatting": 4,
+      "hallucination_control": 4,
+      "overall": 4
+    },
+    {
+      "label": "C",
+      "notes": "Character-perfect transcription; all sections, examples, parentheticals, arrow reference, and page number present. Connection-form boxes rendered as code blocks with the vertical divider preserved, closely matching the visual layout. Underlines in examples not marked (minor); extra spaces around Latin letters are a stylistic choice.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    }
+  ],
+  "ranking": [
+    "C",
+    "A",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "C is the most faithful: no character errors, nothing invented, and its code-block rendering preserves the internal structure (vertical divider, indentation) of the 接続の形 boxes. A is nearly as accurate with zero substantive text errors and full completeness, but its table conversion slightly distorts box layout, so it ranks just below C. B ranks last by a wide margin due to numerous misreadings (晴かな, 少しこのほうが, ここではないか, etc.), dropped particles/brackets in the connection forms, and outright hallucinations (invented furigana and a fabricated parenthetical explanation).",
+  "usage": {
+    "input_tokens": 5320,
+    "output_tokens": 1430,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.1247,
+  "duration_ms": 23031
+}

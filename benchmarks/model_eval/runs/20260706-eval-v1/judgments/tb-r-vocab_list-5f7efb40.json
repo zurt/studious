@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-haiku-4-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-haiku-4-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All Japanese headwords and furigana (望む/のぞむ, 異文化/いぶんか, 内容/ないよう, 距離/きょり, 当たり前/あたりまえ, 故郷/こきょう, 初めて/はじめて, 具体例/ぐたいれい, 挙げる/あげる) transcribed correctly. However, the image contains NO English glosses; all definitions (e.g. 'to hope; to wish for', 'natural; obvious; taken for granted') are invented. This candidate adds the longest/most elaborate hallucinated glosses. Line/indent structure roughly preserved.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 3,
+      "overall": 6
+    },
+    {
+      "label": "B",
+      "notes": "All kanji and furigana readings match the image exactly. Like the others, English translations are fabricated — the source shows only word + reading. Glosses are somewhat shorter than A's but still entirely invented. Numbering (36, 38, (1), (2)) preserved correctly.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 3,
+      "overall": 6
+    },
+    {
+      "label": "C",
+      "notes": "Japanese content and readings all correct. English definitions ('desire; hope', 'content', 'to raise; to give') are not in the image and are hallucinated, though they are the most terse of the three candidates, adding the least invented material. Layout/numbering faithfully reproduced.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 4,
+      "overall": 6
+    }
+  ],
+  "ranking": [
+    "C",
+    "B",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-haiku-4-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5"
+  ],
+  "rationale": "All three candidates transcribed the actual visible content — nine Japanese vocabulary items with furigana and the numbering (36, 38, (1), (2)) — with perfect character accuracy and completeness, and comparable list-style formatting. The decisive difference is hallucination: the image contains no English translations, yet every candidate appended invented glosses. C added the shortest, least elaborate fabricated definitions, B slightly more, and A the most verbose invented content (e.g. 'taken for granted', 'to give an example'). Since the Japanese transcription quality is identical across all three, ranking is determined by the amount of hallucinated material: C best, then B, then A.",
+  "usage": {
+    "input_tokens": 1554,
+    "output_tokens": 1044,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.06774,
+  "duration_ms": 16628
+}

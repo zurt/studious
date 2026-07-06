@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Serious errors: changed 「以下」 to 「以上」 in the 2nd and 3rd bullets of ⑦ (the image clearly says 以下); misread furigana 上(のぼ)っている as 上(あ)っている; changed circled numbers ③④… to (3)(4); added furigana not present in image (e.g., 万円(まんえん), 人(ひと), 男女(だんじょ)); underlined phrases not indicated.",
+      "character_accuracy": 6,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 6,
+      "overall": 6
+    },
+    {
+      "label": "B",
+      "notes": "Most faithful: circled numbers ③–⑨ preserved, text content and numbers all correct, furigana readings correct (のぼ, す, したまわ, etc.). Minor issues: a few furigana added that are not visible in the image (多(おお)い, 大(おお)きく, 男女(だんじょ)); missing header furigana for 数値/関/説明; underlines from the image not represented.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 8,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Very accurate; uses ・ bullets matching the image and circled numbers. Minor omissions: furigana ばあい missing in ⑤⑥ headings, たい missing on に対して in ⑦; underlines not represented; used bold for headers rather than markdown headings but layout is still faithful.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "B and C are both highly accurate transcriptions with all body text and numbers correct. B edges out C because it retains slightly more furigana matching the image (e.g., ばあい in ⑤⑥ headings) and cleaner heading structure, though it adds a few furigana not visible in the scan; C is marginally more conservative (fewer invented furigana) but omits a few furigana that are present. A ranks last due to substantive text errors: it changed 以下 to 以上 in two sentences of section ⑦ (altering meaning), misread the furigana のぼ as あ, replaced circled numbers with parenthesized ones, and invented furigana for words that have none in the image.",
+  "usage": {
+    "input_tokens": 6584,
+    "output_tokens": 1458,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.13874,
+  "duration_ms": 27864
+}

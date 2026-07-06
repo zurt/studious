@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-opus-4-8",
+  "markdown": "## 2. ～(よ)うものなら　if ～ was/were to occur　● CD2-27\n\n① 昔(むかし)は、若(わか)い女性(じょせい)が男性(だんせい)と二人(ふたり)で出(で)かけ**ようものなら**、町中(まちじゅう)の噂(うわさ)になったものだ。\n\n② 食事中(しょくじちゅう)、ひじをつこ**うものなら**、しつけに厳(きび)しい父(ちち)に「行儀(ぎょうぎ)が悪(わる)い」と大声(おおごえ)で叱(しか)られたものだ。\n\n❶ ＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿うものなら、\n\n白(しろ)い目(め)で見(み)られる。\n\n❷ 上司(じょうし)に逆(さか)らったりしようものなら、＿＿＿＿＿＿＿＿＿＿＿\n\n＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿",
+  "meta": {
+    "model": "claude-opus-4-8",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQSjAHAKirpumhfJzGN",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 245118,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 403,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1336
+    }
+  },
+  "duration_ms": 10262,
+  "estimated_cost_usd": 0.01843
+}

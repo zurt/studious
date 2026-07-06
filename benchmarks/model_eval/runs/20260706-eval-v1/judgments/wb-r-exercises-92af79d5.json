@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-haiku-4-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-haiku-4-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All furigana correctly captured (こうさつ, さんしょう, けいこう, の, ばあい, けっこんご, はたら, けいこう) with correct placement. Adds furigana (じょせい) for 女性 which is not present in the image. The underline beneath 「という傾向が強くなっている」 is not reproduced.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 8,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Missing furigana こうさつ for 考察. Furigana grouping is imprecise: 述べる場合(のべる ばあい) lumps two readings, and 働く(はたらく) misplaces the okurigana. Adds unattested (じょせい). Underline not reproduced.",
+      "character_accuracy": 7,
+      "completeness": 7,
+      "formatting": 6,
+      "hallucination_control": 7,
+      "overall": 6
+    },
+    {
+      "label": "C",
+      "notes": "Furigana readings accurate and well-placed, but invents 強(つよ) — no furigana on 強 in the image — and also adds (じょせい). Uses '-' bullet instead of '・' (acceptable in markdown). Underline not reproduced.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 6,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "A",
+    "C",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "All three candidates transcribe the base text correctly and all fail to reproduce the underline under 「という傾向が強くなっている」; all also hallucinate the furigana じょせい for 女性, which has no ruby in the image. A is best: it captures every actual furigana correctly with proper placement and adds nothing else. C matches A's accuracy but additionally invents the reading つよ for 強, an extra hallucination. B ranks last: it omits the furigana こうさつ for 考察 and groups/places several furigana awkwardly (のべる ばあい as one unit; はたらく attached after 働く), making it both less complete and less faithful.",
+  "usage": {
+    "input_tokens": 1813,
+    "output_tokens": 1289,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.08258,
+  "duration_ms": 18018
+}

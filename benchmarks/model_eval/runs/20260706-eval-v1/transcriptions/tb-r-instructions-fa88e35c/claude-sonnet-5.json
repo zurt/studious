@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-sonnet-5",
+  "markdown": "生・き・た・素・材・で・学・ぶ\n\n# 新 中級から上級への日本語\n\nAuthentic Japanese:\nProgressing from\nIntermediate to Advanced\n[New Edition]\n\n鎌田 修 Osamu Kamada\nボイクマン總子 Fusako Beuckmann\n冨山佳子 Yoshiko Tomiyama\n山本真知子 Machiko Yamamoto\n[著]",
+  "meta": {
+    "model": "claude-sonnet-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQZyjaQw1YcRQhqm3FC",
+    "prompt_hash": "6ca261ff",
+    "image_bytes": 817343,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 158,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 2672
+    }
+  },
+  "duration_ms": 3993,
+  "estimated_cost_usd": 0.008262
+}

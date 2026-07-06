@@ -45,6 +45,11 @@ After every commit, follow these steps:
 
 ## Quality Benchmarks
 
+For comparing VLM models against each other (rather than tracking one
+provider over time), use the model-eval framework:
+`uv run --project backend python -m benchmarks.model_eval <build-dataset|run|judge|analyze>`
+— see `benchmarks/model_eval/README.md`.
+
 Run `make benchmark` when making significant changes to:
 - Provider logic (OCR or VLM providers)
 - VLM prompts or prompt configuration

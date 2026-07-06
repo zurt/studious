@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-haiku-4-5",
+    "C": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-haiku-4-5": "B",
+    "claude-sonnet-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Fully accurate text; preserves bold ようなものだ in the example sentences, correct ❶❷ markers, English gloss '(it is) like 〜' correct, blanks rendered with underscores. Only minor issue: dashed box around examples not represented.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Invents furigana readings in parentheses for nearly every kanji, none of which appear in the image — significant hallucination. Uses ①② instead of the filled ❶❷ markers for the exercises, drops bold on ようなものだ, and oddly spaces the pattern as 'ような もの だ'. Base text otherwise accurate.",
+      "character_accuracy": 7,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 3,
+      "overall": 5
+    },
+    {
+      "label": "C",
+      "notes": "Accurate text, correct ❶❷ markers, uses horizontal rules to suggest the boxed example area. Loses bold on ようなものだ, and slightly misrenders the English gloss as '(it is like 〜)' instead of '(it is) like 〜'. Nothing invented.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "A",
+    "C",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "A is the most faithful: it preserves the bold emphasis on ようなものだ, the correct '(it is) like 〜' gloss, the ❶❷ item markers, and adds nothing not in the image. C is nearly as accurate but drops the bold emphasis and slightly garbles the English gloss parenthesization; it still has perfect hallucination control. B ranks last despite complete base text because it fabricates extensive furigana readings not present in the source (a serious hallucination), replaces ❶❷ with ①②, and loses the bold formatting.",
+  "usage": {
+    "input_tokens": 2351,
+    "output_tokens": 991,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.07306,
+  "duration_ms": 14993
+}

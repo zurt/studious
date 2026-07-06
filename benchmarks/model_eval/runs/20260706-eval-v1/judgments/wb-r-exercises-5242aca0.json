@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-sonnet-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Multiple text errors: 「説明(えつめい)」furigana wrong, 「給与所得者」→「給与所得」, 「示している」→「示したものである」, 「上っている」furigana (あ) wrong (should be のぼ), 「違いなどが影響」→「など影響」(dropped が). Graph data incomplete/wrong: 女性 row has 23.8/16.9 instead of 23.5/15.9, missing small segments (2, 1, 0.6...), 男性 row 13.6→18.6, missing 18 and 4.4 values. Legend order scrambled and 900万円以下 misplaced.",
+      "character_accuracy": 6,
+      "completeness": 6,
+      "formatting": 6,
+      "hallucination_control": 6,
+      "overall": 5
+    },
+    {
+      "label": "B",
+      "notes": "Body text nearly perfect with correct furigana (のぼ, しょとくしゃ etc.). Graph: 女性 row missing 15.9 duplicate/8.8-ish segment values partially but includes small segments; 男性 row has one '[illegible]' honestly marked (value 18), and 2.5/0.9/0.6 placed correctly. Legend rendered as table but order slightly reshuffled (400/500 moved to row 2). Furigana 「次の文(つぎ)」 attached oddly. Minor axis labels (0-100) omitted.",
+      "character_accuracy": 9,
+      "completeness": 8,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Most complete: includes axis labels 0-100, all small segment values (0.6/0.3/0.1 etc.), full legend in correct order, paragraph break in body text preserved. Body text accurate with correct furigana. Minor issues: 女性 row includes 8.8 (segment value hard to verify, likely correct ~8.8), reads 18 for unclear segment (plausible inference), furigana 何(なん) vs image (likely なん, fine). Some invented readings for 参考 line furigana not shown in image (民間給与実態統計調査 reading not printed).",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 8,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "B",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "C is the most faithful and complete: correct body text and furigana, full graph values including tiny segments and axis, legend in correct order, and preserved paragraph structure; its only weakness is adding furigana readings not printed in the image (e.g., for the source line) and inferring one hard-to-read value. B is close behind with equally accurate body text and honest handling of an illegible value, but its legend order is slightly rearranged, axis labels are missing, and graph data is a bit less organized. A ranks last due to numerous character errors (wrong furigana えつめい/あ, dropped 者 and が, changed sentence ending), incorrect and incomplete graph values, and a scrambled legend.",
+  "usage": {
+    "input_tokens": 6837,
+    "output_tokens": 984,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.11757,
+  "duration_ms": 18154
+}

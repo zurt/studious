@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-haiku-4-5",
+    "C": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-haiku-4-5": "B",
+    "claude-sonnet-5": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Fully accurate text including 「Nとは反対に」. Blockquote is a reasonable representation of the boxed 接続の形 section; leading full-width space of paragraph preserved.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "B",
+      "notes": "Error: 「Nと反対に」 should be 「Nとは反対に」 (dropped は). Box rendered only as bold text, losing the boxed layout; paragraph indent dropped.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Text fully accurate. Uses a two-column table (with empty header row) to represent the box — slightly awkward but conveys the enclosed layout; paragraph indent preserved.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "A",
+    "C",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "A and C both transcribe every character correctly, including the crucial 「Nとは反対に」. A edges out C because its blockquote is a cleaner, more natural markdown analogue of the boxed rule than C's oddly structured table. B is last due to a genuine character error (dropping は in 「Nとは反対に」) and weaker representation of the box (plain bold text).",
+  "usage": {
+    "input_tokens": 1763,
+    "output_tokens": 738,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.05453,
+  "duration_ms": 11940
+}

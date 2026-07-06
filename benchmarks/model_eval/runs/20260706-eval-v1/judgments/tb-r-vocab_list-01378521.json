@@ -1,0 +1,62 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5",
+  "label_to_model": {
+    "A": "claude-haiku-4-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-4-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-opus-4-8": "C"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Multiple serious character errors: ニンジャライス for ニンジンライス, 励まず（はげまず）for 励ます（はげます）, 魅める（なぐめる）for 慰める（なぐさめる）, レジピ for レシピ, ごうした for こうした, 【地名】 instead of 〔地名〕. Also invented English glosses not present in the image (including nonsense glosses like 'does not encourage', 'ninja rice'). Lost the indentation of the ＊腕をふるう sub-entry.",
+      "character_accuracy": 5,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 3,
+      "overall": 4
+    },
+    {
+      "label": "B",
+      "notes": "All kanji, kana, and furigana match the image, including 慰める（なぐさめる）, 励ます, ニンジンライス, こうした, レシピ. Preserved the indentation of the ＊腕をふるう sub-entry and the 〔人名〕/〔地名〕 brackets. Main flaw: added English translations for every entry that do not appear in the image (invented content).",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 5,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Character-level transcription fully accurate, matching the image on all tricky items (慰める, 励ます, ニンジンライス, レシピ, こうした). Bracket styles preserved. Did not indent the ＊腕をふるう sub-entry as in the image. Like B, added English glosses for every line that are not present in the source image.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 5,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "rationale": "B and C both transcribed the Japanese text perfectly, with correct kanji, kana, and furigana for every entry; both are docked on hallucination control because they appended English translations that do not exist in the image. B edges out C because it preserved the indentation of the ＊腕をふるう sub-entry, matching the layout slightly better. A ranks last by a wide margin: it contains at least six substantive character errors (ニンジャライス, 励まず/はげまず, 魅める/なぐめる, レジピ, ごうした, 【地名】), several of which change meaning entirely, and its invented English glosses compound these misreadings (e.g., 'does not encourage').",
+  "usage": {
+    "input_tokens": 4233,
+    "output_tokens": 1337,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.10918,
+  "duration_ms": 20034
+}
