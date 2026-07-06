@@ -15,7 +15,7 @@ from ..config import (
     VOCAB_LIST_TRANSCRIBE_PROMPT,
 )
 from ..jobs import manager
-from ..services import breakdown_links, storage
+from ..services import breakdown_links, region_chain, storage
 from ..services.preferences import get_active_vlm_model
 
 log = logging.getLogger("studious.api.regions")
@@ -49,13 +49,6 @@ def _require_chapter(doc_id: str, chapter_id: str) -> dict:
     if chapter is None:
         raise HTTPException(404, "chapter not found")
     return chapter
-
-
-def _find_inbound_source(doc_id: str, chapter_id: str, region_id: str) -> dict | None:
-    for other in storage.list_regions(doc_id, chapter_id):
-        if other.get("id") != region_id and other.get("continues_to") == region_id:
-            return other
-    return None
 
 
 def _validate_bbox(bbox: list[float]) -> None:
@@ -256,7 +249,7 @@ def request_region_breakdown(
         raise HTTPException(400, "breakdowns are not available on vocab_list regions")
     if not region.get("transcription_md"):
         raise HTTPException(409, "region has no transcription")
-    inbound = _find_inbound_source(doc_id, chapter_id, region_id)
+    inbound = region_chain.find_inbound_source(doc_id, chapter_id, region_id)
     if inbound is not None:
         raise HTTPException(
             409,
@@ -315,7 +308,7 @@ def request_region_exercise_completion(
         raise HTTPException(404, "region not found")
     if region.get("tag") != "exercises":
         raise HTTPException(400, "exercise completions are only available on exercises regions")
-    inbound = _find_inbound_source(doc_id, chapter_id, region_id)
+    inbound = region_chain.find_inbound_source(doc_id, chapter_id, region_id)
     if inbound is not None:
         raise HTTPException(
             409,

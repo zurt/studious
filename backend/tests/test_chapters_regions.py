@@ -464,3 +464,105 @@ def test_delete_chapter_cascades_regions(isolated_data_dir, tmp_path: Path):
     assert len(storage.list_regions(doc_id, ch["id"])) == 2
     storage.delete_chapter(doc_id, ch["id"])
     assert storage.list_regions(doc_id, ch["id"]) == []
+
+
+# ---------- POST .../bulk (docs/bulk-operations-plan.md) ----------
+
+
+def test_bulk_endpoint_dry_run_returns_plan_without_submitting(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    passage = storage.create_region(doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
+    vocab = storage.create_region(doc_id, ch["id"], page=2, bbox=[0, 0, 1, 1], tag="vocab_list")
+
+    client = TestClient(app)
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/bulk",
+        json={"dry_run": True},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["job_id"] is None
+    assert {e["region_id"] for e in body["plan"]["transcribe"]} == {passage["id"], vocab["id"]}
+    assert body["plan"]["breakdown"] == []
+
+
+def test_bulk_endpoint_empty_plan_returns_null_job_id(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    region = storage.create_region(doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
+    storage.update_region(doc_id, ch["id"], region["id"], transcription_md="一文。")
+    storage.save_breakdown(
+        doc_id, ch["id"], region["id"], {"sentences": [{"text": "一文。", "gloss": "x"}]}
+    )
+
+    client = TestClient(app)
+    # Not a dry run — everything is already done, so nothing is submitted
+    # either, and this is a 200 (not an error).
+    r = client.post(f"/api/documents/{doc_id}/chapters/{ch['id']}/bulk", json={})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["job_id"] is None
+    assert body["plan"] == {"transcribe": [], "breakdown": []}
+
+
+def test_bulk_endpoint_submit_returns_202_with_job(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    region = storage.create_region(doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
+
+    client = TestClient(app)
+    r = client.post(f"/api/documents/{doc_id}/chapters/{ch['id']}/bulk", json={})
+    assert r.status_code == 202
+    body = r.json()
+    assert body["job_id"] is not None
+    assert body["plan"]["transcribe"] == [
+        {"region_id": region["id"], "page": region["page"], "tag": region["tag"]}
+    ]
+    job = storage.load_job(body["job_id"])
+    assert job["job_type"] == "bulk_chapter"
+    assert job["doc_id"] == doc_id
+    assert job["chapter_id"] == ch["id"]
+    assert job["transcribe"] is True
+    assert job["breakdown"] is True
+
+
+def test_bulk_endpoint_overwrite_flags_widen_plan(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    region = storage.create_region(doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
+    storage.update_region(doc_id, ch["id"], region["id"], transcription_md="一文。")
+    storage.save_breakdown(
+        doc_id, ch["id"], region["id"], {"sentences": [{"text": "一文。", "gloss": "x"}]}
+    )
+
+    client = TestClient(app)
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/bulk",
+        json={
+            "dry_run": True,
+            "overwrite_transcriptions": True,
+            "overwrite_breakdowns": True,
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert {e["region_id"] for e in body["plan"]["transcribe"]} == {region["id"]}
+    assert {e["region_id"] for e in body["plan"]["breakdown"]} == {region["id"]}
+
+
+def test_bulk_endpoint_404s(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    client = TestClient(app)
+
+    r = client.post(f"/api/documents/missing/chapters/{ch['id']}/bulk", json={})
+    assert r.status_code == 404
+
+    r = client.post(f"/api/documents/{doc_id}/chapters/missing/bulk", json={})
+    assert r.status_code == 404

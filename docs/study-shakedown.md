@@ -26,7 +26,10 @@ sightings that link back to the chapter it came from.
 Then harvest something *new*: transcribe a `vocab_list` region in a
 current chapter, and generate a sentence breakdown on a reading
 passage. Both should append to the store automatically (vocab from
-both; grammar patterns from the breakdown).
+both; grammar patterns from the breakdown). Instead of clicking
+transcribe/breakdown per region, try the chapter view's **Prepare
+chapter…** button — it's a one-click alternative that queues both
+phases for the whole chapter and shows live per-region progress.
 
 ## 2. Curate the inbox
 

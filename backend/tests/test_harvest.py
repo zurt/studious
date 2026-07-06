@@ -250,6 +250,38 @@ async def test_region_job_on_vocab_list_harvests_store(isolated_data_dir):
     assert all(s["source"] == "vocab_list" for i in items for s in i["sightings"])
 
 
+async def test_bulk_chapter_job_harvests_vocab_list_via_transcribe(isolated_data_dir):
+    """The bulk_chapter runner's transcribe phase uses the same per-region
+    core as the single-region job, so a vocab_list region harvests into the
+    store exactly as it would from the single-region transcribe endpoint."""
+    registry.register_vlm("mock-bulk-vocab-vlm", lambda: _VocabListVlm())
+    meta = _make_doc()
+    ch = storage.create_chapter(meta["id"], title="Ch", page_start=1, page_end=1)
+    storage.create_region(meta["id"], ch["id"], page=1, bbox=[0, 0, 1, 1], tag="vocab_list")
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "bulk_chapter",
+                "doc_id": meta["id"],
+                "chapter_id": ch["id"],
+                "transcribe": True,
+                "breakdown": False,
+                "provider": "mock-bulk-vocab-vlm",
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    items = store.list_items("vocab")
+    assert {i["headword"] for i in items} == {"国民", "〜によって"}
+    assert all(s["source"] == "vocab_list" for i in items for s in i["sightings"])
+
+
 async def test_breakdown_job_harvests_store(isolated_data_dir):
     registry.register_vlm("mock-breakdown-harvest-vlm", lambda: _BreakdownVlm())
     meta = _make_doc()

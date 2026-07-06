@@ -126,6 +126,11 @@ export type JobEvent = {
     | "page-done"
     | "page-skipped"
     | "page-error"
+    | "phase-started"
+    | "region-started"
+    | "region-done"
+    | "region-skipped"
+    | "region-error"
     | "job-done"
     | "job-failed"
     | "ping";
@@ -344,6 +349,32 @@ export async function deleteGrammarGuide(
   return jdelete(`/api/documents/${docId}/chapters/${chapterId}/grammar-guide`, cid);
 }
 
+export type BulkChapterPlanEntry = { region_id: string; page: number; tag: string };
+export type BulkChapterPlan = { transcribe: BulkChapterPlanEntry[]; breakdown: BulkChapterPlanEntry[] };
+export type BulkChapterRequest = {
+  transcribe?: boolean;
+  breakdown?: boolean;
+  overwrite_transcriptions?: boolean;
+  overwrite_breakdowns?: boolean;
+  dry_run?: boolean;
+};
+export type BulkChapterResponse = { plan: BulkChapterPlan; job_id: string | null };
+
+export async function bulkPrepareChapter(
+  docId: string,
+  chapterId: string,
+  opts: BulkChapterRequest = {},
+  cid: string = generateCorrelationId(),
+): Promise<BulkChapterResponse> {
+  return jpost(`/api/documents/${docId}/chapters/${chapterId}/bulk`, {
+    transcribe: opts.transcribe ?? true,
+    breakdown: opts.breakdown ?? true,
+    overwrite_transcriptions: opts.overwrite_transcriptions ?? false,
+    overwrite_breakdowns: opts.overwrite_breakdowns ?? false,
+    dry_run: opts.dry_run ?? false,
+  }, cid);
+}
+
 // ---------- Regions ----------
 
 export async function createRegion(
@@ -519,7 +550,8 @@ export function openJobStream(jobId: string, onEvent: (e: JobEvent) => void): ()
   const es = new EventSource(`/api/jobs/${jobId}/events`);
   const types: JobEvent["event"][] = [
     "snapshot", "job-started", "page-started", "page-done",
-    "page-skipped", "page-error", "job-done", "job-failed", "ping",
+    "page-skipped", "page-error", "phase-started", "region-started",
+    "region-done", "region-skipped", "region-error", "job-done", "job-failed", "ping",
   ];
   for (const t of types) {
     es.addEventListener(t, (ev: MessageEvent) => {
