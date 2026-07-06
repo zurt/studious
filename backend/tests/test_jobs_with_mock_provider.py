@@ -717,3 +717,175 @@ async def test_overwrite_false_skips_existing(isolated_data_dir, mock_ocr_provid
         assert t2["markdown"].startswith("# page from")
     finally:
         await mgr.stop()
+
+
+# ---------- bulk_chapter runner (docs/bulk-operations-plan.md) ----------
+
+
+class _MockBulkVlm:
+    """Mock VLM implementing both `transcribe` and `call_tool`, keyed by
+    call order, for `bulk_chapter` runner tests."""
+
+    name = "mock-bulk-vlm"
+
+    def __init__(self, *, fail_transcribe_indices: set[int] | None = None) -> None:
+        self.fail_transcribe_indices = fail_transcribe_indices or set()
+        self.transcribe_calls: list[tuple[bytes, str, dict]] = []
+        self.call_tool_calls: list[tuple[str, str, dict, dict]] = []
+
+    def info(self):
+        return {"name": self.name, "kind": "vlm"}
+
+    def transcribe(self, image_bytes, prompt, config):
+        idx = len(self.transcribe_calls)
+        self.transcribe_calls.append((image_bytes, prompt, config))
+        if idx in self.fail_transcribe_indices:
+            raise RuntimeError(f"boom transcribing call {idx}")
+        return registry.TranscriptionResult(
+            markdown=f"# transcribed {idx}",
+            raw="raw",
+            meta={"model": config.get("model", "mock-model"), "usage": {"input_tokens": 10, "output_tokens": 5}},
+        )
+
+    def call_tool(self, prompt, tool_name, tool_schema, config):
+        idx = len(self.call_tool_calls)
+        self.call_tool_calls.append((prompt, tool_name, tool_schema, config))
+        return registry.ToolCallResult(
+            tool_input={"sentences": [{"text": f"sentence {idx}", "gloss": "gloss"}]},
+            meta={"model": config.get("model", "mock-model"), "usage": {"input_tokens": 20, "output_tokens": 10}},
+        )
+
+
+def _make_chapter_with_regions(doc_id: str, n: int, *, tag: str = "reading_passage") -> tuple[str, list[str]]:
+    """One region per page, pages 1..n — page order pins `list_regions` order
+    deterministically (rather than relying on created_at tie-breaking)."""
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=n)
+    ids = [
+        storage.create_region(doc_id, ch["id"], page=page, bbox=[0, 0, 1, 1], tag=tag)["id"]
+        for page in range(1, n + 1)
+    ]
+    return ch["id"], ids
+
+
+async def test_bulk_chapter_job_two_phases_pick_up_phase1_output(isolated_data_dir):
+    mock = _MockBulkVlm()
+    registry.register_vlm("mock-bulk-vlm", lambda: mock)
+    meta = _make_doc_with_pages(1)
+    chapter_id, (region_id,) = _make_chapter_with_regions(meta["id"], 1)
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "bulk_chapter",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "transcribe": True,
+                "breakdown": True,
+                "overwrite_transcriptions": False,
+                "overwrite_breakdowns": False,
+                "provider": "mock-bulk-vlm",
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    region = storage.load_region(meta["id"], chapter_id, region_id)
+    assert region["transcription_md"] == "# transcribed 0"
+    breakdown = storage.load_breakdown(meta["id"], chapter_id, region_id)
+    assert breakdown is not None
+    assert breakdown["sentences"][0]["text"] == "sentence 0"
+    # Phase 1 (transcribe) ran to completion before phase 2 (breakdown)
+    # started — the breakdown's prompt embeds the freshly produced
+    # transcription, which is only possible if it ran second.
+    assert len(mock.transcribe_calls) == 1
+    assert len(mock.call_tool_calls) == 1
+    assert "# transcribed 0" in mock.call_tool_calls[0][0]
+
+
+async def test_bulk_chapter_job_failing_region_continues_and_marks_errors(isolated_data_dir):
+    mock = _MockBulkVlm(fail_transcribe_indices={1})
+    registry.register_vlm("mock-bulk-vlm-fail", lambda: mock)
+    meta = _make_doc_with_pages(3)
+    chapter_id, region_ids = _make_chapter_with_regions(meta["id"], 3)
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "bulk_chapter",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "transcribe": True,
+                "breakdown": False,
+                "provider": "mock-bulk-vlm-fail",
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed_with_errors"
+    assert len(final["errors"]) == 1
+    err = final["errors"][0]
+    assert err["op"] == "transcribe"
+    assert err["region_id"] == region_ids[1]
+    assert "boom" in err["message"]
+    # All three regions were attempted despite the failure on the second.
+    assert len(mock.transcribe_calls) == 3
+    r0 = storage.load_region(meta["id"], chapter_id, region_ids[0])
+    r1 = storage.load_region(meta["id"], chapter_id, region_ids[1])
+    r2 = storage.load_region(meta["id"], chapter_id, region_ids[2])
+    assert r0["transcription_md"] is not None
+    assert r1["transcription_md"] is None
+    assert r2["transcription_md"] is not None
+
+
+async def test_bulk_chapter_job_emits_phase_and_region_events(isolated_data_dir):
+    mock = _MockBulkVlm()
+    registry.register_vlm("mock-bulk-vlm-events", lambda: mock)
+    meta = _make_doc_with_pages(2)
+    chapter_id, region_ids = _make_chapter_with_regions(meta["id"], 2)
+
+    mgr = JobManager()
+    await mgr.start()
+    events: list[dict] = []
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "bulk_chapter",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "transcribe": True,
+                "breakdown": True,
+                "provider": "mock-bulk-vlm-events",
+            }
+        )
+        # Subscribe before yielding control back to the event loop so no
+        # events emitted once the worker picks up the job are missed.
+        queue = mgr.subscribe(job["id"])
+        final = await _wait_for_terminal(job["id"])
+        while not queue.empty():
+            events.append(queue.get_nowait())
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    names = [e["event"] for e in events]
+    assert names.count("phase-started") == 2
+    assert names.count("region-started") == 4  # 2 regions x 2 phases
+    assert names.count("region-done") == 4
+    assert "job-done" in names
+    # transcribe phase entirely precedes the breakdown phase
+    first_breakdown_phase = next(
+        i for i, e in enumerate(events) if e["event"] == "phase-started" and e["data"]["op"] == "breakdown"
+    )
+    assert all(
+        e["data"].get("op") != "breakdown"
+        for e in events[:first_breakdown_phase]
+        if e["event"] in {"region-started", "region-done"}
+    )

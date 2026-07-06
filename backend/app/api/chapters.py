@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ..config import GRAMMAR_GUIDE_PROMPT, GRAMMAR_GUIDE_TOOL_SCHEMA
 from ..jobs import manager
-from ..services import grammar_guide, storage
+from ..services import bulk_ops, grammar_guide, storage
 from ..services.preferences import get_active_vlm_model
 
 log = logging.getLogger("studious.api.chapters")
@@ -170,3 +170,78 @@ def delete_grammar_guide(doc_id: str, chapter_id: str):
         raise HTTPException(404, "grammar guide not found")
     log.info("grammar_guide_deleted", extra={"doc_id": doc_id, "chapter_id": chapter_id})
     return {"ok": True}
+
+
+class BulkChapterRequest(BaseModel):
+    transcribe: bool = True
+    breakdown: bool = True
+    overwrite_transcriptions: bool = False
+    overwrite_breakdowns: bool = False
+    dry_run: bool = False
+
+
+def _bulk_plan_entry(region: dict[str, Any]) -> dict[str, Any]:
+    return {"region_id": region["id"], "page": region["page"], "tag": region["tag"]}
+
+
+@router.post("/{chapter_id}/bulk")
+def bulk_chapter(
+    doc_id: str,
+    chapter_id: str,
+    response: Response,
+    body: BulkChapterRequest = BulkChapterRequest(),
+):
+    """Compute (and optionally submit) a chapter-wide prepare plan.
+
+    Per docs/bulk-operations-plan.md: the plan is computed with the same
+    selection rules the `bulk_chapter` runner uses (`bulk_ops`), so the
+    dry-run counts driving the frontend confirm dialog match what the job
+    will actually do. The runner recomputes the plan again when it runs —
+    this response is advisory.
+    """
+    _require_doc(doc_id)
+    if storage.load_chapter(doc_id, chapter_id) is None:
+        raise HTTPException(404, "chapter not found")
+
+    transcribe_targets = (
+        bulk_ops.select_transcribe_targets(doc_id, chapter_id, overwrite=body.overwrite_transcriptions)
+        if body.transcribe
+        else []
+    )
+    breakdown_targets = (
+        bulk_ops.select_breakdown_targets(doc_id, chapter_id, overwrite=body.overwrite_breakdowns)
+        if body.breakdown
+        else []
+    )
+    plan = {
+        "transcribe": [_bulk_plan_entry(r) for r in transcribe_targets],
+        "breakdown": [_bulk_plan_entry(r) for r in breakdown_targets],
+    }
+
+    if body.dry_run or (not transcribe_targets and not breakdown_targets):
+        return {"plan": plan, "job_id": None}
+
+    payload: dict[str, Any] = {
+        "job_type": "bulk_chapter",
+        "doc_id": doc_id,
+        "chapter_id": chapter_id,
+        "transcribe": body.transcribe,
+        "breakdown": body.breakdown,
+        "overwrite_transcriptions": body.overwrite_transcriptions,
+        "overwrite_breakdowns": body.overwrite_breakdowns,
+        "engine": "vlm",
+        "provider": "anthropic",
+    }
+    job = manager.submit(payload)
+    log.info(
+        "bulk_chapter_submitted",
+        extra={
+            "doc_id": doc_id,
+            "chapter_id": chapter_id,
+            "job_id": job["id"],
+            "transcribe_count": len(transcribe_targets),
+            "breakdown_count": len(breakdown_targets),
+        },
+    )
+    response.status_code = 202
+    return {"plan": plan, "job_id": job["id"]}

@@ -1,7 +1,7 @@
 import {
   getDocument, getChapter, pageImageUrl,
   createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream, linkRegion,
-  requestGrammarGuide, getStoreCoverage,
+  requestGrammarGuide, getStoreCoverage, bulkPrepareChapter,
   type DocMeta, type Chapter, type Region,
 } from "../api";
 import { on, STORE_STATUS_CHANGED } from "../modules/events";
@@ -69,6 +69,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           <div class="spacer"></div>
           <button id="coverage-chip" class="coverage-chip" style="display:none" title="Chapter vocab coverage — open in the vocab dashboard"></button>
           <a id="grammar-guide-btn" class="topbar-link-btn" style="display:none" href=""></a>
+          <button id="prepare-chapter-btn" title="Transcribe and break down every remaining region in this chapter">Prepare chapter…</button>
           <button id="link-mode-btn" title="Link continuation region (L)">Link</button>
           <button id="tracker-btn" title="Untranscribed regions">0 pending</button>
           <button id="prev-btn" disabled>&larr;</button>
@@ -103,6 +104,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const linkModeBtn = container.querySelector<HTMLButtonElement>("#link-mode-btn")!;
   const linkBanner = container.querySelector<HTMLElement>("#link-mode-banner")!;
   const grammarGuideBtn = container.querySelector<HTMLAnchorElement>("#grammar-guide-btn")!;
+  const prepareChapterBtn = container.querySelector<HTMLButtonElement>("#prepare-chapter-btn")!;
   const prevChapterBtn = container.querySelector<HTMLButtonElement>("#prev-chapter-btn")!;
   const nextChapterBtn = container.querySelector<HTMLButtonElement>("#next-chapter-btn")!;
   const leftPane = container.querySelector<HTMLElement>("#left-pane")!;
@@ -269,6 +271,139 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   grammarGuideBtn.addEventListener("click", (e) => void handleGrammarGuideClick(e));
+
+  // ---------- Prepare chapter (bulk transcribe + breakdown) ----------
+  let prepareBusy = false;
+  let preparePhaseLabel = "";
+
+  function updatePrepareChapterBtn() {
+    prepareChapterBtn.disabled = prepareBusy;
+    prepareChapterBtn.textContent = prepareBusy ? (preparePhaseLabel || "Preparing chapter…") : "Prepare chapter…";
+  }
+
+  async function refreshAfterBulkRegionEvent() {
+    try {
+      regions = await listRegions(docId, chapterId);
+    } catch {
+      /* ignore — the final reload after job-done will retry */
+    }
+    updateTrackerBtn();
+    refreshRegionUI();
+  }
+
+  async function handlePrepareChapter() {
+    if (prepareBusy) return;
+    const cid = generateCorrelationId();
+
+    let plan: Awaited<ReturnType<typeof bulkPrepareChapter>>["plan"];
+    try {
+      ({ plan } = await bulkPrepareChapter(docId, chapterId, { dry_run: true }, cid));
+    } catch (e: any) {
+      logError("ChapterView", "prepare_chapter_dry_run_failed", {
+        chapter_id: chapterId, error: e.message, stack: e.stack, correlation_id: cid,
+      });
+      toastError("Failed to compute chapter prep plan: " + e.message);
+      return;
+    }
+
+    const transcribeCount = plan.transcribe.length;
+    const breakdownCount = plan.breakdown.length;
+    if (transcribeCount === 0 && breakdownCount === 0) {
+      toastInfo("Nothing to do — all regions are transcribed and broken down.");
+      return;
+    }
+    const parts: string[] = [];
+    if (transcribeCount > 0) parts.push(`transcribe ${transcribeCount} region${transcribeCount === 1 ? "" : "s"}`);
+    if (breakdownCount > 0) parts.push(`break down ${breakdownCount} region${breakdownCount === 1 ? "" : "s"}`);
+    const message = parts.join(", ") + ".";
+    const ok = await confirmDialog(
+      "Prepare chapter?",
+      message.charAt(0).toUpperCase() + message.slice(1),
+      "Prepare chapter",
+    );
+    if (!ok) return;
+
+    prepareBusy = true;
+    preparePhaseLabel = "Preparing chapter…";
+    updatePrepareChapterBtn();
+
+    let job_id: string | null;
+    try {
+      ({ job_id } = await bulkPrepareChapter(docId, chapterId, {}, cid));
+    } catch (e: any) {
+      prepareBusy = false;
+      updatePrepareChapterBtn();
+      logError("ChapterView", "prepare_chapter_submit_failed", {
+        chapter_id: chapterId, error: e.message, stack: e.stack, correlation_id: cid,
+      });
+      toastError("Failed to start chapter prep: " + e.message);
+      return;
+    }
+    if (!job_id) {
+      // The plan changed between dry-run and submit (e.g. another action
+      // already covered it) — nothing was queued.
+      prepareBusy = false;
+      updatePrepareChapterBtn();
+      toastInfo("Nothing to do — all regions are transcribed and broken down.");
+      return;
+    }
+
+    info("ChapterView", "prepare_chapter_started", { chapter_id: chapterId, job_id, correlation_id: cid });
+
+    let phaseOp: "transcribe" | "breakdown" | null = null;
+    let phaseTotal = 0;
+    let phaseDone = 0;
+    let settled = false;
+
+    const phaseLabel = () => `Preparing chapter: ${phaseOp === "breakdown" ? "breaking down" : "transcribing"} ${phaseDone}/${phaseTotal}…`;
+
+    const settle = async (kind: "done" | "failed", errCount?: number, msg?: string) => {
+      if (settled) return;
+      settled = true;
+      prepareBusy = false;
+      updatePrepareChapterBtn();
+      await refreshAfterBulkRegionEvent();
+      if (kind === "done") {
+        toastInfo(errCount ? `Done with ${errCount} error${errCount === 1 ? "" : "s"}` : "Chapter ready");
+      } else {
+        logError("ChapterView", "prepare_chapter_failed", {
+          chapter_id: chapterId, job_id, error: msg, correlation_id: cid,
+        });
+        toastError("Chapter prep failed: " + (msg || "unknown error"));
+      }
+    };
+
+    openJobStream(job_id, (event) => {
+      if (event.event === "phase-started") {
+        phaseOp = event.data?.op ?? null;
+        phaseTotal = event.data?.count ?? 0;
+        phaseDone = 0;
+        preparePhaseLabel = phaseLabel();
+        updatePrepareChapterBtn();
+      } else if (event.event === "region-done" || event.event === "region-error") {
+        phaseDone += 1;
+        preparePhaseLabel = phaseLabel();
+        updatePrepareChapterBtn();
+        void refreshAfterBulkRegionEvent();
+      } else if (event.event === "job-done") {
+        void settle("done", (event.data?.errors || []).length);
+      } else if (event.event === "job-failed") {
+        void settle("failed", undefined, event.data?.error);
+      } else if (event.event === "snapshot") {
+        // Race: the job may already be terminal before the EventSource
+        // subscribed (fast jobs). The replayed snapshot is then the only
+        // signal — without this, prepareBusy would spin forever.
+        const status = event.data?.status;
+        if (status === "completed" || status === "completed_with_errors") {
+          void settle("done", (event.data?.errors || []).length);
+        } else if (status === "failed") {
+          void settle("failed", undefined, event.data?.errors?.[0]?.message);
+        }
+      }
+    });
+  }
+
+  prepareChapterBtn.addEventListener("click", () => void handlePrepareChapter());
 
   function updateTrackerBtn() {
     const pending = regions.filter((r) => !r.transcription_md).length;

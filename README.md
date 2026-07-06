@@ -69,14 +69,21 @@ Open <http://localhost:5173>.
    continuation. The chain is followed at sentence-breakdown and
    exercise-completion time so the VLM sees the combined text. Per-region
    transcription is unchanged. Press Esc to cancel.
-8. **Generate a chapter grammar guide** — once a chapter's
+8. **Prepare a whole chapter** — the chapter view's **Prepare
+   chapter…** button is a one-click alternative to steps 4 and 6: it
+   transcribes every untranscribed region, then breaks down every
+   eligible one (skipping `vocab_list` regions and continuation
+   targets), as a single queued job with live per-region progress. A
+   confirm dialog shows the counts before anything is billed, and one
+   region failing doesn't stop the rest of the chapter.
+9. **Generate a chapter grammar guide** — once a chapter's
    `grammar_points` regions are transcribed, the chapter view shows
    a button that produces a structured study guide (one entry per
    pattern, with Meaning / Form / Examples / Related sections). The
    guide opens in its own view with regenerate and copy-as-markdown
    buttons; if a source region is re-transcribed afterward, the guide
    shows a "source changed" banner until you regenerate.
-9. **Review the central vocab/grammar store** — every vocab-list
+10. **Review the central vocab/grammar store** — every vocab-list
    transcription and sentence breakdown automatically harvests its
    vocab and grammar into a cross-textbook store (deduped by
    headword+reading / normalized pattern, with per-occurrence
@@ -90,7 +97,7 @@ Open <http://localhost:5173>.
    sentence breakdowns (each word's popover gets an in-store status
    toggle), and the chapter view shows a "Vocab N/M known" coverage
    chip. See `docs/vocab-store-plan.md` for the Phase 3 design.
-10. **Study with built-in flashcards** — the **Study** topbar link runs a
+11. **Study with built-in flashcards** — the **Study** topbar link runs a
     spaced-repetition session over everything marked **active** in the
     store. Vocab gets a word→meaning card plus a sentence-context card
     built from a real textbook sighting; grammar patterns get a
