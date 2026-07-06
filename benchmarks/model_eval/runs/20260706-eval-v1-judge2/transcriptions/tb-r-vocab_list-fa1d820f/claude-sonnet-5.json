@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "model": "claude-sonnet-5",
+  "markdown": "好む（このむ）to like; to prefer  \n9 昔（むかし）long ago; former times  \n頃（ころ）time; period  \n手法（しゅほう）technique; method  \n10 重宝する（ちょうほう）to find useful; to treasure  \nオーナー　owner  \n誘う（さそう）to invite  \n〜ものの　although; though  \nさすがに　as one would expect; even so  \n11 なんといっても　after all; no matter what  \n雇主（やといぬし）employer  \n12 〜に応じる（おうじる）to respond to; to comply with  \n常套句（じょうとうく）cliché; set phrase  \n13 催促する（さいそく）to press for; to urge  \nうろたえる　to be flustered; to panic  \n14 意図（いと）intention  \n15 きまり悪い（きまりわるい）embarrassed; awkward  \n断る（ことわる）to refuse; to decline  \n略（りゃく）abbreviation; omission  \n以外（いがい）except; other than  \n16 〜にとって　for; to (someone)  \n紛れもない（まぎれもない）unmistakable; undeniable  \n否（いな）no; not  \n示す（しめす）to show; to indicate  \n18 こうした　such; like this  \n曖昧な（あいまい）vague; ambiguous  \nプライベートな　private  \n19 公（おおやけ）public  \n場（ば）place; occasion  \n耳にする（みみにする）to hear  \nまずない　rarely; hardly ever  \nところが　however; but  \n口にする（くちにする）to say; to mention  \n20 温床（おんしょう）hotbed; breeding ground  \nかの　that; the well-known  \nニクソン〔人名〕Nixon (name)  \n佐藤（さとう）〔人名〕Sato (name)  \n会談する（かいだん）to hold talks  \n一例（いちれい）one example  \n繊維（せんい）fiber  \n21 市場（しじょう）market",
+  "meta": {
+    "model": "claude-sonnet-5",
+    "stop_reason": "end_turn",
+    "request_id": "req_011CcmQoH1FiEF11n3ZHcRR1",
+    "prompt_hash": "3d778a54",
+    "image_bytes": 290712,
+    "usage": {
+      "input_tokens": 1,
+      "output_tokens": 1290,
+      "cache_read_input_tokens": 0,
+      "cache_creation_input_tokens": 1905
+    }
+  },
+  "duration_ms": 15802,
+  "estimated_cost_usd": 0.0176645
+}

@@ -264,3 +264,9 @@ and unit test without an API key) is split out from the I/O/CLI layer:
 `backend/tests/test_model_eval.py` exercises the pure modules (plus
 `store.py` against a fake on-disk store under `tmp_path`) — no API key or
 network access required.
+
+## Curated reports
+
+Machine-generated per-run tables land in `runs/<run_id>/report.md`. Human-curated
+writeups (findings, corrections, recommendations) live in `reports/` — start with
+[`reports/2026-07-06-model-comparison.md`](reports/2026-07-06-model-comparison.md).

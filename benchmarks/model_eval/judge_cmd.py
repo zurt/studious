@@ -92,6 +92,25 @@ def build_judge_content(
         "markdown transcription of it produced by a different AI system — you "
         "are NOT told which system produced which candidate; judge blind."
     )
+    if item_meta.get("prompt_kind") == "vocab_list":
+        # The production vocab-list prompt deliberately instructs the
+        # transcriber to supply a short dictionary-style English gloss when
+        # the printed list has none. Without this note the judge penalizes
+        # that intended behavior as hallucination (seen in run
+        # 20260706-eval-v1, where it depressed every model's vocab scores).
+        intro += (
+            "\n\nIMPORTANT — intended pipeline behavior for vocabulary lists: "
+            "the transcriber was explicitly instructed to append a short "
+            "dictionary-style English gloss to each entry when the printed "
+            "list has none. Supplied glosses are therefore EXPECTED, even if "
+            "absent from the image — do NOT penalize their presence under "
+            "hallucination_control. Instead, judge whether each supplied "
+            "gloss is an accurate dictionary translation of the printed "
+            "term; penalize inaccurate glosses under character_accuracy "
+            "and hallucination_control. All Japanese text, readings, "
+            "indices, and section headers must still match the image "
+            "exactly."
+        )
     candidates_text_parts = []
     for label in sorted(label_to_markdown.keys()):
         candidates_text_parts.append(f"--- Candidate {label} ---\n{label_to_markdown[label]}")
