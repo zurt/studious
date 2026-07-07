@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import shutil
@@ -38,7 +39,7 @@ async def _save_upload_to_tmp(file: UploadFile, suffix: str) -> Path:
     fd, tmp_name = tempfile.mkstemp(suffix=suffix)
     try:
         with os.fdopen(fd, "wb") as out:
-            shutil.copyfileobj(file.file, out)
+            await asyncio.to_thread(shutil.copyfileobj, file.file, out)
     finally:
         await file.close()
     return Path(tmp_name)
@@ -62,10 +63,14 @@ async def upload_document(file: UploadFile = File(...)):
 
     t0 = time.monotonic()
     try:
+        # Rendering a big PDF takes tens of seconds; keep it off the event
+        # loop so other requests (and running jobs' SSE streams) don't stall.
         if source_type == "pdf":
-            page_count = pdf.render_pdf_to_pages(original, pages_dir, dpi=get_settings().pdf_render_dpi)
+            page_count = await asyncio.to_thread(
+                pdf.render_pdf_to_pages, original, pages_dir, dpi=get_settings().pdf_render_dpi
+            )
         else:
-            page_count = pdf.copy_image_as_page(original, pages_dir)
+            page_count = await asyncio.to_thread(pdf.copy_image_as_page, original, pages_dir)
     except Exception as exc:
         # A corrupt/unreadable file must not leave a zero-page document
         # behind in the library.
@@ -102,9 +107,11 @@ async def reupload_document(doc_id: str, file: UploadFile = File(...)):
 
     t0 = time.monotonic()
     if source_type == "pdf":
-        page_count = pdf.render_pdf_to_pages(new_original, pages_dir, dpi=get_settings().pdf_render_dpi)
+        page_count = await asyncio.to_thread(
+            pdf.render_pdf_to_pages, new_original, pages_dir, dpi=get_settings().pdf_render_dpi
+        )
     else:
-        page_count = pdf.copy_image_as_page(new_original, pages_dir)
+        page_count = await asyncio.to_thread(pdf.copy_image_as_page, new_original, pages_dir)
     render_ms = int((time.monotonic() - t0) * 1000)
     log.info("document_reuploaded", extra={"doc_id": doc_id, "source_type": source_type, "page_count": page_count, "render_ms": render_ms})
 
