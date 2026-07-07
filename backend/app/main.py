@@ -56,7 +56,7 @@ async def invalid_id_handler(request: Request, exc: InvalidIdError):
     return JSONResponse(status_code=404, content={"detail": "not found"})
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=get_settings().cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["x-correlation-id"],
@@ -77,3 +77,27 @@ app.include_router(study.router)
 @app.get("/api/health")
 def health():
     return {"ok": True}
+
+
+# Hosted mode (docs/hosting.md): serve the built frontend from this
+# process so one container is the whole app. Mounted at "/" *after* all
+# API routes, so /api/* always wins; unknown paths fall back to
+# index.html for the SPA router. Local dev leaves STUDIOUS_STATIC_DIR
+# unset and keeps using the vite dev server.
+_static_dir = get_settings().static_dir
+if _static_dir is not None and _static_dir.is_dir():
+    from fastapi.staticfiles import StaticFiles
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    class _SPAStaticFiles(StaticFiles):
+        async def get_response(self, path: str, scope):
+            # StaticFiles raises (rather than returns) 404 for unknown
+            # paths; catch it and serve the SPA entry point instead.
+            try:
+                return await super().get_response(path, scope)
+            except StarletteHTTPException as exc:
+                if exc.status_code == 404:
+                    return await super().get_response("index.html", scope)
+                raise
+
+    app.mount("/", _SPAStaticFiles(directory=_static_dir, html=True), name="frontend")

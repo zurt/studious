@@ -502,6 +502,14 @@ class Settings(BaseModel):
     anthropic_api_key: str | None
     wanikani_api_token: str | None = None
     tesseract_cmd: str | None
+    # Origins allowed by CORS. Local dev needs the vite dev server; a
+    # hosted deployment serving the built frontend from this process
+    # (static_dir) is same-origin and needs no extra entries.
+    cors_origins: list[str] = ["http://localhost:5173"]
+    # When set (STUDIOUS_STATIC_DIR), the backend serves the built
+    # frontend (frontend/dist) from "/" with an SPA fallback — used by
+    # the Docker image; unset in local dev where vite serves the app.
+    static_dir: Path | None = None
     default_vlm_model: str = "claude-sonnet-5"
     # Models offered in the settings UI for VLM selection. The first entry
     # is treated as the canonical default; anything outside this list is
@@ -538,6 +546,12 @@ def get_settings() -> Settings:
     breakdown_effort_env = os.environ.get("STUDIOUS_VLM_EFFORT_BREAKDOWN")
     if breakdown_effort_env:
         overrides["vlm_effort_breakdown"] = breakdown_effort_env.lower()
+    cors_env = os.environ.get("STUDIOUS_CORS_ORIGINS")
+    if cors_env:
+        overrides["cors_origins"] = [o.strip() for o in cors_env.split(",") if o.strip()]
+    static_env = os.environ.get("STUDIOUS_STATIC_DIR")
+    if static_env:
+        overrides["static_dir"] = Path(static_env).resolve()
     return Settings(
         data_dir=data_dir,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,

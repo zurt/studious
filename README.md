@@ -151,6 +151,11 @@ Environment variables (read at startup, `.env` supported):
   calls (default `high`). Maps to Anthropic's `output_config.effort`.
 - `STUDIOUS_VLM_EFFORT_BREAKDOWN` — effort level for sentence-breakdown tool
   calls (default `xhigh` — these are harder reasoning tasks).
+- `STUDIOUS_CORS_ORIGINS` — comma-separated CORS allowlist (default
+  `http://localhost:5173`, the vite dev server).
+- `STUDIOUS_STATIC_DIR` — when set, the backend serves a built frontend
+  (`frontend/dist`) at `/` with an SPA fallback. Used by the Docker
+  image; leave unset for local dev.
 
 Valid effort values are `low`, `medium`, `high`, `xhigh`, `max`. Effort and
 adaptive thinking only apply to models that support them (Opus 4.5+ and
@@ -222,6 +227,17 @@ protect against supply chain attacks:
 - **uv**: configured in `backend/uv.toml` (`exclude-newer = "7 days"`)
 
 Run `make audit` to check for known vulnerabilities.
+
+## Deployment (optional)
+
+The app runs fully local by default. To host the backend elsewhere
+(e.g. a DigitalOcean droplet) there is a single-container setup —
+`Dockerfile` + `docker-compose.yml`, built with `make docker-build` /
+`make docker-up` — where FastAPI serves the built frontend too. Read
+`docs/hosting.md` first: the API has no authentication, so it must sit
+behind Tailscale or an authenticating reverse proxy, and moving the
+backend off the Mac changes how the iOS/Mac companion apps sync
+(bridge mode needs the shared filesystem).
 
 ## Observability
 

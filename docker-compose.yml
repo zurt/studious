@@ -1,0 +1,21 @@
+# Studious on a single host (see docs/hosting.md for the full runbook).
+#
+# The app listens on loopback only — put a reverse proxy (Caddy example
+# in docs/hosting.md) or Tailscale in front; never publish :8000 on a
+# public interface, the API has no authentication of its own.
+services:
+  studious:
+    build: .
+    image: studious:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    # Put ANTHROPIC_API_KEY (and optionally WANIKANI_API_TOKEN) in ./.env
+    # next to this file; it is gitignored.
+    env_file:
+      - .env
+    volumes:
+      # Everything the app owns lives here: documents, page images,
+      # transcriptions, jobs, the vocab/grammar store, review log,
+      # LLM audit log, reference caches. This is the one path to back up.
+      - ./data:/data

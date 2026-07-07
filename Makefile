@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-e2e test-apple run-mac audit audit-log logs clean benchmark refs golden
+.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-e2e test-apple run-mac audit audit-log logs clean benchmark refs golden docker-build docker-up
 
 install: install-backend install-frontend
 	@echo ""
@@ -86,6 +86,14 @@ audit-log:
 
 benchmark:
 	uv run --project backend python -m benchmarks.run_benchmark
+
+# Single-container deployment (frontend built in, FastAPI serves it).
+# See docs/hosting.md for the droplet runbook.
+docker-build:
+	docker build -t studious:latest .
+
+docker-up:
+	docker compose up -d --build
 
 clean:
 	rm -rf backend/.venv backend/.pytest_cache backend/**/__pycache__ frontend/node_modules frontend/dist
