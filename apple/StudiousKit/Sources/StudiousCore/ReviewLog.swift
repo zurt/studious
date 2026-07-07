@@ -100,6 +100,9 @@ public final class ReviewLog {
         guard event.kind.cardTypes.contains(event.cardType) else {
             throw StudiousError.invalidCardType(event.cardType)
         }
+        // Fold in events appended by another process first, so the
+        // derived state we return reflects the file's real history.
+        reloadIfChanged()
         try appendLine(JSONCoding.encode(event.raw) + "\n", to: url)
         add(event)
         loadedSignature = fileSignature()
@@ -111,6 +114,9 @@ public final class ReviewLog {
     /// append only ids we haven't seen. Returns the number applied.
     @discardableResult
     public func union(_ incoming: [ReviewEvent]) throws -> Int {
+        // Dedup against the file's real contents — another process may
+        // have appended (or unioned the same events) since our last load.
+        reloadIfChanged()
         let fresh = incoming.filter { !ids.contains($0.id) }
         guard !fresh.isEmpty else { return 0 }
         var payload = ""

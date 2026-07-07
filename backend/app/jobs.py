@@ -100,9 +100,11 @@ class JobManager:
     def __init__(self) -> None:
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._worker: asyncio.Task[None] | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._listeners: dict[str, list[asyncio.Queue[dict[str, Any]]]] = defaultdict(list)
 
     async def start(self) -> None:
+        self._loop = asyncio.get_running_loop()
         if self._worker is None or self._worker.done():
             self._worker = asyncio.create_task(self._run(), name="studious-job-worker")
 
@@ -120,7 +122,14 @@ class JobManager:
         # under the same trace.
         payload = {**payload, "correlation_id": correlation_id_var.get("")}
         job = storage.create_job(payload)
-        self._queue.put_nowait(job["id"])
+        # Submitting routes are sync `def`s, so this runs on a Starlette
+        # threadpool thread — asyncio.Queue is not thread-safe, and a
+        # put_nowait from a foreign thread can lose the worker's wakeup
+        # (job stuck in "queued"). Hand the put to the loop thread.
+        if self._loop is not None and not self._loop.is_closed():
+            self._loop.call_soon_threadsafe(self._queue.put_nowait, job["id"])
+        else:
+            self._queue.put_nowait(job["id"])
         return job
 
     def subscribe(self, job_id: str) -> asyncio.Queue[dict[str, Any]]:
@@ -176,8 +185,18 @@ class JobManager:
             job_id = await self._queue.get()
             try:
                 await self._run_job(job_id)
-            except Exception:
+            except Exception as exc:
                 log.exception("job %s failed", job_id)
+                # Without this, an unexpected exception leaves the job
+                # "queued"/"running" forever and its SSE stream never
+                # emits a terminal event.
+                try:
+                    job = storage.load_job(job_id)
+                    terminal = ("completed", "completed_with_errors", "failed")
+                    if job is not None and job.get("status") not in terminal:
+                        self._fail_job(job_id, f"internal error: {exc}")
+                except Exception:
+                    log.exception("job %s could not be marked failed", job_id)
             finally:
                 self._queue.task_done()
 

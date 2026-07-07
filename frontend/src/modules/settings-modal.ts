@@ -111,14 +111,6 @@ function escapeHtml(s: string): string {
   }[c]!));
 }
 
-function fmtBytes(n: number): string {
-  if (!n) return "0";
-  const k = 1024;
-  const units = ["B", "KB", "MB", "GB"];
-  const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(k)));
-  return `${(n / Math.pow(k, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
 function fmtUsd(n: number): string {
   if (n === 0) return "$0.00";
   if (n < 0.01) return `$${n.toFixed(4)}`;
@@ -288,8 +280,6 @@ function usageHtml(s: CostSummary, docs: DocMeta[]): string {
   const unknown = s.unknown_models.length
     ? `<p class="muted small">Models without pricing data (cost reported as $0): ${s.unknown_models.map((m) => `<code>${escapeHtml(m)}</code>`).join(", ")}</p>`
     : "";
-
-  void fmtBytes;
 
   if (s.total_requests === 0) {
     return `

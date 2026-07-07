@@ -11,6 +11,12 @@ import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { confirmDialog } from "../modules/confirm";
 
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]!));
+}
+
 export function mountDocumentView(params: Record<string, string>, container: HTMLElement) {
   const docId = params.id;
 
@@ -101,7 +107,13 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
   document.addEventListener("click", onDocClick);
 
   async function load() {
-    doc = await getDocument(docId);
+    try {
+      doc = await getDocument(docId);
+    } catch (e: any) {
+      logError("DocumentView", "load_failed", { doc_id: docId, error: e.message });
+      container.innerHTML = `<div class="library"><p class="error">Failed to load document — it may have been deleted.</p></div>`;
+      return;
+    }
     docTitle.textContent = doc.name;
     docTitle.title = doc.name;
     if (page > doc.page_count) page = doc.page_count;
@@ -127,7 +139,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
       chapterBanner.style.display = "flex";
       chapterBanner.innerHTML = `
         <a href="/doc/${docId}/chapter/${current.id}" id="banner-link" class="chapter-banner-link">
-          ${current.title}
+          ${escapeHtml(current.title)}
         </a>
         <span class="chapter-banner-meta">pp. ${current.page_start}-${current.page_end}</span>
       `;
@@ -140,8 +152,22 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
     }
   }
 
+  // Monotonic token so a slow response for a page the user already left
+  // can't overwrite the newer page's transcription.
+  let transcriptionSeq = 0;
+
   async function loadTranscription() {
-    const t = await getTranscription(docId, page);
+    const seq = ++transcriptionSeq;
+    let t: Transcription | null;
+    try {
+      t = await getTranscription(docId, page);
+    } catch (e: any) {
+      if (seq !== transcriptionSeq) return;
+      logError("DocumentView", "transcription_load_failed", { doc_id: docId, page, error: e.message });
+      rightPane.innerHTML = `<div class="empty">Failed to load transcription</div>`;
+      return;
+    }
+    if (seq !== transcriptionSeq) return;
     renderTranscription(t);
   }
 
@@ -174,7 +200,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
           <div class="chapter-drag-item" data-index="${i}" data-id="${ch.id}" draggable="true">
             <span class="drag-handle" title="Drag to reorder">&#x2630;</span>
             <a href="/doc/${docId}/chapter/${ch.id}" class="chapter-drag-link">
-              <span class="sidebar-item-title">${ch.title}</span>
+              <span class="sidebar-item-title">${escapeHtml(ch.title)}</span>
               <span class="sidebar-item-meta">pp. ${ch.page_start}-${ch.page_end}</span>
             </a>
             <button class="chapter-action-btn edit-btn" data-id="${ch.id}" title="Edit chapter" aria-label="Edit chapter">&#x270E;</button>

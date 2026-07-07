@@ -889,3 +889,27 @@ async def test_bulk_chapter_job_emits_phase_and_region_events(isolated_data_dir)
         for e in events[:first_breakdown_phase]
         if e["event"] in {"region-started", "region-done"}
     )
+
+
+async def test_unexpected_exception_marks_job_failed(isolated_data_dir):
+    """A job whose runner raises outside the handled error paths must land
+    in status "failed", not sit in "queued"/"running" forever (the worker
+    used to only log the exception)."""
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        # No "pages"/"engine" keys: _run_pages_job raises KeyError before
+        # any of its own error handling is reached.
+        job = mgr.submit({"doc_id": "nonexistent", "job_type": "transcribe_pages"})
+        for _ in range(50):
+            await asyncio.sleep(0.05)
+            current = storage.load_job(job["id"])
+            if current and current.get("status") == "failed":
+                break
+    finally:
+        await mgr.stop()
+
+    final = storage.load_job(job["id"])
+    assert final is not None
+    assert final["status"] == "failed"
+    assert final["errors"] and "internal error" in final["errors"][0]["message"]

@@ -54,6 +54,12 @@ function pickFirstRegion(regs: Region[]): Region | null {
   return [...regs].sort((a, b) => a.bbox[1] - b.bbox[1] || a.bbox[0] - b.bbox[0])[0];
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]!));
+}
+
 export function mountChapterView(params: Record<string, string>, container: HTMLElement) {
   const docId = params.id;
   const chapterId = params.chapterId;
@@ -142,6 +148,18 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   let batchDoneCount = 0;
   let linkMode = false;
   let pendingLinkSourceId: string | null = null;
+  // Job streams stay open across navigation unless closed at unmount —
+  // otherwise a completing job can navigate or toast on a page the user
+  // has already left.
+  let destroyed = false;
+  const jobStreamCloses: Array<() => void> = [];
+
+  function trackJobStream(jobId: string, onEvent: Parameters<typeof openJobStream>[1]) {
+    jobStreamCloses.push(openJobStream(jobId, (event) => {
+      if (destroyed) return;
+      onEvent(event);
+    }));
+  }
 
   function syncUrl() {
     replaceQuery({ page: String(page), region: selectedRegionId });
@@ -251,7 +269,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           updateGrammarGuideBtn();
         }
       };
-      openJobStream(job_id, (event) => {
+      trackJobStream(job_id, (event) => {
         if (event.event === "job-done") void settle("done");
         else if (event.event === "job-failed") void settle("failed", event.data?.error);
         else if (event.event === "snapshot") {
@@ -373,7 +391,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       }
     };
 
-    openJobStream(job_id, (event) => {
+    trackJobStream(job_id, (event) => {
       if (event.event === "phase-started") {
         phaseOp = event.data?.op ?? null;
         phaseTotal = event.data?.count ?? 0;
@@ -449,7 +467,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           return `
           <div class="tracker-item${isTranscribing ? " is-transcribing" : ""}" data-page="${r.page}" data-id="${r.id}">
             <div class="tracker-item-info">
-              <div class="tracker-item-title">${r.label || r.tag.replace("_", " ")}</div>
+              <div class="tracker-item-title">${escapeHtml(r.label || r.tag.replace("_", " "))}</div>
               <div class="tracker-item-meta">p. ${r.page} &middot; ${r.tag.replace("_", " ")}</div>
             </div>
             <span class="tracker-status ${statusClass}">${statusLabel}</span>
@@ -500,7 +518,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       try {
         const { job_id } = await transcribeRegion(docId, chapterId, region.id, batchCid);
         await new Promise<void>((resolve) => {
-          openJobStream(job_id, async (event) => {
+          trackJobStream(job_id, async (event) => {
             if (event.event === "job-done" || event.event === "job-failed") {
               resolve();
             } else if (event.event === "snapshot") {
@@ -542,8 +560,14 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   async function load() {
-    doc = await getDocument(docId);
-    chapter = await getChapter(docId, chapterId);
+    try {
+      doc = await getDocument(docId);
+      chapter = await getChapter(docId, chapterId);
+    } catch (e: any) {
+      logError("ChapterView", "load_failed", { doc_id: docId, chapter_id: chapterId, error: e.message });
+      container.innerHTML = `<div class="library"><p class="error">Failed to load chapter — it may have been deleted.</p></div>`;
+      return;
+    }
     if (!chapter) {
       container.innerHTML = `<div class="library"><p class="error">Chapter not found</p></div>`;
       return;
@@ -1033,7 +1057,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         refreshRegionUI();
       };
 
-      openJobStream(job_id, async (event) => {
+      trackJobStream(job_id, async (event) => {
         if (event.event === "job-done") {
           await settle("done");
         } else if (event.event === "job-failed") {
@@ -1117,6 +1141,8 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   load();
 
   return () => {
+    destroyed = true;
+    for (const close of jobStreamCloses) close();
     document.removeEventListener("keydown", onKey);
     document.removeEventListener("click", onDocClick);
     offCoverage();

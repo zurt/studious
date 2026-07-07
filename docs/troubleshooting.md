@@ -376,6 +376,11 @@ The backend process can't read the key from its environment. The Keychain-based 
 ### Job stuck in `running`
 The worker is sequential (`backend/app/jobs.py` `JobManager`). One stuck job blocks all subsequent ones. Check backend stdout for an exception traceback in the worker, then either let it finish or restart the backend (in-progress jobs do not resume on restart).
 
+### Job stuck in `queued` forever (worker idle, later jobs may unstick it)
+Two historical causes, both fixed 2026-07-07 (see `docs/audit-2026-07-mobile-spike.md`):
+1. `JobManager.submit()` used to `put_nowait` onto the worker's `asyncio.Queue` from a Starlette threadpool thread (submitting routes are sync `def`s). `asyncio.Queue` is not thread-safe — the cross-thread wakeup could be lost, leaving the job `queued` until some later submission happened to wake the worker. Fixed with `loop.call_soon_threadsafe`. If a stuck-in-`queued` job reappears, check whether a new code path calls `submit()`/`put_nowait` from outside the event loop.
+2. An exception escaping a job runner used to be logged but never marked the job failed, so its status (and SSE stream) never reached a terminal state. `_run` now marks non-terminal jobs `failed` with an `internal error: …` message — so a job showing that error means the runner raised outside its own handling; the traceback is in backend stdout under the same correlation id.
+
 ### Sentence breakdown fails immediately with "no transcription"
 The breakdown job (`job_type=breakdown_region`) requires the region to have `transcription_md` set on disk before it runs. The API rejects the POST with 409 if the region has not been transcribed yet, and the job handler fails fast with the same message if a race wipes it. Transcribe the region first (or wait for the in-flight transcription to finish), then retry the breakdown.
 

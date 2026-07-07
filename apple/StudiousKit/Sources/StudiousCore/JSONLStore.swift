@@ -90,11 +90,19 @@ public final class ItemStore {
         for item in items {
             payload += try JSONCoding.encode(item.raw) + "\n"
         }
+        let externalAppends = hasExternalChanges
         try appendLine(payload, to: url)
-        for item in items where !item.id.isEmpty {
-            latestByID[item.id] = item
+        if externalAppends {
+            // Another process appended since our last load; re-read the
+            // whole file (their lines + ours) instead of trusting the
+            // stale in-memory view.
+            reloadIfChanged()
+        } else {
+            for item in items where !item.id.isEmpty {
+                latestByID[item.id] = item
+            }
+            loadedSignature = fileSignature()
         }
-        loadedSignature = fileSignature()
     }
 
     /// LWW-merge incoming records (from sync or a file import) into the
@@ -102,6 +110,11 @@ public final class ItemStore {
     /// Returns the number of records applied.
     @discardableResult
     public func merge(_ incoming: [StoreItem]) throws -> Int {
+        // In bridge mode the backend may have appended edits since our
+        // last load; LWW must be decided against the file's real latest
+        // records, or an older remote record could land after (and thus
+        // shadow) a newer local line.
+        reloadIfChanged()
         var winners: [StoreItem] = []
         for item in incoming where !item.id.isEmpty {
             if let local = latestByID[item.id] {
@@ -136,18 +149,23 @@ public enum LWW {
 }
 
 /// Append text to a file with flush+fsync, creating parent directories —
-/// the same durability contract as the backend's `_append_lines`.
+/// the same durability contract as the backend's `_append_lines`. The
+/// descriptor is opened O_APPEND (matching the backend's `open(..., "a")`)
+/// so a concurrent append by another process — the backend, the sync CLI,
+/// a second app instance — lands at the true end of file; the previous
+/// seek-then-write could overwrite bytes appended between the seek and
+/// the write.
 func appendLine(_ text: String, to url: URL) throws {
     let fm = FileManager.default
     try fm.createDirectory(
         at: url.deletingLastPathComponent(), withIntermediateDirectories: true
     )
-    if !fm.fileExists(atPath: url.path) {
-        fm.createFile(atPath: url.path, contents: nil)
+    let fd = open(url.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
+    guard fd >= 0 else {
+        throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path])
     }
-    let handle = try FileHandle(forWritingTo: url)
+    let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
     defer { try? handle.close() }
-    try handle.seekToEnd()
     try handle.write(contentsOf: Data(text.utf8))
     try handle.synchronize()  // fsync
 }
