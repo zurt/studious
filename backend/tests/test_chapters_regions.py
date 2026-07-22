@@ -368,7 +368,11 @@ def test_exercise_completion_submit_and_overwrite(isolated_data_dir, tmp_path: P
     assert job["sentence_index"] == 0
     assert job["sentence_text"] == "1. 私は学校＿＿行く。"
     assert "友達" in job["region_transcription"]
-    assert job["tool_schema"]["properties"]["examples"]["minItems"] == 3
+    # `examples` is required (3) for an `open` item but must be `[]` for a
+    # `constrained` (word-bank / inline-choice) item, so the schema no longer
+    # forces minItems — the prompt drives the shape per exercise_type.
+    assert job["tool_schema"]["properties"]["examples"]["maxItems"] == 3
+    assert job["tool_schema"]["properties"]["exercise_type"]["enum"] == ["open", "constrained"]
     # Budget must be large enough for answer + three fully-glossed examples;
     # 2048 truncated longer items mid-`examples`. See docs/troubleshooting.md.
     assert job["config"]["max_tokens"] == 8192

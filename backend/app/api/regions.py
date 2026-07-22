@@ -345,11 +345,14 @@ def request_region_exercise_completion(
         "region_transcription": region.get("transcription_md") or "",
         "engine": "vlm",
         "provider": "anthropic",
-        # answer + answer_english + explanation + three fully-glossed Japanese
-        # examples (japanese/reading/english/explanation each) is a large forced
-        # tool call; 2048 truncated longer items mid-`examples` and surfaced as
+        # Worst case (an `open` exercise) is answer + answer_english +
+        # explanation + three fully-glossed Japanese examples
+        # (japanese/reading/english/explanation each) — a large forced tool
+        # call; 2048 truncated longer items mid-`examples` and surfaced as
         # "tool response missing `answer` or `examples`". Match the breakdown
-        # budget. See docs/troubleshooting.md.
+        # budget. `constrained` exercises (word bank / inline choice) return
+        # no examples and need far less, but the budget is sized for the
+        # worst case. See docs/troubleshooting.md.
         "config": {"model": get_active_vlm_model(), "max_tokens": 8192},
         "prompt": EXERCISE_COMPLETION_PROMPT,
         "tool_name": "record_exercise_completion",

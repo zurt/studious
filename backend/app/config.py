@@ -340,10 +340,54 @@ plain example sentence printed by the textbook are NOT exercises — only
 the numbered drill items the student is meant to fill in or transform
 are exercises.
 
-If the target IS an exercise, complete it using the surrounding region
-as context (read the instruction header to figure out what is being
-practiced, and look at sibling items and any choice bank). Call the
-`record_exercise_completion` tool with:
+If the target IS an exercise, next decide which of two shapes it has:
+- `constrained`: the correct fill is limited to a specific closed set
+  the textbook already gives you. Two common cases:
+    (a) a shared word/phrase bank for the whole region (an instruction
+        like "choose from the list below" or "use each word only
+        once", with the bank printed once and drawn on by every
+        numbered item) — pick whichever bank entry best fits THIS
+        item;
+    (b) two or more candidates printed inline in `<target_sentence>`
+        itself (e.g. together in parentheses or separated by a slash,
+        such as "（は／が）") — pick the one that is correct here.
+  In both cases exactly one of the given options is the defensible
+  answer for this item. This job only sees one item at a time and does
+  not know what sibling items already used from the bank, so just pick
+  whichever bank entry is the best semantic/grammatical fit for THIS
+  sentence; do not try to guess or avoid what other items might have
+  taken.
+- `open`: everything else — a free completion or transformation where
+  the textbook does not hand you a closed set of candidates, so
+  multiple different words or phrasings could correctly fill the
+  blank.
+
+If the exercise is `constrained`, complete it using the surrounding
+region as context (read the instruction header, look at sibling items,
+and weigh the full bank or inline candidates against each other) and
+call `record_exercise_completion` with:
+- exercise_type: "constrained"
+- answer: the completed sentence, in Japanese, with the printed
+  portions of `<target_sentence>` preserved VERBATIM — copy them
+  character-for-character, including punctuation and ordering. Fill in
+  only the one chosen bank entry or inline candidate. Include furigana
+  on uncommon kanji as `漢字(かな)`.
+- answer_english: a concise English translation of the completed
+  answer sentence.
+- explanation: one or two sentences in English explaining why this
+  option is correct here, and briefly why the other candidate(s) fit
+  less well.
+- examples: an empty array. Do NOT invent alternative completions for
+  a `constrained` exercise — every other bank entry or inline
+  candidate is either wrong for this item or is the answer to a
+  sibling item, so presenting it as an "alternative" would mislead the
+  learner.
+
+If the exercise is `open`, complete it using the surrounding region as
+context (read the instruction header to figure out what is being
+practiced, and look at sibling items) and call
+`record_exercise_completion` with:
+- exercise_type: "open"
 - answer: the completed sentence with the blank filled in, in Japanese.
   Preserve the printed portions of the target sentence VERBATIM —
   copy them character-for-character from `<target_sentence>`, including
@@ -381,8 +425,8 @@ If the input is NOT an exercise, call the tool with:
 - no_exercise: true
 - reason: a short English sentence explaining why (e.g. "This line is a
   section heading, not a drill item.").
-Do NOT invent an exercise that is not present. Omit `answer` and
-`examples` in this case.
+Do NOT invent an exercise that is not present. Omit `answer`,
+`exercise_type`, and `examples` in this case.
 </task>
 
 <rules>
@@ -390,8 +434,11 @@ Do NOT invent an exercise that is not present. Omit `answer` and
 - The printed (non-blank) portions of `<target_sentence>` MUST appear
   verbatim in `answer` and in every example's `japanese`. Vary only
   what fills the blank.
-- The first example must be the simplest natural completion of the
-  three. Provide exactly three examples.
+- For a `constrained` exercise, return `examples: []` — never pad it
+  with invented alternatives, and never fill the blank with anything
+  outside the given bank or inline candidates.
+- For an `open` exercise, the first example must be the simplest
+  natural completion of the three. Provide exactly three examples.
 - The `<region_transcription>` is context only; complete exactly the
   one line given in `<target_sentence>`, not any other item.
 - Do not return prose; return only the tool call.
@@ -402,12 +449,16 @@ Do NOT invent an exercise that is not present. Omit `answer` and
 EXERCISE_COMPLETION_TOOL_SCHEMA: dict = {
     "type": "object",
     "properties": {
+        "exercise_type": {"type": "string", "enum": ["open", "constrained"]},
         "answer": {"type": "string"},
         "answer_english": {"type": "string"},
         "explanation": {"type": "string"},
         "examples": {
+            # Required non-empty (3) for `exercise_type: "open"`; must be `[]`
+            # for `exercise_type: "constrained"` (word bank / inline choice —
+            # see EXERCISE_COMPLETION_PROMPT). Not strict-validated on a
+            # forced tool call, so this is documentation, not enforcement.
             "type": "array",
-            "minItems": 3,
             "maxItems": 3,
             "items": {
                 "type": "object",

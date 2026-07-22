@@ -71,6 +71,7 @@ MOCK_GRAMMAR_GUIDE: dict[str, Any] = {
 }
 
 MOCK_EXERCISE_COMPLETION: dict[str, Any] = {
+    "exercise_type": "open",
     "answer": "私は日本語を勉強しています。",
     "answer_english": "I am studying Japanese.",
     "explanation": "Mock completion: the blank takes the て-form plus います.",

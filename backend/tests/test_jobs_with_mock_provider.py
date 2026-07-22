@@ -607,6 +607,59 @@ async def test_exercise_completion_job_retries_malformed_then_succeeds(isolated_
     assert [e["status"] for e in entries] == ["error", "success"]
 
 
+_VALID_CONSTRAINED_COMPLETION = {
+    "exercise_type": "constrained",
+    "answer": "1. 私は学校に行く。",
+    "answer_english": "I go to school.",
+    "explanation": "に is the bank entry that marks the destination here.",
+    "examples": [],
+}
+
+
+async def test_exercise_completion_job_accepts_empty_examples_for_constrained_type(isolated_data_dir):
+    # A word-bank / inline-choice item is expected to return `examples: []` —
+    # that alone must not be treated as malformed or trigger a retry.
+    mock = _MockBreakdownVlm(tool_input=_VALID_CONSTRAINED_COMPLETION, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-constrained-ok", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "exercise_completion",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "region_id": region_id,
+                "sentence_index": 0,
+                "sentence_text": "1. 私は学校＿＿行く。",
+                "region_transcription": "口べたで料理好きの父親。",
+                "engine": "vlm",
+                "provider": "mock-exercise-constrained-ok",
+                "config": {"model": "mock-model", "max_tokens": 8192},
+                "prompt": "EXERCISE_COMPLETION_PROMPT",
+                "tool_name": "record_exercise_completion",
+                "tool_schema": {"type": "object"},
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    assert len(mock.calls) == 1  # no retry — empty examples is correct here
+    saved = storage.load_exercise_completion(meta["id"], chapter_id, region_id)
+    entry = saved["completions"]["0"]
+    assert entry["answer"] == _VALID_CONSTRAINED_COMPLETION["answer"]
+    assert entry["exercise_type"] == "constrained"
+    assert entry["examples"] == []
+    entries = llm_audit.read_all()
+    assert [e["status"] for e in entries] == ["success"]
+
+
 async def test_exercise_completion_job_fails_after_retry_exhausted(isolated_data_dir):
     # Malformed on every attempt → fail with the generic message after retrying.
     mock = _MockBreakdownVlm(tool_input={"explanation": "still no answer"}, stop_reason="tool_use")

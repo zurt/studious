@@ -474,6 +474,9 @@ export type ExerciseCompletionEntry = {
   answer: string;
   answer_english?: string;
   explanation?: string;
+  // "constrained" (word bank / inline choice) items come back with an empty
+  // `examples` by design — that's not a sign of a malformed response.
+  exercise_type?: "open" | "constrained";
   examples: ExerciseCompletionExample[];
   model?: string;
   updated_at?: string;

@@ -809,12 +809,16 @@ class JobManager:
         )
 
         # The model occasionally returns a well-formed-looking tool call that
-        # finishes cleanly (stop_reason=tool_use) yet omits `answer` or sends an
-        # empty `examples` — low-rate and not tied to output length. The schema
-        # can't force the shape (a forced tool call isn't strict-validated), so
-        # retry once; the resend almost always comes back complete. Truncation
-        # (max_tokens) and transport errors are not retried — a second call with
-        # the same budget won't help.
+        # finishes cleanly (stop_reason=tool_use) yet omits `answer` — low-rate
+        # and not tied to output length. For `exercise_type: "open"` it can
+        # also send an empty `examples` when it meant to include three; for
+        # `exercise_type: "constrained"` (a word-bank or inline-choice item —
+        # see EXERCISE_COMPLETION_PROMPT) an empty `examples` is the correct,
+        # intentional shape, not a sign of malformed output. The schema can't
+        # force any of this (a forced tool call isn't strict-validated), so we
+        # retry once on genuinely malformed output; the resend almost always
+        # comes back complete. Truncation (max_tokens) and transport errors
+        # are not retried — a second call with the same budget won't help.
         max_attempts = 2
         answer = examples = None
         for attempt in range(max_attempts):
@@ -861,7 +865,15 @@ class JobManager:
 
             answer = result.tool_input.get("answer")
             examples = result.tool_input.get("examples")
-            if answer and isinstance(examples, list) and examples:
+            exercise_type = result.tool_input.get("exercise_type")
+            # A `constrained` item is expected to come back with `examples: []`
+            # (see EXERCISE_COMPLETION_PROMPT); only an `open` item — or a
+            # response that never declared its type — needs a non-empty list
+            # to count as well-formed.
+            examples_ok = exercise_type == "constrained" or (
+                isinstance(examples, list) and examples
+            )
+            if answer and examples_ok:
                 break  # well-formed — fall through to persist below
 
             truncated = result.meta.get("stop_reason") == "max_tokens"
@@ -892,7 +904,8 @@ class JobManager:
             "answer": answer,
             "answer_english": result.tool_input.get("answer_english") or "",
             "explanation": result.tool_input.get("explanation") or "",
-            "examples": examples,
+            "exercise_type": exercise_type,
+            "examples": examples if isinstance(examples, list) else [],
             "model": result.meta.get("model"),
             "updated_at": _now_iso(),
         }
