@@ -75,6 +75,7 @@ MOCK_EXERCISE_COMPLETION: dict[str, Any] = {
     "answer": "私は日本語を勉強しています。",
     "answer_english": "I am studying Japanese.",
     "explanation": "Mock completion: the blank takes the て-form plus います.",
+    "filled_text": "勉強しています",
     "examples": [
         {
             "japanese": "私は日本語を勉強しています。",

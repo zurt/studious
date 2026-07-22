@@ -477,6 +477,9 @@ export type ExerciseCompletionEntry = {
   // "constrained" (word bank / inline choice) items come back with an empty
   // `examples` by design — that's not a sign of a malformed response.
   exercise_type?: "open" | "constrained";
+  // Verbatim substring of `answer` that fills the blank, for highlighting.
+  // Empty for transformation-type answers with no single blank.
+  filled_text?: string;
   examples: ExerciseCompletionExample[];
   model?: string;
   updated_at?: string;

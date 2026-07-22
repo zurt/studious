@@ -612,6 +612,7 @@ _VALID_CONSTRAINED_COMPLETION = {
     "answer": "1. 私は学校に行く。",
     "answer_english": "I go to school.",
     "explanation": "に is the bank entry that marks the destination here.",
+    "filled_text": "に",
     "examples": [],
 }
 
@@ -655,9 +656,51 @@ async def test_exercise_completion_job_accepts_empty_examples_for_constrained_ty
     entry = saved["completions"]["0"]
     assert entry["answer"] == _VALID_CONSTRAINED_COMPLETION["answer"]
     assert entry["exercise_type"] == "constrained"
+    assert entry["filled_text"] == "に"
     assert entry["examples"] == []
     entries = llm_audit.read_all()
     assert [e["status"] for e in entries] == ["success"]
+
+
+async def test_exercise_completion_job_drops_filled_text_not_found_in_answer(isolated_data_dir):
+    # `filled_text` is highlighted client-side via a plain substring search
+    # against `answer`; a hallucinated/mismatched value would just silently
+    # fail to highlight, so the job drops it rather than storing something
+    # misleading.
+    bad = {**_VALID_CONSTRAINED_COMPLETION, "filled_text": "食べる"}
+    mock = _MockBreakdownVlm(tool_input=bad, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-filled-text-bad", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "exercise_completion",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "region_id": region_id,
+                "sentence_index": 0,
+                "sentence_text": "1. 私は学校＿＿行く。",
+                "region_transcription": "口べたで料理好きの父親。",
+                "engine": "vlm",
+                "provider": "mock-exercise-filled-text-bad",
+                "config": {"model": "mock-model", "max_tokens": 8192},
+                "prompt": "EXERCISE_COMPLETION_PROMPT",
+                "tool_name": "record_exercise_completion",
+                "tool_schema": {"type": "object"},
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    saved = storage.load_exercise_completion(meta["id"], chapter_id, region_id)
+    assert saved["completions"]["0"]["filled_text"] == ""
 
 
 async def test_exercise_completion_job_fails_after_retry_exhausted(isolated_data_dir):

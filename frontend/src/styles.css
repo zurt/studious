@@ -509,6 +509,9 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .exercise-completion-actions .icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px; line-height: 0; }
 .exercise-completion-actions .icon-btn svg { display: block; }
 .exercise-completion-answer { line-height: 1.5; }
+.exercise-completion-fill {
+  background: none; color: var(--accent); font-weight: 700;
+}
 .exercise-completion-answer-en { font-size: calc(13px * var(--bd-scale, 1)); line-height: 1.4; }
 .exercise-completion-explanation { color: var(--muted); line-height: 1.4; }
 .exercise-completion-examples {

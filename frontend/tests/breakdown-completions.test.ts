@@ -34,5 +34,16 @@ describe("completionToMarkdown", () => {
     const md = completionToMarkdown({ answer: "はい", examples: [] });
     expect(md.startsWith("**Answer:**")).toBe(true);
   });
+
+  it("bolds the filled-in span when filled_text is set", () => {
+    const md = completionToMarkdown({ answer: "本を読みます", filled_text: "読みます", examples: [] });
+    expect(md).toContain("**Answer:** 本を**読みます**");
+  });
+
+  it("leaves the answer unchanged when filled_text isn't a substring of answer", () => {
+    const md = completionToMarkdown({ answer: "本を読みます", filled_text: "食べます", examples: [] });
+    expect(md).toContain("**Answer:** 本を読みます");
+    expect(md).not.toContain("**食べます**");
+  });
 });
 

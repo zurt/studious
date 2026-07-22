@@ -377,6 +377,11 @@ call `record_exercise_completion` with:
 - explanation: one or two sentences in English explaining why this
   option is correct here, and briefly why the other candidate(s) fit
   less well.
+- filled_text: the exact substring of `answer` that you inserted for
+  the blank — copy it character-for-character as it appears in
+  `answer`, including any furigana annotation you added (e.g.
+  `仕上(しあ)げて`). This is used to highlight the filled-in portion for
+  the learner, so it must be an exact, verbatim substring of `answer`.
 - examples: an empty array. Do NOT invent alternative completions for
   a `constrained` exercise — every other bank entry or inline
   candidate is either wrong for this item or is the answer to a
@@ -398,6 +403,13 @@ practiced, and look at sibling items) and call
   sentence above.
 - explanation: one or two sentences in English explaining the answer
   (what grammar/word is being practiced, why this answer fits).
+- filled_text: the exact substring of `answer` that you inserted for
+  the blank — copy it character-for-character as it appears in
+  `answer`, including any furigana annotation you added (e.g.
+  `仕上(しあ)げて`). This is used to highlight the filled-in portion for
+  the learner, so it must be an exact, verbatim substring of `answer`.
+  If the exercise is a transformation with no single blank to point at
+  (the whole sentence or clause changed), leave this empty.
 - examples: a list of three ALTERNATIVE COMPLETIONS of the same target
   sentence. Each example is the target sentence with the blank filled
   in a different way — the printed portions of the target sentence
@@ -426,11 +438,15 @@ If the input is NOT an exercise, call the tool with:
 - reason: a short English sentence explaining why (e.g. "This line is a
   section heading, not a drill item.").
 Do NOT invent an exercise that is not present. Omit `answer`,
-`exercise_type`, and `examples` in this case.
+`exercise_type`, `filled_text`, and `examples` in this case.
 </task>
 
 <rules>
-- If the exercise has multiple blanks, fill all of them.
+- If the exercise has multiple blanks, fill all of them. `filled_text`
+  should still be a single verbatim substring of `answer` — if there
+  are multiple separate blanks, pick the one the exercise is actually
+  testing (usually the only one that varies across sibling items) or
+  leave `filled_text` empty rather than guessing.
 - The printed (non-blank) portions of `<target_sentence>` MUST appear
   verbatim in `answer` and in every example's `japanese`. Vary only
   what fills the blank.
@@ -453,6 +469,7 @@ EXERCISE_COMPLETION_TOOL_SCHEMA: dict = {
         "answer": {"type": "string"},
         "answer_english": {"type": "string"},
         "explanation": {"type": "string"},
+        "filled_text": {"type": "string"},
         "examples": {
             # Required non-empty (3) for `exercise_type: "open"`; must be `[]`
             # for `exercise_type: "constrained"` (word bank / inline choice —

@@ -26,6 +26,17 @@ function setTextSize(size: TextSize): void {
   localStorage.setItem(TEXT_SIZE_KEY, String(size));
 }
 
+// Bolds the filled-in span within an answer for markdown output, found by a
+// plain substring search — `filled_text` is a verbatim substring of `answer`
+// (validated server-side) rather than a character offset, since offsets are
+// unreliable for the model to produce but exact substrings are not.
+function highlightFillMarkdown(answer: string, filledText?: string): string {
+  if (!filledText) return answer;
+  const i = answer.indexOf(filledText);
+  if (i < 0) return answer;
+  return answer.slice(0, i) + "**" + filledText + "**" + answer.slice(i + filledText.length);
+}
+
 export function completionToMarkdown(
   entry: ExerciseCompletionEntry,
   sentenceText?: string,
@@ -33,7 +44,7 @@ export function completionToMarkdown(
   const parts: string[] = [];
   if (sentenceText) parts.push(sentenceText);
   const answerEn = entry.answer_english ? ` (${entry.answer_english})` : "";
-  parts.push(`**Answer:** ${entry.answer}${answerEn}`);
+  parts.push(`**Answer:** ${highlightFillMarkdown(entry.answer, entry.filled_text)}${answerEn}`);
   if (entry.explanation) parts.push(entry.explanation);
   if (entry.examples && entry.examples.length) {
     const rows = entry.examples.map((ex) => {
@@ -272,7 +283,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       if (!entry) return base;
       const parts: string[] = [base];
       const answerEn = entry.answer_english ? ` (${entry.answer_english})` : "";
-      parts.push(`**Answer:** ${entry.answer}${answerEn}`);
+      parts.push(`**Answer:** ${highlightFillMarkdown(entry.answer, entry.filled_text)}${answerEn}`);
       if (entry.explanation) parts.push(entry.explanation);
       if (entry.examples && entry.examples.length) {
         const rows = entry.examples.map((ex) => {
@@ -290,6 +301,20 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     return s
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  // Highlights the filled-in span within an exercise-completion answer,
+  // found by a plain substring search against `filled_text` (see
+  // highlightFillMarkdown above for why this is a substring, not an offset).
+  function highlightFillHtml(answer: string, filledText?: string): string {
+    if (!filledText) return escapeHtml(answer);
+    const i = answer.indexOf(filledText);
+    if (i < 0) return escapeHtml(answer);
+    return (
+      escapeHtml(answer.slice(0, i))
+      + `<mark class="exercise-completion-fill">${escapeHtml(filledText)}</mark>`
+      + escapeHtml(answer.slice(i + filledText.length))
+    );
   }
 
   function sentenceTextHtml(s: BreakdownSentence, sIdx: number): string {
@@ -353,7 +378,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
               <button type="button" class="icon-btn" data-completion-regen="${idx}" title="Regenerate completion" aria-label="Regenerate completion">${ICON_REDO}</button>
             </span>
           </div>
-          <div class="exercise-completion-answer" lang="ja"><strong>Answer:</strong> ${escapeHtml(entry.answer)}</div>
+          <div class="exercise-completion-answer" lang="ja"><strong>Answer:</strong> ${highlightFillHtml(entry.answer, entry.filled_text)}</div>
           ${entry.answer_english ? `<div class="exercise-completion-answer-en">${escapeHtml(entry.answer_english)}</div>` : ""}
           ${entry.explanation ? `<div class="exercise-completion-explanation">${escapeHtml(entry.explanation)}</div>` : ""}
           ${examples ? `<ol class="exercise-completion-examples">${examples}</ol>` : ""}

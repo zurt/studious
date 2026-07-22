@@ -392,6 +392,11 @@ An empty `examples` list is only treated as malformed when `exercise_type` is `"
 
 If instead the model set `no_exercise: true`, the job fails with a `no_exercise:` message (that's the model correctly reporting the target line isn't a drill item, audited as success). The operation is idempotent and overwrites stale state when `overwrite=true`.
 
+### Exercise completion answer isn't highlighting the filled-in word
+The completion pane bolds/highlights the filled-in span of `answer` (`.exercise-completion-fill` in `breakdown-pane.ts`, `**bold**` in the markdown export) by doing a plain `indexOf` substring search for `entry.filled_text` inside `entry.answer` — there's no character-offset math, since offsets are unreliable for a model to produce but exact substrings are not (same reasoning as the vocab/grammar link highlighting in `breakdown_links.py`). This is a purely cosmetic feature: if it doesn't fire, the answer still renders correctly, just unhighlighted.
+
+It won't highlight when `filled_text` is empty. `_run_exercise_completion_job` (`backend/app/jobs.py`) only keeps the model's `filled_text` if it's a non-empty, exact, verbatim substring of `answer` — anything else (hallucinated text, a value missing the furigana annotation the model added to `answer`, mismatched punctuation) is silently dropped to `""` rather than stored, since a non-substring value would just fail the frontend's `indexOf` lookup anyway. Older stored completions (from before this field existed) also have no `filled_text` and won't highlight until regenerated. This isn't retried or audited as an error — check the stored entry (`storage.load_exercise_completion`) to see whether `filled_text` came back empty.
+
 ### Tool-call job fails with "Thinking may not be enabled when tool_choice forces tool use"
 Affects any job that uses `provider.call_tool` (sentence breakdown, chapter grammar guide). Anthropic rejects the request when `tool_choice` pins a specific tool *and* `thinking` is also set. The provider strips `thinking` for forced-tool calls (see `backend/app/providers/vlm/anthropic.py::call_tool`); if this error reappears, a new code path is sending `thinking` alongside `tool_choice={"type": "tool", ...}`. Reasoning budget on these calls is controlled via `output_config.effort` (`vlm_effort_breakdown`) instead — `thinking` is redundant.
 

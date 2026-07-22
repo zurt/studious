@@ -905,6 +905,18 @@ class JobManager:
             "answer_english": result.tool_input.get("answer_english") or "",
             "explanation": result.tool_input.get("explanation") or "",
             "exercise_type": exercise_type,
+            # Only kept if it's genuinely a substring of `answer` — the
+            # frontend highlights it via a plain string search, so a
+            # non-substring value (hallucinated or mismatched) would just
+            # silently fail to highlight; better to drop it here than store
+            # something misleading.
+            "filled_text": (
+                result.tool_input.get("filled_text")
+                if isinstance(result.tool_input.get("filled_text"), str)
+                and result.tool_input.get("filled_text")
+                and result.tool_input.get("filled_text") in answer
+                else ""
+            ),
             "examples": examples if isinstance(examples, list) else [],
             "model": result.meta.get("model"),
             "updated_at": _now_iso(),
