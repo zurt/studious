@@ -20,6 +20,15 @@ import { renderMarkdown } from "../modules/markdown";
 
 const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
 
+const LAST_TAG_KEY = "studious.region.lastTag";
+function getLastTag(): string {
+  const v = localStorage.getItem(LAST_TAG_KEY);
+  return v && VALID_TAGS.includes(v) ? v : VALID_TAGS[0];
+}
+function setLastTag(tag: string) {
+  localStorage.setItem(LAST_TAG_KEY, tag);
+}
+
 type TextSize = 1 | 2 | 3;
 const TEXT_SIZE_KEY = "studious.transcription.textSize";
 function getTranscriptionTextSize(): TextSize {
@@ -959,6 +968,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   });
 
   function showTagPopover(bbox: [number, number, number, number]) {
+    const defaultTag = getLastTag();
     const bg = document.createElement("div");
     bg.className = "modal-bg";
     bg.innerHTML = `
@@ -967,7 +977,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         <div class="field">
           <label>Tag</label>
           <select id="tag-select">
-            ${VALID_TAGS.map((t) => `<option value="${t}">${t.replace("_", " ")}</option>`).join("")}
+            ${VALID_TAGS.map((t) => `<option value="${t}"${t === defaultTag ? " selected" : ""}>${t.replace("_", " ")}</option>`).join("")}
           </select>
         </div>
         <div class="field">
@@ -983,13 +993,16 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     `;
     (document.fullscreenElement ?? document.body).appendChild(bg);
 
-    bg.querySelector("#tag-cancel")!.addEventListener("click", () => bg.remove());
-    bg.addEventListener("click", (e) => { if (e.target === bg) bg.remove(); });
+    function close() {
+      document.removeEventListener("keydown", onKey);
+      bg.remove();
+    }
 
-    bg.querySelector("#tag-save")!.addEventListener("click", async () => {
+    async function save() {
       const tag = (bg.querySelector<HTMLSelectElement>("#tag-select")!).value;
       const label = (bg.querySelector<HTMLInputElement>("#region-label")!).value.trim();
-      bg.remove();
+      setLastTag(tag);
+      close();
       try {
         const region = await createRegion(docId, chapterId, { page, bbox, tag, label });
         info("ChapterView", "region_created", { region_id: region.id, tag });
@@ -1004,7 +1017,18 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         });
         toastError("Failed to create region: " + e.message);
       }
-    });
+    }
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+      else if (e.key === "Enter") save();
+    }
+
+    bg.querySelector("#tag-cancel")!.addEventListener("click", () => close());
+    bg.addEventListener("click", (e) => { if (e.target === bg) close(); });
+    bg.querySelector("#tag-save")!.addEventListener("click", () => save());
+    document.addEventListener("keydown", onKey);
+    setTimeout(() => (bg.querySelector<HTMLInputElement>("#region-label"))!.focus(), 0);
   }
 
   async function handleTranscribe(region: Region) {

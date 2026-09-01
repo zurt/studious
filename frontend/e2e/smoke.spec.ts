@@ -340,3 +340,46 @@ test("the vocab dashboard lists harvested items and status changes persist", asy
   await expect(grammarRow).toBeVisible();
   await expect(grammarRow).toContainText("Ongoing action");
 });
+
+test("region popover remembers the last tag and Enter completes creation", async ({ page }) => {
+  // Self-contained: uploads its own document/chapter rather than reusing
+  // the shared one, so it can't disturb the other journeys' exact
+  // pending-region and harvested-item counts.
+  await page.goto("/");
+  await page.locator("#upload-input").setInputFiles(FIXTURE_PDF);
+  await page.waitForURL(/\/doc\/[0-9a-f]+$/, { timeout: 30_000 });
+
+  await page.locator("#new-chapter-btn").click();
+  await page.locator("#ch-title").fill("popover test");
+  await page.locator("#ch-start").fill("1");
+  await page.locator("#ch-end").fill("1");
+  await page.locator("#ch-save").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+
+  const canvas = page.locator("#left-pane canvas");
+  await expect(canvas).toBeVisible();
+  const box = (await canvas.boundingBox())!;
+
+  async function drag(x1: number, y1: number, x2: number, y2: number) {
+    await page.mouse.move(box.x + box.width * x1, box.y + box.height * y1);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * x2, box.y + box.height * y2, { steps: 5 });
+    await page.mouse.up();
+  }
+
+  // First region: explicitly pick a non-default tag and save normally.
+  await drag(0.05, 0.05, 0.4, 0.2);
+  await page.locator("#tag-select").selectOption("grammar_points");
+  await page.locator("#tag-save").click();
+  await expect(page.locator(".region-card")).toHaveCount(1);
+
+  // Second region: the popover should default to the tag just used, and
+  // Enter (without touching Create) should submit it.
+  await drag(0.05, 0.3, 0.4, 0.45);
+  await expect(page.locator("#tag-select")).toHaveValue("grammar_points");
+  await page.keyboard.press("Enter");
+
+  const cards = page.locator(".region-card");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(1).locator(".badge")).toHaveClass(/tag-grammar_points/);
+});
