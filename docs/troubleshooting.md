@@ -415,6 +415,28 @@ Grammar links come from `surfaces` in the model's tool response — literal subs
 
 Multiple identical surfaces (e.g., two ます in one sentence) are linked to *different* occurrences automatically. Surfaces shared across patterns (e.g., `的` inside `社会文化的な`) are allowed to overlap — the popover stacks both entries.
 
+### Grammar guide comes back mostly in Japanese instead of English explanations
+`GRAMMAR_GUIDE_PROMPT` (`backend/app/config.py`) used to ask for "a concise
+study guide in a mix of Japanese and English" — vague enough that different
+models resolved it differently. Guides generated under `claude-opus-4-7`
+wrote English explanatory prose with Japanese limited to patterns/examples;
+after the default VLM switched to `claude-sonnet-5` (2026-07-06), the same
+prompt produced guides where `intro` and most section `body_md` are written
+in Japanese prose, with English only in translation lines. No grammar-guide
+code changed between the two — it was purely the model swap plus prompt
+ambiguity. Confirmed by comparing the `model` field stored in each
+chapter's `grammar_guide.json` against how Japanese-heavy its `body_md`
+reads.
+
+Fixed by making the prompt's language rule explicit (English for all
+explanatory prose; Japanese only for the pattern itself, quoted Japanese
+terms/forms, and example sentences) rather than leaving "a mix" to
+interpretation. If this drifts again on a future model swap, regenerate
+via `POST /api/documents/{doc}/chapters/{chapter}/grammar-guide` with
+`{"overwrite": true}` after checking the guide reads the way you expect —
+there's no automated check for output language, since this is a stylistic
+property of free-text generation, not something the tool schema validates.
+
 ### "this region is a continuation of region ... generate the breakdown from there" (409)
 By design. Breakdowns and exercise completions on a region that is the *target* of a `continues_to` pointer are blocked so the chain is always processed from the head — otherwise the tail-only breakdown would miss any sentence whose start lives on the prior page. The chapter view replaces the Generate-breakdown UI with a notice and a "Go to source" button for these regions. To bypass: unlink the source (✕ on the chip), or run the breakdown from the source as intended.
 

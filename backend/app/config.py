@@ -249,15 +249,23 @@ single chapter of a Japanese textbook. Different regions are separated by
 
 <task>
 Read through these grammar points from the textbook. Make a concise study
-guide in a mix of Japanese and English for the grammar points in this
-chapter. Keep it simple and direct. Provide related grammar and
-expressions where appropriate (both to group related patterns and to
-disambiguate). Include a few short, clear examples.
+guide for the grammar points in this chapter. Keep it simple and direct.
+Provide related grammar and expressions where appropriate (both to group
+related patterns and to disambiguate). Include a few short, clear examples.
+
+Language: write all explanatory prose — meanings, nuance, usage notes,
+form descriptions, comparisons, everything that isn't itself a piece of
+Japanese being quoted — in English. Japanese appears only for: the
+pattern itself, a Japanese term or form being named or quoted (e.g. a
+conjugation label, or the specific word being defined), and example
+sentences (each paired with its English translation on the next line).
+Never write a paragraph of Japanese-only explanation — the reader is an
+English speaker who cannot yet read fluent Japanese prose.
 </task>
 
 <structure>
-- `intro`: optional one- or two-sentence orientation for the chapter
-  (markdown).
+- `intro`: optional one- or two-sentence orientation for the chapter, in
+  English (markdown).
 - `points`: one entry per grammar point in the chapter, in the order
   they appear. For each point:
   - `title`: the Japanese pattern itself, e.g. "〜ばかりで",
@@ -270,10 +278,11 @@ disambiguate). Include a few short, clear examples.
     `Variations`, `Related`. Adapt the set to what each grammar point
     actually needs — do not invent content, but do regroup the
     textbook's information into these clearer buckets. Each section's
-    `body_md` is GitHub-flavored markdown; use bullet lists for forms,
-    pair Japanese example sentences with their English translation on
-    the next line, and write related/contrasting patterns as bullets
-    with a short English gloss in parentheses.
+    `body_md` is GitHub-flavored markdown, written in English prose per
+    the language rule above; use bullet lists for forms, pair Japanese
+    example sentences with their English translation on the next line,
+    and write related/contrasting patterns as bullets with a short
+    English gloss in parentheses.
 </structure>
 
 <rules>
