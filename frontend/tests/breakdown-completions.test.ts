@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { completionToMarkdown } from "../src/modules/breakdown-pane";
+import { completionToMarkdown, escapeHtml } from "../src/modules/breakdown-pane";
 import type { ExerciseCompletionEntry } from "../src/api";
 
 const entry: ExerciseCompletionEntry = {
@@ -44,6 +44,22 @@ describe("completionToMarkdown", () => {
     const md = completionToMarkdown({ answer: "本を読みます", filled_text: "食べます", examples: [] });
     expect(md).toContain("**Answer:** 本を読みます");
     expect(md).not.toContain("**食べます**");
+  });
+});
+
+describe("escapeHtml", () => {
+  it("escapes HTML-significant characters", () => {
+    expect(escapeHtml(`<a href="x">'&'</a>`)).toBe(
+      "&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;",
+    );
+  });
+
+  // Regression: a stored breakdown can carry a malformed vocab/grammar field
+  // (an unvalidated VLM tool-use response, e.g. a mangled key name) — one
+  // missing field must render as blank, not throw and blank the whole pane.
+  it("returns an empty string for null or undefined instead of throwing", () => {
+    expect(escapeHtml(null)).toBe("");
+    expect(escapeHtml(undefined)).toBe("");
   });
 });
 

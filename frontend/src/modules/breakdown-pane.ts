@@ -37,6 +37,16 @@ function highlightFillMarkdown(answer: string, filledText?: string): string {
   return answer.slice(0, i) + "**" + filledText + "**" + answer.slice(i + filledText.length);
 }
 
+// Nullish-safe: a stored breakdown/completion can carry a malformed field
+// (an unvalidated VLM tool response missing an expected string) and one
+// missing field must not crash the whole pane's render pass.
+export function escapeHtml(s: string | null | undefined): string {
+  if (s == null) return "";
+  return s
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 export function completionToMarkdown(
   entry: ExerciseCompletionEntry,
   sentenceText?: string,
@@ -295,12 +305,6 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       }
       return parts.join("\n\n");
     }).join("\n\n──────────\n\n");
-  }
-
-  function escapeHtml(s: string): string {
-    return s
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   // Highlights the filled-in span within an exercise-completion answer,

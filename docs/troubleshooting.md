@@ -448,5 +448,30 @@ The breakdown and exercise-completion jobs read the source region from disk and 
 - Per-region transcription is *not* combined — that's by design; only breakdown and exercise completion use the chain.
 - The combined text is concatenated with a blank-line separator only — no `(continues on page N)` marker is injected. That marker used to be there but leaked into prompts and tool output as if it were content; the page boundary is now a frontend rendering concern.
 
+### Sentence breakdown pane stuck on "Loading…" forever, reload doesn't help
+The breakdown job and the API both completed fine — check `data/jobs/<id>.json`
+(`status: "completed"`) and the region's `breakdowns/<region_id>.json` on
+disk to confirm. This is a **frontend render crash**, not a stuck job: a
+forced tool-use call isn't strict-validated (same caveat as the exercise-
+completion malformed-response note above), so a vocab/grammar field can come
+back with a garbled key name instead of the expected one — observed once as
+`"meaング"` instead of `"meaning"` on a single vocab entry. `render()` in
+`breakdown-pane.ts` builds every sentence's HTML in one pass; before this was
+fixed, `escapeHtml(v.meaning)` threw on the `undefined` value, which aborted
+the whole render before it replaced the "Loading…" spinner — so the pane
+looked stuck even though the underlying data was intact, and reloading just
+re-ran the same crash. `escapeHtml` (now exported from `breakdown-pane.ts`,
+tested in `tests/breakdown-completions.test.ts`) is nullish-safe, so a single
+malformed field now renders blank instead of blanking the whole pane.
+Diagnosis: an "Unhandled Promise Rejection" in the browser console pointing
+into `breakdown-pane.ts`'s `render`/`escapeHtml` (not a fetch/network error)
+means the data loaded but rendering blew up — inspect the region's
+breakdown JSON on disk for the offending field rather than re-triggering the
+job. If a *different* field/function crashes the same way, hand-editing the
+bad key on disk (as done here) is a safe, free, deterministic fix — no
+backend restart, no re-billed VLM call — versus regenerating the breakdown
+via `overwrite: true`, which costs a new call and isn't guaranteed to avoid
+the same glitch.
+
 ### Benchmark CER spikes or line accuracy collapses
 Before assuming a model/prompt regression: check whether the **ground truth** matches the format the current prompt is producing. CER and line-accuracy are computed character- and line-exact — markdown structure (`#`, `**`, `<u>`), fullwidth vs halfwidth punctuation, paragraph wrapping, and inline annotations like `[?N]` all count as differences. If you change the default VLM prompt's output style, the existing GT will need to be regenerated (or normalized before scoring). Rule of thumb: if line accuracy is in single digits while the body text reads correctly side-by-side, it's a format mismatch, not a regression.
