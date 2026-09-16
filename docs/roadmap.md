@@ -298,6 +298,26 @@ Beyond MVP (deferred):
       notice plus a "Go to source on p.N →" jump button instead of the
       Generate-breakdown UI.
 
+### Phase 2.5: Exercise Reading References
+
+- [ ] Region schema gains an ordered `references` list (many, cross-
+      document, target must be `reading_passage`) — see
+      `docs/exercise-references-plan.md` (planned 2026-09-15, in
+      progress). Distinct from Phase 2.4's `continues_to`: that's a
+      single same-chapter continuation pointer; this is a citation of
+      separate background material, possibly from another textbook.
+- [ ] `PUT .../regions/{region_id}/references` endpoint (replace-whole-
+      list semantics); validates source is `exercises`-tagged and every
+      target is `reading_passage`-tagged.
+- [ ] `region_reference.resolve_references` +
+      `combined_reference_text` helpers, consumed by the exercise-
+      completion job as a new `<reading_reference>` prompt block
+      (labeled per source, unlike the unlabeled `continues_to`
+      concatenation).
+- [ ] Reference picker modal (Document → Chapter → Region browse tree
+      + ordered selection tray) and a "References" section on the
+      exercises region's detail panel.
+
 ## Phase 3: Central Vocab/Grammar Store
 
 The long-term core study workflow: vocab and grammar accumulate across
