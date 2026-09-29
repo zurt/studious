@@ -12,6 +12,26 @@ def test_estimate_cost_known_model():
     assert costs.estimate_cost(entry) == 10.5
 
 
+def test_estimate_cost_prices_cache_writes_and_reads():
+    # Default rates: write 1.25x input, read 0.1x input ($3 input → $3.75 / $0.30).
+    entry = {
+        "model": "claude-sonnet-4-6", "input_tokens": 0, "output_tokens": 0,
+        "cache_creation_tokens": 1_000_000, "cache_read_tokens": 1_000_000,
+    }
+    assert costs.estimate_cost(entry) == 3.75 + 0.3
+    # Per-model override: Opus 5.5 reads at $0.20/MTok (0.05x its $4 input).
+    entry["model"] = "claude-opus-5-5"
+    assert costs.estimate_cost(entry) == 5.0 + 0.2
+
+
+def test_summary_cache_recomputed_when_formula_version_changes(isolated_data_dir):
+    # A cached month from before cache pricing existed must not be reused.
+    llm_audit.save_summary_cache({"2026-01": {"total_requests": 999}})
+    costs.summary()
+    assert llm_audit.load_summary_cache().get("_version") == costs._SUMMARY_CACHE_VERSION
+    assert "2026-01" not in llm_audit.load_summary_cache()
+
+
 def test_estimate_cost_unknown_model_returns_none():
     assert costs.estimate_cost({"model": "made-up-model", "input_tokens": 1, "output_tokens": 1}) is None
 

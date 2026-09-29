@@ -355,6 +355,7 @@ class _MockBreakdownVlm:
         # test drive retry behaviour (e.g. malformed then well-formed).
         self.responses = responses
         self.calls: list[tuple[str, str, dict, dict]] = []
+        self.raw_prompts: list = []
 
     def info(self):
         return {"name": self.name, "kind": "vlm"}
@@ -363,7 +364,8 @@ class _MockBreakdownVlm:
         raise NotImplementedError
 
     def call_tool(self, prompt, tool_name, tool_schema, config):
-        self.calls.append((prompt, tool_name, tool_schema, config))
+        self.calls.append((registry.prompt_text(prompt), tool_name, tool_schema, config))
+        self.raw_prompts.append(prompt)
         if self.raise_exc is not None:
             raise self.raise_exc
         if self.responses:
@@ -944,7 +946,7 @@ class _MockBulkVlm:
 
     def call_tool(self, prompt, tool_name, tool_schema, config):
         idx = len(self.call_tool_calls)
-        self.call_tool_calls.append((prompt, tool_name, tool_schema, config))
+        self.call_tool_calls.append((registry.prompt_text(prompt), tool_name, tool_schema, config))
         return registry.ToolCallResult(
             tool_input={"sentences": [{"text": f"sentence {idx}", "gloss": "gloss"}]},
             meta={"model": config.get("model", "mock-model"), "usage": {"input_tokens": 20, "output_tokens": 10}},
@@ -1084,3 +1086,55 @@ async def test_bulk_chapter_job_emits_phase_and_region_events(isolated_data_dir)
         for e in events[:first_breakdown_phase]
         if e["event"] in {"region-started", "region-done"}
     )
+
+
+async def test_exercise_completion_caches_shared_prefix_and_records_profile(isolated_data_dir):
+    mock = _MockBreakdownVlm(tool_input=_VALID_QUESTION_COMPLETION, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-blocks", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = _submit_exercise_completion(mgr, meta["id"], chapter_id, region_id, "mock-exercise-blocks")
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+    assert final["status"] == "completed"
+
+    blocks = mock.raw_prompts[0]
+    assert [b.get("cache", False) for b in blocks] == [True, True, False]
+    assert blocks[0]["text"].startswith("EXERCISE_COMPLETION_PROMPT")
+    assert blocks[1]["text"].startswith("<region_transcription>")
+    assert blocks[2]["text"] == "<target_sentence>\n(1)「健康病」とは何ですか。\n</target_sentence>"
+    entry = storage.load_exercise_completion(meta["id"], chapter_id, region_id)["completions"]["0"]
+    assert entry["profile"] == {"level": None, "answer_length": None}
+
+
+async def test_breakdown_caches_only_instructions(isolated_data_dir):
+    mock = _MockBreakdownVlm(
+        tool_input={"sentences": [{"text": "口べたで料理好きの父親。", "gloss": "g"}]},
+        stop_reason="tool_use",
+    )
+    registry.register_vlm("mock-breakdown-blocks", lambda: mock)
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit({
+            "job_type": "breakdown_region", "doc_id": meta["id"], "chapter_id": chapter_id,
+            "region_id": region_id, "page": 1, "engine": "vlm", "provider": "mock-breakdown-blocks",
+            "config": {"model": "mock-model"}, "prompt": "BREAKDOWN_PROMPT",
+            "tool_name": "record_breakdown", "tool_schema": {"type": "object"},
+        })
+        assert (await _wait_for_terminal(job["id"]))["status"] == "completed"
+    finally:
+        await mgr.stop()
+
+    blocks = mock.raw_prompts[0]
+    assert blocks[0] == {"text": "BREAKDOWN_PROMPT\n\n", "cache": True}
+    assert "cache" not in blocks[1] and "口べた" in blocks[1]["text"]

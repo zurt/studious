@@ -1,6 +1,8 @@
 import {
+  AnswerLength,
   CostSummary,
   DocMeta,
+  JlptLevel,
   Preferences,
   ProvidersResponse,
   getCostSummary,
@@ -14,6 +16,13 @@ import { error as logError } from "../logger";
 import { replaceQuery } from "../router";
 
 type Section = "general" | "usage";
+
+const JLPT_LEVELS: JlptLevel[] = ["N5", "N4", "N3", "N2", "N1"];
+const ANSWER_LENGTHS: [AnswerLength, string][] = [
+  ["brief", "Brief — one short sentence; two examples"],
+  ["standard", "Standard — one to three sentences; three examples"],
+  ["detailed", "Detailed — fuller, native-style answers; three examples"],
+];
 
 const SECTIONS: Section[] = ["general", "usage"];
 
@@ -190,7 +199,31 @@ function generalHtml(
       }).join("")
     : `<tr><td colspan="6" class="muted">No documents in library.</td></tr>`;
 
+  const levelOptions = [["", "Not set"], ...JLPT_LEVELS.map((l) => [l, `JLPT ${l}`])]
+    .map(([v, label]) => `<option value="${v}"${(prefs.learner_level ?? "") === v ? " selected" : ""}>${label}</option>`)
+    .join("");
+  const lengthOptions = ANSWER_LENGTHS
+    .map(([v, label]) => `<option value="${v}"${prefs.answer_length === v ? " selected" : ""}>${label}</option>`)
+    .join("");
+
   return `
+    <section class="settings-section">
+      <h3>Study profile</h3>
+      <p class="muted small">Used by exercise completions: answers are written at your level with at most one or two items a step above it (named in the explanation), and the answer length sizes the Japanese answer. English explanations are unaffected. Changes apply to completions generated afterwards.</p>
+      <dl class="settings-dl">
+        <dt>Your level</dt><dd>
+          <select id="settings-learner-level" class="settings-select">${levelOptions}</select>
+        </dd>
+        <dt>Level note</dt><dd>
+          <input id="settings-learner-note" class="settings-input" type="text" maxlength="200"
+            placeholder="optional, e.g. reading ≈N3, writing closer to N4" value="${escapeHtml(prefs.learner_note)}" />
+        </dd>
+        <dt>Answer length</dt><dd>
+          <select id="settings-answer-length" class="settings-select">${lengthOptions}</select>
+          <span id="settings-profile-status" class="muted small" style="margin-left:0.5rem;"></span>
+        </dd>
+      </dl>
+    </section>
     <section class="settings-section">
       <h3>Configuration</h3>
       <dl class="settings-dl">
@@ -219,7 +252,28 @@ function generalHtml(
   `;
 }
 
+function wireProfile(host: HTMLElement): void {
+  const status = host.querySelector<HTMLElement>("#settings-profile-status");
+  const save = async (patch: Parameters<typeof updatePreferences>[0]) => {
+    if (status) status.textContent = "Saving…";
+    try {
+      await updatePreferences(patch);
+      if (status) status.textContent = "Saved.";
+    } catch (e: any) {
+      logError("SettingsModal", "profile_save_failed", { error: e?.message ?? String(e) });
+      if (status) status.textContent = `Failed: ${e?.message ?? String(e)}`;
+    }
+  };
+  const level = host.querySelector<HTMLSelectElement>("#settings-learner-level");
+  level?.addEventListener("change", () => void save({ learner_level: level.value as JlptLevel | "" }));
+  const length = host.querySelector<HTMLSelectElement>("#settings-answer-length");
+  length?.addEventListener("change", () => void save({ answer_length: length.value as AnswerLength }));
+  const note = host.querySelector<HTMLInputElement>("#settings-learner-note");
+  note?.addEventListener("change", () => void save({ learner_note: note.value }));
+}
+
 function wireGeneral(host: HTMLElement): void {
+  wireProfile(host);
   const select = host.querySelector<HTMLSelectElement>("#settings-vlm-model");
   const status = host.querySelector<HTMLElement>("#settings-vlm-model-status");
   if (!select) return;

@@ -497,9 +497,13 @@ class JobManager:
             raise _RegionOpError(str(exc)) from exc
 
         region_tag = region.get("tag") or "unspecified"
-        full_prompt = (
-            f"{prompt}\n\n<region_tag>{region_tag}</region_tag>\n"
-            f"<input>\n{transcription_md}\n</input>"
+        # Only the instructions repeat across breakdowns, so only they are
+        # cached; the region's text is new every call.
+        full_prompt: list[dict[str, Any]] | str = (
+            [
+                {"text": f"{prompt}\n\n", "cache": True},
+                {"text": f"<region_tag>{region_tag}</region_tag>\n<input>\n{transcription_md}\n</input>"},
+            ]
             if prompt
             else transcription_md
         )
@@ -814,15 +818,21 @@ class JobManager:
             if reference_text
             else ""
         )
-        full_prompt = (
-            f"{prompt}\n\n{context_block}{reference_block}"
-            f"<target_sentence>\n{sentence_text}\n</target_sentence>"
-        )
+        # Cache boundaries: the instructions (incl. the learner profile) are
+        # identical for every completion, and the region + reading context for
+        # every item in this exercise block, so both are cached; only the one
+        # target line is sent uncached. Items completed within the cache TTL
+        # re-read everything else at the cache-read rate.
+        full_prompt: list[dict[str, Any]] = [
+            {"text": f"{prompt}\n\n", "cache": True},
+            {"text": f"{context_block}{reference_block}", "cache": True},
+            {"text": f"<target_sentence>\n{sentence_text}\n</target_sentence>"},
+        ]
 
         # The model occasionally returns a well-formed-looking tool call that
         # finishes cleanly (stop_reason=tool_use) yet omits `answer` — low-rate
         # and not tied to output length. For `exercise_type: "open"` it can
-        # also send an empty `examples` when it meant to include three; for
+        # also send an empty `examples` when it meant to include some; for
         # `exercise_type: "constrained"` (a word-bank or inline-choice item)
         # or `"question"` (a comprehension/discussion question — see
         # EXERCISE_COMPLETION_PROMPT) an empty `examples` is the correct,
@@ -931,6 +941,12 @@ class JobManager:
             ),
             "examples": examples if isinstance(examples, list) else [],
             "model": result.meta.get("model"),
+            # Which learner settings produced this entry, so answers made
+            # before a settings change can be told apart.
+            "profile": {
+                "level": (job.get("profile") or {}).get("level"),
+                "answer_length": (job.get("profile") or {}).get("answer_length"),
+            },
             "updated_at": _now_iso(),
         }
         storage.upsert_exercise_completion_entry(
@@ -978,7 +994,10 @@ class JobManager:
             self._fail_job(job_id, str(exc))
             return
 
-        full_prompt = f"{prompt}\n\n<input>\n{source_md}\n</input>"
+        full_prompt = [
+            {"text": f"{prompt}\n\n", "cache": True},
+            {"text": f"<input>\n{source_md}\n</input>"},
+        ]
 
         t0 = time.monotonic()
         try:

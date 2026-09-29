@@ -162,18 +162,38 @@ Environment variables (read at startup, `.env` supported):
 
 Valid effort values are `low`, `medium`, `high`, `xhigh`, `max`. Effort and
 adaptive thinking only apply to models that support them (Opus 4.5+ and
-Sonnet 4.6); on Haiku 4.5 they are silently omitted. The `temperature`
-config field is silently dropped on Claude Opus 4.7 and Opus 4.8 (which
+Sonnet 4.6+); on Haiku 4.5 they are silently omitted. The `temperature`
+config field is silently dropped on Claude Opus 4.7+ and Sonnet 5+ (which
 removed it).
 
-The default VLM model is `claude-opus-4-8`. You can switch to
-`claude-opus-4-7` from the **Settings → General** panel; the choice
+The default VLM model is `claude-sonnet-5-5`. **Settings → General** offers
+Claude Sonnet 5.5, Opus 5.5, Sonnet 5, Opus 4.8 and Opus 4.7; the choice
 persists to `data/preferences.json` and is exposed via
-`GET`/`PUT /api/preferences`.
+`GET`/`PUT /api/preferences`. Sonnet 5.5 and Opus 5.5 don't accept a forced
+tool call, so their breakdowns, grammar guides and exercise completions use
+structured JSON output instead, with tool-call effort set per model
+(Sonnet 5.5: thinking off, effort capped at `high`; Opus 5.5: adaptive
+thinking at `medium`). Requests to those two models opt into Anthropic's
+server-side refusal fallback, so a safety-classifier decline is retried on
+the recommended fallback model rather than failing the job.
 
-VLM requests use ephemeral prompt caching on the text/tool-schema portion
-of the request, so repeated calls with the same prompt see cache hits
-(visible as `cache_read_tokens` in the audit log).
+The same panel holds the **Study profile** used by exercise completions:
+your JLPT level (plus an optional note), and an answer length. Answers are
+written at your level with at most one or two words or grammar points one
+step above it, each named in the explanation; furigana goes on kanji above
+your level. Answer length sizes only the Japanese: *brief* (default) gives
+one short sentence for comprehension questions and two alternative
+examples for fill-in items, *standard* one to three sentences and three
+examples, *detailed* fuller native-style answers. English explanations are
+the same at every setting.
+
+Prompt caching is placed where calls actually repeat: every tool call
+caches its fixed instructions, and exercise completions also cache the
+exercise block's transcription and reading references, so completing
+several items of one block within five minutes re-reads that context at
+the cache-read rate instead of paying for it again (visible as
+`cache_read_tokens` in the audit log; the Costs view prices cache writes
+and reads).
 
 ## Tests
 

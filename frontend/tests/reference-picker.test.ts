@@ -172,6 +172,42 @@ describe("with fetch mocked", () => {
     ]);
   });
 
+  it("picker shows the newly chosen document even if the initial load finishes later", async () => {
+    let releaseInitialDoc!: () => void;
+    const initialDocGate = new Promise<void>((r) => { releaseInitialDoc = r; });
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/documents") {
+        return jsonResponse([{ id: "d1", name: "book.pdf" }, { id: "d2", name: "reader.pdf" }]);
+      }
+      if (url === "/api/documents/d1") {
+        await initialDocGate; // the initial document load is slow
+        return jsonResponse({ id: "d1", name: "book.pdf", chapters: [{ id: "c1", title: "5", order: 0, page_start: 1, page_end: 9 }] });
+      }
+      if (url === "/api/documents/d2") {
+        return jsonResponse({ id: "d2", name: "reader.pdf", chapters: [{ id: "c9", title: "読み物の課", order: 0, page_start: 1, page_end: 1 }] });
+      }
+      if (url === "/api/documents/d1/chapters/c1/regions") return jsonResponse([region({ id: "old", transcription_md: "古い" })]);
+      if (url === "/api/documents/d2/chapters/c9/regions") return jsonResponse([region({ id: "new", label: "読み物" })]);
+      return jsonResponse({ detail: "not found" }, 404);
+    });
+
+    const result = openReferencePicker({ docId: "d1", chapterId: "c1", initial: [] });
+    const docSelect = document.querySelector<HTMLSelectElement>(".reference-picker-doc")!;
+    await vi.waitFor(() => expect(docSelect.options).toHaveLength(2));
+    docSelect.value = "d2";
+    docSelect.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => {
+      expect(document.querySelector(".reference-picker-candidates")!.textContent).toContain("読み物");
+    });
+    releaseInitialDoc();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(document.querySelector(".reference-picker-candidates")!.textContent).toContain("読み物");
+    expect(document.querySelector<HTMLSelectElement>(".reference-picker-chapter")!.value).toBe("c9");
+
+    document.querySelector<HTMLButtonElement>("#reference-cancel")!.click();
+    expect(await result).toBeNull();
+  });
+
   it("picker reorders and removes entries, and Escape cancels", async () => {
     const a = region({ id: "a", transcription_md: "A" });
     const b = region({ id: "b", page: 82, transcription_md: "B" });

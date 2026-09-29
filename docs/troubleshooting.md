@@ -142,18 +142,32 @@ A pre-rotation `llm_audit.jsonl` (no date suffix) is still read by `read_all()`.
 The log is written via `app.services.llm_audit.record(...)` from `app/jobs.py` after every VLM call (success or failure).
 
 ### Prompt cache hits / misses
-The Anthropic VLM provider sets `cache_control: ephemeral` on the prompt
-text (and tool schema, for breakdown calls). Expect the first call with a
-given prompt to show non-zero `cache_creation_tokens` (one-time write at
-~1.25× cost) and subsequent calls within the 5-minute TTL to show
-`cache_read_tokens` (~0.1× cost). If `cache_read_tokens` stays zero across
-repeated calls, something is invalidating the prefix — most likely the
-prompt text changed, the model changed, or more than 5 minutes elapsed
-between calls. Effort changes (`STUDIOUS_VLM_EFFORT_*`) do not invalidate
-the cache. Cache discounts are not yet reflected in `/api/costs/summary`.
+Tool-call jobs pass their prompt to `provider.call_tool` as a list of text
+blocks, each flagged `cache: True` or not; the provider puts
+`cache_control: ephemeral` on the flagged ones. Exercise completions send
+three blocks — instructions + learner profile (cached), the exercise
+block's `<region_transcription>` + `<reading_reference>` (cached), and the
+`<target_sentence>` (uncached) — so the second and later items of one block
+completed within 5 minutes show `cache_read_tokens` ≈ the whole prefix and
+`cache_creation_tokens` = 0 (verified live 2026-09-29: 6.4k written, then
+6.4k read). Breakdowns and grammar guides cache only their instructions,
+since each region's text is new. Transcriptions still cache the prompt
+after the page image, which never repeats — expect writes and no reads
+there.
+
+The signature of a misplaced breakpoint is `cache_creation_tokens` on every
+call and `cache_read_tokens` never covering the shared prefix — that was
+the state of every tool-call job before 2026-09-29, when the marker sat at
+the end of one block that ended with per-call text. Other causes of zero
+reads: the prompt text changed (a learner-profile change rewrites the cache
+once), the model changed, more than 5 minutes between calls, or a prefix
+below the model's minimum (1024 tokens on Sonnet 5 / Opus 4.8, 512 on the
+5.5 models). A top-level effort change also invalidates it.
+`/api/costs/summary` prices writes at 1.25× and reads at 0.1× input (per-
+model overrides in `MODEL_PRICING`).
 
 ### Cost estimates
-`GET /api/costs/summary` — totals plus breakdown by model and by document, derived from `llm_audit.jsonl` and the `MODEL_PRICING` table in `backend/app/config.py`. `GET /api/costs/audit?limit=&offset=` returns paginated audit entries (newest first) annotated with `estimated_cost_usd`. Models not in the pricing table appear in `unknown_models` and contribute `null` cost — add them to `MODEL_PRICING` when you start using a new model. Estimates ignore prompt-cache discounts.
+`GET /api/costs/summary` — totals plus breakdown by model and by document, derived from `llm_audit.jsonl` and the `MODEL_PRICING` table in `backend/app/config.py`. `GET /api/costs/audit?limit=&offset=` returns paginated audit entries (newest first) annotated with `estimated_cost_usd`. Models not in the pricing table appear in `unknown_models` and contribute `null` cost — add them to `MODEL_PRICING` when you start using a new model. Estimates include prompt-cache writes and reads (before 2026-09-29 they were ignored, which under-reported tool-call jobs several-fold because nearly all their input was logged as cache writes); the per-month summary cache carries a `_version` and is rebuilt when the formula changes.
 
 
 ### Frontend logs
@@ -388,7 +402,7 @@ The `record_exercise_completion` tool call returned but the model's tool input w
 - **`stop_reason=max_tokens` → truncation.** This is a large forced tool call (answer + answer_english + explanation + three fully-glossed Japanese examples, each with japanese/reading/english/explanation) run at `xhigh` effort, and the output ran past `max_tokens` before `examples` finished serializing — the SDK then hands back a partial tool input. The budget is `max_tokens: 8192` (`backend/app/api/regions.py`), matching breakdown; the error message says "truncated at max_tokens" explicitly. If it recurs, the item is unusually long — split/simplify it. Truncation is *not* retried (a resend with the same budget can't help).
 - **`stop_reason=tool_use` → intermittent malformed response.** The model finished cleanly but still omitted `answer`, despite producing a normal-sized output (often a few hundred tokens, well under budget). It's low-rate and not tied to length — the same item usually succeeds on resend. A forced tool call isn't strict-validated, so the schema can't prevent it. `_run_exercise_completion_job` now **retries once** on this case; the generic "missing `answer` or `examples`" error only surfaces if both attempts come back malformed. Each attempt is a billed call and is audited separately, so a recovered completion leaves one `error` then one `success` entry. Just retry from the UI if it still fails.
 
-An empty `examples` list is only treated as malformed when `exercise_type` is `"open"` (or missing/unrecognized, for older responses). `EXERCISE_COMPLETION_PROMPT` (`backend/app/config.py`) has the model classify each item as `open` (free completion — must return exactly three alternative `examples`) or `constrained` (a word-bank or inline `（A／B）`-style choice item — must return `examples: []`, since the textbook already limits the answer to a closed set and inventing "alternatives" would mislead the learner). `_run_exercise_completion_job` only requires non-empty `examples` when `exercise_type != "constrained"`.
+An empty `examples` list is only treated as malformed when `exercise_type` is `"open"` (or missing/unrecognized, for older responses). `EXERCISE_COMPLETION_PROMPT` (`backend/app/config.py`) has the model classify each item as `open` (free completion — must return two or three alternative `examples`, per the Study profile's answer length), `question` (comprehension/discussion question — model answer, `examples: []`) or `constrained` (a word-bank or inline `（A／B）`-style choice item — must return `examples: []`, since the textbook already limits the answer to a closed set and inventing "alternatives" would mislead the learner). `_run_exercise_completion_job` only requires non-empty `examples` when `exercise_type` is neither `"constrained"` nor `"question"`.
 
 If instead the model set `no_exercise: true`, the job fails with a `no_exercise:` message (that's the model correctly reporting the target line isn't a drill item, audited as success). The operation is idempotent and overwrites stale state when `overwrite=true`.
 
@@ -396,6 +410,12 @@ If instead the model set `no_exercise: true`, the job fails with a `no_exercise:
 The completion pane bolds/highlights the filled-in span of `answer` (`.exercise-completion-fill` in `breakdown-pane.ts`, `**bold**` in the markdown export) by doing a plain `indexOf` substring search for `entry.filled_text` inside `entry.answer` — there's no character-offset math, since offsets are unreliable for a model to produce but exact substrings are not (same reasoning as the vocab/grammar link highlighting in `breakdown_links.py`). This is a purely cosmetic feature: if it doesn't fire, the answer still renders correctly, just unhighlighted.
 
 It won't highlight when `filled_text` is empty. `_run_exercise_completion_job` (`backend/app/jobs.py`) only keeps the model's `filled_text` if it's a non-empty, exact, verbatim substring of `answer` — anything else (hallucinated text, a value missing the furigana annotation the model added to `answer`, mismatched punctuation) is silently dropped to `""` rather than stored, since a non-substring value would just fail the frontend's `indexOf` lookup anyway. Older stored completions (from before this field existed) also have no `filled_text` and won't highlight until regenerated. This isn't retried or audited as an error — check the stored entry (`storage.load_exercise_completion`) to see whether `filled_text` came back empty.
+
+### Tool-call job fails with `tool_choice: type "tool" and "any" are not supported for this model` (400)
+Claude Sonnet 5.5, Opus 5.5 and Fable 5.1 reject a forced `tool_choice`. The provider routes those models (`_STRUCTURED_OUTPUT_PREFIXES` in `backend/app/providers/vlm/anthropic.py`) through structured outputs instead: no `tools`, `output_config.format` carrying the tool schema (made strict — `additionalProperties: false`, length/count keywords stripped by `_strict_json_schema`), and the JSON text parsed back into the same `tool_input` the jobs expect. The `vlm_tool_call_start` log line shows `mode: "structured_output"` or `"forced_tool"`. If this 400 appears, a new model ID isn't in that list. Related 400s on these models: `thinking.type.disabled` (never send it; Sonnet 5.5 uses `between_tools`, only at effort `high` or below — the provider clamps), and a schema keyword structured outputs don't support (add it to `_UNSUPPORTED_SCHEMA_KEYS`). A structured-output response cut off at `max_tokens` becomes `{}`, which the jobs report as truncation; Opus 5.5 gets 16k tokens of extra `max_tokens` headroom because its thinking counts toward the limit.
+
+### Job fails with "model declined the request (refusal, category=…)"
+A safety classifier declined the call (HTTP 200, `stop_reason: "refusal"`). The provider raises instead of reading the empty or partial content. Requests to Sonnet 5.5 / Opus 5.5 carry `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`), so declines in categories Anthropic retries (e.g. `cyber`, `frontier_llm`) are re-run on a fallback model automatically; the result then carries `meta.served_model`. Categories that aren't retried (`bio`, `general_harms`, `reasoning_extraction`) surface as this error. Textbook content should essentially never trigger it; if it does, retry once, then switch models in Settings for that item.
 
 ### Tool-call job fails with "Thinking may not be enabled when tool_choice forces tool use"
 Affects any job that uses `provider.call_tool` (sentence breakdown, chapter grammar guide). Anthropic rejects the request when `tool_choice` pins a specific tool *and* `thinking` is also set. The provider strips `thinking` for forced-tool calls (see `backend/app/providers/vlm/anthropic.py::call_tool`); if this error reappears, a new code path is sending `thinking` alongside `tool_choice={"type": "tool", ...}`. Reasoning budget on these calls is controlled via `output_config.effort` (`vlm_effort_breakdown`) instead — `thinking` is redundant.

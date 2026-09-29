@@ -331,6 +331,10 @@ GRAMMAR_GUIDE_TOOL_SCHEMA: dict = {
 }
 
 
+# A template: `{example_count}` and `{question_length}` are filled from the
+# learner profile (services/learner_profile.py), which also appends a
+# <learner_profile> block when a JLPT level is set. Render it with
+# learner_profile.render_exercise_completion_prompt, never send it raw.
 EXERCISE_COMPLETION_PROMPT = """\
 You are a Japanese-language tutor for English-speaking learners. The
 input has up to three parts:
@@ -425,8 +429,8 @@ If the exercise is a `question`, answer it and call
 `record_exercise_completion` with:
 - exercise_type: "question"
 - answer: a model answer in natural Japanese, as a strong student would
-  write it — usually one to three sentences, answering every part of
-  what is asked and nothing more. Do NOT repeat the question. For a
+  write it — {question_length}, answering every part of what is asked
+  and nothing more. Do NOT repeat the question. For a
   comprehension question, base the answer on `<reading_reference>` (or
   on the region itself, if the reading is printed there) and put the
   relevant content in your own words rather than copying a long
@@ -467,14 +471,14 @@ practiced, and look at sibling items) and call
   the learner, so it must be an exact, verbatim substring of `answer`.
   If the exercise is a transformation with no single blank to point at
   (the whole sentence or clause changed), leave this empty.
-- examples: a list of three ALTERNATIVE COMPLETIONS of the same target
-  sentence. Each example is the target sentence with the blank filled
+- examples: a list of {example_count} ALTERNATIVE COMPLETIONS of the same
+  target sentence. Each example is the target sentence with the blank filled
   in a different way — the printed portions of the target sentence
   must appear VERBATIM in every example. Do NOT rewrite the
   surrounding clauses, swap subjects, change tense outside the blank,
   or invent unrelated sentences. The FIRST example must be the
   simplest, most natural completion — short, plain vocabulary in the
-  blank, the most obvious fit. The SECOND and THIRD examples are
+  blank, the most obvious fit. Any further examples are
   appropriate, slightly richer alternative completions that show
   different ways the blank could be filled while keeping the rest of
   the sentence unchanged. Each example object has:
@@ -487,8 +491,8 @@ practiced, and look at sibling items) and call
     - english: a concise English translation.
     - explanation: one short English sentence describing WHY this
       completion fits the blank. For the first example, explain why it
-      is the most natural fit. For the second and third examples, note
-      what nuance or variation this alternative completion shows.
+      is the most natural fit. For each further example, note what
+      nuance or variation this alternative completion shows.
 
 If the input is NOT an exercise, call the tool with:
 - no_exercise: true
@@ -512,7 +516,7 @@ Do NOT invent an exercise that is not present. Omit `answer`,
   with invented alternatives, and never fill the blank with anything
   outside the given bank or inline candidates.
 - For an `open` exercise, the first example must be the simplest
-  natural completion of the three. Provide exactly three examples.
+  natural completion. Provide exactly {example_count} examples.
 - The `<region_transcription>` and `<reading_reference>` are context
   only; complete exactly the one line given in `<target_sentence>`, not
   any other item.
@@ -604,11 +608,17 @@ BREAKDOWN_TOOL_SCHEMA: dict = {
 # Per-model pricing in USD per 1M tokens. Keep in sync with Anthropic's
 # published pricing. Image tokens are billed as input tokens by Anthropic
 # and are already included in `usage.input_tokens`, so no separate rate.
+# Prompt-cache rates default to 1.25x input for a (5-minute) cache write and
+# 0.1x input for a cache read (services/costs.py); `cache_write` /
+# `cache_read` override them where a model's rates differ.
 MODEL_PRICING: dict[str, dict[str, float]] = {
+    # Claude 5 family (Anthropic's published table as of 2026-09-25).
+    "claude-sonnet-5-5": {"input": 2.0, "output": 10.0, "cache_write": 2.5, "cache_read": 0.2},
+    "claude-opus-5-5": {"input": 4.0, "output": 20.0, "cache_write": 5.0, "cache_read": 0.2},
     # Claude 4 family. Opus pricing dropped to $5/$25 with Opus 4.5; the
-    # original Opus 4 and 4.1 remain at the launch $15/$75.
-    # Sonnet 5 launch pricing ($2/$10) applies through 2026-08-31, then
-    # reverts to the $3/$15 sticker — bump this entry at that point.
+    # original Opus 4 and 4.1 remain at the launch $15/$75. Sonnet 5 is still
+    # listed at $2/$10 as of 2026-09-25 (its launch pricing was announced as
+    # ending 2026-08-31 — re-check if the sticker changes).
     "claude-sonnet-5": {"input": 2.0, "output": 10.0},
     "claude-opus-4-8": {"input": 5.0, "output": 25.0},
     "claude-opus-4-7": {"input": 5.0, "output": 25.0},
@@ -629,11 +639,13 @@ class Settings(BaseModel):
     anthropic_api_key: str | None
     wanikani_api_token: str | None = None
     tesseract_cmd: str | None
-    default_vlm_model: str = "claude-sonnet-5"
+    default_vlm_model: str = "claude-sonnet-5-5"
     # Models offered in the settings UI for VLM selection. The first entry
     # is treated as the canonical default; anything outside this list is
     # still accepted server-side for forward compatibility.
     selectable_vlm_models: list[str] = [
+        "claude-sonnet-5-5",
+        "claude-opus-5-5",
         "claude-sonnet-5",
         "claude-opus-4-8",
         "claude-opus-4-7",

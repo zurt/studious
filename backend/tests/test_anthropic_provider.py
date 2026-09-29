@@ -71,6 +71,9 @@ class _StubMessages:
 class _StubClient:
     def __init__(self, message: _StubMessage) -> None:
         self.messages = _StubMessages(message)
+        # client.beta.messages (used for the refusal-fallback beta) records
+        # into the same call list.
+        self.beta = SimpleNamespace(messages=self.messages)
 
 
 @pytest.fixture
@@ -257,7 +260,7 @@ def test_call_tool_raises_when_no_tool_use_block(vlm):
     inst, _, _ = vlm
     inst._client.messages._message = _StubToolMessage(tool_input=None, stop_reason="end_turn", include_text=True)
     with pytest.raises(RuntimeError, match="did not return a tool_use block"):
-        inst.call_tool("p", "record_breakdown", {"type": "object"}, {})
+        inst.call_tool("p", "record_breakdown", {"type": "object"}, {"model": "claude-opus-4-8"})
 
 
 def test_logs_error_and_reraises(vlm, caplog):
@@ -277,3 +280,150 @@ def test_logs_error_and_reraises(vlm, caplog):
     assert error_record.error_class == "RuntimeError"
     assert error_record.model == "claude-opus-4-7"
     assert isinstance(error_record.duration_ms, int)
+
+
+# ---------- Claude 5.5 models: no forced tool use ----------
+
+_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "answer": {"type": "string", "minLength": 1},
+        "examples": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "required": ["japanese"],
+                "properties": {"japanese": {"type": "string", "minLength": 1}},
+            },
+        },
+    },
+}
+
+
+class _StubJsonMessage:
+    def __init__(self, text: str, *, stop_reason: str = "end_turn", model: str | None = None,
+                 stop_details=None) -> None:
+        self.id = "msg_json"
+        self._request_id = "req_json"
+        self.stop_reason = stop_reason
+        self.stop_details = stop_details
+        if model:
+            self.model = model
+        self.content = [SimpleNamespace(type="thinking", thinking=""), SimpleNamespace(type="text", text=text)]
+        self.usage = SimpleNamespace(
+            input_tokens=5, output_tokens=9,
+            cache_read_input_tokens=100, cache_creation_input_tokens=0,
+        )
+
+
+def test_sonnet_5_5_uses_structured_output_without_thinking(vlm):
+    inst, messages, _ = vlm
+    inst._client.messages._message = _StubJsonMessage('{"answer": "に", "examples": []}')
+    blocks = [
+        {"text": "INSTRUCTIONS\n\n", "cache": True},
+        {"text": "<region_transcription>…</region_transcription>\n\n", "cache": True},
+        {"text": "   "},  # whitespace-only blocks are dropped (the API rejects them)
+        {"text": "<target_sentence>x</target_sentence>"},
+    ]
+    result = inst.call_tool(blocks, "record_exercise_completion", _SCHEMA, {"model": "claude-sonnet-5-5"})
+
+    assert result.tool_input == {"answer": "に", "examples": []}
+    call = messages.calls[0]
+    assert "tools" not in call and "tool_choice" not in call
+    # Thinking off via between_tools, which caps effort at `high` (settings default is xhigh).
+    assert call["thinking"] == {"type": "between_tools"}
+    assert call["output_config"]["effort"] == "high"
+    assert call["max_tokens"] == 8192
+    schema = call["output_config"]["format"]["schema"]
+    assert call["output_config"]["format"]["type"] == "json_schema"
+    assert schema["additionalProperties"] is False
+    item = schema["properties"]["examples"]["items"]
+    assert item["additionalProperties"] is False
+    assert "maxItems" not in schema["properties"]["examples"]
+    assert "minLength" not in schema["properties"]["answer"]
+    assert _SCHEMA["properties"]["answer"]["minLength"] == 1  # input schema untouched
+    # Server-side refusal fallback is on.
+    assert call["betas"] == ["server-side-fallback-2026-07-01"]
+    assert call["extra_body"] == {"fallbacks": "default"}
+    assert call["messages"][0]["content"] == [
+        {"type": "text", "text": "INSTRUCTIONS\n\n", "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": "<region_transcription>…</region_transcription>\n\n",
+         "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": "<target_sentence>x</target_sentence>"},
+    ]
+
+
+def test_opus_5_5_thinks_adaptively_with_headroom_and_medium_effort(vlm):
+    inst, messages, _ = vlm
+    inst._client.messages._message = _StubJsonMessage('{"answer": "a"}')
+    inst.call_tool("p", "record_exercise_completion", _SCHEMA, {"model": "claude-opus-5-5", "max_tokens": 8192})
+    call = messages.calls[0]
+    assert call["thinking"] == {"type": "adaptive"}
+    assert call["output_config"]["effort"] == "medium"
+    assert call["max_tokens"] == 8192 + 16000
+
+    inst.call_tool("p", "record_exercise_completion", _SCHEMA,
+                   {"model": "claude-opus-5-5", "effort": "xhigh"})
+    assert messages.calls[1]["output_config"]["effort"] == "xhigh"
+
+
+def test_structured_output_truncation_returns_empty_input(vlm):
+    inst, _, _ = vlm
+    inst._client.messages._message = _StubJsonMessage('{"answer": "cut', stop_reason="max_tokens")
+    result = inst.call_tool("p", "t", _SCHEMA, {"model": "claude-sonnet-5-5"})
+    assert result.tool_input == {}
+    assert result.meta["stop_reason"] == "max_tokens"
+
+
+def test_structured_output_invalid_json_raises(vlm):
+    inst, _, _ = vlm
+    inst._client.messages._message = _StubJsonMessage("not json")
+    with pytest.raises(RuntimeError, match="invalid JSON"):
+        inst.call_tool("p", "t", _SCHEMA, {"model": "claude-sonnet-5-5"})
+
+
+def test_refusal_raises_with_category(vlm):
+    inst, _, _ = vlm
+    inst._client.messages._message = _StubJsonMessage(
+        "", stop_reason="refusal", stop_details=SimpleNamespace(category="cyber")
+    )
+    with pytest.raises(RuntimeError, match="declined the request \\(refusal, category=cyber\\)"):
+        inst.call_tool("p", "t", _SCHEMA, {"model": "claude-sonnet-5-5"})
+
+    refused = _StubMessage(stop_reason="refusal")
+    inst._client.messages._message = refused
+    with pytest.raises(RuntimeError, match="declined the request"):
+        inst.transcribe(b"img", "prompt", {"model": "claude-sonnet-5-5"})
+
+
+def test_fallback_served_model_recorded(vlm):
+    inst, _, _ = vlm
+    inst._client.messages._message = _StubJsonMessage('{"answer": "a"}', model="claude-sonnet-5")
+    result = inst.call_tool("p", "t", _SCHEMA, {"model": "claude-sonnet-5-5"})
+    assert result.meta["model"] == "claude-sonnet-5-5"
+    assert result.meta["served_model"] == "claude-sonnet-5"
+
+
+def test_forced_tool_models_keep_forced_tool_choice(vlm):
+    inst, messages, _ = vlm
+    inst._client.messages._message = _StubToolMessage(tool_input={"sentences": []})
+    inst.call_tool([{"text": "a", "cache": True}, {"text": "b"}], "record_breakdown",
+                   {"type": "object"}, {"model": "claude-sonnet-5"})
+    call = messages.calls[0]
+    assert call["tool_choice"] == {"type": "tool", "name": "record_breakdown"}
+    assert "thinking" not in call and "betas" not in call
+    assert call["messages"][0]["content"] == [
+        {"type": "text", "text": "a", "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": "b"},
+    ]
+
+
+def test_opus_5_family_recognised_for_temperature_thinking_and_effort(vlm):
+    inst, messages, _ = vlm
+    inst.transcribe(b"img", "prompt", {"model": "claude-opus-5-5", "temperature": 0.2})
+    call = messages.calls[0]
+    assert "temperature" not in call
+    assert call["thinking"] == {"type": "adaptive"}
+    assert call["output_config"] == {"effort": "high"}
+    assert call["betas"] == ["server-side-fallback-2026-07-01"]

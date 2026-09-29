@@ -141,7 +141,7 @@ class MockVlm:
         if tool_name not in _TOOL_RESPONSES:
             raise ValueError(f"e2e mock has no canned response for tool {tool_name!r}")
         tool_input = _TOOL_RESPONSES[tool_name]
-        if tool_name == "record_exercise_completion" and "</reading_reference>" in prompt:
+        if tool_name == "record_exercise_completion" and "</reading_reference>" in registry.prompt_text(prompt):
             tool_input = {**tool_input, "explanation": MOCK_REFERENCE_EXPLANATION}
         return registry.ToolCallResult(
             tool_input=tool_input,

@@ -243,19 +243,33 @@ export async function getProviders(): Promise<ProvidersResponse> {
   return jget("/api/providers");
 }
 
+export type JlptLevel = "N5" | "N4" | "N3" | "N2" | "N1";
+export type AnswerLength = "brief" | "standard" | "detailed";
+
 export type Preferences = {
   vlm_model: string;
   vlm_model_override: string | null;
   available_vlm_models: string[];
   default_vlm_model: string;
+  // Learner profile for exercise completions: answers are pitched at (or one
+  // step above) this level, and `answer_length` sizes the Japanese answer.
+  learner_level: JlptLevel | null;
+  learner_note: string;
+  answer_length: AnswerLength;
 };
 
 export async function getPreferences(): Promise<Preferences> {
   return jget("/api/preferences");
 }
 
+/** Each field: omit to leave unchanged, "" to reset to the default. */
 export async function updatePreferences(
-  patch: { vlm_model?: string | null }
+  patch: {
+    vlm_model?: string | null;
+    learner_level?: JlptLevel | "";
+    learner_note?: string;
+    answer_length?: AnswerLength | "";
+  }
 ): Promise<Preferences> {
   return jput("/api/preferences", patch);
 }
@@ -502,6 +516,9 @@ export type ExerciseCompletionEntry = {
   filled_text?: string;
   examples: ExerciseCompletionExample[];
   model?: string;
+  // Learner settings in effect when this entry was generated (absent on
+  // entries from before the learner profile existed).
+  profile?: { level: JlptLevel | null; answer_length: AnswerLength | null };
   updated_at?: string;
 };
 export type ExerciseCompletion = {

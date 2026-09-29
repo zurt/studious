@@ -1,9 +1,11 @@
 """Cost estimation derived from the LLM audit log.
 
 Anthropic includes token counts in API responses; combined with a per-model
-pricing table we compute a USD estimate per request. Estimates are not
-billing-accurate — they ignore prompt caching discounts and any pricing
-changes that happened after the audit entry was written.
+pricing table we compute a USD estimate per request, including prompt-cache
+writes and reads (logged separately from `input_tokens`, which covers only the
+uncached tail). Estimates are not billing-accurate — they assume 5-minute
+cache writes and ignore pricing changes that happened after the audit entry
+was written.
 
 The summary endpoint reads a per-month cache (`llm_audit_summary.json`) for
 archived months and recomputes the current month live, so cost queries stay
@@ -30,7 +32,14 @@ def estimate_cost(entry: dict[str, Any]) -> float | None:
         return None
     input_tokens = entry.get("input_tokens") or 0
     output_tokens = entry.get("output_tokens") or 0
-    return (input_tokens * rate["input"] + output_tokens * rate["output"]) / 1_000_000
+    cache_write_tokens = entry.get("cache_creation_tokens") or 0
+    cache_read_tokens = entry.get("cache_read_tokens") or 0
+    return (
+        input_tokens * rate["input"]
+        + output_tokens * rate["output"]
+        + cache_write_tokens * rate.get("cache_write", rate["input"] * 1.25)
+        + cache_read_tokens * rate.get("cache_read", rate["input"] * 0.1)
+    ) / 1_000_000
 
 
 def annotate(entry: dict[str, Any]) -> dict[str, Any]:
@@ -149,6 +158,11 @@ def _merge(into: dict[str, Any], other: dict[str, Any]) -> None:
             into[key] = v
 
 
+# Bump when estimate_cost changes, so cached archived months are recomputed.
+# v2: prompt-cache writes/reads are priced (they were ignored before).
+_SUMMARY_CACHE_VERSION = 2
+
+
 def summary() -> dict[str, Any]:
     """Aggregate audit entries into totals overall, by model, and by doc.
 
@@ -156,9 +170,12 @@ def summary() -> dict[str, Any]:
     month and any uncached files are re-aggregated on each call.
     """
     cache = llm_audit.load_summary_cache()
+    cache_dirty = False
+    if cache.get("_version") != _SUMMARY_CACHE_VERSION:
+        cache = {"_version": _SUMMARY_CACHE_VERSION}
+        cache_dirty = True
     files = llm_audit.audit_log_files()
     current_tag = llm_audit._current_month_tag()
-    cache_dirty = False
 
     out = _empty_aggregate()
     for path in files:

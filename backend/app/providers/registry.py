@@ -12,6 +12,21 @@ class TranscriptionResult:
     meta: dict[str, Any] = field(default_factory=dict)
 
 
+# A prompt is either one string or an ordered list of text blocks. Blocks let
+# a caller mark cache boundaries: `{"text": ..., "cache": True}` ends a prefix
+# that later calls repeat verbatim (instructions, per-region context), while
+# the per-call tail (the one sentence being completed) stays uncached.
+PromptBlock = dict[str, Any]
+Prompt = str | list[PromptBlock]
+
+
+def prompt_text(prompt: Prompt) -> str:
+    """The prompt as the model reads it: blocks concatenated in order."""
+    if isinstance(prompt, str):
+        return prompt
+    return "".join(str(block.get("text") or "") for block in prompt)
+
+
 @dataclass
 class ToolCallResult:
     tool_input: dict[str, Any]
@@ -35,7 +50,7 @@ class VlmProvider(Protocol):
 
     def call_tool(
         self,
-        prompt: str,
+        prompt: Prompt,
         tool_name: str,
         tool_schema: dict[str, Any],
         config: dict[str, Any],

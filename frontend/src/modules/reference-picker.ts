@@ -190,6 +190,7 @@ export function openReferencePicker(opts: ReferencePickerOptions): Promise<Regio
     let browseChapterId = opts.chapterId;
     let browseRegions: Region[] = [];
     let browseToken = 0;
+    let docToken = 0;
     // Loaded document metas (with chapters) by id, for synchronous labels.
     const loadedDocs = new Map<string, DocMeta | null>();
 
@@ -333,9 +334,14 @@ export function openReferencePicker(opts: ReferencePickerOptions): Promise<Regio
       renderCandidates();
     }
 
-    async function loadDoc(preferChapterId?: string) {
-      const doc = await resolver.getDoc(browseDocId);
-      loadedDocs.set(browseDocId, doc);
+    // Token-guarded like loadChapter: switching documents while an earlier
+    // load is in flight (e.g. the initial one) must not let the stale load
+    // finish last and repopulate the chapter list for the wrong document.
+    async function loadDoc(docId: string, preferChapterId?: string) {
+      const token = ++docToken;
+      const doc = await resolver.getDoc(docId);
+      if (token !== docToken) return;
+      loadedDocs.set(docId, doc);
       const chapters = sortedChapters(doc);
       chapterSelect.innerHTML = "";
       for (const c of chapters) {
@@ -352,7 +358,7 @@ export function openReferencePicker(opts: ReferencePickerOptions): Promise<Regio
 
     docSelect.addEventListener("change", () => {
       browseDocId = docSelect.value;
-      void loadDoc();
+      void loadDoc(browseDocId);
     });
     chapterSelect.addEventListener("change", () => {
       browseChapterId = chapterSelect.value;
@@ -381,7 +387,7 @@ export function openReferencePicker(opts: ReferencePickerOptions): Promise<Regio
       }
       docSelect.value = browseDocId;
       renderTray();
-      await loadDoc(browseChapterId);
+      await loadDoc(browseDocId, browseChapterId);
     })();
   });
 }

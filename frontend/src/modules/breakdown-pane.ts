@@ -47,6 +47,15 @@ export function escapeHtml(s: string | null | undefined): string {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// Tooltip naming the learner settings an entry was generated with, so answers
+// made before a Study profile change are recognizable.
+function profileTitle(entry: ExerciseCompletionEntry): string {
+  const p = entry.profile;
+  if (!p) return "";
+  const level = p.level ? `JLPT ${p.level}` : "no level set";
+  return ` title="Generated for ${escapeHtml(level)} · ${escapeHtml(p.answer_length || "brief")} answers"`;
+}
+
 export function completionToMarkdown(
   entry: ExerciseCompletionEntry,
   sentenceText?: string,
@@ -376,7 +385,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       return `
         <div class="exercise-completion">
           <div class="exercise-completion-header">
-            <span class="exercise-completion-label">Completion</span>
+            <span class="exercise-completion-label"${profileTitle(entry)}>Completion</span>
             <span class="exercise-completion-actions">
               <span data-completion-copy-slot="${idx}"></span>
               <button type="button" class="icon-btn" data-completion-regen="${idx}" title="Regenerate completion" aria-label="Regenerate completion">${ICON_REDO}</button>

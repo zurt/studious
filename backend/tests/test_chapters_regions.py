@@ -376,6 +376,12 @@ def test_exercise_completion_submit_and_overwrite(isolated_data_dir, tmp_path: P
     # Budget must be large enough for answer + three fully-glossed examples;
     # 2048 truncated longer items mid-`examples`. See docs/troubleshooting.md.
     assert job["config"]["max_tokens"] == 8192
+    # The prompt is rendered for the learner profile at submit time (defaults:
+    # no level, brief → two examples) and the profile rides along on the job.
+    assert "{example_count}" not in job["prompt"] and "{question_length}" not in job["prompt"]
+    assert "Provide exactly two examples." in job["prompt"]
+    assert "<learner_profile>" not in job["prompt"]
+    assert job["profile"] == {"level": None, "note": "", "answer_length": "brief"}
 
     # Seed an existing completion at idx=0 → second POST without overwrite 409s
     storage.upsert_exercise_completion_entry(

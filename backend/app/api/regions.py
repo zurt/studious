@@ -15,7 +15,7 @@ from ..config import (
     VOCAB_LIST_TRANSCRIBE_PROMPT,
 )
 from ..jobs import manager
-from ..services import breakdown_links, region_chain, storage
+from ..services import breakdown_links, learner_profile, region_chain, storage
 from ..services.preferences import get_active_vlm_model
 
 log = logging.getLogger("studious.api.regions")
@@ -397,6 +397,7 @@ def request_region_exercise_completion(
     ):
         raise HTTPException(409, "exercise completion already exists; pass overwrite=true to regenerate")
 
+    profile = learner_profile.current()
     payload: dict[str, Any] = {
         "job_type": "exercise_completion",
         "doc_id": doc_id,
@@ -416,7 +417,12 @@ def request_region_exercise_completion(
         # no examples and need far less, but the budget is sized for the
         # worst case. See docs/troubleshooting.md.
         "config": {"model": get_active_vlm_model(), "max_tokens": 8192},
-        "prompt": EXERCISE_COMPLETION_PROMPT,
+        # Rendered for the learner at submit time, so the job record shows
+        # exactly what was sent.
+        "prompt": learner_profile.render_exercise_completion_prompt(
+            EXERCISE_COMPLETION_PROMPT, profile
+        ),
+        "profile": profile,
         "tool_name": "record_exercise_completion",
         "tool_schema": EXERCISE_COMPLETION_TOOL_SCHEMA,
     }

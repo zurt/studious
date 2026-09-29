@@ -201,10 +201,21 @@ Priority 2 (second pass, bundled):
       Haiku 5.81 (0 first-place finishes)
 - [x] Default VLM switched to `claude-sonnet-5` (tied quality, ~2.3× cheaper,
       wins workbook scans); Opus 4.8/4.7 remain selectable in settings
+- [x] `claude-sonnet-5-5` and `claude-opus-5-5` registered (2026-09-29).
+      Neither accepts a forced `tool_choice`, so their tool calls use
+      structured outputs (`output_config.format`); refusals raise a clear
+      error and opt into server-side fallback (`fallbacks: "default"`)
+- [x] Default VLM switched to `claude-sonnet-5-5` (2026-09-29). Same-code
+      `make benchmark` single runs: avg CER 32.6% vs 40.4% on Sonnet 5, line
+      accuracy 16.5% vs 12.3%, better on 4/5 vocab-list fixtures, slightly
+      worse on the full-page fixture (10.1% vs 7.3%); breakdown 3/3, recall
+      100% on both
 - [x] Curated report: `benchmarks/model_eval/reports/2026-07-06-model-comparison.md`
 - [ ] Re-run the 31-item benchmark when a new model tier ships or
       transcription prompts / image preprocessing change (~$4.50/run);
-      expand a stratum only when a decision hinges on it
+      expand a stratum only when a decision hinges on it — due for the
+      5.5 models (the Sonnet 5.5 default switch rests on `make benchmark`
+      only)
 
 ## Phase 2: Sentence Breakdowns
 
@@ -253,6 +264,18 @@ See `docs/breakdown-vocab-links-plan.md`.
       delete with the region; cleared automatically when a region's
       breakdown is regenerated (sentence indices would otherwise become
       stale).
+- [x] Study profile (Settings → General, 2026-09-29): JLPT level + note and
+      answer length (brief / standard / detailed) render into the prompt.
+      Answers sit at the level with at most one or two named "stretch"
+      items one step above; brief = one short sentence for questions and
+      two examples for `open` items (English explanations unaffected).
+      Each saved entry records the `profile` it was generated with.
+- [x] Prompt caching fixed (2026-09-29): the whole prompt used to be one
+      cached block ending in the per-item target line, so every call wrote
+      a fresh ~3.8k-token cache entry that was never read (109 writes /
+      1 read in the audit log). Now the instructions and the exercise
+      block's context are separate cached blocks and only the target line
+      is uncached; breakdowns/grammar guides cache just their instructions.
 
 Beyond MVP (deferred):
 - [ ] Bulk "Complete all exercises in this region" action that fans out
