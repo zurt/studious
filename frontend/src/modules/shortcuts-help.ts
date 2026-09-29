@@ -106,3 +106,14 @@ export function isTypingTarget(el: EventTarget | null): boolean {
   if (el.isContentEditable) return true;
   return false;
 }
+
+/**
+ * Page-level single-key shortcuts (arrow-key page flips, `L` for link mode)
+ * are registered on `document`, so they also see keystrokes meant for a
+ * field or dialog. Skip them while the user is typing in a field or while
+ * any modal is open (all modals render a `.modal-bg` overlay) — the key
+ * belongs to that field or dialog, not to the page behind it.
+ */
+export function pageShortcutsSuppressed(e: KeyboardEvent): boolean {
+  return isTypingTarget(e.target) || document.querySelector(".modal-bg") !== null;
+}

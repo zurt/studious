@@ -285,6 +285,29 @@ test("linking a continuation region combines transcriptions across pages", async
   await expect(page.locator("#region-detail")).toContainText("continues on page 2");
 });
 
+test("arrow keys typed into a field don't flip the page behind it", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#doc-grid .doc-card").first().click();
+  await page.locator("#banner-link").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+  const pageInfo = page.locator("#page-info");
+  await expect(pageInfo).toContainText("1 (1-2)");
+
+  // Editing a Settings text field: the arrows move the caret, not the page.
+  await page.locator("#settings-btn").click();
+  await page.locator("#settings-learner-note").click();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowRight");
+  await expect(pageInfo).toContainText("1 (1-2)");
+
+  // With the modal closed and no field focused, the shortcut still works.
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".settings-modal")).toHaveCount(0);
+  await page.keyboard.press("ArrowRight");
+  await expect(pageInfo).toContainText("2 (1-2)");
+});
+
 test("a document can be deleted from the library card menu", async ({ page }) => {
   await page.goto("/");
 

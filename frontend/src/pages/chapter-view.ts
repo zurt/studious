@@ -17,6 +17,7 @@ import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, 
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { renderMarkdown } from "../modules/markdown";
+import { pageShortcutsSuppressed } from "../modules/shortcuts-help";
 import {
   createReferenceResolver, openReferencePicker, renderReferenceLabel, type ReferenceInfo,
 } from "../modules/reference-picker";
@@ -1240,10 +1241,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
   function onKey(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey) return; // let zoom-pan handle Cmd keys
-    const tag = (e.target as HTMLElement | null)?.tagName;
-    const inField = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement | null)?.isContentEditable;
     if (e.key === "Escape" && linkMode) { toggleLinkMode(false); return; }
-    if (!inField && (e.key === "l" || e.key === "L")) { toggleLinkMode(); return; }
+    if (pageShortcutsSuppressed(e)) return;
+    if (e.key === "l" || e.key === "L") { toggleLinkMode(); return; }
     if (e.key === "ArrowLeft") prevBtn.click();
     if (e.key === "ArrowRight") nextBtn.click();
   }

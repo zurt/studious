@@ -4,6 +4,7 @@ import {
   type DocMeta, type Transcription, type Chapter, type Region,
 } from "../api";
 import { error as logError } from "../logger";
+import { pageShortcutsSuppressed } from "../modules/shortcuts-help";
 import { navigate, replaceQuery } from "../router";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { renderMarkdown } from "../modules/markdown";
@@ -297,6 +298,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
 
   function onKey(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey) return; // let zoom-pan handle Cmd keys
+    if (pageShortcutsSuppressed(e)) return;
     if (e.key === "ArrowLeft") prevBtn.click();
     if (e.key === "ArrowRight") nextBtn.click();
   }

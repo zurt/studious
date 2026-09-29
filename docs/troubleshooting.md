@@ -277,6 +277,9 @@ then reload `/study`. Check what the server sees with
 `curl 'localhost:8000/api/study/queue?limit=5' | jq .counts` —
 `active_items: 0` means it's a status problem, not a scheduling one.
 
+### Arrow keys (or `L`) typed into a field flip the page / toggle link mode
+The document and chapter views register their single-key shortcuts on `document`, so they also receive keystrokes aimed at an input, select or dialog. Every such handler must return early when `pageShortcutsSuppressed(e)` (`frontend/src/modules/shortcuts-help.ts`) is true — the user is typing in a field (`isTypingTarget`) or any modal is open (a `.modal-bg` overlay exists). Don't fix an instance with `stopPropagation` on the one field that surfaced it: the next input or modal would regress. If a new page-level shortcut misbehaves this way, it's missing that guard. Covered by the "arrow keys typed into a field" E2E journey.
+
 ### An element with the `hidden` attribute is still visible
 Any CSS rule that sets `display` on the element's class (e.g.
 `.srs-back { display: flex; }`) overrides the UA stylesheet's
