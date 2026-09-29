@@ -410,7 +410,8 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .reference-picker-item { padding: 4px 0; border-bottom: 1px solid var(--border); }
 .reference-picker-item:last-child { border-bottom: 0; }
 .reference-picker-item-row { display: flex; align-items: baseline; gap: 6px; }
-.reference-picker-item-row > .reference-label { flex: 1; }
+.reference-picker-item-row > .reference-label { flex: 1; flex-wrap: nowrap; min-width: 0; }
+.reference-picker-item-row .reference-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .reference-picker-item-actions { display: inline-flex; gap: 2px; flex: none; }
 .reference-picker-item-actions .icon-btn { font-size: 11px; padding: 1px 5px; line-height: 1.2; }
 .reference-picker-empty { color: var(--muted); font-size: 12px; margin: 4px; list-style: none; }
