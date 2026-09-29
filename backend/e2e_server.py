@@ -98,6 +98,12 @@ MOCK_EXERCISE_COMPLETION: dict[str, Any] = {
     ],
 }
 
+# Returned instead of MOCK_EXERCISE_COMPLETION when the prompt carries a
+# reading-reference block (its closing tag — the instructions mention the
+# opening one), so a journey can see that an exercises region's
+# reading references actually reached the completion prompt.
+MOCK_REFERENCE_EXPLANATION = "Mock completion: answered using the reading reference."
+
 _TOOL_RESPONSES: dict[str, dict[str, Any]] = {
     "record_breakdown": MOCK_BREAKDOWN,
     "record_grammar_guide": MOCK_GRAMMAR_GUIDE,
@@ -134,8 +140,11 @@ class MockVlm:
     ) -> registry.ToolCallResult:
         if tool_name not in _TOOL_RESPONSES:
             raise ValueError(f"e2e mock has no canned response for tool {tool_name!r}")
+        tool_input = _TOOL_RESPONSES[tool_name]
+        if tool_name == "record_exercise_completion" and "</reading_reference>" in prompt:
+            tool_input = {**tool_input, "explanation": MOCK_REFERENCE_EXPLANATION}
         return registry.ToolCallResult(
-            tool_input=_TOOL_RESPONSES[tool_name],
+            tool_input=tool_input,
             meta=self._meta(config),
         )
 

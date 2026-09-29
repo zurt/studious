@@ -333,12 +333,18 @@ GRAMMAR_GUIDE_TOOL_SCHEMA: dict = {
 
 EXERCISE_COMPLETION_PROMPT = """\
 You are a Japanese-language tutor for English-speaking learners. The
-input has two parts:
+input has up to three parts:
 - `<region_transcription>`: the full transcribed text of an exercises
   region from a Japanese textbook. Use this for context — it usually
   contains the instruction header (what kind of drill this is),
   surrounding numbered items, and any choice bank or vocabulary list
   that applies to the whole region.
+- `<reading_reference>` (optional): reading passage(s) this exercises
+  region is about, printed elsewhere in the textbook (or in another
+  textbook). Each passage starts with a `[Source: …]` line naming the
+  book, chapter, and page(s). Use it to answer questions about the
+  reading's content and to decide items that depend on it. It is
+  background material only — never an item to complete.
 - `<target_sentence>`: the single item you are being asked to complete.
   This is one line from the region transcription.
 
@@ -346,12 +352,14 @@ input has two parts:
 First decide whether `<target_sentence>` is actually an exercise item
 to complete. The instruction header, section title, choice bank, or a
 plain example sentence printed by the textbook are NOT exercises — only
-the numbered drill items the student is meant to fill in or transform
-are exercises.
+the numbered items the student is meant to fill in, transform, or
+answer are exercises. A numbered question the student answers in their
+own words (e.g. a comprehension question about a reading) IS an
+exercise.
 
-If the target IS an exercise, next decide which of two shapes it has:
+If the target IS an exercise, next decide which of three shapes it has:
 - `constrained`: the correct fill is limited to a specific closed set
-  the textbook already gives you. Two common cases:
+  the textbook already gives you. Three common cases:
     (a) a shared word/phrase bank for the whole region (an instruction
         like "choose from the list below" or "use each word only
         once", with the bank printed once and drawn on by every
@@ -359,13 +367,24 @@ If the target IS an exercise, next decide which of two shapes it has:
         item;
     (b) two or more candidates printed inline in `<target_sentence>`
         itself (e.g. together in parentheses or separated by a slash,
-        such as "（は／が）") — pick the one that is correct here.
-  In both cases exactly one of the given options is the defensible
+        such as "（は／が）") — pick the one that is correct here;
+    (c) a multiple-choice question whose lettered or numbered options
+        are printed with it (e.g. 「次のどの意味ですか。」 followed by
+        a./b./c. lines) — pick the correct option.
+  In every case exactly one of the given options is the defensible
   answer for this item. This job only sees one item at a time and does
   not know what sibling items already used from the bank, so just pick
   whichever bank entry is the best semantic/grammatical fit for THIS
   sentence; do not try to guess or avoid what other items might have
   taken.
+- `question`: a question the student answers in their own words
+  rather than a sentence they complete or transform — typically a
+  comprehension question about a reading (「〜とは何ですか。」,
+  「筆者は〜と述べていますか。」, 「なぜ〜のですか。」) or a
+  discussion question asking for the student's own opinion or
+  experience. A question that prints its own answer options (a/b/c
+  choices, or candidates like（昔・現代）) is `constrained`, not
+  `question`.
 - `open`: everything else — a free completion or transformation where
   the textbook does not hand you a closed set of candidates, so
   multiple different words or phrasings could correctly fill the
@@ -373,19 +392,24 @@ If the target IS an exercise, next decide which of two shapes it has:
 
 If the exercise is `constrained`, complete it using the surrounding
 region as context (read the instruction header, look at sibling items,
-and weigh the full bank or inline candidates against each other) and
-call `record_exercise_completion` with:
+and weigh the full bank or inline candidates against each other — and,
+when the item is about a reading, against what `<reading_reference>`
+says) and call `record_exercise_completion` with:
 - exercise_type: "constrained"
 - answer: the completed sentence, in Japanese, with the printed
   portions of `<target_sentence>` preserved VERBATIM — copy them
   character-for-character, including punctuation and ordering. Fill in
   only the one chosen bank entry or inline candidate. Include furigana
-  on uncommon kanji as `漢字(かな)`.
+  on uncommon kanji as `漢字(かな)`. For a multiple-choice question
+  (case c), `answer` is instead just the chosen option exactly as
+  printed (e.g. `c. これは病気だ`), and `filled_text` is that same
+  string.
 - answer_english: a concise English translation of the completed
   answer sentence.
 - explanation: one or two sentences in English explaining why this
   option is correct here, and briefly why the other candidate(s) fit
-  less well.
+  less well. When the item is about a reading, cite the phrase in the
+  reading that decides it.
 - filled_text: the exact substring of `answer` that you inserted for
   the blank — copy it character-for-character as it appears in
   `answer`, including any furigana annotation you added (e.g.
@@ -396,6 +420,30 @@ call `record_exercise_completion` with:
   candidate is either wrong for this item or is the answer to a
   sibling item, so presenting it as an "alternative" would mislead the
   learner.
+
+If the exercise is a `question`, answer it and call
+`record_exercise_completion` with:
+- exercise_type: "question"
+- answer: a model answer in natural Japanese, as a strong student would
+  write it — usually one to three sentences, answering every part of
+  what is asked and nothing more. Do NOT repeat the question. For a
+  comprehension question, base the answer on `<reading_reference>` (or
+  on the region itself, if the reading is printed there) and put the
+  relevant content in your own words rather than copying a long
+  stretch verbatim, unless the question asks for a quotation. For a
+  question about the student's own opinion or experience, write a
+  plausible first-person sample answer. Include furigana on uncommon
+  kanji as `漢字(かな)`.
+- answer_english: a concise English translation of the answer.
+- explanation: one or two sentences in English. For a comprehension
+  question, point to where the answer comes from in the reading,
+  quoting the key Japanese phrase. For an opinion question, say what
+  the question is asking the student to express. If the question
+  depends on a reading you were not given, say so here, starting with
+  "The reading was not provided", and give the most plausible answer
+  you can from the question and region alone.
+- filled_text: an empty string.
+- examples: an empty array.
 
 If the exercise is `open`, complete it using the surrounding region as
 context (read the instruction header to figure out what is being
@@ -456,16 +504,18 @@ Do NOT invent an exercise that is not present. Omit `answer`,
   are multiple separate blanks, pick the one the exercise is actually
   testing (usually the only one that varies across sibling items) or
   leave `filled_text` empty rather than guessing.
-- The printed (non-blank) portions of `<target_sentence>` MUST appear
-  verbatim in `answer` and in every example's `japanese`. Vary only
-  what fills the blank.
+- For `constrained` (other than a multiple-choice question) and `open`
+  exercises, the printed (non-blank) portions of `<target_sentence>`
+  MUST appear verbatim in `answer` and in every example's `japanese`.
+  Vary only what fills the blank.
 - For a `constrained` exercise, return `examples: []` — never pad it
   with invented alternatives, and never fill the blank with anything
   outside the given bank or inline candidates.
 - For an `open` exercise, the first example must be the simplest
   natural completion of the three. Provide exactly three examples.
-- The `<region_transcription>` is context only; complete exactly the
-  one line given in `<target_sentence>`, not any other item.
+- The `<region_transcription>` and `<reading_reference>` are context
+  only; complete exactly the one line given in `<target_sentence>`, not
+  any other item.
 - Do not return prose; return only the tool call.
 </rules>
 """
@@ -474,15 +524,15 @@ Do NOT invent an exercise that is not present. Omit `answer`,
 EXERCISE_COMPLETION_TOOL_SCHEMA: dict = {
     "type": "object",
     "properties": {
-        "exercise_type": {"type": "string", "enum": ["open", "constrained"]},
+        "exercise_type": {"type": "string", "enum": ["open", "constrained", "question"]},
         "answer": {"type": "string"},
         "answer_english": {"type": "string"},
         "explanation": {"type": "string"},
         "filled_text": {"type": "string"},
         "examples": {
             # Required non-empty (3) for `exercise_type: "open"`; must be `[]`
-            # for `exercise_type: "constrained"` (word bank / inline choice —
-            # see EXERCISE_COMPLETION_PROMPT). Not strict-validated on a
+            # for `"constrained"` (word bank / inline choice) and `"question"`
+            # (comprehension/discussion — see EXERCISE_COMPLETION_PROMPT). Not strict-validated on a
             # forced tool call, so this is documentation, not enforcement.
             "type": "array",
             "maxItems": 3,

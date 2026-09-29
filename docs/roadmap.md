@@ -300,23 +300,37 @@ Beyond MVP (deferred):
 
 ### Phase 2.5: Exercise Reading References
 
-- [ ] Region schema gains an ordered `references` list (many, cross-
-      document, target must be `reading_passage`) — see
-      `docs/exercise-references-plan.md` (planned 2026-09-15, in
-      progress). Distinct from Phase 2.4's `continues_to`: that's a
-      single same-chapter continuation pointer; this is a citation of
-      separate background material, possibly from another textbook.
-- [ ] `PUT .../regions/{region_id}/references` endpoint (replace-whole-
-      list semantics); validates source is `exercises`-tagged and every
-      target is `reading_passage`-tagged.
-- [ ] `region_reference.resolve_references` +
+Shipped 2026-09-29 as **beta** — see `docs/exercise-references-plan.md`.
+Covered by unit + E2E tests against the mock provider, but not yet run
+against real VLM completions; promote out of beta after the first live
+chapter (the 生きた素材で学ぶ 第5課 comprehension questions are the
+motivating case).
+
+- [x] Region schema gains an ordered `references` list (many, cross-
+      document, target must be `reading_passage`). Distinct from Phase
+      2.4's `continues_to`: that's a single same-chapter continuation
+      pointer; this is a citation of separate background material,
+      possibly from another textbook.
+- [x] `PUT .../regions/{region_id}/references` endpoint (replace-whole-
+      list semantics, duplicates dropped); validates source is
+      `exercises`-tagged and a chain head (409 on a continuation), and
+      every target is `reading_passage`-tagged.
+- [x] `region_reference.resolve_references` +
       `combined_reference_text` helpers, consumed by the exercise-
-      completion job as a new `<reading_reference>` prompt block
-      (labeled per source, unlike the unlabeled `continues_to`
-      concatenation).
-- [ ] Reference picker modal (Document → Chapter → Region browse tree
-      + ordered selection tray) and a "References" section on the
-      exercises region's detail panel.
+      completion job as a new `<reading_reference>` prompt block.
+      Consecutive same-chapter references share one `[Source: …]` label
+      (a reading split across regions stays one passage); missing or
+      untranscribed targets are skipped with a warning log.
+- [x] Completion prompt gains a `question` exercise shape (comprehension
+      / discussion questions → a model answer + explanation citing the
+      reading, `examples: []`) and a multiple-choice case under
+      `constrained` — comprehension questions previously had no shape
+      and risked `no_exercise`.
+- [x] Reference picker modal (Document → Chapter browse of
+      `reading_passage` regions with per-page "Add all", ordered
+      selection tray with ↑/↓/✕) and a "Reading references" section in
+      the chapter view, shown for any region of an exercises chain and
+      editing the chain head's list.
 
 ## Phase 3: Central Vocab/Grammar Store
 

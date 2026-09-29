@@ -341,6 +341,74 @@ test("the vocab dashboard lists harvested items and status changes persist", asy
   await expect(grammarRow).toContainText("Ongoing action");
 });
 
+test("an exercises region can cite a reading from another document", async ({ page }) => {
+  // Runs after the delete journey (which counts library cards) and adds a
+  // second document holding the reading.
+  await page.goto("/");
+  await page.locator("#upload-input").setInputFiles({
+    name: "reader.pdf",
+    mimeType: "application/pdf",
+    buffer: fs.readFileSync(FIXTURE_PDF),
+  });
+  await page.waitForURL(/\/doc\/[0-9a-f]+$/, { timeout: 30_000 });
+  await page.locator("#new-chapter-btn").click();
+  await page.locator("#ch-title").fill("読み物の課");
+  await page.locator("#ch-start").fill("1");
+  await page.locator("#ch-end").fill("1");
+  await page.locator("#ch-save").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+
+  const canvas = page.locator("#left-pane canvas");
+  await expect(canvas).toBeVisible();
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.5, { steps: 5 });
+  await page.mouse.up();
+  await page.locator("#tag-select").selectOption("reading_passage");
+  await page.locator("#region-label").fill("読み物");
+  await page.locator("#tag-save").click();
+  await page.locator(".region-card", { hasText: "読み物" }).getByRole("button", { name: "Transcribe" }).click();
+  await expect(page.locator("#region-detail")).toContainText("Mock transcription", { timeout: 15_000 });
+
+  // Back to the shared document's exercises region (page 2, "練習").
+  await page.goto("/");
+  await page.locator("#doc-grid .doc-card", { hasText: "sample.pdf" }).click();
+  await page.locator("#banner-link").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+  await page.locator("#next-btn").click();
+  // Clicking a selected card deselects it, and page 2 may auto-select 練習;
+  // go via the other card so the end state is deterministic.
+  await page.locator(".region-card", { hasText: "続き" }).click();
+  await page.locator(".region-card", { hasText: "練習" }).click();
+  await expect(page.locator(".region-card.selected")).toContainText("練習");
+
+  const refs = page.locator("#region-references");
+  await expect(refs).toContainText("Reading references");
+  await expect(refs).toContainText("None.");
+  await refs.getByRole("button", { name: "Add…" }).click();
+
+  const picker = page.locator(".reference-picker");
+  await picker.locator(".reference-picker-doc").selectOption({ label: "reader.pdf" });
+  await picker.locator(".reference-picker-candidate", { hasText: "読み物" }).click();
+  await expect(picker.locator(".reference-picker-tray")).toContainText("reader.pdf › 読み物の課 › p.1");
+  await picker.getByRole("button", { name: "Save" }).click();
+  await expect(picker).toHaveCount(0);
+
+  await expect(refs.locator(".region-references-list li")).toHaveCount(1);
+  await expect(refs.locator(".region-references-list")).toContainText("reader.pdf");
+  await expect(refs.getByRole("button", { name: "Edit…" })).toBeVisible();
+
+  // Regenerating the completion now sends the reading as context.
+  const bdCard = page.locator("#breakdown-pane .breakdown-card");
+  await bdCard.locator("[data-completion-regen]").click();
+  await page.locator("#confirm-ok").click();
+  await expect(bdCard.locator(".exercise-completion")).toContainText(
+    "Mock completion: answered using the reading reference.",
+    { timeout: 15_000 },
+  );
+});
+
 test("region popover remembers the last tag and Enter completes creation", async ({ page }) => {
   // Self-contained: uploads its own document/chapter rather than reusing
   // the shared one, so it can't disturb the other journeys' exact

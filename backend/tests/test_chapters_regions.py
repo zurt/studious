@@ -372,7 +372,7 @@ def test_exercise_completion_submit_and_overwrite(isolated_data_dir, tmp_path: P
     # `constrained` (word-bank / inline-choice) item, so the schema no longer
     # forces minItems — the prompt drives the shape per exercise_type.
     assert job["tool_schema"]["properties"]["examples"]["maxItems"] == 3
-    assert job["tool_schema"]["properties"]["exercise_type"]["enum"] == ["open", "constrained"]
+    assert job["tool_schema"]["properties"]["exercise_type"]["enum"] == ["open", "constrained", "question"]
     # Budget must be large enough for answer + three fully-glossed examples;
     # 2048 truncated longer items mid-`examples`. See docs/troubleshooting.md.
     assert job["config"]["max_tokens"] == 8192

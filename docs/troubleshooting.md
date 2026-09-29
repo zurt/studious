@@ -83,7 +83,7 @@ ls -lt backend/data/jobs/ | head    # most recent jobs
 ```
 
 ### Region state
-`backend/data/documents/<doc_id>/chapters/<chapter_id>/regions/<region_id>.json` — disk truth for a region. Check `transcribed_at` and `transcription_md` here to verify whether the data actually changed, independent of what the UI shows.
+`backend/data/documents/<doc_id>/chapters/<chapter_id>/regions/<region_id>.json` — disk truth for a region. Check `transcribed_at` and `transcription_md` here to verify whether the data actually changed, independent of what the UI shows. `continues_to` (cross-page chain pointer) and `references` (an exercises region's cited reading passages) live here too.
 
 ### Central vocab/grammar store
 `backend/data/store/vocab.jsonl` and `grammar.jsonl` — append-only, one JSON
@@ -447,6 +447,13 @@ The breakdown and exercise-completion jobs read the source region from disk and 
 - Check the job log line `breakdown_job_start` / `exercise_completion_job_start` for the correlation id, then `llm_audit.YYYY-MM.jsonl` for the call — the `prompt_hash` differs from the single-region call if the chain was built. (For deeper debugging, the prompt itself isn't logged, but you can replay locally: load the source region, call `region_chain.resolve_chain` + `combined_transcription`, and compare.)
 - Per-region transcription is *not* combined — that's by design; only breakdown and exercise completion use the chain.
 - The combined text is concatenated with a blank-line separator only — no `(continues on page N)` marker is injected. That marker used to be there but leaked into prompts and tool output as if it were content; the page boundary is now a frontend rendering concern.
+
+### Exercise completion ignores the reading (explanation says "The reading was not provided")
+Comprehension questions only see a reading printed elsewhere if the exercises region cites it via **Reading references** (Phase 2.5, `docs/exercise-references-plan.md`). The `question` shape's explanation starts with "The reading was not provided" when the prompt had no reading to draw on. Check, in order:
+- The references are on the **chain head**: `backend/data/documents/<doc>/chapters/<ch>/regions/<head>.json` → `references` should list `{doc_id, chapter_id, region_id}` entries. Completions run from the head, and the PUT endpoint refuses a continuation region (409), so references on a tail can't happen through the API.
+- The job saw them: the `exercise_completion_job_start` log line carries `reference_count`. A count lower than the stored list means some targets were skipped — look for `reference_missing` (target doc/chapter/region gone, e.g. the reading region was deleted or moved to another chapter) or `reference_untranscribed` (target has no `transcription_md` yet) warnings from `studious.services.region_reference` with the same correlation id. Neither fails the job; references are supplementary context.
+- The chapter view marks the same conditions: a red "Missing" entry or a "not transcribed" badge in the Reading references list. Transcribe the reading, or reopen the picker and Save (which drops missing entries), then regenerate the completion.
+- To see the exact text the model got, replay locally: `region_reference.combined_reference_text(region_reference.resolve_references(doc, ch, head))`.
 
 ### Sentence breakdown pane stuck on "Loading…" forever, reload doesn't help
 The breakdown job and the API both completed fine — check `data/jobs/<id>.json`

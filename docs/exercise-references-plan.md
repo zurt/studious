@@ -1,10 +1,11 @@
 # Exercise Reading References
 
-**Status:** Planned 2026-09-15, not yet built. Implements the Phase 2.5
-roadmap item: let an `exercises` region cite the reading passage(s) it
-depends on, so exercise-completion generation has the context it needs
-even when that reading lives on other pages or in another textbook
-entirely.
+**Status:** Planned 2026-09-15; built 2026-09-29 as **beta** (see
+"As built" at the end for where the implementation departs from this
+plan). Implements the Phase 2.5 roadmap item: let an `exercises` region
+cite the reading passage(s) it depends on, so exercise-completion
+generation has the context it needs even when that reading lives on
+other pages or in another textbook entirely.
 
 ## Goal
 
@@ -151,3 +152,47 @@ promoting out of beta.
 - Including the chapter's grammar guide as completion context (tracked
   separately under Phase 2.3's deferred list) — related but distinct
   from citing a reading passage.
+
+## As built (2026-09-29)
+
+Differences from the plan above, and decisions it left open:
+
+- **One label per passage, not per region.** `combined_reference_text`
+  groups *consecutive* references from the same chapter with the same
+  region label under a single `[Source: <doc> — chapter "<title>",
+  pp.A–B]` line, joining their text with a blank line like
+  `region_chain.combined_transcription`. The motivating case (第5課 of
+  生きた素材で学ぶ) is one reading split into six regions over pp.81–82,
+  broken mid-sentence at the page turn; a label per region would have
+  landed inside that sentence — the same leak that got `continues_to`'s
+  inline page markers removed. A chapter or label change starts a new
+  labeled block, so distinct cited passages stay separable.
+- **References live on the exercises chain head.** Completions run from
+  the head of a `continues_to` chain, so the endpoint 409s on a
+  continuation region (matching the breakdown/completion endpoints).
+  The chapter view shows the head's references for any region of the
+  chain and edits the head's list.
+- **No chain expansion.** A reference is exactly the region it names;
+  referencing a `reading_passage` chain head does not pull in its
+  `continues_to` tail. The picker's per-page "Add all" keeps picking
+  every region of a multi-region reading cheap.
+- **Duplicates are dropped** by the endpoint (first position wins), and
+  **missing targets are dropped on save** by the picker (the endpoint
+  404s on unknown targets, so a stale entry would otherwise block every
+  edit). Until then a stale entry renders as "Missing" and is skipped at
+  completion time.
+- **New `question` exercise shape.** The completion prompt only knew
+  fill-in (`open`) and closed-set (`constrained`) items; the
+  comprehension questions this feature exists for (「〜とは何ですか。」,
+  「筆者は〜と述べていますか。」) fit neither and risked `no_exercise`.
+  `question` returns a model answer (not repeating the question), an
+  English translation, an explanation quoting the deciding phrase from
+  the reading, empty `filled_text`, and `examples: []` (accepted without
+  the malformed-response retry). If the reading wasn't provided, the
+  explanation says so ("The reading was not provided…"), which doubles
+  as a hint to add references. `constrained` also gained a
+  multiple-choice case (`answer` = the chosen option as printed).
+- **Frontend**: the References section is its own block between the
+  region cards and the transcription (`#region-references`), not part of
+  the transcription pane; picker candidates are sorted in reading order
+  (page, then top edge) and grouped by page.

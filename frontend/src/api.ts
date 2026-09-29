@@ -69,8 +69,14 @@ export type Region = {
   transcribed_at?: string | null;
   transcribed_model?: string | null;
   continues_to?: string | null;
+  // exercises regions only: ordered reading_passage regions (any chapter or
+  // document) sent as context to exercise completion. Absent on regions
+  // created before references existed.
+  references?: RegionReference[];
   created_at: string;
 };
+
+export type RegionReference = { doc_id: string; chapter_id: string; region_id: string };
 
 export type BreakdownVocab = { word: string; reading?: string; meaning: string };
 export type BreakdownGrammar = { pattern: string; explanation: string };
@@ -418,6 +424,19 @@ export async function linkRegion(
   );
 }
 
+/** Replace an exercises region's reading references (whole-list semantics). */
+export async function setRegionReferences(
+  docId: string,
+  chapterId: string,
+  regionId: string,
+  references: RegionReference[],
+): Promise<Region> {
+  return jput(
+    `/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/references`,
+    { references },
+  );
+}
+
 export async function moveRegion(
   docId: string,
   srcChapterId: string,
@@ -474,9 +493,10 @@ export type ExerciseCompletionEntry = {
   answer: string;
   answer_english?: string;
   explanation?: string;
-  // "constrained" (word bank / inline choice) items come back with an empty
-  // `examples` by design — that's not a sign of a malformed response.
-  exercise_type?: "open" | "constrained";
+  // "constrained" (word bank / inline choice) and "question" (comprehension
+  // or discussion question) items come back with an empty `examples` by
+  // design — that's not a sign of a malformed response.
+  exercise_type?: "open" | "constrained" | "question";
   // Verbatim substring of `answer` that fills the blank, for highlighting.
   // Empty for transformation-type answers with no single blank.
   filled_text?: string;

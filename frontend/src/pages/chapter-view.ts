@@ -1,8 +1,8 @@
 import {
   getDocument, getChapter, pageImageUrl,
   createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream, linkRegion,
-  requestGrammarGuide, getStoreCoverage, bulkPrepareChapter,
-  type DocMeta, type Chapter, type Region,
+  requestGrammarGuide, getStoreCoverage, bulkPrepareChapter, setRegionReferences,
+  type DocMeta, type Chapter, type Region, type RegionReference,
 } from "../api";
 import { on, STORE_STATUS_CHANGED } from "../modules/events";
 import { generateCorrelationId, info, error as logError } from "../logger";
@@ -17,6 +17,9 @@ import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, 
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { renderMarkdown } from "../modules/markdown";
+import {
+  createReferenceResolver, openReferencePicker, renderReferenceLabel, type ReferenceInfo,
+} from "../modules/reference-picker";
 
 const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
 
@@ -91,6 +94,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         <div class="pane left" id="left-pane"></div>
         <div class="pane" id="right-pane">
           <div id="region-list-container"></div>
+          <div id="region-references" class="region-references" style="display:none"></div>
           <div id="region-detail" class="region-detail"></div>
           <div id="breakdown-pane" class="breakdown-pane"></div>
         </div>
@@ -119,6 +123,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const leftPane = container.querySelector<HTMLElement>("#left-pane")!;
   const regionListContainer = container.querySelector<HTMLElement>("#region-list-container")!;
   const regionDetail = container.querySelector<HTMLElement>("#region-detail")!;
+  const referencesPane = container.querySelector<HTMLElement>("#region-references")!;
+  const referenceResolver = createReferenceResolver();
+  let referencesToken = 0;
   const breakdownPane = container.querySelector<HTMLElement>("#breakdown-pane")!;
   let breakdownDestroy: (() => void) | null = null;
   let breakdownMountKey: string | null = null;
@@ -875,9 +882,113 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     }
   }
 
+  // Walk continues_to pointers backwards to the region a chain starts from.
+  function chainHeadOf(region: Region): Region {
+    let cur = region;
+    const seen = new Set([region.id]);
+    for (;;) {
+      const prev = regions.find((r) => r.continues_to === cur.id);
+      if (!prev || seen.has(prev.id)) return cur;
+      seen.add(prev.id);
+      cur = prev;
+    }
+  }
+
+  // Reading references live on the exercises chain head (where completions
+  // run from); selecting any piece of the chain shows and edits the head's.
+  function renderReferences(region: Region | undefined) {
+    const token = ++referencesToken;
+    const head = region ? chainHeadOf(region) : null;
+    if (!region || !head || head.tag !== "exercises") {
+      referencesPane.style.display = "none";
+      referencesPane.innerHTML = "";
+      return;
+    }
+    const refs = head.references || [];
+    referencesPane.style.display = "";
+    referencesPane.innerHTML = `
+      <div class="region-references-header">
+        <span>Reading references</span>
+        <button type="button" class="region-references-edit">${refs.length ? "Edit…" : "Add…"}</button>
+      </div>
+    `;
+    referencesPane.querySelector<HTMLButtonElement>(".region-references-edit")!
+      .addEventListener("click", () => void editReferences(head));
+    if (head.id !== region.id) {
+      const note = document.createElement("p");
+      note.className = "region-references-note";
+      note.textContent = `Shared with the exercises this continues from on p.${head.page}.`;
+      referencesPane.appendChild(note);
+    }
+    if (refs.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "region-references-note";
+      empty.textContent = "None. Add the reading passages these exercises ask about so completions can use them.";
+      referencesPane.appendChild(empty);
+      return;
+    }
+    const list = document.createElement("ol");
+    list.className = "region-references-list";
+    referencesPane.appendChild(list);
+    const here = { docId, chapterId };
+    // Same-chapter targets label straight from `regions` (always current);
+    // others come from the resolver's cache, fetched on first sight.
+    const known = (ref: RegionReference): ReferenceInfo | undefined =>
+      ref.doc_id === docId && ref.chapter_id === chapterId
+        ? { ref, region: regions.find((r) => r.id === ref.region_id) ?? null, docName: doc?.name ?? "", chapterTitle: chapter?.title ?? "" }
+        : referenceResolver.peek(ref);
+    const fill = () => {
+      list.innerHTML = "";
+      for (const ref of refs) {
+        const info = known(ref);
+        const li = document.createElement("li");
+        if (!info) {
+          li.textContent = "Loading…";
+        } else if (info.region) {
+          const link = document.createElement("a");
+          link.href = "#";
+          link.title = "Go to this reading";
+          link.appendChild(renderReferenceLabel(info, here));
+          link.addEventListener("click", (e) => {
+            e.preventDefault();
+            if (ref.doc_id === docId && ref.chapter_id === chapterId) jumpToRegion(ref.region_id);
+            else navigate(`/doc/${ref.doc_id}/chapter/${ref.chapter_id}?page=${info.region!.page}&region=${ref.region_id}`);
+          });
+          li.appendChild(link);
+        } else {
+          li.appendChild(renderReferenceLabel(info, here));
+        }
+        list.appendChild(li);
+      }
+    };
+    fill();
+    const pending = refs.filter((ref) => !known(ref));
+    if (pending.length) {
+      void Promise.all(pending.map((ref) => referenceResolver.resolve(ref))).then(() => {
+        if (token === referencesToken) fill();
+      });
+    }
+  }
+
+  async function editReferences(head: Region) {
+    const result = await openReferencePicker({ docId, chapterId, initial: head.references || [] });
+    if (!result) return;
+    try {
+      const updated = await setRegionReferences(docId, chapterId, head.id, result);
+      const idx = regions.findIndex((r) => r.id === head.id);
+      if (idx >= 0) regions[idx] = { ...regions[idx], references: updated.references ?? result };
+      info("ChapterView", "references_saved", { region_id: head.id, count: result.length });
+      refreshRegionUI();
+    } catch (e: any) {
+      logError("ChapterView", "references_save_failed", { region_id: head.id, error: e.message });
+      toastError("Failed to save references: " + e.message);
+    }
+  }
+
   function renderDetail() {
     const region = regions.find((r) => r.id === selectedRegionId);
     syncBreakdownPane(region);
+    renderReferences(region);
     if (!region) {
       regionDetail.innerHTML = "";
       return;

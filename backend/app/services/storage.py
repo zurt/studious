@@ -248,6 +248,7 @@ def create_region(
         "transcribed_at": None,
         "transcribed_model": None,
         "continues_to": None,
+        "references": [],
         "created_at": _now_iso(),
     }
     _atomic_write_text(

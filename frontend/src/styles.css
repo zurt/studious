@@ -359,6 +359,66 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .pane-info-btn:hover { color: var(--text); background: var(--hover-bg, rgba(127,127,127,0.15)); }
 .pane-info-btn[aria-pressed="true"] { color: var(--accent); }
 
+/* Reading references (exercises regions) */
+.region-references { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.region-references-header {
+  font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px;
+}
+.region-references-edit { font-size: 12px; padding: 3px 10px; text-transform: none; font-weight: 400; }
+.region-references-note { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+.region-references-list { margin: 0; padding-left: 22px; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.region-references-list a { color: inherit; }
+.region-references-list a:hover .reference-what { color: var(--accent); }
+.reference-label { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; flex-wrap: wrap; }
+.reference-where { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.reference-what { overflow-wrap: anywhere; }
+.reference-untranscribed {
+  font-size: 10px; color: #b45309; border: 1px solid rgba(180,83,9,0.4);
+  border-radius: 4px; padding: 0 4px; white-space: nowrap;
+}
+.reference-label.is-missing { color: #d33; font-size: 12px; }
+
+.modal.reference-picker { width: min(880px, 94vw); }
+.reference-picker-intro { margin: 0; font-size: 13px; color: var(--muted); }
+.reference-picker-body {
+  display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 14px;
+  min-height: 0;
+}
+.reference-picker-browse, .reference-picker-selected { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.reference-picker-selects { display: flex; flex-direction: column; gap: 6px; }
+.reference-picker-selects select { width: 100%; min-width: 0; }
+.reference-picker-candidates, .reference-picker-tray {
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px;
+  max-height: 50vh; overflow: auto; margin: 0;
+}
+.reference-picker-page + .reference-picker-page { margin-top: 8px; }
+.reference-picker-page-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 11px; font-weight: 600; color: var(--muted); padding: 2px 4px;
+}
+.reference-picker-add-page { font-size: 11px; padding: 1px 8px; font-weight: 400; }
+.reference-picker-candidate {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
+  padding: 5px 8px; margin-top: 3px; font-size: 13px; background: var(--bg);
+}
+.reference-picker-candidate.is-selected { border-color: var(--accent); background: var(--bg-soft); }
+.reference-picker-mark { width: 12px; flex: none; color: var(--muted); font-weight: 600; }
+.reference-picker-candidate.is-selected .reference-picker-mark { color: var(--accent); }
+.reference-picker-selected-header { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; }
+.reference-picker-tray { padding-left: 28px; font-size: 13px; }
+.reference-picker-item { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.reference-picker-item:last-child { border-bottom: 0; }
+.reference-picker-item-row { display: flex; align-items: baseline; gap: 6px; }
+.reference-picker-item-row > .reference-label { flex: 1; }
+.reference-picker-item-actions { display: inline-flex; gap: 2px; flex: none; }
+.reference-picker-item-actions .icon-btn { font-size: 11px; padding: 1px 5px; line-height: 1.2; }
+.reference-picker-empty { color: var(--muted); font-size: 12px; margin: 4px; list-style: none; }
+@media (max-width: 640px) {
+  .reference-picker-body { grid-template-columns: minmax(0, 1fr); }
+  .reference-picker-candidates, .reference-picker-tray { max-height: 32vh; }
+}
+
 /* Collapsible panes */
 .pane-collapsible-header { cursor: pointer; user-select: none; }
 .pane-collapsible-header:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }

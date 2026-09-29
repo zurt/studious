@@ -24,6 +24,7 @@ from .services import (
     llm_audit,
     pdf,
     region_chain,
+    region_reference,
     storage,
 )
 from .services.preferences import get_active_vlm_model
@@ -769,6 +770,10 @@ class JobManager:
             if chain
             else (job.get("region_transcription") or "")
         )
+        # Cited reading passages (possibly from other chapters/documents)
+        # live on the chain head — the region this job runs from.
+        references = region_reference.resolve_references(doc_id, chapter_id, region_id)
+        reference_text = region_reference.combined_reference_text(references)
         provider_name: str = job["provider"]
         config: dict[str, Any] = job.get("config", {}) or {}
         prompt: str = job.get("prompt", "")
@@ -781,6 +786,7 @@ class JobManager:
             "chapter_id": chapter_id,
             "region_id": region_id,
             "sentence_index": sentence_index,
+            "reference_count": len(references),
         }
         audit_ctx = {
             "doc_id": doc_id,
@@ -803,8 +809,13 @@ class JobManager:
             if region_transcription
             else ""
         )
+        reference_block = (
+            f"<reading_reference>\n{reference_text}\n</reading_reference>\n\n"
+            if reference_text
+            else ""
+        )
         full_prompt = (
-            f"{prompt}\n\n{context_block}"
+            f"{prompt}\n\n{context_block}{reference_block}"
             f"<target_sentence>\n{sentence_text}\n</target_sentence>"
         )
 
@@ -812,8 +823,9 @@ class JobManager:
         # finishes cleanly (stop_reason=tool_use) yet omits `answer` — low-rate
         # and not tied to output length. For `exercise_type: "open"` it can
         # also send an empty `examples` when it meant to include three; for
-        # `exercise_type: "constrained"` (a word-bank or inline-choice item —
-        # see EXERCISE_COMPLETION_PROMPT) an empty `examples` is the correct,
+        # `exercise_type: "constrained"` (a word-bank or inline-choice item)
+        # or `"question"` (a comprehension/discussion question — see
+        # EXERCISE_COMPLETION_PROMPT) an empty `examples` is the correct,
         # intentional shape, not a sign of malformed output. The schema can't
         # force any of this (a forced tool call isn't strict-validated), so we
         # retry once on genuinely malformed output; the resend almost always
@@ -866,11 +878,11 @@ class JobManager:
             answer = result.tool_input.get("answer")
             examples = result.tool_input.get("examples")
             exercise_type = result.tool_input.get("exercise_type")
-            # A `constrained` item is expected to come back with `examples: []`
-            # (see EXERCISE_COMPLETION_PROMPT); only an `open` item — or a
-            # response that never declared its type — needs a non-empty list
-            # to count as well-formed.
-            examples_ok = exercise_type == "constrained" or (
+            # A `constrained` or `question` item is expected to come back with
+            # `examples: []` (see EXERCISE_COMPLETION_PROMPT); only an `open`
+            # item — or a response that never declared its type — needs a
+            # non-empty list to count as well-formed.
+            examples_ok = exercise_type in ("constrained", "question") or (
                 isinstance(examples, list) and examples
             )
             if answer and examples_ok:

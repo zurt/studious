@@ -69,7 +69,15 @@ Open <http://localhost:5173>.
    continuation. The chain is followed at sentence-breakdown and
    exercise-completion time so the VLM sees the combined text. Per-region
    transcription is unchanged. Press Esc to cancel.
-8. **Prepare a whole chapter** (beta — not yet exercised on a live
+8. **Cite readings from exercises** (beta) — when an exercises region
+   asks about a reading printed elsewhere (comprehension questions on
+   the chapter's main text, or a passage in another textbook), select
+   it and use **Reading references → Add…** to pick the
+   `reading_passage` regions it depends on, from any document or
+   chapter, in reading order. Exercise completion then gets that text
+   as context, and comprehension or discussion questions come back as a
+   model answer with an explanation pointing into the reading.
+9. **Prepare a whole chapter** (beta — not yet exercised on a live
    chapter) — the chapter view's **Prepare chapter…** button is a
    one-click alternative to steps 4 and 6: it
    transcribes every untranscribed region, then breaks down every
@@ -77,14 +85,14 @@ Open <http://localhost:5173>.
    targets), as a single queued job with live per-region progress. A
    confirm dialog shows the counts before anything is billed, and one
    region failing doesn't stop the rest of the chapter.
-9. **Generate a chapter grammar guide** — once a chapter's
+10. **Generate a chapter grammar guide** — once a chapter's
    `grammar_points` regions are transcribed, the chapter view shows
    a button that produces a structured study guide (one entry per
    pattern, with Meaning / Form / Examples / Related sections). The
    guide opens in its own view with regenerate and copy-as-markdown
    buttons; if a source region is re-transcribed afterward, the guide
    shows a "source changed" banner until you regenerate.
-10. **Review the central vocab/grammar store** — every vocab-list
+11. **Review the central vocab/grammar store** — every vocab-list
    transcription and sentence breakdown automatically harvests its
    vocab and grammar into a cross-textbook store (deduped by
    headword+reading / normalized pattern, with per-occurrence
@@ -98,7 +106,7 @@ Open <http://localhost:5173>.
    sentence breakdowns (each word's popover gets an in-store status
    toggle), and the chapter view shows a "Vocab N/M known" coverage
    chip. See `docs/vocab-store-plan.md` for the Phase 3 design.
-11. **Study with built-in flashcards** — the **Study** topbar link runs a
+12. **Study with built-in flashcards** — the **Study** topbar link runs a
     spaced-repetition session over everything marked **active** in the
     store. Vocab gets a word→meaning card plus a sentence-context card
     built from a real textbook sighting; grammar patterns get a

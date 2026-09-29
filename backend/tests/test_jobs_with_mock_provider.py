@@ -742,6 +742,105 @@ async def test_exercise_completion_job_fails_after_retry_exhausted(isolated_data
     assert [e["status"] for e in entries] == ["error", "error"]
 
 
+_VALID_QUESTION_COMPLETION = {
+    "exercise_type": "question",
+    "answer": "自分では健康だと思っているが、健康を気にしすぎて心が蝕(むしば)まれている状態。",
+    "answer_english": "A state where you think you're healthy but worrying about health is eating away at you.",
+    "explanation": "The reading defines it: 「本人は病気とは思っていない」.",
+    "filled_text": "",
+    "examples": [],
+}
+
+
+def _submit_exercise_completion(mgr: JobManager, doc_id: str, chapter_id: str, region_id: str, provider: str):
+    return mgr.submit(
+        {
+            "job_type": "exercise_completion",
+            "doc_id": doc_id,
+            "chapter_id": chapter_id,
+            "region_id": region_id,
+            "sentence_index": 0,
+            "sentence_text": "(1)「健康病」とは何ですか。",
+            "region_transcription": "(1)「健康病」とは何ですか。",
+            "engine": "vlm",
+            "provider": provider,
+            "config": {"model": "mock-model", "max_tokens": 8192},
+            "prompt": "EXERCISE_COMPLETION_PROMPT",
+            "tool_name": "record_exercise_completion",
+            "tool_schema": {"type": "object"},
+        }
+    )
+
+
+async def test_exercise_completion_job_accepts_empty_examples_for_question_type(isolated_data_dir):
+    # A comprehension/discussion question has no alternative completions —
+    # `examples: []` is correct and must not trigger the malformed retry.
+    mock = _MockBreakdownVlm(tool_input=_VALID_QUESTION_COMPLETION, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-question-ok", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = _submit_exercise_completion(mgr, meta["id"], chapter_id, region_id, "mock-exercise-question-ok")
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    assert len(mock.calls) == 1
+    entry = storage.load_exercise_completion(meta["id"], chapter_id, region_id)["completions"]["0"]
+    assert entry["exercise_type"] == "question"
+    assert entry["answer"] == _VALID_QUESTION_COMPLETION["answer"]
+    assert entry["examples"] == []
+
+
+async def test_exercise_completion_prompt_includes_reading_reference_only_when_set(isolated_data_dir):
+    mock = _MockBreakdownVlm(tool_input=_VALID_QUESTION_COMPLETION, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-refs", lambda: mock)
+
+    meta = _make_doc_with_pages(2)
+    ch = storage.create_chapter(meta["id"], title="第5課", page_start=1, page_end=2)
+    reading = storage.create_region(
+        meta["id"], ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage"
+    )
+    storage.update_region(
+        meta["id"], ch["id"], reading["id"], transcription_md="健康病が心身をむしばむ"
+    )
+    ex = storage.create_region(meta["id"], ch["id"], page=2, bbox=[0, 0, 1, 1], tag="exercises")
+    storage.update_region(
+        meta["id"], ch["id"], ex["id"], transcription_md="(1)「健康病」とは何ですか。"
+    )
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = _submit_exercise_completion(mgr, meta["id"], ch["id"], ex["id"], "mock-exercise-refs")
+        assert (await _wait_for_terminal(job["id"]))["status"] == "completed"
+
+        storage.update_region(
+            meta["id"], ch["id"], ex["id"],
+            references=[{"doc_id": meta["id"], "chapter_id": ch["id"], "region_id": reading["id"]}],
+        )
+        job = _submit_exercise_completion(mgr, meta["id"], ch["id"], ex["id"], "mock-exercise-refs")
+        assert (await _wait_for_terminal(job["id"]))["status"] == "completed"
+    finally:
+        await mgr.stop()
+
+    without_refs, with_refs = mock.calls[0][0], mock.calls[1][0]
+    assert "</reading_reference>" not in without_refs
+    assert (
+        "</region_transcription>\n\n"
+        "<reading_reference>\n"
+        "[Source: dummy.pdf — chapter \"第5課\", p.1]\n"
+        "健康病が心身をむしばむ\n"
+        "</reading_reference>\n\n"
+        "<target_sentence>"
+    ) in with_refs
+
+
 async def test_breakdown_job_fails_when_region_has_no_transcription(isolated_data_dir):
     mock = _MockBreakdownVlm(tool_input={"sentences": [{"text": "x", "gloss": "y"}]})
     registry.register_vlm("mock-breakdown-notx", lambda: mock)
