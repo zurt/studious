@@ -403,8 +403,8 @@ says) and call `record_exercise_completion` with:
 - answer: the completed sentence, in Japanese, with the printed
   portions of `<target_sentence>` preserved VERBATIM — copy them
   character-for-character, including punctuation and ordering. Fill in
-  only the one chosen bank entry or inline candidate. Include furigana
-  on uncommon kanji as `漢字(かな)`. For a multiple-choice question
+  only the one chosen bank entry or inline candidate. Add readings as
+  described in `<readings>`. For a multiple-choice question
   (case c), `answer` is instead just the chosen option exactly as
   printed (e.g. `c. これは病気だ`), and `filled_text` is that same
   string.
@@ -436,8 +436,8 @@ If the exercise is a `question`, answer it and call
   relevant content in your own words rather than copying a long
   stretch verbatim, unless the question asks for a quotation. For a
   question about the student's own opinion or experience, write a
-  plausible first-person sample answer. Include furigana on uncommon
-  kanji as `漢字(かな)`.
+  plausible first-person sample answer. Add readings as described in
+  `<readings>`.
 - answer_english: a concise English translation of the answer.
 - explanation: one or two sentences in English. For a comprehension
   question, point to where the answer comes from in the reading,
@@ -457,8 +457,8 @@ practiced, and look at sibling items) and call
 - answer: the completed sentence with the blank filled in, in Japanese.
   Preserve the printed portions of the target sentence VERBATIM —
   copy them character-for-character from `<target_sentence>`, including
-  punctuation and ordering. Fill ONLY the blank(s). Include furigana on
-  uncommon kanji as `漢字(かな)`. If the exercise is a transformation
+  punctuation and ordering. Fill ONLY the blank(s). Add readings as
+  described in `<readings>`. If the exercise is a transformation
   rather than a blank, give the transformed sentence.
 - answer_english: a concise English translation of the completed answer
   sentence above.
@@ -482,8 +482,8 @@ practiced, and look at sibling items) and call
   appropriate, slightly richer alternative completions that show
   different ways the blank could be filled while keeping the rest of
   the sentence unchanged. Each example object has:
-    - japanese: the completed sentence, with furigana on uncommon
-      kanji as `漢字(かな)`. The portions outside the blank must match
+    - japanese: the completed sentence, with readings as described in
+      `<readings>`. The portions outside the blank must match
       `<target_sentence>` verbatim.
     - reading: the full sentence written in kana (hiragana/katakana
       only — no kanji). For sentences that are already kana-only, just
@@ -501,6 +501,28 @@ If the input is NOT an exercise, call the tool with:
 Do NOT invent an exercise that is not present. Omit `answer`,
 `exercise_type`, `filled_text`, and `examples` in this case.
 </task>
+
+<readings>
+The app shows the learner the reading of every kanji word, hidden until
+they tap it, so it needs a reading for EVERY word that contains kanji —
+in `answer`, in each example's `japanese`, and in any Japanese you quote
+inside `explanation`. Write the reading in hiragana, in half-width
+parentheses, right after the kanji it reads: 健康病(けんこうびょう),
+自分(じぶん)の言葉(ことば), 食(た)べる, 無視(むし)する.
+- Okurigana and other kana stay outside the parentheses: 食(た)べる,
+  not 食べる(たべる).
+- Every kanji needs a reading. Annotate each word, or a whole run of
+  kanji at once — 健康(けんこう)第一(だいいち) or
+  健康第一(けんこうだいいち) — but never leave kanji right before an
+  annotated word bare (not 健康第一(だいいち)).
+- Use the reading that fits this context: 何(なに) vs 何(なん),
+  一日(いちにち) vs 一日(ついたち).
+- Readings are the one permitted addition to text that must otherwise
+  be copied verbatim: printed text from `<target_sentence>` with
+  `(かな)` inserted after its kanji still counts as verbatim, and
+  `filled_text` includes the readings exactly as they appear in
+  `answer`.
+</readings>
 
 <rules>
 - If the exercise has multiple blanks, fill all of them. `filled_text`

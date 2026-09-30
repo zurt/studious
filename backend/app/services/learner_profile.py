@@ -73,9 +73,6 @@ def _profile_block(profile: dict[str, Any]) -> str:
         "what is new.\n"
         "- For an `open` exercise, keep the first example at the learner's "
         "level; later examples may use the stretch.\n"
-        '- Wherever these instructions say "uncommon kanji", read it as '
-        f"kanji above {level}: add furigana to those, not to kanji the "
-        "learner should already know.\n"
         "</learner_profile>\n"
     )
 

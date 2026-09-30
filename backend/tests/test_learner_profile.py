@@ -39,7 +39,6 @@ def test_level_block_names_level_stretch_and_note():
     assert "JLPT N3" in block
     assert 'Their own note: "writing closer to N4".' in block
     assert "one step above it (N2)" in block
-    assert "kanji above N3" in block
     assert text.rstrip().endswith("</learner_profile>")
 
 
@@ -54,3 +53,12 @@ def test_current_normalizes_saved_values(isolated_data_dir):
     assert profile["answer_length"] == "brief"
     assert len(profile["note"]) == learner_profile.MAX_NOTE_LENGTH
     assert learner_profile.example_count(profile) == 2
+
+
+def test_prompt_asks_for_a_reading_on_every_kanji_word():
+    # The UI hides readings until tapped, so the prompt must request them
+    # everywhere — not only on kanji the model judges uncommon.
+    text = _render(level="N4")
+    assert "<readings>" in text
+    assert "EVERY word that contains kanji" in text
+    assert "uncommon kanji" not in text

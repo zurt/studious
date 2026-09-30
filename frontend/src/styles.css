@@ -348,6 +348,18 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 .text-size-toggle .text-size-btn:hover { background: var(--bg-soft); color: var(--fg); }
 .text-size-toggle .text-size-btn.active { background: var(--accent); color: #fff; }
 
+/* Furigana (modules/furigana.ts): the mode lives on <html data-furigana>. */
+ruby.furi rt { color: var(--muted); font-weight: 400; }
+html[data-furigana="hidden"] ruby.furi { cursor: pointer; }
+/* Veiled: a faint bar where the reading sits, so tappable words are visible. */
+html[data-furigana="hidden"] ruby.furi:not(.is-revealed) rt {
+  color: transparent; background: rgba(127, 127, 127, 0.22); border-radius: 2px;
+}
+html[data-furigana="off"] ruby.furi rt { display: none; }
+/* Whole-line readings (an example's kana line) blur until tapped. */
+html[data-furigana="hidden"] .furi-reveal:not(.is-revealed) { filter: blur(4px); cursor: pointer; user-select: none; }
+.furigana-toggle .furigana-mode-btn { font-size: 11px; font-weight: 500; }
+
 .markdown.text-size-2 { font-size: 150%; }
 .markdown.text-size-2 h1, .markdown.text-size-2 h2, .markdown.text-size-2 h3 { font-size: inherit; }
 .markdown.text-size-3 { font-size: 200%; }

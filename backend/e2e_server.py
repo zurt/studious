@@ -72,10 +72,11 @@ MOCK_GRAMMAR_GUIDE: dict[str, Any] = {
 
 MOCK_EXERCISE_COMPLETION: dict[str, Any] = {
     "exercise_type": "open",
-    "answer": "私は日本語を勉強しています。",
+    # Readings on every kanji word, as EXERCISE_COMPLETION_PROMPT asks.
+    "answer": "私(わたし)は日本語(にほんご)を勉強(べんきょう)しています。",
     "answer_english": "I am studying Japanese.",
     "explanation": "Mock completion: the blank takes the て-form plus います.",
-    "filled_text": "勉強しています",
+    "filled_text": "勉強(べんきょう)しています",
     "examples": [
         {
             "japanese": "私は日本語を勉強しています。",

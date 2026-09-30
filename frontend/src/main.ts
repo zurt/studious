@@ -7,6 +7,7 @@ import { mountGrammarGuide } from "./pages/grammar-guide";
 import { mountVocabDashboard, mountGrammarDashboard } from "./pages/study-dashboard";
 import { mountStudySession } from "./pages/study-session";
 import { openSettingsModal, syncSettingsModalFromUrl } from "./modules/settings-modal";
+import { initFurigana } from "./modules/furigana";
 import {
   openShortcutsHelp,
   closeShortcutsHelp,
@@ -104,6 +105,8 @@ document.addEventListener("keydown", (e) => {
   if (isShortcutsHelpOpen()) closeShortcutsHelp();
   else openShortcutsHelp();
 });
+
+initFurigana();
 
 const pageContainer = root.querySelector<HTMLElement>("#page-container")!;
 

@@ -224,10 +224,24 @@ test("completing an exercise renders the answer and example sentences", async ({
 
   await bdCard.locator("[data-completion-gen]").click();
   const completion = bdCard.locator(".exercise-completion");
-  await expect(completion.locator(".exercise-completion-answer")).toContainText(
-    "私は日本語を勉強しています。",
+  const answer = completion.locator(".exercise-completion-answer");
+  await expect(answer).toContainText(
+    "私(わたし)は日本語(にほんご)を勉強(べんきょう)しています。",
     { timeout: 15_000 },
   );
+
+  // Readings render as furigana, veiled by default; tapping a word reveals
+  // just that one, and the pane's Show toggle reveals them all.
+  const rubies = answer.locator("ruby.furi");
+  await expect(rubies).toHaveCount(3);
+  await expect(page.locator("html")).toHaveAttribute("data-furigana", "hidden");
+  await rubies.nth(1).click();
+  await expect(rubies.nth(1)).toHaveClass(/is-revealed/);
+  await expect(rubies.nth(0)).not.toHaveClass(/is-revealed/);
+  await pane.locator('.furigana-toggle [data-furigana-mode="shown"]').click();
+  await expect(page.locator("html")).toHaveAttribute("data-furigana", "shown");
+  // The filled-in blank keeps its reading inside the highlight.
+  await expect(answer.locator("mark.exercise-completion-fill ruby.furi")).toHaveCount(1);
   await expect(completion).toContainText("Mock completion: the blank takes the て-form plus います.");
   await expect(completion.locator(".exercise-completion-example")).toHaveCount(3);
   await expect(completion.locator(".exercise-completion-example.is-primary")).toContainText(

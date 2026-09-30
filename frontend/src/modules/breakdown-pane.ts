@@ -9,6 +9,7 @@ import {
 import { emit, on, STORE_STATUS_CHANGED, type StoreStatusChange } from "./events";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
+import { createFuriganaToggle, furiganaHtml, furiganaUnits, snapToUnits } from "./furigana";
 import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "./collapsible";
 import { makeCopyButton, ICON_REDO } from "./region-list";
 
@@ -319,14 +320,17 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   // Highlights the filled-in span within an exercise-completion answer,
   // found by a plain substring search against `filled_text` (see
   // highlightFillMarkdown above for why this is a substring, not an offset).
+  // The answer renders with furigana; the highlight is widened to whole
+  // reading units so a fill like 仕上 isn't cut off from its (しあ).
   function highlightFillHtml(answer: string, filledText?: string): string {
-    if (!filledText) return escapeHtml(answer);
+    if (!filledText) return furiganaHtml(answer);
     const i = answer.indexOf(filledText);
-    if (i < 0) return escapeHtml(answer);
+    if (i < 0) return furiganaHtml(answer);
+    const [a, b] = snapToUnits(furiganaUnits(answer), i, i + filledText.length);
     return (
-      escapeHtml(answer.slice(0, i))
-      + `<mark class="exercise-completion-fill">${escapeHtml(filledText)}</mark>`
-      + escapeHtml(answer.slice(i + filledText.length))
+      furiganaHtml(answer.slice(0, a))
+      + `<mark class="exercise-completion-fill">${furiganaHtml(answer.slice(a, b))}</mark>`
+      + furiganaHtml(answer.slice(b))
     );
   }
 
@@ -377,10 +381,10 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     if (entry) {
       const examples = (entry.examples || []).map((ex, ei) => `
         <li class="exercise-completion-example${ei === 0 ? " is-primary" : ""}">
-          <div class="exercise-completion-example-jp" lang="ja">${escapeHtml(ex.japanese)}</div>
-          <div class="exercise-completion-example-reading" lang="ja">${escapeHtml(ex.reading)}</div>
+          <div class="exercise-completion-example-jp" lang="ja">${furiganaHtml(ex.japanese)}</div>
+          <div class="exercise-completion-example-reading furi-reveal" lang="ja" title="Reading">${escapeHtml(ex.reading)}</div>
           <div class="exercise-completion-example-en">${escapeHtml(ex.english)}</div>
-          <div class="exercise-completion-example-note">${escapeHtml(ex.explanation)}</div>
+          <div class="exercise-completion-example-note">${furiganaHtml(ex.explanation)}</div>
         </li>`).join("");
       return `
         <div class="exercise-completion">
@@ -393,7 +397,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
           </div>
           <div class="exercise-completion-answer" lang="ja"><strong>Answer:</strong> ${highlightFillHtml(entry.answer, entry.filled_text)}</div>
           ${entry.answer_english ? `<div class="exercise-completion-answer-en">${escapeHtml(entry.answer_english)}</div>` : ""}
-          ${entry.explanation ? `<div class="exercise-completion-explanation">${escapeHtml(entry.explanation)}</div>` : ""}
+          ${entry.explanation ? `<div class="exercise-completion-explanation">${furiganaHtml(entry.explanation)}</div>` : ""}
           ${examples ? `<ol class="exercise-completion-examples">${examples}</ol>` : ""}
         </div>`;
     }
@@ -513,8 +517,10 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("");
 
     container.innerHTML = `
-      ${headerHtml(`${textSizeControlHtml()}<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
+      ${headerHtml(`<span class="furigana-toggle-slot"></span>${textSizeControlHtml()}<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
       <div class="breakdown-list">${cards}</div>`;
+
+    container.querySelector(".furigana-toggle-slot")?.replaceWith(createFuriganaToggle());
 
     const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
     if (copyAllSlot) {

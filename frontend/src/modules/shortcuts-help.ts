@@ -14,6 +14,8 @@ const GROUPS: Group[] = [
     items: [
       { keys: ["←"], desc: "Previous page" },
       { keys: ["→"], desc: "Next page" },
+      { keys: ["F"], desc: "Furigana: hidden (tap to reveal) → shown → off (chapter view)" },
+      { keys: ["L"], desc: "Link a continuation region (chapter view)" },
     ],
   },
   {
