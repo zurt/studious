@@ -18,7 +18,7 @@ import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { renderMarkdown } from "../modules/markdown";
 import { pageShortcutsSuppressed } from "../modules/shortcuts-help";
-import { cycleFuriganaMode } from "../modules/furigana";
+import { applyFurigana, createFuriganaToggle, cycleFuriganaMode } from "../modules/furigana";
 import {
   createReferenceResolver, openReferencePicker, renderReferenceLabel, type ReferenceInfo,
 } from "../modules/reference-picker";
@@ -1024,8 +1024,12 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       `;
       const detailActions = regionDetail.querySelector(".region-detail-actions");
       if (detailActions) {
+        detailActions.prepend(createFuriganaToggle());
         detailActions.appendChild(makeCopyButton(() => copyMd));
       }
+      // Textbook furigana arrive inline as 漢字(かな); render them as ruby.
+      const markdownEl = regionDetail.querySelector<HTMLElement>(".markdown");
+      if (markdownEl) applyFurigana(markdownEl);
       const infoBtn = regionDetail.querySelector<HTMLButtonElement>('.pane-info-btn[data-meta-toggle="transcription"]');
       const metaEl = regionDetail.querySelector<HTMLElement>('.region-detail-meta[data-meta-target="transcription"]');
       if (infoBtn && metaEl) {

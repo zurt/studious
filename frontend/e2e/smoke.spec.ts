@@ -96,6 +96,11 @@ test("drawing a region and transcribing it renders mock markdown", async ({ page
     timeout: 15_000,
   });
   await expect(page.locator("#region-detail")).toContainText("私(わたし)は日本語(にほんご)を");
+  // Inline readings render as furigana in the transcription pane too, with
+  // the pane's own mode toggle.
+  const detail = page.locator("#region-detail");
+  await expect(detail.locator(".markdown ruby.furi").first()).toBeVisible();
+  await expect(detail.locator(".furigana-toggle")).toHaveCount(1);
 });
 
 test("generating a sentence breakdown renders cards and vocab/grammar popovers", async ({ page }) => {
@@ -115,6 +120,10 @@ test("generating a sentence breakdown renders cards and vocab/grammar popovers",
   await expect(card.locator(".breakdown-text")).toContainText(
     "私(わたし)は日本語(にほんご)を勉強(べんきょう)しています。",
   );
+  // The sentence's readings render as furigana, including inside vocab
+  // links (which cover only the kanji in the raw text).
+  await expect(card.locator(".breakdown-text ruby.furi")).toHaveCount(3);
+  await expect(card.locator('.bd-link:has(ruby.furi)', { hasText: "日本語" })).toHaveCount(1);
 
   // The backend annotates vocab/grammar spans as inline links; clicking one
   // opens the popover with the matching entry.

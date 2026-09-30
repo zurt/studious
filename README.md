@@ -187,6 +187,16 @@ examples for fill-in items, *standard* one to three sentences and three
 examples, *detailed* fuller native-style answers. English explanations are
 the same at every setting.
 
+**Furigana.** Readings written inline as `漢字(かな)` — the textbook's own
+furigana in transcriptions, and a reading on every kanji word in exercise
+completions — render as furigana in the transcription pane, sentence
+breakdowns, and completions. By default each reading is veiled (a faint
+bar above the word) until you tap that word, so you try the reading first;
+the **Hide / Show / Off** toggle in the Transcription and Sentence
+breakdown headers (or `F` in the chapter view) switches to showing every
+reading or none. An example's full kana line blurs the same way. Tapping a
+vocab-linked word opens its popover, which already shows the reading.
+
 Prompt caching is placed where calls actually repeat: every tool call
 caches its fixed instructions, and exercise completions also cache the
 exercise block's transcription and reading references, so completing

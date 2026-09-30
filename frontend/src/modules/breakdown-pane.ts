@@ -336,34 +336,41 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
 
   function sentenceTextHtml(s: BreakdownSentence, sIdx: number): string {
     const text = s.text;
+    const units = furiganaUnits(text);
+    // Links usually cover a word's kanji but not the (かな) after it; widen
+    // each to whole reading units so the word still renders as ruby. The
+    // link keeps its original `start` for the popover lookup.
     const raw = (s.links || [])
       .filter((l) => (l.kind === "vocab" || l.kind === "grammar")
         && Number.isInteger(l.start) && Number.isInteger(l.end)
         && l.start >= 0 && l.end <= text.length && l.start < l.end)
-      .slice()
+      .map((l) => {
+        const [start, end] = snapToUnits(units, l.start, l.end);
+        return { l, start, end };
+      })
       .sort((a, b) => a.start - b.start);
-    const links: BreakdownLink[] = [];
+    const links: { l: BreakdownLink; start: number; end: number }[] = [];
     let cursor = 0;
-    for (const l of raw) {
-      if (l.start < cursor) continue;
-      links.push(l);
-      cursor = l.end;
+    for (const r of raw) {
+      if (r.start < cursor) continue;
+      links.push(r);
+      cursor = r.end;
     }
-    if (!links.length) return escapeHtml(text);
+    if (!links.length) return furiganaHtml(text);
     const out: string[] = [];
     let i = 0;
-    for (const l of links) {
-      if (l.start > i) out.push(escapeHtml(text.slice(i, l.start)));
-      const span = text.slice(l.start, l.end);
+    for (const { l, start, end } of links) {
+      if (start > i) out.push(furiganaHtml(text.slice(i, start)));
+      const span = text.slice(start, end);
       const v = l.kind === "vocab" ? s.vocab?.[l.index] : undefined;
       const key = v ? storeKey(v) : "";
       const known = v ? storeMatches.get(key)?.status === "known" : false;
       out.push(
-        `<button type="button" class="bd-link${known ? " bd-link-known" : ""}" data-s-idx="${sIdx}" data-kind="${l.kind}" data-idx="${l.index}" data-start="${l.start}"${v ? ` data-store-key="${escapeHtml(key)}"` : ""}>${escapeHtml(span)}</button>`,
+        `<button type="button" class="bd-link${known ? " bd-link-known" : ""}" data-s-idx="${sIdx}" data-kind="${l.kind}" data-idx="${l.index}" data-start="${l.start}"${v ? ` data-store-key="${escapeHtml(key)}"` : ""}>${furiganaHtml(span)}</button>`,
       );
-      i = l.end;
+      i = end;
     }
-    if (i < text.length) out.push(escapeHtml(text.slice(i)));
+    if (i < text.length) out.push(furiganaHtml(text.slice(i)));
     return out.join("");
   }
 

@@ -270,6 +270,13 @@ See `docs/breakdown-vocab-links-plan.md`.
       items one step above; brief = one short sentence for questions and
       two examples for `open` items (English explanations unaffected).
       Each saved entry records the `profile` it was generated with.
+- [x] Tap-to-reveal furigana (2026-09-29): completions now carry a
+      reading on every kanji word (the old "uncommon kanji" rule was
+      unreliable), and `漢字(かな)` renders as ruby in completions,
+      transcriptions and breakdown sentences. Global mode on
+      `<html data-furigana>`: hidden (default, tap a word to reveal),
+      shown, off — toggles in the pane headers and `F` in the chapter view.
+      Breakdown link spans are widened to keep a word with its reading.
 - [x] Prompt caching fixed (2026-09-29): the whole prompt used to be one
       cached block ending in the per-item target line, so every call wrote
       a fresh ~3.8k-token cache entry that was never read (109 writes /
