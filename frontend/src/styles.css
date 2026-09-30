@@ -355,7 +355,9 @@ html[data-furigana="hidden"] ruby.furi { cursor: pointer; }
 html[data-furigana="hidden"] ruby.furi:not(.is-revealed) rt {
   color: transparent; background: rgba(127, 127, 127, 0.22); border-radius: 2px;
 }
-html[data-furigana="off"] ruby.furi rt { display: none; }
+/* Off keeps the reading's space (visibility, not display) so cycling modes
+   never reflows the text or shifts the scroll position. */
+html[data-furigana="off"] ruby.furi rt { visibility: hidden; }
 /* Whole-line readings (an example's kana line) blur until tapped. */
 html[data-furigana="hidden"] .furi-reveal:not(.is-revealed) { filter: blur(4px); cursor: pointer; user-select: none; }
 .furigana-toggle .furigana-mode-btn { font-size: 11px; font-weight: 500; }

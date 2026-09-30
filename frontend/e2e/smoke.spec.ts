@@ -251,6 +251,18 @@ test("completing an exercise renders the answer and example sentences", async ({
   await expect(page.locator("html")).toHaveAttribute("data-furigana", "shown");
   // The filled-in blank keeps its reading inside the highlight.
   await expect(answer.locator("mark.exercise-completion-fill ruby.furi")).toHaveCount(1);
+
+  // Cycling modes must not move anything: readings keep their space when
+  // veiled or off, so the pane neither reflows nor scrolls.
+  const cardHeightIn = async (mode: string) => {
+    await pane.locator(`.furigana-toggle [data-furigana-mode="${mode}"]`).click();
+    await expect(page.locator("html")).toHaveAttribute("data-furigana", mode);
+    return (await bdCard.boundingBox())!.height;
+  };
+  const shownHeight = await cardHeightIn("shown");
+  expect(await cardHeightIn("off")).toBe(shownHeight);
+  expect(await cardHeightIn("hidden")).toBe(shownHeight);
+  await cardHeightIn("shown");
   await expect(completion).toContainText("Mock completion: the blank takes the て-form plus います.");
   await expect(completion.locator(".exercise-completion-example")).toHaveCount(3);
   await expect(completion.locator(".exercise-completion-example.is-primary")).toContainText(
