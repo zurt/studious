@@ -508,3 +508,23 @@ the same glitch.
 
 ### Benchmark CER spikes or line accuracy collapses
 Before assuming a model/prompt regression: check whether the **ground truth** matches the format the current prompt is producing. CER and line-accuracy are computed character- and line-exact — markdown structure (`#`, `**`, `<u>`), fullwidth vs halfwidth punctuation, paragraph wrapping, and inline annotations like `[?N]` all count as differences. If you change the default VLM prompt's output style, the existing GT will need to be regenerated (or normalized before scoring). Rule of thumb: if line accuracy is in single digits while the body text reads correctly side-by-side, it's a format mismatch, not a regression.
+
+### Fill-in blanks show as `\_\_\_\_\_`, vanish, or vary wildly in length
+Symptoms: a breakdown sentence displays literal backslashes
+(`\_\_\_\_`); an exercise transcription has runs of spaces where the
+page has printed underlines; blank length differs between regions.
+
+Cause: blanks are printed rules, and the VLM rendered them in whatever
+style it liked — `＿＿＿`, ASCII `______`, markdown-escaped `\_\_\_`
+(Sonnet 5.5 did this because it knows `_` is markdown), or full-width
+spaces (underline treated as "decorative" and dropped). The breakdown
+model copies input verbatim, so it inherited the escapes. The breakdown
+pane does not render markdown, so the backslashes show literally.
+
+Fix in place: transcription prompts define the canonical blank
+(`＿＿＿＿＿`, see `BLANK_TRANSCRIBE_RULES` in `app/config.py`), and
+`services/blanks.normalize_blanks` canonicalizes on write and before
+breakdown/completion prompts. Pre-existing data: run
+`uv run python scripts/normalize_blanks.py` (dry run) then `--apply`
+with the dev server stopped. Legacy blanks transcribed as full-width
+spaces can't be recovered without re-transcribing the region.
