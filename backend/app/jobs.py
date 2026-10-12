@@ -17,6 +17,7 @@ from .config import (
 from .middleware import correlation_id_var
 from .providers import registry
 from .services import (
+    blanks,
     breakdown_links,
     bulk_ops,
     grammar_guide,
@@ -303,7 +304,7 @@ class JobManager:
                 "page": page,
                 "engine": engine,
                 "provider": provider_name,
-                "markdown": result.markdown,
+                "markdown": blanks.normalize_blanks(result.markdown),
                 "raw": result.raw,
                 "tokens": [],
                 "annotations": {},
@@ -401,7 +402,7 @@ class JobManager:
             doc_id,
             chapter_id,
             region_id,
-            transcription_md=result.markdown,
+            transcription_md=blanks.normalize_blanks(result.markdown),
             transcribed_at=_now_iso(),
             transcribed_model=result.meta.get("model"),
         )
@@ -490,6 +491,9 @@ class JobManager:
         transcription_md = region_chain.combined_transcription(chain) if chain else (region.get("transcription_md") or "")
         if not transcription_md:
             raise _RegionOpError("region has no transcription")
+        # Legacy transcriptions may hold `\_\_\_` or 30-char runs; the model
+        # copies the input verbatim, so canonicalize blanks before it sees them.
+        transcription_md = blanks.normalize_blanks(transcription_md)
 
         try:
             provider = registry.get_vlm(provider_name)
@@ -548,6 +552,9 @@ class JobManager:
             )
             raise _RegionOpError(err_msg)
 
+        for sentence in sentences:
+            if isinstance(sentence, dict) and isinstance(sentence.get("text"), str):
+                sentence["text"] = blanks.normalize_blanks(sentence["text"])
         breakdown_payload = {
             "model": result.meta.get("model"),
             "sentences": sentences,
@@ -767,13 +774,14 @@ class JobManager:
         chapter_id = job["chapter_id"]
         region_id = job["region_id"]
         sentence_index: int = job["sentence_index"]
-        sentence_text: str = job["sentence_text"]
+        sentence_text: str = blanks.normalize_blanks(job["sentence_text"])
         chain = region_chain.resolve_chain(doc_id, chapter_id, region_id)
         region_transcription: str = (
             region_chain.combined_transcription(chain)
             if chain
             else (job.get("region_transcription") or "")
         )
+        region_transcription = blanks.normalize_blanks(region_transcription)
         # Cited reading passages (possibly from other chapters/documents)
         # live on the chain head — the region this job runs from.
         references = region_reference.resolve_references(doc_id, chapter_id, region_id)
