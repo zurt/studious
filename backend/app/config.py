@@ -10,6 +10,37 @@ from pydantic import BaseModel
 load_dotenv()
 
 
+BLANK_TRANSCRIBE_RULES = """\
+<blanks>
+A blank is a printed line, box, or empty bracket where the student
+writes an answer. Never drop a blank or leave it as spaces.
+- Write every underline-style blank as ＿＿＿＿＿ (exactly five
+  full-width underscores, U+FF3F), however long or short the printed
+  line is. Never use ASCII underscores, backslash escapes, spaces, or
+  full-width spaces in its place.
+- A blank that wraps from the end of one line onto the next is ONE
+  blank: write ＿＿＿＿＿ once, where it begins, and keep the sentence
+  flowing on the same line (no line break at the wrap). Two separate
+  blanks in one item are two separate ＿＿＿＿＿.
+- Empty brackets and boxes — （　　）, （　）, □, [　] — and dotted
+  leaders such as …… are transcribed exactly as printed.
+- A line drawn UNDER printed text (single, double, or dotted) is
+  decoration: transcribe the text plainly. A line with no text on it is
+  a blank. A blank can appear in instructions too, e.g. a short line in
+  「…形を変えて＿＿＿＿＿にひらがなで書きなさい」.
+
+Examples (printed → transcription):
+- 山田：歌がお上手ですね。 / 中山：いえいえ、[long line]。山田さんほどではないですよ。
+  → 中山：いえいえ、＿＿＿＿＿。山田さんほどではないですよ。
+- 十分に[line to the margin] / [short line]と思う。 (one blank wrapped)
+  → 十分に＿＿＿＿＿と思う。
+- 私がボールを投げようものなら、すぐ[line]。 → …すぐ＿＿＿＿＿。
+- A：健康のために… / B：ランニングをしていると言っても、[long line]が。
+  → B：ランニングをしていると言っても、＿＿＿＿＿が。
+</blanks>
+"""
+
+
 DEFAULT_VLM_PROMPT = """\
 You are an expert OCR transcriber specializing in Japanese textbooks
 for English speakers. The image is a single page that mixes Japanese
@@ -35,9 +66,10 @@ visual structure to Markdown semantics:
 - Transcribe Japanese exactly as printed. Do not "correct" spelling,
   punctuation (including 、 and 。), or kana/kanji choices.
 - Transcribe English exactly as printed.
-- Ignore decorative underlines (e.g. dotted underlines marking
-  textbook grammar points). Transcribe the underlined text as plain
-  text — do not emit <u>…</u> tags.
+- Ignore decorative underlines drawn under printed text (e.g. dotted
+  underlines marking textbook grammar points). Transcribe the
+  underlined text as plain text — do not emit <u>…</u> tags. This does
+  NOT apply to blanks: see <blanks>.
 - Ignore body-text line numbers in the page margin (e.g. small "5",
   "10", "15" markers every Nth line). Do not include them in the
   transcription.
@@ -50,11 +82,12 @@ visual structure to Markdown semantics:
 - Do not summarize. Output the full page text.
 </rules>
 
+{{BLANK_RULES}}
 <output_format>
 Return only the Markdown transcription, with no preamble or closing
 remarks. Begin directly with the first line of the page.
 </output_format>
-"""
+""".replace("{{BLANK_RULES}}", BLANK_TRANSCRIBE_RULES)
 
 
 REGION_TRANSCRIBE_PROMPT = """\
@@ -76,9 +109,10 @@ if the region has no title.
 - Transcribe Japanese and English exactly as printed. Do not
   "correct" spelling, punctuation (including 、 and 。), or
   kana/kanji choices.
-- Ignore decorative underlines (e.g. dotted underlines marking
-  textbook grammar points). Transcribe the underlined text as
-  plain text — do not emit <u>…</u> tags.
+- Ignore decorative underlines drawn under printed text (e.g. dotted
+  underlines marking textbook grammar points). Transcribe the
+  underlined text as plain text — do not emit <u>…</u> tags. This
+  does NOT apply to blanks: see <blanks>.
 - Ignore body-text line numbers in the page margin (e.g. small
   "5", "10", "15" markers every Nth line). Do not include them.
 - If a character or word is unclear, write [?]. If part of the region
@@ -86,11 +120,12 @@ if the region has no title.
 - Do not add commentary or translations that are not on the page.
 </rules>
 
+{{BLANK_RULES}}
 <output_format>
 Return only the Markdown transcription, with no preamble or closing
 remarks.
 </output_format>
-"""
+""".replace("{{BLANK_RULES}}", BLANK_TRANSCRIBE_RULES)
 
 
 VOCAB_LIST_TRANSCRIBE_PROMPT = """\
@@ -176,8 +211,15 @@ split at those sentence boundaries (one entry per sentence, spanning
 whatever cells are needed).
 
 Fill-in-the-blank exercise items are first-class entries. Lines
-containing blanks rendered as ＿, ___, ……, （　　）, or similar
-placeholders ARE valid sentences — do not skip them. When the input
+containing blanks ARE valid sentences — do not skip them. The
+canonical blank is a run of full-width underscores (＿＿＿＿＿), but
+older transcriptions use other styles: ASCII underscores (___), ……,
+（　　）, （　）, □, [　], or a run of full-width spaces in the middle of
+a sentence. Treat all of these as blanks and copy them exactly as they
+appear in the input — never rewrite one into a different style and never
+add backslash escapes. A blank inside an instruction header (e.g.
+「…＿＿＿＿＿にひらがなで書きなさい」) refers to the blanks in the
+items; it is part of the header, not a separate item. When the input
 is or contains a numbered exercise (①②③…, 1./2., (1)/(2)…), emit one
 entry per numbered item. Copy the item VERBATIM into `text`, blanks
 and all, including ALL text from the item's number marker up to (but
