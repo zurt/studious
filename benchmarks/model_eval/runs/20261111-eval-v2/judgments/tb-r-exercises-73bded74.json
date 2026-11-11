@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-sonnet-5-5",
+    "D": "claude-opus-5-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-sonnet-5-5": "C",
+    "claude-opus-5-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text is correct, including ①～③ and the a/b/c options. Line break before 「また、」 is preserved and the options stay on one horizontal line. Uses fullwidth tilde ～ instead of wave dash, which is a negligible variant.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "B",
+      "notes": "All characters are correct. Uses the wave dash 〜, matching the printed form. Two-line layout of question (1) and the inline options row are preserved. Nothing added.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "C",
+      "notes": "Text is identical to A, with wider spacing between the options. All characters correct, line break preserved, nothing invented.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "D",
+      "notes": "All characters are correct. The two lines of question (1) are merged into one, losing the visible break before 「また、」. Options are kept inline. No additions.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "All characters are correct. The horizontally arranged a/b/c options are converted into a vertical bullet list with added '-' markers, which departs from the printed layout. Otherwise complete.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "B",
+    "A",
+    "C",
+    "D",
+    "E"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
+    "claude-opus-4-8"
+  ],
+  "rationale": "All five candidates transcribe the text without character errors or omissions, so the ranking rests on small layout differences. B, A and C keep both the line break in question (1) and the single-row options; B comes first because its wave dash 〜 matches the print, and A's spacing is slightly closer than C's. D merges the two lines of question (1), a minor loss. E is last because it restructures the inline options into a bullet list with markers that are not in the image.",
+  "usage": {
+    "input_tokens": 2323,
+    "output_tokens": 1032,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.059864,
+  "duration_ms": 15924
+}

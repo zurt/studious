@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-haiku-5-5",
+    "C": "claude-opus-4-8",
+    "D": "claude-sonnet-5",
+    "E": "claude-opus-5-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-haiku-5-5": "B",
+    "claude-opus-4-8": "C",
+    "claude-sonnet-5": "D",
+    "claude-opus-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text is accurate throughout. No marking of the speech bubble (plain paragraphs), no paragraph indentation, sidebar collapsed onto one line. Margin line numbers (1, 5, 10) and the illustration are omitted.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "Text is accurate. Speech bubble rendered as a blockquote with a proper paragraph break; sidebar elements on separate lines. Margin line numbers 1/5/10 omitted, illustration not noted.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Text is accurate. Blockquote for the bubble with full-width indents kept; bold on 061 and 4 matches the print. The two paragraphs in the quote have no blank line between them, so they may merge when rendered. Line numbers omitted.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Text is accurate. Paragraph indentation preserved, but nothing distinguishes the speech bubble from body text. Sidebar on separate lines. Line numbers omitted.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "Text is accurate. Paragraph indents preserved, no bubble/quote marking, sidebar merged onto one line. Line numbers omitted.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "D",
+    "E",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-haiku-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "All five candidates transcribe the Japanese text identically and correctly, with no hallucinations; all omit the margin line numbers (1, 5, 10) and the illustration. The ranking therefore rests on formatting. B and C mark the speech bubble as a blockquote; B separates the two paragraphs cleanly, while C keeps the indents and bolding but risks merging the paragraphs. D and E keep indentation without marking the bubble, and D's sidebar layout is slightly more faithful than E's single line. A has neither indentation nor bubble marking.",
+  "usage": {
+    "input_tokens": 5140,
+    "output_tokens": 1426,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.09816,
+  "duration_ms": 20021
+}

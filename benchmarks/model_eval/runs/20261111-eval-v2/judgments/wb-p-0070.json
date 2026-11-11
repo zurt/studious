@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-opus-5-5",
+    "C": "claude-haiku-5-5",
+    "D": "claude-opus-4-8",
+    "E": "claude-sonnet-5-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-opus-5-5": "B",
+    "claude-haiku-5-5": "C",
+    "claude-opus-4-8": "D",
+    "claude-sonnet-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Base text is correct and complete, with ❶-style markers kept and a/b on one line as printed. But it adds many furigana that are not in the image: 聞(き), 大学生(だいがくせい), 友人(ゆうじん), 買(か), 学年(がくねん), 質問作成(しつもんさくせい), 肯定文(こうていぶん), 答(こた)え, 出(だ)し, and extends 回答(かいとう)形式 to かいとうけいしき. Sidebars are placed at the end.",
+      "character_accuracy": 7,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 4,
+      "overall": 7
+    },
+    {
+      "label": "B",
+      "notes": "Furigana appear only where printed: none on 聞, 大学生, 友人, 買, 学年 or 質問作成, and 回答(かいとう)形式 and 肯定(こうてい)文 are placed correctly. Text, markers and footer are accurate. Sidebars are interleaved as blockquotes, which is reasonable. Minor: the （複数回答可） of question ❹ is merged onto the question line.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Changes ❶ markers to ①-style and the footer ● to ◎. Drops the printed furigana on 質問(しつもん) in the answer options, and on 場合 and 複数回答可 in the last sidebar. Adds unprinted furigana: 聞(き), 大学生, 友人, 買(か), 学年, けいしき, 質問作成, こうていぶん. Sidebars are moved to the top, and \"属性について(ぞくせい)\" has the reading misplaced.",
+      "character_accuracy": 6,
+      "completeness": 8,
+      "formatting": 6,
+      "hallucination_control": 5,
+      "overall": 6
+    },
+    {
+      "label": "D",
+      "notes": "Adds the same unprinted furigana as A (聞, 大学生, 友人, 買, 学年, 質問作成, 答, 出, sidebar 質問), and also invents 心(こころ) and 体(からだ) in the footer. 回答形式(かいとう) and 肯定文(こうてい) have the reading attached to the wrong span. Heavy &nbsp; clutter and extra bolding on the number markers.",
+      "character_accuracy": 6,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 3,
+      "overall": 5
+    },
+    {
+      "label": "E",
+      "notes": "Base text is correct and complete with clean list formatting. Adds the same unprinted furigana as A: 聞(き), 大学生, 友人, 買(か), 学年, かいとうけいしき, 質問作成, こうていぶん, 答(こた)え, 出(だ)し. The a/b options of question ❶ are split into a list rather than kept on one line; sidebars are at the end.",
+      "character_accuracy": 7,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 4,
+      "overall": 7
+    }
+  ],
+  "ranking": [
+    "B",
+    "A",
+    "E",
+    "C",
+    "D"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
+    "claude-opus-4-8"
+  ],
+  "rationale": "B is the only candidate that reproduces furigana exactly where the page prints them; all the others add readings for kanji that have none (聞, 大学生, 友人, 買, 学年, 質問作成 and more). A and E are near-identical in content and errors; A is placed ahead because it keeps the printed line layout slightly better (a/b on one line, the line break in ❹). C adds fewer readings than A and E but drops the printed 質問 furigana, changes the marker glyphs and moves the sidebars to the top. D is last because it also invents furigana in the footer, misattaches two readings and is cluttered with &nbsp; entities.",
+  "usage": {
+    "input_tokens": 8455,
+    "output_tokens": 3867,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.22232,
+  "duration_ms": 51734
+}

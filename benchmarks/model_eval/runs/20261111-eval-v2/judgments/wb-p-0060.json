@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-haiku-5-5",
+    "C": "claude-opus-5-5",
+    "D": "claude-sonnet-5-5",
+    "E": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-haiku-5-5": "B",
+    "claude-opus-5-5": "C",
+    "claude-sonnet-5-5": "D",
+    "claude-sonnet-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All main text, word box and footnote are correct. Misses the furigana つづ under 続 in ①; every other furigana is captured (ごうかく, こども, でんりょくぶそく, ともだち, はこ, じょうほう, え). Header merged onto one line with クラス/名前, book icon rendered as an emoji, and the underline on ひらがな is not marked.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Text is accurate and all printed furigana are present, including つづ. However, it invents the furigana 飲(の) in ①, which is not printed in the image. Splitting 電力(でんりょく)不足(ぶそく) is acceptable. Layout of header, word box and footer is fine.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 7,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "All text and all eight furigana are transcribed correctly, including つづ on 続 only. Nothing is invented. Minor formatting issue: the first row of the word box is used as the table header row. The underline on ひらがな is not marked.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "D",
+      "notes": "Opens with an instruction line carrying invented furigana (もっと, てきとう, ことば, etc.), then the meta-comment 'Wait — furigana is not printed…', then repeats the header and restarts. The second pass is accurate with all furigana correct, but the output is contaminated by the false start, the duplicated header and the non-source commentary.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 4,
+      "hallucination_control": 3,
+      "overall": 5
+    },
+    {
+      "label": "E",
+      "notes": "Base text is fully accurate, including the word box, footnote and footer. All furigana are omitted (つづ, ごうかく, こども, でんりょくぶそく, ともだち, はこ, じょうほう, え). Clean structure with nothing invented.",
+      "character_accuracy": 8,
+      "completeness": 6,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 6
+    }
+  ],
+  "ranking": [
+    "C",
+    "A",
+    "B",
+    "E",
+    "D"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-opus-4-8",
+    "claude-haiku-5-5",
+    "claude-sonnet-5",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "C is the only candidate that captures all text and every furigana with nothing invented; its only flaw is using the first word-box row as a table header. A is nearly as good but drops the つづ furigana, which I judge less harmful than B's invented 飲(の). E is clean and accurate on the base text but omits all eight furigana. D's second pass is accurate, but I rank it last (a close call with E) because it includes a hallucinated furigana line, self-correction chatter and a duplicated header.",
+  "usage": {
+    "input_tokens": 6195,
+    "output_tokens": 1594,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.11332,
+  "duration_ms": 25766
+}

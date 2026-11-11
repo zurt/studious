@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-5-5",
+    "B": "claude-haiku-5-5",
+    "C": "claude-sonnet-5-5",
+    "D": "claude-sonnet-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-opus-5-5": "A",
+    "claude-haiku-5-5": "B",
+    "claude-sonnet-5-5": "C",
+    "claude-sonnet-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text fully correct, all nine numbered blanks present. Blanks shown as empty spaces inside parentheses, matching the image, though slightly narrower than the original. Line breaks merged into one paragraph, which is acceptable.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "B",
+      "notes": "Text fully correct, all nine blanks present. Blanks rendered as underscores (＿＿＿), but the image has empty parentheses with no underlines; a minor formatting invention.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Identical to B: text correct, but blanks rendered as underscores where the image has only empty space inside the parentheses.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Text fully correct. Uses full-width Ａ in Ａ氏, consistent with the printed glyph. Blanks as empty spaces, faithful to the image but slightly narrower than the original.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "E",
+      "notes": "Text fully correct. Empty-space blanks with widths closest to the image's wide blanks. Nothing added.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 10,
+      "hallucination_control": 10,
+      "overall": 10
+    }
+  ],
+  "ranking": [
+    "E",
+    "A",
+    "D",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-opus-5-5",
+    "claude-sonnet-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "All five candidates transcribe the text without character errors or omissions, so the ranking rests on how the blanks are rendered. The image shows empty space inside the parentheses, with no underlines. E, A and D use spaces, and E's wider blanks best match the original proportions. A and D are practically equivalent, differing only in half-width versus full-width A. B and C are identical and use underscores, which are not in the image; their relative order is arbitrary.",
+  "usage": {
+    "input_tokens": 2676,
+    "output_tokens": 1003,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.061528,
+  "duration_ms": 10552
+}

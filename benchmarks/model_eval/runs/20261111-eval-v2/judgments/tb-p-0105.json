@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-sonnet-5",
+    "D": "claude-opus-5-5",
+    "E": "claude-haiku-5-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-sonnet-5": "C",
+    "claude-opus-5-5": "D",
+    "claude-haiku-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All table values and labels match the image. Page number and sidebar (ユニット6 働くということ) included. Second table's two-level header is flattened into '全体 11年卒' style columns, which is a reasonable and unambiguous rendering.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "B",
+      "notes": "All data correct. Sidebar is transcribed but placed at the end of the page. Second table header repeats a bare '11年卒' after each group, which is faithful but slightly ambiguous. Page number bolded.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Sidebar has a typo: '働くということこ' with an extra こ. Table data is all correct. The two-row header for table ③ is the closest to the original layout.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 9,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "All content correct, sidebar included. Uses ## headings for the question lines, a minor stylistic addition. Flattened header ('全体 11年卒') is the same as A's and acceptable.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Omits the sidebar entirely (ユニット 6 働くということ). Invents '(2012年卒)' labels in the table ③ header that are not in the image, and adds parentheses around 11年卒. Cell data is correct.",
+      "character_accuracy": 9,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 5,
+      "overall": 6
+    }
+  ],
+  "ranking": [
+    "A",
+    "D",
+    "B",
+    "C",
+    "E"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "All five candidates transcribe the numeric data in both tables correctly, so the ranking turns on the sidebar, header handling and invented text. A and D are complete and accurate with a sensible flattened header; A is slightly cleaner because D adds heading markup. B is accurate but moves the sidebar to the end and leaves the sub-header ambiguous. C has the most faithful two-row header but a character error in the sidebar ('ということこ'). E is last because it drops the sidebar and fabricates '(2012年卒)' column labels.",
+  "usage": {
+    "input_tokens": 11986,
+    "output_tokens": 1285,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.147288,
+  "duration_ms": 19037
+}

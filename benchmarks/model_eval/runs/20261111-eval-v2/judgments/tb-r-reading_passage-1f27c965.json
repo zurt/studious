@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-sonnet-5",
+    "C": "claude-sonnet-5-5",
+    "D": "claude-haiku-5-5",
+    "E": "claude-opus-5-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-sonnet-5": "B",
+    "claude-sonnet-5-5": "C",
+    "claude-haiku-5-5": "D",
+    "claude-opus-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text is character-perfect, including ※ after かかずらわり. Keeps the paragraph's leading full-width indent. Uses ## for the title. Omits the dotted underlines on とは (with its marker 1) and ことを言う, and the margin line numbers 1 and 5.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "Text is character-perfect. Title as # heading and the paragraph indent is preserved. Omits the dotted underlines on とは (with marker 1) and ことを言う, and the margin line numbers 1 and 5.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Text is character-perfect. Title as # heading, but the paragraph indent is dropped. Omits the dotted underlines, the marker 1 and the margin line numbers.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "Identical to C: text is character-perfect, # heading, no paragraph indent. Omits the dotted underlines, the marker 1 and the margin line numbers.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "Text is character-perfect. Uses ## for the title and drops the paragraph indent. Omits the dotted underlines, the marker 1 and the margin line numbers.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "B",
+    "A",
+    "C",
+    "D",
+    "E"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
+    "claude-opus-5-5"
+  ],
+  "rationale": "All five candidates transcribe the title and body text identically and without error, and none invents anything. All equally omit the dotted underlines (とは with marker 1, ことを言う) and the margin line numbers 1 and 5. The ranking therefore rests only on small formatting differences: B has both a top-level heading and the paragraph indent; A keeps the indent but uses ##; C and D are identical (# heading, no indent), so their order is arbitrary; E has neither.",
+  "usage": {
+    "input_tokens": 2482,
+    "output_tokens": 1259,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.070216,
+  "duration_ms": 12610
+}

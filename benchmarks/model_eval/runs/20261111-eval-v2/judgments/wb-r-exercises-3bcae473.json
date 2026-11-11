@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-opus-5-5",
+    "C": "claude-sonnet-5-5",
+    "D": "claude-haiku-5-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-opus-5-5": "B",
+    "claude-sonnet-5-5": "C",
+    "claude-haiku-5-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text and all 11 furigana readings are correct (やしょく, さいきん, ね, かし, はじ, ごうかくてん, てん, つか, す, まじめ, てんすう). Blanks preserved. Word box is rendered with its first row as a table header, and the title is an H1; the underline on ひらがな is not marked. Nothing invented.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Accurate text and furigana throughout. Full-width ６ and ９ in item ② match the print. H2 title is reasonable. First row of the word box is treated as a table header (minor); ひらがな underline not marked. Nothing invented.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "C",
+      "notes": "Text is accurate, but item ⑨ adds furigana 食(た) that is not in the image; only 過(す) is annotated there. Title is plain text with no heading markup. The empty header row arguably suits the word box better, since it has no header. Otherwise faithful.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 8,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "Essentially identical to B: accurate text, correct furigana, full-width ６/９. Only difference is an extra space between ③ and 「, which is trivial. Word box's first row is used as a table header. Nothing invented.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Base text is correct, but furigana is invented for nearly every kanji (最(もっと)も, 以前(いぜん), 山田(やまだ), 心(こころ) and many more), whereas the image has only 11 ruby annotations. Also adds a 📖 emoji and bold on the instruction. The real furigana cannot be told apart from the invented ones.",
+      "character_accuracy": 6,
+      "completeness": 10,
+      "formatting": 5,
+      "hallucination_control": 2,
+      "overall": 4
+    }
+  ],
+  "ranking": [
+    "B",
+    "D",
+    "A",
+    "C",
+    "E"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5",
+    "claude-sonnet-5-5",
+    "claude-opus-4-8"
+  ],
+  "rationale": "A, B and D are all near-perfect transcriptions with the correct, limited set of furigana. B and D edge out A because their full-width ６/９ match the print and an H2 suits the section title better; D's stray space after ③ puts it just behind B. C adds one furigana reading that is not in the image (食(た) in item ⑨) and has no heading markup. E is last by a wide margin because it invents readings for almost every kanji, which misrepresents the source.",
+  "usage": {
+    "input_tokens": 6840,
+    "output_tokens": 1417,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.1114,
+  "duration_ms": 14295
+}

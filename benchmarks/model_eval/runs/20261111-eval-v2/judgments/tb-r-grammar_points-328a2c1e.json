@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-haiku-5-5",
+    "D": "claude-opus-4-8",
+    "E": "claude-opus-5-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-haiku-5-5": "C",
+    "claude-opus-4-8": "D",
+    "claude-opus-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text is correct, including 「XもののY」 and the colon after 接続の形. No heading markup (uses an escaped '4\\.'), and the connection box is flattened to plain lines with an inline '｜' rather than a table, so the box layout is only loosely conveyed.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "Misreads the key pattern 「XもののY」 as 「XものYのY」, inserting a spurious Y into the very grammar point being taught. The rest is accurate. Heading and table structure are reasonable, with ただし merged into the same cell as Nである.",
+      "character_accuracy": 7,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 6,
+      "overall": 6
+    },
+    {
+      "label": "C",
+      "notes": "Text is accurate, but the colon after 接続の形 is dropped. Table is reasonable, with ただし placed in the first column. The title line has no heading markup.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "All text is correct; the only deviation is a trivial extra space in 「Xものの Y」. Heading plus a clean table that mirrors the box, with full-width brackets kept.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Text is fully accurate. The table is awkward: 接続の形： sits alone in a header row with empty cells, and the three forms are stacked with <br> and padding spaces in one cell. It does show that ものの applies to all three forms.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "D",
+    "E",
+    "C",
+    "A",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "claude-sonnet-5"
+  ],
+  "rationale": "D is fully accurate with the cleanest heading and table. E is equally accurate but its table structure is clumsier. C is accurate apart from a dropped colon and lacks a heading. A has perfect text but almost no structure for the boxed connection rule. B is last because it corrupts the central pattern 「XもののY」 into 「XものYのY」, a substantive error in the grammar point itself.",
+  "usage": {
+    "input_tokens": 2284,
+    "output_tokens": 1246,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.068112,
+  "duration_ms": 45276
+}

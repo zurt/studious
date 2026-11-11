@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-5-5",
+    "B": "claude-sonnet-5-5",
+    "C": "claude-opus-4-8",
+    "D": "claude-haiku-5-5",
+    "E": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-opus-5-5": "A",
+    "claude-sonnet-5-5": "B",
+    "claude-opus-4-8": "C",
+    "claude-haiku-5-5": "D",
+    "claude-sonnet-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text and furigana match the image, including both 締(し)め切(き)り readings, 用件(ようけん) and every 場合(ばあい). No invented readings. Email box rendered as a single-column table with <br> lines, which is faithful to the layout.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "B",
+      "notes": "Base text is complete and the table is reasonable, but many furigana are invented that are not in the image: 書(か), 下(した), 来週締(らいしゅうし), 読(よ), 時間(じかん), 10日(か), 13日(にち), 件名(けんめい), あて名(な), 名前(なまえ), 毎週会(まいしゅうあ), 先生(せんせい). 10日(か) is also a wrong reading.",
+      "character_accuracy": 6,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 3,
+      "overall": 5
+    },
+    {
+      "label": "C",
+      "notes": "Invented 下(した) and 書(か)き. Omitted furigana on the first 締め切り, on 用件(ようけん), and on 場合(ばあい) in item ⑦. Email box shown with horizontal rules rather than a table; bold on the unit number and page number is harmless.",
+      "character_accuracy": 8,
+      "completeness": 8,
+      "formatting": 6,
+      "hallucination_control": 8,
+      "overall": 7
+    },
+    {
+      "label": "D",
+      "notes": "Invented furigana: お願(ねが)い in the subject line, 社会学入門(しゃかいがくにゅうもん), 来週締(らいしゅう し), 時間(じかん), 書(か)く, 書(か)き. Missed the second 場合(ばあい) and the final 終(お); 終わりの挨拶(お あいさつ) is awkwardly merged. No table or box for the email; 【例】(れい) placement is off.",
+      "character_accuracy": 7,
+      "completeness": 8,
+      "formatting": 5,
+      "hallucination_control": 6,
+      "overall": 6
+    },
+    {
+      "label": "E",
+      "notes": "Invented 書(か)き, 件名(けんめい) and 毎週(まいしゅう). Missed the final 終(お) in 終わるとよい. Table used but each body line is split into its own row; fullwidth angle brackets around the address. Otherwise accurate.",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 7,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "A",
+    "E",
+    "C",
+    "D",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "A is essentially a perfect match for text and furigana, with a faithful table. E is close behind, with three invented readings and one omission but a table kept. C has fewer inventions than E but more omitted furigana and no table. D invents more readings, including a whole-phrase one, and loses the box structure. B is last because it systematically adds furigana the image does not have, one of them a wrong reading, despite complete base text.",
+  "usage": {
+    "input_tokens": 7351,
+    "output_tokens": 1922,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.135688,
+  "duration_ms": 25791
+}

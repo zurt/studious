@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-opus-5-5",
+    "D": "claude-sonnet-5-5",
+    "E": "claude-haiku-5-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-opus-5-5": "C",
+    "claude-sonnet-5-5": "D",
+    "claude-haiku-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Base text correct. Invents furigana not printed: 食(た), 多(おお), 聞(き). Omits printed furigana: 思(おも) twice, 好(す), 次(つぎ) in the last checkbox, and 質問(しつもん) in three places (second one in '2つのことを質問しない' and both in the final example). Layout and indented examples are fine.",
+      "character_accuracy": 7,
+      "completeness": 7,
+      "formatting": 8,
+      "hallucination_control": 7,
+      "overall": 7
+    },
+    {
+      "label": "B",
+      "notes": "Base text correct and every printed furigana is present. But it adds readings to nearly every kanji where the page has none: 日本(にほん), 日本人(にほんじん), 多(おお), 人(ひと), 中(なか), 高(たか), 店(みせ), 言(い), 長(なが), 名前(なまえ), 買(か), 見(み), 聞(き), 後(あと), 食(た), and 次(つぎ) in '次のような'. Bold 72 matches the page; list structure is good.",
+      "character_accuracy": 6,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 3,
+      "overall": 5
+    },
+    {
+      "label": "C",
+      "notes": "Furigana matches the page essentially exactly: 食べ物(もの) only, 思(おも), 好(す), 聞き方(かた), 次(つぎ) only in the last item, 例(れい) on each example. No invented readings. Clean list structure with checkboxes; footer included.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "D",
+      "notes": "Same over-annotation as B: adds unprinted furigana throughout, including 日本(にほん), 人(ひと), 多(おお), 高(たか), 中(なか), 店(みせ), 言(い), 長(なが), 名前(なまえ), 買(か), 見(み), 聞(き), 後(あと), and 次(つぎ) in the intro line. Base text is correct and complete; formatting is simple and adequate.",
+      "character_accuracy": 6,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 3,
+      "overall": 5
+    },
+    {
+      "label": "E",
+      "notes": "Largely faithful furigana with no invented readings. Errors: 用意(よウい) has a stray katakana ウ; 例(れい) furigana is omitted on all four example lines. Examples are not indented; タスク is bold rather than a heading. Otherwise matches the page.",
+      "character_accuracy": 8,
+      "completeness": 8,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "C",
+    "E",
+    "A",
+    "B",
+    "D"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "All five get the base text right, so the ranking turns on furigana fidelity. C reproduces exactly the readings printed on the page, with none added or dropped. E is nearly as faithful but has the よウい typo and drops 例(れい) four times. A mixes a few invented readings with several omissions. B and D include every printed reading but invent readings for dozens of kanji that have none on the page, which misrepresents the source; they are nearly identical, and B edges ahead only for its bold page number and clearer list structure.",
+  "usage": {
+    "input_tokens": 7977,
+    "output_tokens": 2363,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.158336,
+  "duration_ms": 21495
+}

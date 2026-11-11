@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-sonnet-5-5",
+    "C": "claude-sonnet-5",
+    "D": "claude-opus-4-8",
+    "E": "claude-opus-5-5"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-sonnet-5-5": "B",
+    "claude-sonnet-5": "C",
+    "claude-opus-4-8": "D",
+    "claude-opus-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text correct. Word bank is plain text with no box or table, so the boxed structure is lost. Items a–e are flattened into a single-column list instead of the two-column layout. Bold heading is acceptable.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "All text correct. Word bank is a 5-column table, a reasonable rendering of the box. Items are a single-column bullet list, losing the a/b, c/d pairing. Heading is plain text.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "All text correct. Keeps the two-column item layout and even the extra space after 腕を. The empty box symbol in the instruction is replaced by blank spaces, so the reference to the box is slightly lost. Word bank is a table.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "All text correct. Single-cell table matches the single word box well. □ placeholder is kept, two-column item layout is preserved, and the spacing after 腕を is retained.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "All text correct. Heading marked with ##, word bank as a table, □ kept. Items are a single-column bullet list, losing the two-column arrangement.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "D",
+    "C",
+    "E",
+    "B",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "All five candidates transcribe the characters correctly with nothing invented, so the ranking rests on layout fidelity. D is best: it keeps the word box as a single cell, the □ placeholder and the two-column item layout. C also keeps the two-column layout but drops the box symbol in the instruction. E and B use a table for the word bank but flatten the items into one column; E ranks higher for marking the heading. A is last because it loses the word box entirely.",
+  "usage": {
+    "input_tokens": 2424,
+    "output_tokens": 1088,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.062912,
+  "duration_ms": 16376
+}

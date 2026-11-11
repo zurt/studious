@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-haiku-5-5",
+    "C": "claude-opus-5-5",
+    "D": "claude-sonnet-5",
+    "E": "claude-sonnet-5-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-haiku-5-5": "B",
+    "claude-opus-5-5": "C",
+    "claude-sonnet-5": "D",
+    "claude-sonnet-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All numbers and base text are correct, but it invents furigana for nearly every kanji in the title, the 調査時期/回答数 labels, 世論調査 and 朝日新聞; the image has furigana only on 内閣府 and 旧総理府. It also adds a '区分' header cell that is not in the image and leaves 調査時期/回答数 outside the table. Dashed underline on べきである not marked.",
+      "character_accuracy": 6,
+      "completeness": 9,
+      "formatting": 6,
+      "hallucination_control": 2,
+      "overall": 4
+    },
+    {
+      "label": "B",
+      "notes": "Text, numbers and the two furigana readings are correct. It omits the (→ p. 86) reference under the title. The title is turned into a # heading, and the header cell is restructured as 調査時期（回答数（人））. Dashed underline not marked.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 7
+    },
+    {
+      "label": "C",
+      "notes": "All text and numbers are correct and (→ p. 86) is included. Furigana appears only on 内閣府 and 旧総理府, matching the image. Two-line row labels are preserved with <br>. Only the dashed underline on べきである is missing.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "All text and numbers are correct and (→p. 86) is included. The furigana is given as a separate line below the source note rather than attached to its kanji, which mirrors the layout but is less clearly associated. Dashed underline not marked.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "All text and numbers are correct, (→ p. 86) is included, and furigana is correctly attached inline to 内閣府 and 旧総理府. Row labels are flattened onto one line with no break, and half-width parentheses are used. Dashed underline not marked.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "E",
+    "D",
+    "B",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-sonnet-5",
+    "claude-haiku-5-5",
+    "claude-opus-4-8"
+  ],
+  "rationale": "All five candidates get the chart data right, so the ranking turns on fidelity elsewhere. C is the most faithful: complete, furigana only where the image has it, and two-line labels preserved. E matches C but flattens the line breaks. D is equally accurate but detaches the furigana onto its own line. B drops the (→ p. 86) reference and adds a heading. A is last because it invents furigana throughout and adds a '区分' header that is not in the image. No candidate marks the dashed underline on べきである.",
+  "usage": {
+    "input_tokens": 3937,
+    "output_tokens": 1137,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.076976,
+  "duration_ms": 16580
+}

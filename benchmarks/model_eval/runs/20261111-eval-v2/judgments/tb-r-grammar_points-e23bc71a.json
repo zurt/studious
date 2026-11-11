@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-opus-5-5",
+    "D": "claude-haiku-5-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-opus-5-5": "C",
+    "claude-haiku-5-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text fully accurate; strikethrough on ます preserved. Title not marked as a heading (plain text). Table with <br> captures the box layout well.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Missed the strikethrough on ます (V[ます] instead of V[~~ます~~]), which changes the grammatical meaning. Table split into three rows with empty cells; heading uses H1; paragraph indent preserved.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 7
+    },
+    {
+      "label": "C",
+      "notes": "All text correct, strikethrough on ます preserved, heading marked, table layout faithful.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 10,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "D",
+      "notes": "Strikethrough on ます lost; title not formatted as heading. Otherwise text is accurate.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 7
+    },
+    {
+      "label": "E",
+      "notes": "Identical to C: all text correct, strikethrough preserved, heading marked, table faithful.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 10,
+      "hallucination_control": 10,
+      "overall": 10
+    }
+  ],
+  "ranking": [
+    "C",
+    "E",
+    "A",
+    "B",
+    "D"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5",
+    "claude-sonnet-5",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "All candidates transcribe the body text correctly. The key differentiator is the struck-through ます in V[ます], which C, E and A preserve while B and D drop it. C and E are identical and also mark the title as a heading; A lacks the heading markup. B is ranked above D because it has a heading and preserves the paragraph indent, while D has neither heading nor strikethrough.",
+  "usage": {
+    "input_tokens": 2304,
+    "output_tokens": 625,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.043432,
+  "duration_ms": 7017
+}

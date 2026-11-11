@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-opus-5-5",
+    "C": "claude-opus-4-8",
+    "D": "claude-sonnet-5-5",
+    "E": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-opus-5-5": "B",
+    "claude-opus-4-8": "C",
+    "claude-sonnet-5-5": "D",
+    "claude-sonnet-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text and furigana all correct. Word box rendered as a plain line prefixed with a stray '□' rather than a boxed/tabular structure; B line not indented. Heading and blanks fine.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "All text and furigana correct, furigana only where printed. Word box as a table, B line indented, blanks preserved. Line breaks merged, which is acceptable.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "C",
+      "notes": "Accurate text and furigana; preserves original line breaks. Word box as a blockquote rather than a table; no heading markup on the title. Uses 〜 instead of ～, which is trivial.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Title and instruction are duplicated; the first copy adds invented furigana (もっと, てきとう, えら, かたち, か, ぶん, かんせい) not in the image. Inserts a meta note '※ Furigana is only transcribed where it is printed.' that is not in the source. The second copy and the exercise body are accurate.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 5,
+      "hallucination_control": 3,
+      "overall": 5
+    },
+    {
+      "label": "E",
+      "notes": "Invented furigana べんり on 便利, which has none in the image. Furigana on 環境問題 extended to かんきょうもんだい when only かんきょう is printed. The empty box in the instruction is rendered as an underline blank instead of □. Rest is accurate, with a table for the word box.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 6,
+      "overall": 7
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "A",
+    "E",
+    "D"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-opus-4-8",
+    "claude-haiku-5-5",
+    "claude-sonnet-5",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "B is fully accurate with the best structure (table for the word box, indented B line). C is equally accurate and keeps line breaks, but has weaker box and heading markup. A is accurate but has a stray □ before the word list and no box structure. E adds furigana that is not printed (べんり, もんだい) and misrenders the box as a blank. D is worst because it duplicates the header and instruction, fabricates furigana throughout the first copy, and inserts a meta note not in the image.",
+  "usage": {
+    "input_tokens": 5066,
+    "output_tokens": 823,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.073448,
+  "duration_ms": 12792
+}

@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-opus-5-5",
+    "C": "claude-sonnet-5-5",
+    "D": "claude-sonnet-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-opus-5-5": "B",
+    "claude-sonnet-5-5": "C",
+    "claude-sonnet-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text is correct, including the wave dash ～ in headings. The connection-form box is rendered as plain indented lines with pipe characters, not a real table or box; in section 2 the bar and 「ことを…と言う」 sit on the third line instead of spanning. Underlines on ばかりで, 行動しない, 助かる and てばかり are not marked.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "Text is fully accurate. Uses a valid markdown table with <br> to group the left-hand forms against the right-hand expression, which conveys the brace relationship well. Placing 「接続の形：」 as a header with an empty second column is slightly artificial. Underlines in the examples are missing.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Body text is accurate, but the headings use ASCII '~' instead of '～'. The box is plain text with fullwidth bars and space padding, placed inconsistently (the middle line has no bar), and would collapse when rendered as markdown. Underlines are missing.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 5,
+      "hallucination_control": 10,
+      "overall": 7
+    },
+    {
+      "label": "D",
+      "notes": "Text is fully accurate. Valid three-column markdown tables give the clearest structure for the connection-form boxes, though the first row becomes a header. Paragraph indentation is preserved. There is an extra blank line between the ○ and × examples. Underlines are missing.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Text is fully accurate, and paragraph and example indentation is preserved. The tables have no separator row, so they are not valid markdown and would render as raw pipe-delimited text. Underlines are missing.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 5,
+      "hallucination_control": 10,
+      "overall": 7
+    }
+  ],
+  "ranking": [
+    "D",
+    "B",
+    "A",
+    "E",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "All five candidates transcribe the Japanese text essentially perfectly and invent nothing, and all five omit the underlines in the examples, so the ranking rests on formatting and small character details. D is first for valid, clear three-column tables; B is second with valid tables using <br>, slightly less clean. A has correct characters but only pseudo-table plain text. E attempts tables but leaves out the separator rows, so they are broken markdown. C is last because it has a similar plain-text layout to A but also substitutes ASCII '~' for '～' in both headings and places its bars inconsistently.",
+  "usage": {
+    "input_tokens": 4222,
+    "output_tokens": 1524,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.094736,
+  "duration_ms": 16433
+}

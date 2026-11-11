@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-haiku-5-5",
+    "C": "claude-sonnet-5",
+    "D": "claude-sonnet-5-5",
+    "E": "claude-opus-5-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-haiku-5-5": "B",
+    "claude-sonnet-5": "C",
+    "claude-sonnet-5-5": "D",
+    "claude-opus-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text fully accurate, furigana correctly attached (遂(と), 排除(はいじょ), 先入(せんにゅう)). Both word boxes rendered as tables. Section 7 blanks inside parentheses shown as underscores, although the image has empty space there. 均等法(きんとう) attaches furigana to the whole word rather than 均等 only.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Text and furigana accurate; Section 7 blanks kept as spaces, as in the image. But both boxed word lists are plain space-separated lines, losing the box/table structure. Headings are split from their instructions, and items lack blank lines so they would run together when rendered.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Furigana misplaced twice: 'やり遂げた（と）あとには' puts と after げた instead of after 遂, and '先入（　）（せんにゅう）' puts the reading after the blank. Tables present. Underscores added inside Section 7 parentheses; box shown as ［　］. Preserves original line breaks mid-sentence.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 7
+    },
+    {
+      "label": "D",
+      "notes": "Accurate text and furigana; tables for both boxes. Underscores added inside Section 7 parentheses where the image has only blank space. Uses ## headings with bold nested inside, which is slightly redundant. 均等法(きんとう) furigana span is slightly imprecise.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Accurate throughout. Section 7 blanks kept as spaces, matching the image. Tables for both boxes. The only candidate with the precise furigana span 均等(きんとう)法. ## headings with nested bold are a minor quirk.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    }
+  ],
+  "ranking": [
+    "E",
+    "A",
+    "D",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5"
+  ],
+  "rationale": "All five candidates transcribe the body text completely and without kanji or kana errors, so the ranking turns on furigana placement and layout fidelity. E is best: it keeps the Section 7 blanks as empty space as in the image, uses tables for both boxes, and is the only one to attach きんとう to 均等 alone. A and D are nearly identical and very good, but both add underscores inside the Section 7 parentheses; A is placed ahead because D's ## headings with nested bold are a little further from the original layout. B has clean text but drops the box/table structure and its lines would merge when rendered. C is last because it misplaces furigana in two places (遂げた（と）, 先入（　）（せんにゅう）), which are real accuracy errors.",
+  "usage": {
+    "input_tokens": 7307,
+    "output_tokens": 1849,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.132416,
+  "duration_ms": 26986
+}

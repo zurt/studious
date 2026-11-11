@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-5-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-haiku-5-5",
+    "D": "claude-sonnet-5-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-opus-5-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-haiku-5-5": "C",
+    "claude-sonnet-5-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text is correct. Furigana appears only on the five words that carry it in the image (特売日, 豆, 給料, 卵焼, 健康). Heading markup suits the bold title; blanks are preserved. B lines are not indented, which is minor.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "B",
+      "notes": "Text and furigana are fully accurate with nothing added. B lines are indented to match the layout. The title is left as plain text with no heading markup.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Text and furigana are accurate; 'たまご や' has a space, which mirrors the image spacing. Heading markup is used. The A/B lines have no blank line between them, so they would merge into one paragraph when rendered.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Adds furigana 安(やす) and 買(か) that are not in the image. Everything else is accurate. No heading markup.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 6,
+      "overall": 7
+    },
+    {
+      "label": "E",
+      "notes": "Invents furigana on many words that have none in the image: 文, 完成, 今日, 安, 買, 言, 毎日, 料理, 作. The base text itself is correct, and B lines are indented.",
+      "character_accuracy": 6,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 2,
+      "overall": 4
+    }
+  ],
+  "ranking": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "claude-opus-4-8"
+  ],
+  "rationale": "A, B and C all transcribe the text accurately with furigana only where the image has it; they differ only in small formatting points: A has heading markup and clean paragraphs, B lacks the heading but indents the B lines, and C's A/B lines would merge when rendered. D invents two furigana readings, and E invents furigana throughout, so they rank fourth and last.",
+  "usage": {
+    "input_tokens": 4135,
+    "output_tokens": 1136,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.07852,
+  "duration_ms": 10985
+}

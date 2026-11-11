@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-opus-5-5",
+    "D": "claude-opus-4-8",
+    "E": "claude-sonnet-5-5"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-opus-5-5": "C",
+    "claude-opus-4-8": "D",
+    "claude-sonnet-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Reading error: 関係する（かんけいする）where the image prints （かんけい）. All other Japanese and indices match. The ＊身につける sub-entry indent is not preserved. Gloss for サービス関係 ('service-related relations; service industry ties') is awkward; other glosses are accurate.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 8,
+      "overall": 7
+    },
+    {
+      "label": "B",
+      "notes": "All Japanese, readings and line numbers match the image. It is the only candidate that keeps the indent on the ＊身につける sub-entry. Blank lines between numbered groups are not in the image but are harmless. Glosses are accurate and concise.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "All Japanese and readings are correct. No indent for the ＊ sub-entry. Gloss 'service-based relationship' for サービス関係 is questionable (more likely 'service-related/service industry'); other glosses are fine.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 8,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "All Japanese and readings are correct. No indent for the ＊ sub-entry. Minor gloss issues: 生活する glossed with the noun 'daily life'; 'nothing beats' for 〜に限る is a valid sense but unlikely in this context.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "All Japanese, readings and indices are correct. Glosses are accurate. Blank lines are added between groups, and the ＊身につける indent is not preserved.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "B",
+    "E",
+    "D",
+    "C",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-sonnet-5-5",
+    "claude-opus-4-8",
+    "claude-opus-5-5",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "All five candidates are complete, so the ranking turns on small differences. B is first because its Japanese is error-free, its glosses are accurate, and it alone keeps the sub-entry indent. E is equally accurate but drops that indent. D and C are also correct in the Japanese but have minor gloss problems; C's 'service-based relationship' is the more questionable one. A is last because it is the only candidate with an actual reading error (かんけいする for かんけい), plus an awkward gloss for サービス関係.",
+  "usage": {
+    "input_tokens": 6110,
+    "output_tokens": 1880,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.12408,
+  "duration_ms": 16476
+}

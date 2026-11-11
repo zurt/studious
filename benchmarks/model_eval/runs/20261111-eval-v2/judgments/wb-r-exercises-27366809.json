@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-5-5",
+    "B": "claude-haiku-5-5",
+    "C": "claude-sonnet-5-5",
+    "D": "claude-sonnet-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-opus-5-5": "A",
+    "claude-haiku-5-5": "B",
+    "claude-sonnet-5-5": "C",
+    "claude-sonnet-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text and all seven furigana readings are correct. Circled numbers ①–⑤ were converted to a plain '1.–5.' list, losing the original markers. The two-line blanks are collapsed into a single short blank.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "All text and furigana are correct, with circled numbers preserved. Blanks in ①–③ are split into two segments, reflecting the line-wrapped blanks in the image. Blank lengths are somewhat inconsistent, but this is the most faithful layout.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "All text and furigana are correct, with circled numbers preserved. Blanks are uniform short single segments, so the two-part blanks in ①–③ are not distinguished.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Identical to C: accurate text and furigana, circled numbers kept. Blanks are simplified to one short segment each.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Adds furigana (けんきゅうしゃ) to 研究者 in ①, which is not in the image. Uses 〜 instead of ～ in the heading, a trivial difference. Otherwise accurate, and the longer blanks in ①–③ loosely reflect the longer blanks in the image.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 6,
+      "overall": 7
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "D",
+    "A",
+    "E"
+  ],
+  "ranking_models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "claude-sonnet-5",
+    "claude-opus-5-5",
+    "claude-opus-4-8"
+  ],
+  "rationale": "All candidates transcribe the main text correctly. B ranks first because it alone represents the split, two-line blanks in ①–③ while keeping the circled numbers. C and D are identical and accurate with simplified blanks; their relative order is arbitrary. A is accurate but replaces the circled numerals with a plain numbered list. E ranks last because it invents a furigana reading for 研究者 that is not in the image.",
+  "usage": {
+    "input_tokens": 4170,
+    "output_tokens": 1089,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.07692,
+  "duration_ms": 16167
+}

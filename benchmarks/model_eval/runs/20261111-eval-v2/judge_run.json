@@ -1,0 +1,20 @@
+{
+  "run_id": "20261111-eval-v2",
+  "dataset_dir": "/Users/kurt/Library/Mobile Documents/com~apple~CloudDocs/dev/cc/studious/benchmarks/model_eval/dataset/v2",
+  "judge_model": "claude-fable-5-2",
+  "fallback_model": "default",
+  "seed": 20261111,
+  "budget_usd": 8.0,
+  "estimated_cost_usd": 4.6176,
+  "budget_stopped_before": null,
+  "git_sha": "29d8352",
+  "started_at": "2026-11-11T18:31:17.093981+00:00",
+  "finished_at": "2026-11-11T18:47:18.648839+00:00",
+  "totals": {
+    "attempted": 47,
+    "skipped": 0,
+    "ok": 47,
+    "refused": 0,
+    "error": 0
+  }
+}
