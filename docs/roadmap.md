@@ -239,9 +239,16 @@ Priority 2 (second pass, bundled):
       to July; dataset `v2` quotas total 48 items with 14 full pages (v1:
       31 and 6); `run` and `judge` take `--budget-usd`; the provider sends
       Haiku 5.5 the same effort as the other models
-- [ ] Run it: build `v2` from the local store, `run --budget-usd 5`,
-      `judge`, `analyze`, and write the curated report. The July `v1`
-      dataset no longer exists, so July's numbers are history only
+- [x] Run `20261111-eval-v2` (47 items, 5 models, $8.71): Opus 5.5 leads
+      clearly (9.02, never below 8, beats every other model head-to-head);
+      the current default Sonnet 5.5 is last (7.70) because it invents
+      unprinted furigana, worst on workbook pages; Haiku 5.5 ties both
+      Sonnets at a tenth of the cost but misreads. Report:
+      `benchmarks/model_eval/reports/2026-11-11-model-comparison.md`. The
+      July `v1` dataset no longer exists, so July's numbers are history only
+- [ ] Decide the default VLM in light of that run (recommendation:
+      `claude-opus-5-5`), and whether to test a prompt fix for Sonnet 5.5's
+      furigana habit first
 
 ## Phase 2: Sentence Breakdowns
 

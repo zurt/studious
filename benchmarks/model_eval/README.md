@@ -299,5 +299,7 @@ network access required.
 ## Curated reports
 
 Machine-generated per-run tables land in `runs/<run_id>/report.md`. Human-curated
-writeups (findings, corrections, recommendations) live in `reports/` — start with
-[`reports/2026-07-06-model-comparison.md`](reports/2026-07-06-model-comparison.md).
+writeups (findings, corrections, recommendations) live in `reports/` — the
+latest is [`reports/2026-11-11-model-comparison.md`](reports/2026-11-11-model-comparison.md);
+[`reports/2026-07-06-model-comparison.md`](reports/2026-07-06-model-comparison.md)
+covers the first run.
