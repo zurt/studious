@@ -167,7 +167,7 @@ LWW/tombstone truth table matches the design doc on both sides.
   at whole-record granularity: both append, last line wins, the loser's
   fields are shadowed (recoverable from the JSONL history). This is the
   documented design tradeoff for a single-user tool
-  (`docs/cloudkit-sync-plan.md`, "Conflict policy"); true multi-writer
+  (`docs/design/cloudkit-sync-plan.md`, "Conflict policy"); true multi-writer
   safety would need file locking (`flock`) around read-modify-write in
   both languages. Worth doing only if concurrent editing becomes real.
 - **`StudiousSyncEngine` swallows merge errors** (`try? store.merge`)

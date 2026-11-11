@@ -49,7 +49,7 @@ lint:
 test-apple:
 	cd apple/StudiousKit && swift run studious-tests
 
-# Native Mac companion (docs/mac-app-plan.md): a plain SwiftPM executable
+# Native Mac companion (docs/design/mac-app-plan.md): a plain SwiftPM executable
 # that bridges directly to the backend's data/store/. STUDIOUS_DATA_DIR
 # points it at the repo's real backend data, so this is bridge mode
 # against the live store by default.

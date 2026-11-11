@@ -916,7 +916,7 @@ async def test_overwrite_false_skips_existing(isolated_data_dir, mock_ocr_provid
         await mgr.stop()
 
 
-# ---------- bulk_chapter runner (docs/bulk-operations-plan.md) ----------
+# ---------- bulk_chapter runner (docs/design/bulk-operations-plan.md) ----------
 
 
 class _MockBulkVlm:

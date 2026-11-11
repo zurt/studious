@@ -2,7 +2,7 @@
 
 **Status:** Design documented 2026-07-01. Implemented 2026-07-02 in
 `apple/StudiousKit` (`StudiousSync` library + `studious-sync` CLI) as
-part of the iOS companion app — see `docs/ios-app-plan.md`. One mapping
+part of the iOS companion app — see `docs/design/ios-app-plan.md`. One mapping
 refinement was made during implementation (noted inline below): item
 records carry the full raw store record as a single `payload` JSON
 string field, with the scalar fields below kept as duplicated,
@@ -18,7 +18,7 @@ format stays the source of truth on the Mac.
 
 ## Why the Phase 3 schema is already CloudKit-shaped
 
-Decisions locked in `docs/vocab-store-plan.md` map 1:1 onto CloudKit:
+Decisions locked in `docs/design/vocab-store-plan.md` map 1:1 onto CloudKit:
 
 | Store property | CloudKit counterpart |
 |----------------|----------------------|

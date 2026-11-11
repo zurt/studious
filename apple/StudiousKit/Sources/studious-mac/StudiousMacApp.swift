@@ -3,7 +3,7 @@ import StudiousCore
 import StudiousUI
 import SwiftUI
 
-/// Entry point for the native Mac companion (`docs/mac-app-plan.md`): a
+/// Entry point for the native Mac companion (`docs/design/mac-app-plan.md`): a
 /// plain SwiftPM executable rather than a signed .app bundle, so without
 /// intervention it launches as an accessory process (no Dock icon, no
 /// Cmd-Tab presence) — promote it to a regular foreground app before
@@ -29,7 +29,7 @@ struct StudiousMacApp: App {
     /// External appends (the backend, `studious-sync`, or another app
     /// instance) aren't otherwise observed — a foreground poll matches the
     /// mtime+size approach used everywhere else in the project (see
-    /// `docs/mac-app-plan.md`, "External-change refresh"). `onAppear`
+    /// `docs/design/mac-app-plan.md`, "External-change refresh"). `onAppear`
     /// re-fires when the window is closed and reopened, so keep one timer.
     private func startExternalChangePolling() {
         guard pollTimer == nil else { return }

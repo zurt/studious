@@ -1,6 +1,6 @@
 """Harvest vocab/grammar from transcriptions and breakdowns into the store.
 
-Two sources feed the central store (docs/vocab-store-plan.md):
+Two sources feed the central store (docs/design/vocab-store-plan.md):
 
 - ``vocab_list`` region transcriptions — the structured
   ``term（reading）gloss`` / ``term　gloss`` markdown emitted by

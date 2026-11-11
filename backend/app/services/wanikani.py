@@ -1,6 +1,6 @@
 """WaniKani API v2 sync and local cache.
 
-Purpose (docs/vocab-store-plan.md): surface WK levels, mnemonics, the
+Purpose (docs/design/vocab-store-plan.md): surface WK levels, mnemonics, the
 user's own study notes, and the vocab → kanji → radical component graph
 inside the vocab store. The user completed all 60 levels years ago and
 that knowledge has atrophied — WK SRS state is a **display signal only**

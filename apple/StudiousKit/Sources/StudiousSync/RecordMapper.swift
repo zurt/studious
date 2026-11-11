@@ -2,7 +2,7 @@ import CloudKit
 import Foundation
 import StudiousCore
 
-/// CKRecord mapping per `docs/cloudkit-sync-plan.md` (including its
+/// CKRecord mapping per `docs/design/cloudkit-sync-plan.md` (including its
 /// 2026-07-02 `payload` refinement): item records carry the
 /// full raw store record as one JSON string field — the receiver reads
 /// only that — plus a few duplicated scalars for CloudKit-dashboard

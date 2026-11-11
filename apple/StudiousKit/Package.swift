@@ -17,7 +17,7 @@ let package = Package(
         .target(name: "StudiousSync", dependencies: ["StudiousCore"]),
         .target(name: "StudiousUI", dependencies: ["StudiousCore", "StudiousSync"]),
         .executableTarget(name: "studious-sync", dependencies: ["StudiousCore", "StudiousSync"]),
-        // Native Mac companion (docs/mac-app-plan.md): a plain SwiftPM
+        // Native Mac companion (docs/design/mac-app-plan.md): a plain SwiftPM
         // executable — not a signed .app bundle — that bridges directly to
         // the backend's data/store/ JSONL files. iOS builds of the package
         // only pull the StudiousUI library product, so this never compiles

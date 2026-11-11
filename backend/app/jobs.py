@@ -652,7 +652,7 @@ class JobManager:
 
     async def _run_bulk_chapter_job(self, job_id: str, job: dict[str, Any]) -> None:
         """Prepare a whole chapter: transcribe every untranscribed region,
-        then break down every eligible one, per docs/bulk-operations-plan.md.
+        then break down every eligible one, per docs/design/bulk-operations-plan.md.
 
         A single loop over regions (like `_run_pages_job` loops pages)
         rather than a fan-out of single-region jobs: phase 2's work list

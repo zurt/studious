@@ -1,7 +1,7 @@
 import Foundation
 
 /// Resolves the data directory the Mac app shares with the backend and the
-/// `studious-sync` CLI (`docs/mac-app-plan.md`, "Data directory"). Pure
+/// `studious-sync` CLI (`docs/design/mac-app-plan.md`, "Data directory"). Pure
 /// precedence logic over injected inputs, so it's testable without a live
 /// process/UserDefaults; `studious-mac` supplies the real
 /// arguments/environment/UserDefaults value.

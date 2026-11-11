@@ -1,5 +1,5 @@
 // Minimal pub/sub event bus for syncing store state across views
-// (docs/vocab-store-plan.md: status changes must reflect across the
+// (docs/design/vocab-store-plan.md: status changes must reflect across the
 // dashboard, breakdown pane, and chapter coverage without a reload).
 import type { StoreKind, StoreStatus } from "../api";
 

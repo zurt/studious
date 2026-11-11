@@ -2,7 +2,7 @@ import Foundation
 import StudiousCore
 
 /// Pure precedence logic for the Mac app's data-dir resolution
-/// (`docs/mac-app-plan.md`, "Data directory") — exercised with injected
+/// (`docs/design/mac-app-plan.md`, "Data directory") — exercised with injected
 /// arguments/environment/defaults, no live process state.
 enum DataDirectoryTests {
     static func run() {

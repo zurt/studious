@@ -1,7 +1,7 @@
 """Generate golden fixtures for the Swift FSRS/queue port.
 
 The iOS companion re-derives SRS state by replaying the review-event log
-through its own FSRS-4.5 implementation (docs/cloudkit-sync-plan.md), so
+through its own FSRS-4.5 implementation (docs/design/cloudkit-sync-plan.md), so
 the Swift port must match this backend bit-for-bit. This script replays
 deterministic review sequences through ``app.services.srs`` and snapshots
 the expected per-step state, plus a ``build_queue`` snapshot over a

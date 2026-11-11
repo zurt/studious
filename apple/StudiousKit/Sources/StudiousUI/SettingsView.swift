@@ -3,8 +3,8 @@ import StudiousCore
 import SwiftUI
 
 /// Sync controls, manual JSONL import/export (the zero-setup fallback
-/// documented in `docs/ios-app-plan.md`), and store stats. On macOS, also
-/// the data-directory picker and backend status (`docs/mac-app-plan.md`).
+/// documented in `docs/design/ios-app-plan.md`), and store stats. On macOS, also
+/// the data-directory picker and backend status (`docs/design/mac-app-plan.md`).
 struct SettingsView: View {
     @Bindable var model: AppModel
 

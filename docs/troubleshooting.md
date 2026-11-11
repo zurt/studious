@@ -270,7 +270,7 @@ fixture uses for `setenv`).
 ### The Study page says "No cards to study yet" despite a full vocab store
 The queue only serves items with curation status **active** — that's the
 point of the curation lifecycle (see the status-vs-SRS-state distinction
-in `docs/vocab-store-plan.md`). Freshly harvested items are `unreviewed`
+in `docs/design/vocab-store-plan.md`). Freshly harvested items are `unreviewed`
 and `known`/`ignored` items never appear. Accept items into study on the
 Vocab/Grammar dashboards (inbox → Active, or the per-row status toggle),
 then reload `/study`. Check what the server sees with
@@ -383,7 +383,7 @@ Fixing collides with the 7-day install cooldown (`backend/uv.toml` `exclude-newe
 How to catch it: after a Dependabot rebase that touches `pyproject` (or any time the lock's age looks off), run `uv lock` in `backend/` — if it reports `Updated <pkg> vX -> vY`, the committed lock was stale; commit the reconciled lock. To detect drift without changing anything, `uv lock --check` (or `uv lock --locked`) fails when the lock doesn't match `pyproject`. Consider adding `uv lock --check` to the backend CI job so `--frozen`'s blind spot can't merge a desynced lock. `uv lock` honors `exclude-newer` in `backend/uv.toml`, so it won't pull anything inside the 7-day cooldown.
 
 ### Upload fails with 400 "could not render uploaded file"
-The file reached the backend but PyMuPDF/Pillow could not parse it — usually a corrupt download, a password-protected PDF, or a file whose extension doesn't match its contents. The partial document directory is cleaned up automatically (nothing appears in the library), and the render error is logged as `document_render_failed` with the underlying parser message. Re-export or decrypt the source file and upload again. Note: the re-upload endpoint (`PUT /api/documents/{id}/file`) does not yet have this protection — a failed re-upload render can leave a document with stale metadata and no pages (see R6 in `docs/improvement-recommendations.md`).
+The file reached the backend but PyMuPDF/Pillow could not parse it — usually a corrupt download, a password-protected PDF, or a file whose extension doesn't match its contents. The partial document directory is cleaned up automatically (nothing appears in the library), and the render error is logged as `document_render_failed` with the underlying parser message. Re-export or decrypt the source file and upload again. Note: the re-upload endpoint (`PUT /api/documents/{id}/file`) does not yet have this protection — a failed re-upload render can leave a document with stale metadata and no pages (see R6 in `docs/archive/improvement-recommendations.md`).
 
 ### Spinner never stops on a region transcription
 1. Check the job JSON — if `status: "failed"` with an `ANTHROPIC_API_KEY is not set` error, the backend process didn't see the env var. Re-export it in the shell that runs `make dev-backend` and restart.
@@ -397,7 +397,7 @@ The backend process can't read the key from its environment. The Keychain-based 
 The worker is sequential (`backend/app/jobs.py` `JobManager`). One stuck job blocks all subsequent ones. Check backend stdout for an exception traceback in the worker, then either let it finish or restart the backend (in-progress jobs do not resume on restart).
 
 ### Job stuck in `queued` forever (worker idle, later jobs may unstick it)
-Two historical causes, both fixed 2026-07-07 (see `docs/audit-2026-07-mobile-spike.md`):
+Two historical causes, both fixed 2026-07-07 (see `docs/archive/audit-2026-07-mobile-spike.md`):
 1. `JobManager.submit()` used to `put_nowait` onto the worker's `asyncio.Queue` from a Starlette threadpool thread (submitting routes are sync `def`s). `asyncio.Queue` is not thread-safe — the cross-thread wakeup could be lost, leaving the job `queued` until some later submission happened to wake the worker. Fixed with `loop.call_soon_threadsafe`. If a stuck-in-`queued` job reappears, check whether a new code path calls `submit()`/`put_nowait` from outside the event loop.
 2. An exception escaping a job runner used to be logged but never marked the job failed, so its status (and SSE stream) never reached a terminal state. `_run` now marks non-terminal jobs `failed` with an `internal error: …` message — so a job showing that error means the runner raised outside its own handling; the traceback is in backend stdout under the same correlation id.
 
@@ -480,7 +480,7 @@ The breakdown and exercise-completion jobs read the source region from disk and 
 - The combined text is concatenated with a blank-line separator only — no `(continues on page N)` marker is injected. That marker used to be there but leaked into prompts and tool output as if it were content; the page boundary is now a frontend rendering concern.
 
 ### Exercise completion ignores the reading (explanation says "The reading was not provided")
-Comprehension questions only see a reading printed elsewhere if the exercises region cites it via **Reading references** (Phase 2.5, `docs/exercise-references-plan.md`). The `question` shape's explanation starts with "The reading was not provided" when the prompt had no reading to draw on. Check, in order:
+Comprehension questions only see a reading printed elsewhere if the exercises region cites it via **Reading references** (Phase 2.5, `docs/design/exercise-references-plan.md`). The `question` shape's explanation starts with "The reading was not provided" when the prompt had no reading to draw on. Check, in order:
 - The references are on the **chain head**: `backend/data/documents/<doc>/chapters/<ch>/regions/<head>.json` → `references` should list `{doc_id, chapter_id, region_id}` entries. Completions run from the head, and the PUT endpoint refuses a continuation region (409), so references on a tail can't happen through the API.
 - The job saw them: the `exercise_completion_job_start` log line carries `reference_count`. A count lower than the stored list means some targets were skipped — look for `reference_missing` (target doc/chapter/region gone, e.g. the reading region was deleted or moved to another chapter) or `reference_untranscribed` (target has no `transcription_md` yet) warnings from `studious.services.region_reference` with the same correlation id. Neither fails the job; references are supplementary context.
 - The chapter view marks the same conditions: a red "Missing" entry or a "not transcribed" badge in the Reading references list. Transcribe the reading, or reopen the picker and Save (which drops missing entries), then regenerate the completion.

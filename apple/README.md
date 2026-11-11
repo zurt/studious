@@ -6,7 +6,7 @@ lives in this package.)
 Native study companion for the vocab/grammar harvested by the Mac app:
 browse and curate items (status + notes), run FSRS flashcard sessions
 offline, and sync through your own iCloud private database. Design:
-`docs/ios-app-plan.md`; sync protocol: `docs/cloudkit-sync-plan.md`.
+`docs/design/ios-app-plan.md`; sync protocol: `docs/design/cloudkit-sync-plan.md`.
 
 ## What's here
 
@@ -95,7 +95,7 @@ as the iOS app, plus a role the phone can't play: it reads and writes the
 backend's own `data/store/*.jsonl` files directly, so edits made in the
 Mac app, the web app, and the backend all show up in each other with no
 sync layer, no HTTP, and no Apple developer account. Design:
-`docs/mac-app-plan.md`.
+`docs/design/mac-app-plan.md`.
 
 It's a plain SwiftPM executable (`studious-mac`), not a signed `.app`
 bundle — the Command-Line-Tools-only build in this repo has no way to
@@ -139,4 +139,4 @@ Settings hides the iCloud sync section on macOS (`AppModel.syncSupported
 `CKContainer` would throw. In bridge mode this doesn't matter — the Mac
 app *is* the canonical store, so it has nothing to sync. `studious-sync
 sync` remains the CloudKit path until a signed `.app` bundle exists (see
-"Later, on a machine with Xcode" in `docs/mac-app-plan.md`).
+"Later, on a machine with Xcode" in `docs/design/mac-app-plan.md`).

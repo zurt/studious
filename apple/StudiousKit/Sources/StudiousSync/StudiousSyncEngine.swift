@@ -2,7 +2,7 @@ import CloudKit
 import Foundation
 import StudiousCore
 
-/// CloudKit sync per `docs/cloudkit-sync-plan.md`: one custom `StudiousZone`
+/// CloudKit sync per `docs/design/cloudkit-sync-plan.md`: one custom `StudiousZone`
 /// in the user's private database, items resolved whole-record LWW on the
 /// store's `updated_at` field (tombstones win), review events create-only
 /// and union-merged. The local JSONL store is the device's source of truth;

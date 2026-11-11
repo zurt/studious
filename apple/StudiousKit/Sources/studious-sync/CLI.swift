@@ -3,7 +3,7 @@ import Foundation
 import StudiousCore
 import StudiousSync
 
-/// Mac-side sync agent (`docs/cloudkit-sync-plan.md`, "Sync agents").
+/// Mac-side sync agent (`docs/design/cloudkit-sync-plan.md`, "Sync agents").
 /// Operates directly on the backend's `data/store/` JSONL files — the
 /// same append+fsync write path the backend uses, so its mtime+size
 /// caches pick up changes automatically.

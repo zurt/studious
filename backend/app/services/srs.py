@@ -1,4 +1,4 @@
-"""Built-in spaced repetition (milestone 3.4, docs/vocab-store-plan.md).
+"""Built-in spaced repetition (milestone 3.4, docs/design/vocab-store-plan.md).
 
 Review history is an append-only event log at ``data/store/reviews.jsonl``
 (one JSON object per line, never rewritten — the same CloudKit-friendly

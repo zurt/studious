@@ -192,7 +192,7 @@ def bulk_chapter(
 ):
     """Compute (and optionally submit) a chapter-wide prepare plan.
 
-    Per docs/bulk-operations-plan.md: the plan is computed with the same
+    Per docs/design/bulk-operations-plan.md: the plan is computed with the same
     selection rules the `bulk_chapter` runner uses (`bulk_ops`), so the
     dry-run counts driving the frontend confirm dialog match what the job
     will actually do. The runner recomputes the plan again when it runs —

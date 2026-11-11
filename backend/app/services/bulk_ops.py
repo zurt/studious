@@ -1,6 +1,6 @@
 """Shared region-selection rules for chapter bulk operations.
 
-Per docs/bulk-operations-plan.md, "Prepare chapter" must never do anything
+Per docs/design/bulk-operations-plan.md, "Prepare chapter" must never do anything
 the single-region transcribe/breakdown buttons couldn't. Both the
 `POST .../bulk` endpoint (for the dry-run plan preview) and the
 `bulk_chapter` job runner (for the actual per-phase work lists) call these

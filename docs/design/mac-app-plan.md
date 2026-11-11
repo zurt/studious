@@ -1,7 +1,7 @@
 # macOS App (Phase 5 — native Mac study + backend bridge)
 
 **Status:** Planned 2026-07-05. Builds on the iOS companion
-(`docs/ios-app-plan.md`); no new sync design — the Mac app sits directly
+(`docs/design/ios-app-plan.md`); no new sync design — the Mac app sits directly
 on the canonical store.
 
 ## Goal

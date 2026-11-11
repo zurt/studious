@@ -10,9 +10,9 @@ Tesseract OCR proved too low-quality for Japanese textbook pages (~22% CER). The
 
 **Web MVP now, native later.** The web app is the fastest way to iterate on the VLM prompts, data model, and study workflow — the hard parts of this project. Once the workflow stabilizes, build SwiftUI apps (macOS/iOS/iPad) that call the same backend API. Don't invest in web-specific polish (animations, offline, PWA); the web app is a usable prototype.
 
-*Update 2026-07-02:* the first native piece shipped — an iOS/iPadOS study companion under `apple/` (SwiftPM package + Xcode shell) that syncs the vocab/grammar stores and review log through CloudKit rather than calling the backend API; see `docs/ios-app-plan.md`. The Mac web app remains the harvest/curation surface.
+*Update 2026-07-02:* the first native piece shipped — an iOS/iPadOS study companion under `apple/` (SwiftPM package + Xcode shell) that syncs the vocab/grammar stores and review log through CloudKit rather than calling the backend API; see `docs/design/ios-app-plan.md`. The Mac web app remains the harvest/curation surface.
 
-*Update 2026-07-05:* next native piece planned — a macOS app (`docs/mac-app-plan.md`) reusing the same SwiftUI package for study/browse/curation, operating directly on the backend's canonical `data/store/` JSONL so it doubles as the bridge to the local FastAPI server. The web app still owns the harvest workflow (documents, transcription, regions).
+*Update 2026-07-05:* next native piece planned — a macOS app (`docs/design/mac-app-plan.md`) reusing the same SwiftUI package for study/browse/curation, operating directly on the backend's canonical `data/store/` JSONL so it doubles as the bridge to the local FastAPI server. The web app still owns the harvest workflow (documents, transcription, regions).
 
 **Frontend: vanilla TypeScript + Vite.** Dropping React. The app's needs (routes, fetch JSON, render HTML, canvas drawing) don't require a framework. Vite stays for HMR and build tooling. If reactive data binding is needed later (Phase 3 vocab status syncing), add Vue or a small reactive library then.
 
@@ -177,7 +177,7 @@ Replace the React frontend with vanilla TypeScript + Vite. Keep the same Vite co
 
 ## Phase 2: Sentence Breakdowns + Vocab/Grammar Extraction
 
-**Status:** ✅ Shipped (2026-05-05). See `docs/sentence-breakdowns-plan.md` for the iteration log.
+**Status:** ✅ Shipped (2026-05-05). See `docs/design/sentence-breakdowns-plan.md` for the iteration log.
 
 **Goal:** Generate structured study content from transcribed regions — sentence-by-sentence breakdowns with vocab, grammar, and gloss.
 
@@ -313,8 +313,8 @@ companion app.
 
 **Design agreed 2026-07-01; all milestones (3.1–3.5) shipped 2026-07-01**
 (see roadmap for the item-level record; the 3.5 CloudKit design doc is
-`docs/cloudkit-sync-plan.md`). Full schemas, milestone breakdown (3.1–3.5),
-licensing notes, and open questions live in `docs/vocab-store-plan.md`. Key
+`docs/design/cloudkit-sync-plan.md`). Full schemas, milestone breakdown (3.1–3.5),
+licensing notes, and open questions live in `docs/design/vocab-store-plan.md`. Key
 decisions:
 
 - **Canonical identity via JMdict.** Items link to a JMdict entry id
@@ -343,7 +343,7 @@ decisions:
 - **CloudKit-ready schema now, sync later.** UUID ids, `updated_at`,
   tombstones, append-only logs, flat records. The iOS/CloudKit topology is
   documented in milestone 3.5 and implemented by the Phase 5 iOS
-  companion under `apple/` (see `docs/ios-app-plan.md`).
+  companion under `apple/` (see `docs/design/ios-app-plan.md`).
 
 ### Milestones
 
@@ -360,7 +360,7 @@ decisions:
    API, flashcard UI at `/study` (word-first + sentence-context cards from
    sightings, graded per card).
 5. **3.5 Sync groundwork** — CloudKit record-mapping design doc only
-   (`docs/cloudkit-sync-plan.md`).
+   (`docs/design/cloudkit-sync-plan.md`).
 
 **State syncing:** status changes need to reflect across dashboard/breakdown
 views — add a simple pub/sub event bus (evaluate a reactive lib only if that

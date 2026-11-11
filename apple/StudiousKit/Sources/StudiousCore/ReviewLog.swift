@@ -3,7 +3,7 @@ import Foundation
 /// Append-only review-event log — same format as the backend's
 /// `data/store/reviews.jsonl`. Events are immutable and create-only, so
 /// merging two logs is a set union keyed on event id (no conflicts by
-/// construction; see `docs/cloudkit-sync-plan.md`).
+/// construction; see `docs/design/cloudkit-sync-plan.md`).
 public final class ReviewLog {
     public let url: URL
 

@@ -130,7 +130,7 @@ category.
 ## Rollout
 
 Ship as **beta**, matching the bulk-operations precedent
-(`docs/bulk-operations-plan.md`) — real cross-document reference
+(`docs/design/bulk-operations-plan.md`) — real cross-document reference
 behavior with real VLM prompts should get a first live run before
 promoting out of beta.
 

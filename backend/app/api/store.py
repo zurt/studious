@@ -1,4 +1,4 @@
-"""API for the central vocab/grammar store (docs/vocab-store-plan.md).
+"""API for the central vocab/grammar store (docs/design/vocab-store-plan.md).
 
 /api/vocab and /api/grammar expose the same list/create/update/delete
 surface over the two store kinds; /api/store carries cross-kind

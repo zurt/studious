@@ -1,6 +1,14 @@
 # Studious - Roadmap
 
-## Phase 1: Chapters + Regions + Targeted Transcription (Current)
+**Where things stand (2026-11):** Phases 1–3 are shipped. Exercise
+reading references (2.5) and chapter bulk operations are shipped as
+beta, pending real use. The Apple apps (Phase 5) are built and compiled
+in CI but have not been run on a device. Open work: Phase 4 (Anki
+export, exercise walkthroughs), region editing, mobile-responsive web
+layout, and the hosting/auth findings in
+`docs/archive/audit-2026-07-mobile-spike.md`.
+
+## Phase 1: Chapters + Regions + Targeted Transcription (Shipped)
 
 - [x] PDF and image upload with page rendering
 - [x] Anthropic Claude VLM integration with custom prompt
@@ -43,7 +51,7 @@
 
 ## Phase 1.6: Logging & Observability Improvements
 
-Detailed implementation notes for each item in `docs/logging-improvements.md`.
+Detailed implementation notes for each item in `docs/archive/logging-improvements.md`.
 Items 1–4 are the highest-leverage and should ship together; 5–8 are the next
 batch; 9–12 are polish.
 
@@ -67,7 +75,7 @@ P2 — polish:
 
 ## Phase 1.7: Test Coverage
 
-See `docs/test-coverage-plan.md` for the full phased plan.
+See `docs/archive/test-coverage-plan.md` for the full phased plan.
 
 Done since the phase was opened:
 - [x] `CorrelationMiddleware` + `StructuredFormatter` regression tests
@@ -106,7 +114,7 @@ Outstanding:
 ## Phase 1.8: Frontend Test Coverage
 
 Vitest + jsdom now run as part of `make test`. See the frontend section of
-`docs/test-coverage-plan.md` for the original plan.
+`docs/archive/test-coverage-plan.md` for the original plan.
 
 - [x] Stand up Vitest + jsdom (respect 7-day cooldown in `frontend/.npmrc`);
       add `test` and `test:coverage` scripts; wire `make test` to run both
@@ -131,7 +139,7 @@ mock VLM provider — deterministic, no API key, no tokens. Deliberately small:
 one test per core journey, no visual regression (the web app is a prototype;
 see "Web MVP now, native later" in `docs/plan.md`). Also serves as executable
 UI documentation and a seeded environment for agent-driven browser
-verification. See the E2E section of `docs/test-coverage-plan.md`.
+verification. See the E2E section of `docs/archive/test-coverage-plan.md`.
 
 - [x] Playwright scaffold: `frontend/playwright.config.ts`, `make test-e2e`,
       dedicated ports (backend 8765 / frontend 5273) so runs never touch a
@@ -226,7 +234,7 @@ Priority 2 (second pass, bundled):
 
 ### Phase 2.1: Inline vocab/grammar links
 
-See `docs/breakdown-vocab-links-plan.md`.
+See `docs/design/breakdown-vocab-links-plan.md`.
 
 - [x] Iter 1 — Backend vocab linker (exact/reading/stem) + lazy migration on read
 - [x] Iter 2 — Frontend renders linked spans with click-to-open popover (vocab)
@@ -330,7 +338,7 @@ Beyond MVP (deferred):
 
 ### Phase 2.5: Exercise Reading References
 
-Shipped 2026-09-29 as **beta** — see `docs/exercise-references-plan.md`.
+Shipped 2026-09-29 as **beta** — see `docs/design/exercise-references-plan.md`.
 Covered by unit + E2E tests against the mock provider, but not yet run
 against real VLM completions; promote out of beta after the first live
 chapter (the 生きた素材で学ぶ 第5課 comprehension questions are the
@@ -367,7 +375,7 @@ motivating case).
 The long-term core study workflow: vocab and grammar accumulate across
 textbooks into a single graded, dictionary-linked, editable store that
 eventually powers built-in SRS and an iOS companion. Design agreed
-2026-07-01 — see `docs/vocab-store-plan.md` for schemas, decisions, and
+2026-07-01 — see `docs/design/vocab-store-plan.md` for schemas, decisions, and
 rationale.
 
 ### 3.1 Store foundation + harvest
@@ -487,7 +495,7 @@ Shipped 2026-07-01.
 
 Shipped 2026-07-01.
 
-- [x] CloudKit record mapping documented in `docs/cloudkit-sync-plan.md`:
+- [x] CloudKit record mapping documented in `docs/design/cloudkit-sync-plan.md`:
       `VocabItem`/`GrammarItem`/`ReviewEvent` record types in one custom
       zone (private DB), items last-writer-wins on `updated_at` with
       tombstone-wins, review events create-only (union merge, FSRS state
@@ -503,17 +511,17 @@ Shipped 2026-07-01.
 ## Phase 5: Polish + Native
 
 - [x] Bulk operations (transcribe/breakdown all regions in a chapter):
-      one-click "Prepare chapter" — see `docs/bulk-operations-plan.md`.
+      one-click "Prepare chapter" — see `docs/design/bulk-operations-plan.md`.
       Shipped 2026-07-06 as **beta**: covered by tests and verified
       against an isolated server (dry-run plan, failure isolation,
       SSE progress), but not yet exercised on a live chapter with real
       VLM calls — promote out of beta after first real use
 - [ ] Region editing (resize, move, reorder)
-- [x] iOS/iPadOS study companion (see `docs/ios-app-plan.md`): SwiftPM
+- [x] iOS/iPadOS study companion (see `docs/design/ios-app-plan.md`): SwiftPM
       package `apple/StudiousKit` with the FSRS-4.5 Swift port
       (golden-file parity against `services/srs.py`), same-format JSONL
       store, study/browse/curation SwiftUI app, CloudKit sync engine
-      (`CKSyncEngine`, per `docs/cloudkit-sync-plan.md`), Mac-side
+      (`CKSyncEngine`, per `docs/design/cloudkit-sync-plan.md`), Mac-side
       `studious-sync` CLI (CloudKit push/pull + manual JSONL
       merge/export fallback), and an Xcode app shell at
       `apple/Studious.xcodeproj`. Needs a machine with Xcode + an Apple
@@ -521,7 +529,7 @@ Shipped 2026-07-01.
       checked into the repo 2026-07-04
 - [ ] Run the companion on a device end-to-end and deploy the CloudKit
       schema to the production environment
-- [x] Native macOS app (see `docs/mac-app-plan.md`; shipped 2026-07-05):
+- [x] Native macOS app (see `docs/design/mac-app-plan.md`; shipped 2026-07-05):
       `studious-mac` executable target in `apple/StudiousKit` reusing
       the iOS companion's SwiftUI (study/browse/curation), pointed
       directly at the backend's canonical `data/store/` JSONL — the

@@ -1,4 +1,4 @@
-"""Study (built-in SRS) API — milestone 3.4 of docs/vocab-store-plan.md.
+"""Study (built-in SRS) API — milestone 3.4 of docs/design/vocab-store-plan.md.
 
 The queue is derived on demand from the store plus the append-only
 review log; submitting a review appends one event and returns the

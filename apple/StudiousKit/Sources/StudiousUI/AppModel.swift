@@ -60,7 +60,7 @@ public final class AppModel {
     /// `studious-sync` CLI, or a second app instance pointed at the same
     /// store. Reloads only the files that actually moved, then bumps
     /// `storeGeneration` so SwiftUI re-queries. Cheap enough for a ~2s
-    /// foreground timer (see `docs/mac-app-plan.md`,
+    /// foreground timer (see `docs/design/mac-app-plan.md`,
     /// "External-change refresh").
     public func refreshIfChangedOnDisk() {
         var changed = false

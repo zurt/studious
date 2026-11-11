@@ -59,7 +59,7 @@ public final class ItemStore {
     /// backend, `studious-sync`, or a second app instance) since the last
     /// load, without paying for a reload — the same signature comparison
     /// `reloadIfChanged()` uses, exposed for a cheap poll (see
-    /// `docs/mac-app-plan.md`, "External-change refresh").
+    /// `docs/design/mac-app-plan.md`, "External-change refresh").
     public var hasExternalChanges: Bool {
         switch (fileSignature(), loadedSignature) {
         case (nil, nil): return false
@@ -130,7 +130,7 @@ public final class ItemStore {
     }
 }
 
-/// Whole-record last-writer-wins, per `docs/cloudkit-sync-plan.md`:
+/// Whole-record last-writer-wins, per `docs/design/cloudkit-sync-plan.md`:
 /// compare the `updated_at` field (not any transport timestamp) and let
 /// tombstones beat concurrent edits — a delete is final.
 public enum LWW {

@@ -1,6 +1,6 @@
 """Compute inline vocab links for sentence breakdowns.
 
-Per `docs/breakdown-vocab-links-plan.md`, vocab linking only — grammar
+Per `docs/design/breakdown-vocab-links-plan.md`, vocab linking only — grammar
 links are deferred until the LLM emits span offsets directly.
 
 Offsets are character indices into the sentence text (Unicode code

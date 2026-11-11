@@ -105,7 +105,7 @@ Open <http://localhost:5173>.
    predates the store. Words marked **known** render de-emphasized in
    sentence breakdowns (each word's popover gets an in-store status
    toggle), and the chapter view shows a "Vocab N/M known" coverage
-   chip. See `docs/vocab-store-plan.md` for the Phase 3 design.
+   chip. See `docs/design/vocab-store-plan.md` for the Phase 3 design.
 12. **Study with built-in flashcards** — the **Study** topbar link runs a
     spaced-repetition session over everything marked **active** in the
     store. Vocab gets a word→meaning card plus a sentence-context card
@@ -137,8 +137,9 @@ Open <http://localhost:5173>.
   `Studious.xcodeproj` app shell. The same package also ships
   `studious-mac`, a native macOS companion (`make run-mac`) that bridges
   directly to `data/store/*.jsonl` — no sync layer needed on the Mac. See
-  `apple/README.md`, `docs/ios-app-plan.md`, and `docs/mac-app-plan.md`.
-- `docs/` — project description, roadmap, and architecture documentation.
+  `apple/README.md`, `docs/design/ios-app-plan.md`, and `docs/design/mac-app-plan.md`.
+- `docs/` — project description, roadmap, and architecture documentation;
+  `docs/README.md` indexes what is current, shipped design, or archived.
 
 ## Configuration
 
@@ -213,7 +214,12 @@ make test-backend    # pytest only
 make test-frontend   # vitest only
 make test-apple      # iOS companion Swift suite (incl. FSRS golden parity)
 make test-e2e        # browser smoke suite (Playwright)
+make lint            # ruff (backend, benchmarks) + Biome (frontend)
 ```
+
+CI runs all of the above on every pull request (the Swift suite on a
+macOS runner), plus `npm audit` and `pip-audit`, and re-runs weekly so
+new advisories surface while the repo is idle.
 
 Backend coverage runs under pytest-cov with a 75% floor. Frontend uses
 Vitest + jsdom; run `cd frontend && npm run test:coverage` for a v8

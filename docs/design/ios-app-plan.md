@@ -1,7 +1,7 @@
 # iOS Companion App (Phase 5 — vocabulary & grammar study)
 
 **Status:** In progress 2026-07-02. Implements the sync design in
-`docs/cloudkit-sync-plan.md`.
+`docs/design/cloudkit-sync-plan.md`.
 
 ## Goal
 
@@ -64,7 +64,7 @@ matches too.
 
 ## Sync
 
-As designed in `docs/cloudkit-sync-plan.md`: one custom `StudiousZone`
+As designed in `docs/design/cloudkit-sync-plan.md`: one custom `StudiousZone`
 in the private DB; `VocabItem`/`GrammarItem` records LWW on the
 `updated_at` field with tombstones winning; `ReviewEvent` records
 create-only, union-merged. FSRS state never syncs.

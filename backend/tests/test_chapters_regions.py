@@ -476,7 +476,7 @@ def test_delete_chapter_cascades_regions(isolated_data_dir, tmp_path: Path):
     assert storage.list_regions(doc_id, ch["id"]) == []
 
 
-# ---------- POST .../bulk (docs/bulk-operations-plan.md) ----------
+# ---------- POST .../bulk (docs/design/bulk-operations-plan.md) ----------
 
 
 def test_bulk_endpoint_dry_run_returns_plan_without_submitting(isolated_data_dir, tmp_path: Path):

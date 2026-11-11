@@ -4,7 +4,7 @@ Append-only JSONL files under ``data/store/`` — one JSON object per
 line, the latest line per ``id`` wins, deletes are tombstone lines
 (``deleted: true``). Records carry full-UUID ids, ``updated_at``
 timestamps, and per-occurrence ``sightings`` so the store stays
-sync-friendly (see docs/vocab-store-plan.md).
+sync-friendly (see docs/design/vocab-store-plan.md).
 
 The headword/reading (vocab) and normalized-pattern (grammar) indexes
 are derived in memory from the JSONL on read and cached against the
