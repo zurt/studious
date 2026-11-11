@@ -46,7 +46,7 @@ def submit_review(body: ReviewBody):
             elapsed_ms=body.elapsed_ms,
         )
     except ValueError as exc:
-        raise HTTPException(400, str(exc))
+        raise HTTPException(400, str(exc)) from exc
     log.info(
         "review_recorded",
         extra={

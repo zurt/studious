@@ -20,14 +20,14 @@ import os
 import random
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parent.parent
 FIXTURES = (
     BACKEND.parent / "apple" / "StudiousKit" / "Sources" / "studious-tests" / "Fixtures"
 )
-BASE = datetime(2026, 1, 1, tzinfo=timezone.utc)
+BASE = datetime(2026, 1, 1, tzinfo=UTC)
 
 sys.path.insert(0, str(BACKEND))
 # Point the backend at a scratch data dir before importing app.config.
@@ -108,7 +108,7 @@ def fsrs_cases() -> list[dict]:
     return cases
 
 
-NOW = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 1, 12, 0, 0, tzinfo=UTC)
 
 
 def _iso(dt: datetime) -> str:

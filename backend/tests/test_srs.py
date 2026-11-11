@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from app.services import srs, store
 
-NOW = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
 
 
 class TestScheduler:
@@ -152,7 +152,7 @@ class TestQueue:
         fresh = _seed_item(headword="猫", reading="ねこ", sentence="猫がいる。")
         store.update_item("vocab", reviewed["id"], status="active")
         store.update_item("vocab", fresh["id"], status="active")
-        past = datetime.now(timezone.utc) - timedelta(days=30)
+        past = datetime.now(UTC) - timedelta(days=30)
         srs.record_review(
             kind="vocab", item_id=reviewed["id"], card_type="word", grade=3, ts=past
         )

@@ -39,7 +39,7 @@ def shuffle_candidates(seed_key: str, model_names: list[str]) -> dict[str, str]:
     order = list(model_names)
     rng.shuffle(order)
     labels = LABELS[: len(order)]
-    return dict(zip(labels, order))
+    return dict(zip(labels, order, strict=True))
 
 
 def invert_label_map(label_to_model: dict[str, str]) -> dict[str, str]:

@@ -184,7 +184,7 @@ def _merge_items(kind: str, item_id: str, body: MergeBody) -> dict[str, Any]:
     try:
         merged = store.merge_items(kind, item_id, body.source_id)
     except ValueError as exc:
-        raise HTTPException(400, str(exc))
+        raise HTTPException(400, str(exc)) from exc
     if merged is None:
         raise HTTPException(404, f"{kind} item not found")
     log.info(
@@ -378,7 +378,7 @@ async def wanikani_sync(full: bool = False):
         result = await asyncio.to_thread(wanikani.sync, full=full)
     except Exception as exc:
         log.error("wanikani_sync_failed", extra={"error": str(exc)})
-        raise HTTPException(502, f"WaniKani sync failed: {exc}")
+        raise HTTPException(502, f"WaniKani sync failed: {exc}") from exc
     enriched = await asyncio.to_thread(enrich.enrich_pending, force=True)
     return {**result, "enriched": enriched}
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .common import (
@@ -29,7 +29,7 @@ DEFAULT_MODELS = "claude-haiku-4-5,claude-sonnet-5,claude-opus-4-8"
 
 
 def _utc_run_id() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
 
 
 def _cmd_build_dataset(args: argparse.Namespace) -> int:

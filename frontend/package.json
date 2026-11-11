@@ -11,9 +11,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "lint": "biome lint --error-on-warnings"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.4",
     "@playwright/test": "1.61.1",
     "@testing-library/dom": "10.4.1",
     "@vitest/coverage-v8": "4.1.12",

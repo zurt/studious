@@ -13,7 +13,8 @@ cheap as the audit log grows.
 """
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from ..config import MODEL_PRICING
 from . import llm_audit

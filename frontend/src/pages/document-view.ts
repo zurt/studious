@@ -258,7 +258,7 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
     list.addEventListener("dragstart", (e) => {
       const item = (e.target as HTMLElement).closest(".chapter-drag-item") as HTMLElement | null;
       if (!item) return;
-      dragIndex = parseInt(item.dataset.index!);
+      dragIndex = parseInt(item.dataset.index!, 10);
       item.classList.add("dragging");
       e.dataTransfer!.effectAllowed = "move";
     });
@@ -426,13 +426,13 @@ export function mountDocumentView(params: Record<string, string>, container: HTM
 
     bg.querySelector("#ch-save")!.addEventListener("click", async () => {
       const title = titleInput.value.trim();
-      const startPage = parseInt(startInput.value);
-      const endPage = parseInt(endInput.value);
+      const startPage = parseInt(startInput.value, 10);
+      const endPage = parseInt(endInput.value, 10);
       const errEl = bg.querySelector<HTMLElement>("#ch-error")!;
       errEl.textContent = "";
 
       if (!title) { errEl.textContent = "Title is required"; return; }
-      if (isNaN(startPage) || isNaN(endPage)) { errEl.textContent = "Invalid page numbers"; return; }
+      if (Number.isNaN(startPage) || Number.isNaN(endPage)) { errEl.textContent = "Invalid page numbers"; return; }
 
       try {
         if (isEdit) {

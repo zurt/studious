@@ -158,7 +158,7 @@ async def test_vlm_job_writes_llm_audit_log(isolated_data_dir, mock_vlm_provider
 
     entries = llm_audit.read_all()
     assert len(entries) == 2
-    for entry, expected_page in zip(entries, [1, 2]):
+    for entry, expected_page in zip(entries, [1, 2], strict=True):
         assert entry["provider"] == "mock-vlm"
         assert entry["model"] == "mock-model"
         assert entry["job_type"] == "transcribe_pages"

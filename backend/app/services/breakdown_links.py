@@ -10,7 +10,8 @@ points; Python string indexing is code-point based).
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 log = logging.getLogger("studious.breakdown_links")
 

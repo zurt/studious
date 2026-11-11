@@ -272,9 +272,11 @@ def test_logs_error_and_reraises(vlm, caplog):
 
     inst._client.messages = _BoomMessages()
 
-    with caplog.at_level(logging.DEBUG, logger="studious.providers.anthropic"):
-        with pytest.raises(RuntimeError, match="boom from sdk"):
-            inst.transcribe(b"img", "prompt", {"model": "claude-opus-4-7"})
+    with (
+        caplog.at_level(logging.DEBUG, logger="studious.providers.anthropic"),
+        pytest.raises(RuntimeError, match="boom from sdk"),
+    ):
+        inst.transcribe(b"img", "prompt", {"model": "claude-opus-4-7"})
 
     error_record = next(r for r in caplog.records if r.getMessage() == "vlm_call_error")
     assert error_record.error_class == "RuntimeError"

@@ -17,9 +17,10 @@ import logging
 import os
 import threading
 import uuid
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from ..config import get_settings
 
@@ -29,11 +30,11 @@ _lock = threading.Lock()
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _current_month_tag() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m")
+    return datetime.now(UTC).strftime("%Y-%m")
 
 
 def audit_log_dir() -> Path:
@@ -125,7 +126,7 @@ def record(
 
 
 def _iter_file(path: Path) -> Iterable[dict[str, Any]]:
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, encoding="utf-8") as fh:
         for lineno, raw in enumerate(fh, start=1):
             raw = raw.strip()
             if not raw:
@@ -166,7 +167,7 @@ def load_summary_cache() -> dict[str, Any]:
     if not path.exists():
         return {}
     try:
-        with open(path, "r", encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
         if isinstance(data, dict):
             return data

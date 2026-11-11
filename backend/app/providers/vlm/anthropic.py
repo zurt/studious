@@ -13,7 +13,6 @@ import anthropic
 from ...config import get_settings
 from ..registry import Prompt, ToolCallResult, TranscriptionResult, prompt_text
 
-
 # Prefix matching: "claude-sonnet-5" also covers claude-sonnet-5-5, and
 # "claude-opus-5" covers claude-opus-5-5.
 _TEMPERATURE_DEPRECATED_PREFIXES = ("claude-opus-4-7", "claude-opus-4-8", "claude-opus-5", "claude-sonnet-5")

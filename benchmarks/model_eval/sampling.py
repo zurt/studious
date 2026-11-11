@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import random
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 # Default sampling quotas. A data structure (not hardcoded logic) so callers
 # can override quotas per-source/per-tag without touching sampling code.

@@ -18,9 +18,10 @@ import os
 import threading
 import unicodedata
 import uuid
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from ..config import get_settings
 
@@ -37,7 +38,7 @@ SOURCES = ("breakdown", "vocab_list", "manual")
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def store_dir() -> Path:
@@ -113,7 +114,7 @@ def item_key(kind: str, item: dict[str, Any]) -> tuple[str, ...]:
 
 
 def _iter_lines(path: Path) -> Iterable[dict[str, Any]]:
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, encoding="utf-8") as fh:
         for lineno, raw in enumerate(fh, start=1):
             raw = raw.strip()
             if not raw:
@@ -261,10 +262,7 @@ def _new_grammar_item(
 
 
 def create_item(kind: str, **fields: Any) -> dict[str, Any]:
-    if kind == "vocab":
-        item = _new_vocab_item(**fields)
-    else:
-        item = _new_grammar_item(**fields)
+    item = _new_vocab_item(**fields) if kind == "vocab" else _new_grammar_item(**fields)
     with _lock:
         _append_lines(kind, [item])
     return item

@@ -91,7 +91,7 @@ def pairwise_sign_tests(win_matrix: dict[str, dict[str, int]]) -> list[dict[str,
     """For every unordered model pair with >=1 head-to-head comparison, run a
     sign test on ranking-implied preference. Returns a list of result dicts
     sorted by (model_a, model_b)."""
-    models = sorted(set(win_matrix.keys()) | {m for d in win_matrix.values() for m in d.keys()})
+    models = sorted(set(win_matrix.keys()) | {m for d in win_matrix.values() for m in d})
     out = []
     for i, a in enumerate(models):
         for b in models[i + 1 :]:

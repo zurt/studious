@@ -497,7 +497,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     // Click to navigate to region's page
     trackerPopover.querySelectorAll<HTMLElement>(".tracker-item").forEach((el) => {
       el.addEventListener("click", () => {
-        const targetPage = parseInt(el.dataset.page!);
+        const targetPage = parseInt(el.dataset.page!, 10);
         const targetId = el.dataset.id!;
         if (targetPage !== page) {
           page = targetPage;

@@ -9,7 +9,7 @@ Pillow (via backend/app/services/pdf.py).
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +19,7 @@ from .items import dedupe_item_id, page_item_id, prompt_kind_for, region_item_id
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _atomic_write_text(path: Path, text: str) -> None:
@@ -77,8 +77,9 @@ def build_dataset(
         )
 
     def image_dims(image_bytes: bytes) -> tuple[int, int]:
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         with Image.open(io.BytesIO(image_bytes)) as im:
             return im.size

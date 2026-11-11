@@ -29,10 +29,11 @@ import math
 import os
 import threading
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from ..config import get_settings
 from . import store
@@ -65,12 +66,12 @@ def reviews_path() -> Path:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _parse_ts(ts: str) -> datetime:
     dt = datetime.fromisoformat(ts)
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 # ---------- FSRS-4.5 ----------
@@ -210,7 +211,7 @@ def _load_events() -> dict[tuple[str, str, str], list[dict[str, Any]]]:
     if cached and cached[0] == sig:
         return cached[1]
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, encoding="utf-8") as fh:
         for lineno, raw in enumerate(fh, start=1):
             raw = raw.strip()
             if not raw:
@@ -277,7 +278,7 @@ def _context_sighting(item: dict[str, Any]) -> dict[str, Any] | None:
     best = None
     for s in item.get("sightings", []):
         text = (s.get("sentence_text") or "").strip()
-        if text and (best is None or len(text) > len((best.get("sentence_text") or ""))):
+        if text and (best is None or len(text) > len(best.get("sentence_text") or "")):
             best = s
     return best
 

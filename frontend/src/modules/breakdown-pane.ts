@@ -66,7 +66,7 @@ export function completionToMarkdown(
   const answerEn = entry.answer_english ? ` (${entry.answer_english})` : "";
   parts.push(`**Answer:** ${highlightFillMarkdown(entry.answer, entry.filled_text)}${answerEn}`);
   if (entry.explanation) parts.push(entry.explanation);
-  if (entry.examples && entry.examples.length) {
+  if (entry.examples?.length) {
     const rows = entry.examples.map((ex) => {
       const reading = ex.reading ? `（${ex.reading}）` : "";
       const note = ex.explanation ? `\n  ${ex.explanation}` : "";
@@ -265,7 +265,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     if (popover.hidden) return;
     const target = e.target as Node;
     if (popover.contains(target)) return;
-    if (activeLinkBtn && activeLinkBtn.contains(target)) return;
+    if (activeLinkBtn?.contains(target)) return;
     const linkBtn = (target as HTMLElement).closest?.(".bd-link") as HTMLButtonElement | null;
     if (linkBtn && container.contains(linkBtn)) return;
     closePopover();
@@ -281,14 +281,14 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
 
   function sentenceToMarkdown(s: BreakdownSentence): string {
     const parts: string[] = [s.text];
-    if (s.vocab && s.vocab.length) {
+    if (s.vocab?.length) {
       const rows = s.vocab.map((v) => {
         const reading = v.reading ? `（${v.reading}）` : "";
         return `- ${v.word}${reading} — ${v.meaning}`;
       });
       parts.push("**Vocab**\n" + rows.join("\n"));
     }
-    if (s.grammar && s.grammar.length) {
+    if (s.grammar?.length) {
       const rows = s.grammar.map((g) => `- ${g.pattern} — ${g.explanation}`);
       parts.push("**Grammar**\n" + rows.join("\n"));
     }
@@ -305,7 +305,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       const answerEn = entry.answer_english ? ` (${entry.answer_english})` : "";
       parts.push(`**Answer:** ${highlightFillMarkdown(entry.answer, entry.filled_text)}${answerEn}`);
       if (entry.explanation) parts.push(entry.explanation);
-      if (entry.examples && entry.examples.length) {
+      if (entry.examples?.length) {
         const rows = entry.examples.map((ex) => {
           const reading = ex.reading ? `（${ex.reading}）` : "";
           const note = ex.explanation ? `\n  ${ex.explanation}` : "";

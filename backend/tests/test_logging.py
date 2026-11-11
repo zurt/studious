@@ -7,7 +7,6 @@ should not require touching the formatter.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 

@@ -27,7 +27,9 @@ function pointToMarkdown(p: GrammarGuidePoint, idx: number): string {
 function guideToMarkdown(chapter: Chapter, guide: GrammarGuide): string {
   const out: string[] = [`# ${chapter.title} — Grammar Guide`];
   if (guide.intro) out.push(guide.intro.trim());
-  guide.points.forEach((p, i) => out.push(pointToMarkdown(p, i)));
+  guide.points.forEach((p, i) => {
+    out.push(pointToMarkdown(p, i));
+  });
   return out.join("\n\n");
 }
 

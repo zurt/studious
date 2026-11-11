@@ -5,7 +5,6 @@ from typing import Any
 
 from . import storage
 
-
 GRAMMAR_TAG = "grammar_points"
 
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .config import (
@@ -44,7 +45,7 @@ class _RegionOpError(Exception):
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _ms_since(t0: float) -> int:
@@ -113,10 +114,8 @@ class JobManager:
     async def stop(self) -> None:
         if self._worker and not self._worker.done():
             self._worker.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._worker
-            except asyncio.CancelledError:
-                pass
 
     def submit(self, payload: dict[str, Any]) -> dict[str, Any]:
         # Capture the caller's correlation id so the worker, which runs
@@ -141,10 +140,8 @@ class JobManager:
 
     def unsubscribe(self, job_id: str, q: asyncio.Queue[dict[str, Any]]) -> None:
         if job_id in self._listeners:
-            try:
+            with contextlib.suppress(ValueError):
                 self._listeners[job_id].remove(q)
-            except ValueError:
-                pass
             if not self._listeners[job_id]:
                 self._listeners.pop(job_id, None)
 

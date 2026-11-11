@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-e2e test-apple run-mac audit audit-log logs clean benchmark refs golden
+.PHONY: install install-backend install-frontend dev dev-backend dev-frontend test test-backend test-frontend test-e2e test-apple run-mac lint audit audit-log logs clean benchmark refs golden
 
 install: install-backend install-frontend
 	@echo ""
@@ -36,6 +36,12 @@ test-backend:
 
 test-frontend:
 	cd frontend && npm test
+
+# Ruff over backend/ + benchmarks/ (config: ruff.toml) and Biome over
+# the frontend (config: frontend/biome.json). Both also run in CI.
+lint:
+	cd backend && uv run ruff check ..
+	cd frontend && npm run lint
 
 # Swift suite for the iOS companion (apple/StudiousKit): a plain
 # executable rather than `swift test`, because Command Line Tools
