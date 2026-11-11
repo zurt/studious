@@ -1,7 +1,10 @@
 version: 2
 
 updates:
-  - package-ecosystem: pip
+  # `uv` (not `pip`): updates backend/uv.lock itself, including transitive
+  # deps. The `pip` ecosystem only saw pyproject.toml and produced PRs
+  # that raised `>=` lower bounds without touching the lockfile.
+  - package-ecosystem: uv
     directory: /backend
     schedule:
       interval: weekly

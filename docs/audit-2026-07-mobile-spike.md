@@ -6,6 +6,13 @@ store + CloudKit sync path). Uncontroversial fixes were applied in the
 same change as this document; everything else is recorded here as a
 finding with a recommendation.
 
+> **Note (2026-11):** the fixes below landed on `cc/mobile-spike` in
+> November 2026. The companion `docs/hosting.md` (plus Dockerfile /
+> compose prep) was **not** landed with them — it is still on branch
+> `claude/mobile-spike-audit-hosting-9jjv6k` (commit `5b06c4e`), pending
+> a hosting decision. The Swift changes are now exercised by the
+> `apple` CI job.
+
 **Companion doc:** `docs/hosting.md` covers moving the backend off the
 local machine (DigitalOcean droplet, container), including the security
 findings below that only matter once the backend is network-exposed.

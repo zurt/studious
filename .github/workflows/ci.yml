@@ -4,6 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Weekly run so new advisories surface (as a failed scheduled run + email)
+  # even when nobody is pushing. Mondays 06:17 UTC.
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   backend:
@@ -39,6 +47,24 @@ jobs:
         run: npm run typecheck
       - name: Test
         run: npm test
+      - name: Build
+        run: npm run build
+
+  # Compiles every Swift target (StudiousCore/Sync/UI, studious-mac,
+  # studious-sync) for macOS and runs the plain-executable test suite.
+  # This is the only automated check on apple/ — the iOS app shell
+  # (apple/Studious.xcodeproj) is still not built here.
+  apple:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apple/StudiousKit
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Build all targets
+        run: swift build
+      - name: Test
+        run: swift run studious-tests
 
   audit:
     runs-on: ubuntu-latest
