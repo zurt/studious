@@ -12,6 +12,7 @@ import { confirmDialog } from "./confirm";
 import { createFuriganaToggle, furiganaHtml, furiganaUnits, snapToUnits } from "./furigana";
 import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "./collapsible";
 import { makeCopyButton, ICON_REDO } from "./region-list";
+import { escapeHtml } from "./html";
 
 type Ctx = { docId: string; chapterId: string; region: Region };
 
@@ -38,15 +39,6 @@ function highlightFillMarkdown(answer: string, filledText?: string): string {
   return answer.slice(0, i) + "**" + filledText + "**" + answer.slice(i + filledText.length);
 }
 
-// Nullish-safe: a stored breakdown/completion can carry a malformed field
-// (an unvalidated VLM tool response missing an expected string) and one
-// missing field must not crash the whole pane's render pass.
-export function escapeHtml(s: string | null | undefined): string {
-  if (s == null) return "";
-  return s
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 
 // Tooltip naming the learner settings an entry was generated with, so answers
 // made before a Study profile change are recognizable.

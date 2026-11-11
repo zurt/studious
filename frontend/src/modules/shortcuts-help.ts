@@ -1,3 +1,4 @@
+import { escapeHtml } from "./html";
 type Shortcut = { keys: string[]; desc: string };
 type Group = { title: string; items: Shortcut[] };
 
@@ -95,11 +96,6 @@ function renderItem(s: Shortcut): string {
   return `<dt>${keys}</dt><dd>${escapeHtml(s.desc)}</dd>`;
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]!));
-}
 
 export function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;

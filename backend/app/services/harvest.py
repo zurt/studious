@@ -231,7 +231,7 @@ def backfill() -> dict[str, Any]:
                     "region_id": region["id"],
                 }
                 # One bad region must not abort the whole backfill —
-                # same stance as the harvest hooks in jobs.py.
+                # same stance as the harvest hooks in app/jobs/.
                 if region.get("tag") == "vocab_list" and region.get("transcription_md"):
                     try:
                         result = ingest_vocab_list_region(

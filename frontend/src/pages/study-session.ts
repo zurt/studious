@@ -9,6 +9,7 @@ import { isTypingTarget } from "../modules/shortcuts-help";
 import { toastError } from "../modules/toast";
 import { info, error as logError } from "../logger";
 import { navigate } from "../router";
+import { escapeHtml } from "../modules/html";
 
 const QUEUE_LIMIT = 20;
 const NEW_LIMIT = 10;
@@ -20,13 +21,6 @@ const GRADES: { grade: StudyGrade; key: string; label: string; hint: string }[] 
   { grade: 4, key: "4", label: "Easy", hint: "instant recall" },
 ];
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 // Highlight the sighted surface form inside the sentence for context cards.
 function sentenceFront(card: StudyCard): string {

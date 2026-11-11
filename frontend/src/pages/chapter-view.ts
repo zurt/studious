@@ -22,57 +22,14 @@ import { applyFurigana, createFuriganaToggle, cycleFuriganaMode } from "../modul
 import {
   createReferenceResolver, openReferencePicker, renderReferenceLabel, type ReferenceInfo,
 } from "../modules/reference-picker";
-
-const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
-
-const LAST_TAG_KEY = "studious.region.lastTag";
-function getLastTag(): string {
-  const v = localStorage.getItem(LAST_TAG_KEY);
-  return v && VALID_TAGS.includes(v) ? v : VALID_TAGS[0];
-}
-function setLastTag(tag: string) {
-  localStorage.setItem(LAST_TAG_KEY, tag);
-}
-
-type TextSize = 1 | 2 | 3;
-const TEXT_SIZE_KEY = "studious.transcription.textSize";
-function getTranscriptionTextSize(): TextSize {
-  const v = Number(localStorage.getItem(TEXT_SIZE_KEY));
-  return v === 2 || v === 3 ? v : 1;
-}
-function setTranscriptionTextSize(size: TextSize) {
-  localStorage.setItem(TEXT_SIZE_KEY, String(size));
-}
-
-const LAST_REGION_KEY = "studious.lastRegion";
-function lastRegionMap(): Record<string, string> {
-  try {
-    return JSON.parse(localStorage.getItem(LAST_REGION_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-function getRememberedRegion(chapterId: string, page: number): string | null {
-  return lastRegionMap()[`${chapterId}:${page}`] || null;
-}
-function rememberRegion(chapterId: string, page: number, regionId: string | null) {
-  const map = lastRegionMap();
-  const key = `${chapterId}:${page}`;
-  if (regionId) map[key] = regionId;
-  else delete map[key];
-  localStorage.setItem(LAST_REGION_KEY, JSON.stringify(map));
-}
-
-function pickFirstRegion(regs: Region[]): Region | null {
-  if (regs.length === 0) return null;
-  return [...regs].sort((a, b) => a.bbox[1] - b.bbox[1] || a.bbox[0] - b.bbox[0])[0];
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]!));
-}
+import { escapeHtml } from "../modules/html";
+import {
+  VALID_TAGS, getLastTag, setLastTag, getTranscriptionTextSize, setTranscriptionTextSize,
+  getRememberedRegion, rememberRegion, pickFirstRegion,
+} from "../modules/chapter-prefs";
+import {
+  resolveChain, chainHeadOf, combinedTranscriptionHtml, combinedTranscriptionMd,
+} from "../modules/region-chain";
 
 export function mountChapterView(params: Record<string, string>, container: HTMLElement) {
   const docId = params.id;
@@ -831,41 +788,6 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     refreshRegionUI();
   }
 
-  function resolveChain(headId: string): Region[] {
-    const out: Region[] = [];
-    const seen = new Set<string>();
-    let curId: string | null = headId;
-    while (curId && !seen.has(curId)) {
-      const r = regions.find((x) => x.id === curId);
-      if (!r) break;
-      seen.add(curId);
-      out.push(r);
-      curId = r.continues_to || null;
-    }
-    return out;
-  }
-
-  function combinedTranscriptionHtml(chain: Region[]): string {
-    return chain
-      .map((r, idx) => {
-        const md = r.transcription_md || "";
-        const body = renderMarkdown(md);
-        if (idx === 0) return body;
-        return `<div class="region-chain-separator" style="margin: 12px 0; padding: 6px 10px; border-top: 1px dashed rgba(16,185,129,0.5); color: rgb(16,185,129); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">↓ continues on page ${r.page}</div>${body}`;
-      })
-      .join("");
-  }
-
-  function combinedTranscriptionMd(chain: Region[]): string {
-    return chain
-      .map((r, idx) => {
-        const md = r.transcription_md || "";
-        if (idx === 0) return md;
-        return `\n\n---\n_(continues on page ${r.page})_\n\n${md}`;
-      })
-      .join("");
-  }
-
   function syncBreakdownPane(region: Region | undefined) {
     // Show the breakdown pane only on regions that (a) aren't vocab_list and
     // (b) have an existing transcription. Remount when the target region or
@@ -908,23 +830,11 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     }
   }
 
-  // Walk continues_to pointers backwards to the region a chain starts from.
-  function chainHeadOf(region: Region): Region {
-    let cur = region;
-    const seen = new Set([region.id]);
-    for (;;) {
-      const prev = regions.find((r) => r.continues_to === cur.id);
-      if (!prev || seen.has(prev.id)) return cur;
-      seen.add(prev.id);
-      cur = prev;
-    }
-  }
-
   // Reading references live on the exercises chain head (where completions
   // run from); selecting any piece of the chain shows and edits the head's.
   function renderReferences(region: Region | undefined) {
     const token = ++referencesToken;
-    const head = region ? chainHeadOf(region) : null;
+    const head = region ? chainHeadOf(regions, region) : null;
     if (!region || !head || head.tag !== "exercises") {
       referencesPane.style.display = "none";
       referencesPane.innerHTML = "";
@@ -1021,7 +931,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     }
     const inFlight = transcribingIds.has(region.id);
     if (region.transcription_md) {
-      const chain = region.continues_to ? resolveChain(region.id) : [region];
+      const chain = region.continues_to ? resolveChain(regions, region.id) : [region];
       const displayHtml = chain.length > 1 ? combinedTranscriptionHtml(chain) : renderMarkdown(region.transcription_md);
       const copyMd = chain.length > 1 ? combinedTranscriptionMd(chain) : region.transcription_md;
       const meta: string[] = [];

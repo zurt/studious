@@ -14,6 +14,7 @@ import {
 } from "../api";
 import { error as logError } from "../logger";
 import { replaceQuery } from "../router";
+import { escapeHtml } from "./html";
 
 type Section = "general" | "usage";
 
@@ -114,11 +115,6 @@ export function openSettingsModal(initial: Section = "general"): void {
   select(current, false);
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]!));
-}
 
 function fmtUsd(n: number): string {
   if (n === 0) return "$0.00";

@@ -96,7 +96,7 @@ data/documents/{doc_id}/
 - `DELETE .../{region_id}` — delete region
 - `POST .../{region_id}/transcribe` — queue VLM transcription for cropped region
 
-**Job queue changes** in `backend/app/jobs.py`:
+**Job queue changes** in `backend/app/jobs/`:
 - Add `job_type` field to job payload: `"transcribe_pages"` (existing), `"transcribe_region"` (new)
 - Dispatch in `_run_job` based on `job_type`
 - Region transcription: crop image → VLM call → save transcription_md back to region file
@@ -412,7 +412,7 @@ gets painful).
 |------|---------|
 | `backend/app/services/storage.py` | Chapter, region, breakdown, vocab/grammar CRUD |
 | `backend/app/services/pdf.py` | `crop_region` function |
-| `backend/app/jobs.py` | Job type dispatch, region transcription + breakdown handlers |
+| `backend/app/jobs/` | Job queue (`manager.py`) and one module per job type |
 | `backend/app/config.py` | New VLM prompt templates, model pricing table (Phase 1.5) |
 | `backend/app/providers/vlm/anthropic.py` | Text-only VLM call path (Phase 2), audit log writes (Phase 1.5) |
 | `backend/app/api/costs.py` | Cost summary + audit log endpoints (Phase 1.5) |

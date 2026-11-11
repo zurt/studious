@@ -139,7 +139,7 @@ jq 'select(.status == "error")' backend/data/llm_audit.*.jsonl
 
 A pre-rotation `llm_audit.jsonl` (no date suffix) is still read by `read_all()`. The summary endpoint maintains a `backend/data/llm_audit_summary.json` cache: archived months are aggregated once and read from cache; the current month is recomputed live. Delete the cache to force a rebuild.
 
-The log is written via `app.services.llm_audit.record(...)` from `app/jobs.py` after every VLM call (success or failure).
+The log is written via `app.services.llm_audit.record(...)` from `app/jobs/` after every VLM call (success or failure).
 
 ### Prompt cache hits / misses
 Tool-call jobs pass their prompt to `provider.call_tool` as a list of text
@@ -394,7 +394,7 @@ The file reached the backend but PyMuPDF/Pillow could not parse it — usually a
 The backend process can't read the key from its environment. The Keychain-based setup (see README) only injects into the shell that sources it — restart `make dev-backend` from that shell.
 
 ### Job stuck in `running`
-The worker is sequential (`backend/app/jobs.py` `JobManager`). One stuck job blocks all subsequent ones. Check backend stdout for an exception traceback in the worker, then either let it finish or restart the backend (in-progress jobs do not resume on restart).
+The worker is sequential (`backend/app/jobs/` `JobManager`). One stuck job blocks all subsequent ones. Check backend stdout for an exception traceback in the worker, then either let it finish or restart the backend (in-progress jobs do not resume on restart).
 
 ### Job stuck in `queued` forever (worker idle, later jobs may unstick it)
 Two historical causes, both fixed 2026-07-07 (see `docs/archive/audit-2026-07-mobile-spike.md`):
@@ -420,7 +420,7 @@ If instead the model set `no_exercise: true`, the job fails with a `no_exercise:
 ### Exercise completion answer isn't highlighting the filled-in word
 The completion pane bolds/highlights the filled-in span of `answer` (`.exercise-completion-fill` in `breakdown-pane.ts`, `**bold**` in the markdown export) by doing a plain `indexOf` substring search for `entry.filled_text` inside `entry.answer` — there's no character-offset math, since offsets are unreliable for a model to produce but exact substrings are not (same reasoning as the vocab/grammar link highlighting in `breakdown_links.py`). This is a purely cosmetic feature: if it doesn't fire, the answer still renders correctly, just unhighlighted.
 
-It won't highlight when `filled_text` is empty. `_run_exercise_completion_job` (`backend/app/jobs.py`) only keeps the model's `filled_text` if it's a non-empty, exact, verbatim substring of `answer` — anything else (hallucinated text, a value missing the furigana annotation the model added to `answer`, mismatched punctuation) is silently dropped to `""` rather than stored, since a non-substring value would just fail the frontend's `indexOf` lookup anyway. Older stored completions (from before this field existed) also have no `filled_text` and won't highlight until regenerated. This isn't retried or audited as an error — check the stored entry (`storage.load_exercise_completion`) to see whether `filled_text` came back empty.
+It won't highlight when `filled_text` is empty. `_run_exercise_completion_job` (`backend/app/jobs/`) only keeps the model's `filled_text` if it's a non-empty, exact, verbatim substring of `answer` — anything else (hallucinated text, a value missing the furigana annotation the model added to `answer`, mismatched punctuation) is silently dropped to `""` rather than stored, since a non-substring value would just fail the frontend's `indexOf` lookup anyway. Older stored completions (from before this field existed) also have no `filled_text` and won't highlight until regenerated. This isn't retried or audited as an error — check the stored entry (`storage.load_exercise_completion`) to see whether `filled_text` came back empty.
 
 ### Tool-call job fails with `tool_choice: type "tool" and "any" are not supported for this model` (400)
 Claude Sonnet 5.5, Opus 5.5 and Fable 5.1 reject a forced `tool_choice`. The provider routes those models (`_STRUCTURED_OUTPUT_PREFIXES` in `backend/app/providers/vlm/anthropic.py`) through structured outputs instead: no `tools`, `output_config.format` carrying the tool schema (made strict — `additionalProperties: false`, length/count keywords stripped by `_strict_json_schema`), and the JSON text parsed back into the same `tool_input` the jobs expect. The `vlm_tool_call_start` log line shows `mode: "structured_output"` or `"forced_tool"`. If this 400 appears, a new model ID isn't in that list. Related 400s on these models: `thinking.type.disabled` (never send it; Sonnet 5.5 uses `between_tools`, only at effort `high` or below — the provider clamps), and a schema keyword structured outputs don't support (add it to `_UNSUPPORTED_SCHEMA_KEYS`). A structured-output response cut off at `max_tokens` becomes `{}`, which the jobs report as truncation; Opus 5.5 gets 16k tokens of extra `max_tokens` headroom because its thinking counts toward the limit.

@@ -61,7 +61,7 @@ Run `make benchmark` when making significant changes to:
 - Provider logic (OCR or VLM providers)
 - VLM prompts or prompt configuration
 - Image preprocessing (PDF rendering, VLM image preparation)
-- The transcription pipeline in `jobs.py`
+- The transcription pipeline in `backend/app/jobs/`
 
 ## Code Conventions
 

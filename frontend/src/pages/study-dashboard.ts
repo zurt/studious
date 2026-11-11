@@ -25,6 +25,7 @@ import { emit, STORE_STATUS_CHANGED, type StoreStatusChange } from "../modules/e
 import { toastError, toastInfo } from "../modules/toast";
 import { info, error as logError } from "../logger";
 import { navigate, replaceQuery } from "../router";
+import { escapeHtml } from "../modules/html";
 
 const PAGE_SIZE = 100;
 const STATUSES: StoreStatus[] = ["unreviewed", "active", "known", "ignored"];
@@ -58,13 +59,6 @@ export function mountGrammarDashboard(_params: Record<string, string>, container
   mountStudyDashboard("grammar", container);
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function isVocab(item: StoreItem): item is VocabItem {
   return "headword" in item;

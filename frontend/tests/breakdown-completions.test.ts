@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { completionToMarkdown, escapeHtml } from "../src/modules/breakdown-pane";
+import { completionToMarkdown } from "../src/modules/breakdown-pane";
+import { escapeHtml } from "../src/modules/html";
 import type { ExerciseCompletionEntry } from "../src/api";
 
 const entry: ExerciseCompletionEntry = {

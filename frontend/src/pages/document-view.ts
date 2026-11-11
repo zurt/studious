@@ -11,12 +11,8 @@ import { renderMarkdown } from "../modules/markdown";
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { confirmDialog } from "../modules/confirm";
+import { escapeHtml } from "../modules/html";
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]!));
-}
 
 export function mountDocumentView(params: Record<string, string>, container: HTMLElement) {
   const docId = params.id;
