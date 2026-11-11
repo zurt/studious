@@ -152,6 +152,8 @@ Environment variables (read at startup, `.env` supported):
   Keychain like the Anthropic key:
   `security add-generic-password -s WANIKANI_API_TOKEN -a "$USER" -w`, then
   export it in `~/.zshrc` the same way. Never put it in `.env`.
+- `ANKI_CONNECT_URL` — AnkiConnect endpoint for the Anki import (default
+  `http://127.0.0.1:8765`).
 - `STUDIOUS_DATA_DIR` — data root (default `./data`).
 - `STUDIOUS_PDF_RENDER_DPI` — page raster DPI (default `300`).
 - `STUDIOUS_LOG_LEVEL` — backend log level (default `INFO`; set `DEBUG` for
@@ -259,6 +261,20 @@ Attribution:
   token into a gitignored local cache (`data/refs/wanikani/`) for personal
   use only. WK SRS history is shown as context (e.g. "burned 2022") but
   never changes an item's study status.
+
+## Anki import (read-only)
+
+If you study flashcards in Anki, **Sync Anki** on the vocab dashboard pulls
+the state of every card (new / learning / young / mature / suspended) and
+shows an `Anki · mature` badge on matching store items, plus an Anki filter.
+It needs the Anki desktop app open with the
+[AnkiConnect](https://ankiweb.net/shared/info/2055492159) add-on installed,
+and only ever reads: nothing is written to Anki or to the vocab store. The
+snapshot lives in `data/refs/anki/snapshot.json` (replaced atomically; a
+failed sync keeps the previous one) and is matched to store items at read
+time. The word and reading fields are picked per note type by name
+(`GET /api/refs/anki/status` shows which). Pushing chosen items into Anki is
+planned, not built.
 
 ## Security
 

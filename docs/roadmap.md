@@ -473,6 +473,14 @@ Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
       `GET /api/vocab/{id}/wanikani`) with WK mnemonics, the user's own
       WK notes, and SRS chips ("burned 2022")
 - [x] Outbound reference links (jisho.org search, WaniKani subject pages)
+- [x] Anki import, step one of an Anki bridge (read-only): `POST
+      /api/refs/anki/sync` reads every card through AnkiConnect
+      (`findCards`/`cardsInfo` only) into an atomic snapshot under
+      `data/refs/anki/`; `GET /api/vocab` joins card state onto items at
+      read time (exact word+reading, else headword) with an `anki` filter,
+      and the dashboard has a "Sync Anki" button and `Anki · state`
+      badges. Never written to the store. The reverse direction (pushing
+      chosen items to Anki) is planned and not built
 - [x] Derived priority grouping (pure function of jlpt/common/WK-level
       signals, 1–5) + "By study priority" sort on the vocab dashboard
 

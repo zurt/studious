@@ -332,6 +332,11 @@ decisions:
   knowledge has atrophied, so "burned on WK" must never auto-mark an item
   known. A vocab→kanji→radical drill-down view surfaces WK mnemonics and
   personal notes for recall.
+- **Anki import (read-only)**: AnkiConnect on `127.0.0.1:8765`
+  (`ANKI_CONNECT_URL`), snapshot at `data/refs/anki/snapshot.json`
+  (`GET /api/refs/anki/status`, `POST /api/refs/anki/sync`). Card state is
+  joined onto `/api/vocab` items at read time and never stored in the
+  append-only JSONL.
 - **Multiple classification signals, derived priority.** JLPT level
   (community lists), frequency rank, JMdict common flags, WK level, and
   textbook order are stored independently; a derived `priority_group`

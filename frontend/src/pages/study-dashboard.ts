@@ -9,6 +9,7 @@ import {
   listDocuments,
   getWanikaniStatus,
   syncWanikani,
+  syncAnki,
   getVocabWanikani,
   type DocMeta,
   type GrammarItem,
@@ -43,6 +44,7 @@ type State = {
   docId: string;
   chapterId: string;
   source: string;
+  anki: string;
   sort: "recent" | "updated" | "alpha" | "priority";
   items: StoreItem[];
   total: number;
@@ -71,6 +73,27 @@ function wkMarkup(text: string): string {
     /&lt;(\/?)(radical|kanji|vocabulary|reading|ja)&gt;/g,
     (_m, close, tag) => (close ? "</span>" : `<span class="wk-tag wk-tag-${tag}">`),
   );
+}
+
+// jpost errors look like `/url: 503 {"detail":"..."}`; show just the detail.
+export function ankiErrorDetail(message: string): string {
+  const m = message.match(/\{.*\}\s*$/s);
+  if (m) {
+    try {
+      const d = JSON.parse(m[0]).detail;
+      if (typeof d === "string") return d;
+    } catch {
+      // fall through to the raw message
+    }
+  }
+  return message;
+}
+
+export function ankiBadge(item: StoreItem): string {
+  const a = (item as VocabItem).anki;
+  if (!a) return "";
+  const note = a.match === "headword" ? "matched by word only, reading differs" : `${a.deck}`;
+  return `<span class="study-badge study-badge-anki study-badge-anki-${a.state}" title="${escapeHtml(note)}">Anki · ${a.state}</span>`;
 }
 
 function wkSrsChip(subject: WkSubjectView): string {
@@ -127,6 +150,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     docId: "",
     chapterId: query.get("chapter") || "",
     source: "",
+    anki: "",
     sort: "recent",
     items: [],
     total: 0,
@@ -145,6 +169,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         <div class="grow"></div>
         <button id="study-add-btn" title="Add an entry by hand">+ Add</button>
         <button id="study-backfill-btn" title="Re-harvest all breakdowns and vocab lists on disk">Backfill</button>
+        <button id="study-anki-btn" title="Import card state from Anki (read-only; Anki must be open with AnkiConnect)">Sync Anki</button>
         <button id="study-wk-btn" hidden title="Sync WaniKani levels, mnemonics, and your notes">Sync WK</button>
       </div>
       <form id="study-add-form" class="study-add-form" hidden></form>
@@ -157,6 +182,20 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
           <option value="breakdown">Breakdowns</option>
           <option value="manual">Manual</option>
         </select>
+        ${
+          kind === "vocab"
+            ? `<select id="study-anki-filter" title="Filter by Anki card state">
+          <option value="">Any Anki state</option>
+          <option value="any">In Anki</option>
+          <option value="none">Not in Anki</option>
+          <option value="mature">Anki: mature</option>
+          <option value="young">Anki: young</option>
+          <option value="learning">Anki: learning</option>
+          <option value="new">Anki: new</option>
+          <option value="suspended">Anki: suspended</option>
+        </select>`
+            : ""
+        }
         <select id="study-sort">
           <option value="recent">Newest</option>
           <option value="updated">Recently updated</option>
@@ -184,6 +223,8 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
   const addBtn = container.querySelector<HTMLButtonElement>("#study-add-btn")!;
   const addForm = container.querySelector<HTMLFormElement>("#study-add-form")!;
   const backfillBtn = container.querySelector<HTMLButtonElement>("#study-backfill-btn")!;
+  const ankiBtn = container.querySelector<HTMLButtonElement>("#study-anki-btn")!;
+  const ankiFilter = container.querySelector<HTMLSelectElement>("#study-anki-filter");
   const wkBtn = container.querySelector<HTMLButtonElement>("#study-wk-btn")!;
 
   let docs: DocMeta[] = [];
@@ -197,6 +238,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
       doc_id: state.docId || undefined,
       chapter_id: state.chapterId || undefined,
       source: state.source || undefined,
+      anki: state.anki || undefined,
       sort: state.sort,
       limit: PAGE_SIZE,
       offset,
@@ -398,6 +440,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         <span class="study-gloss">${escapeHtml(gloss)}</span>
         <div class="grow"></div>
         ${classChips}
+        ${ankiBadge(item)}
         ${sources.map((s) => `<span class="study-badge study-badge-${s}">${s.replace("_", " ")}</span>`).join("")}
         <button class="study-sightings-btn" title="Details, sightings, kanji breakdown">${sightingCount ? `${sightingCount}×` : "…"}</button>
         <div class="study-status-toggle">
@@ -647,6 +690,23 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     }
   });
 
+  ankiBtn.addEventListener("click", async () => {
+    ankiBtn.disabled = true;
+    ankiBtn.textContent = "Syncing Anki…";
+    try {
+      const result = await syncAnki();
+      info("StudyDash", "anki_sync_done", { cards: result.total_cards, matched: result.matched });
+      toastInfo(`Anki synced: ${result.total_cards} cards, ${result.matched} of your store items matched`);
+      await reload();
+    } catch (e: any) {
+      logError("StudyDash", "anki_sync_failed", { error: e.message });
+      toastError("Anki sync failed: " + ankiErrorDetail(e.message));
+    } finally {
+      ankiBtn.disabled = false;
+      ankiBtn.textContent = "Sync Anki";
+    }
+  });
+
   wkBtn.addEventListener("click", async () => {
     wkBtn.disabled = true;
     wkBtn.textContent = "Syncing WK…";
@@ -709,6 +769,11 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     (e.currentTarget as HTMLButtonElement).remove();
     void reload();
   });
+  ankiFilter?.addEventListener("change", () => {
+    state.anki = ankiFilter.value;
+    void reload();
+  });
+
   sourceFilter.addEventListener("change", () => {
     state.source = sourceFilter.value;
     void reload();

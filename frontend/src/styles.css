@@ -947,6 +947,8 @@ html[data-furigana="hidden"] .furi-reveal:not(.is-revealed) { filter: blur(4px);
 .study-badge-jlpt { background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.3); }
 .study-badge-common { background: rgba(22,163,74,0.10); color: #15803d; border-color: rgba(22,163,74,0.25); }
 .study-badge-wk { background: rgba(236,72,153,0.10); color: #db2777; border-color: rgba(236,72,153,0.3); }
+.study-badge-anki { background: rgba(14,116,144,0.10); color: #0e7490; border-color: rgba(14,116,144,0.3); }
+.study-badge-anki-suspended, .study-badge-anki-new { background: rgba(107,114,128,0.12); color: #6b7280; border-color: rgba(107,114,128,0.3); }
 .study-links { margin-bottom: 4px; }
 .study-link { font-size: 12px; white-space: nowrap; }
 .wk-drilldown { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
