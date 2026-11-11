@@ -23,11 +23,13 @@ from .judging import (
     validate_and_clamp_response,
 )
 from .pricing import estimate_cost
+from .run_cmd import BudgetGuard
 
-# Beta flag naming the server-side-fallback feature this eval assumes is
-# available on the judge endpoint as of this project's synthetic "today"
-# (2026-07-06). If the API rejects it, we retry once without betas/fallbacks.
-FALLBACK_BETA = "server-side-fallback-2026-06-01"
+# Server-side refusal fallback: if the judge model declines an item, the API
+# re-runs the request on the fallback model inside the same call.
+FALLBACK_BETA = "server-side-fallback-2026-07-01"
+# Thinking is always on for the judge and counts toward max_tokens.
+JUDGE_MAX_TOKENS = 16000
 
 
 def _now_iso() -> str:
@@ -130,27 +132,36 @@ def build_judge_content(
     ]
 
 
+def _fallbacks_param(fallback_model: str) -> Any:
+    return "default" if fallback_model == "default" else [{"model": fallback_model}]
+
+
 def call_judge(client: Any, judge_model: str, fallback_model: str, content: list[dict[str, Any]]):
-    """Call the judge endpoint, falling back to a plain (non-beta) call if the
-    beta fallbacks parameter itself is rejected by the API."""
+    """Call the judge with a server-side refusal fallback.
+
+    `fallbacks` goes in `extra_body` because the pinned SDK has no typed
+    parameter for it. If the API rejects the fallback request itself (the
+    judge model or account doesn't support it), retry once without one.
+    """
+    import anthropic
+
+    request = {
+        "model": judge_model,
+        "max_tokens": JUDGE_MAX_TOKENS,
+        "output_config": {"format": {"type": "json_schema", "schema": JUDGE_SCHEMA}},
+        "messages": [{"role": "user", "content": content}],
+    }
     try:
         return client.beta.messages.create(
-            model=judge_model,
-            max_tokens=8192,
+            **request,
             betas=[FALLBACK_BETA],
-            fallbacks=[{"model": fallback_model}],
-            output_config={"format": {"type": "json_schema", "schema": JUDGE_SCHEMA}},
-            messages=[{"role": "user", "content": content}],
+            extra_body={"fallbacks": _fallbacks_param(fallback_model)},
         )
-    except Exception as exc:  # noqa: BLE001 - inspect then re-raise if unrelated
+    except anthropic.BadRequestError as exc:
         msg = str(exc).lower()
-        if "fallbacks" in msg or "beta" in msg:
-            return client.messages.create(
-                model=judge_model,
-                max_tokens=8192,
-                output_config={"format": {"type": "json_schema", "schema": JUDGE_SCHEMA}},
-                messages=[{"role": "user", "content": content}],
-            )
+        if "fallback" in msg or "beta" in msg:
+            print("(fallback not accepted; judging without one)", end=" ", flush=True)
+            return client.messages.create(**request)
         raise
 
 
@@ -160,6 +171,7 @@ def judge_run(
     judge_model: str,
     seed: int,
     fallback_model: str,
+    budget_usd: float | None = None,
 ) -> dict[str, Any]:
     ensure_anthropic_api_key()
     import anthropic
@@ -180,13 +192,21 @@ def judge_run(
 
     totals = {"attempted": 0, "skipped": 0, "ok": 0, "refused": 0, "error": 0}
     started_at = _now_iso()
+    budget = BudgetGuard(budget_usd)
+    budget_stopped_before: str | None = None
 
     for item_id in item_ids:
         out_path = judgments_dir / f"{item_id}.json"
         if _existing_result_ok(out_path):
             totals["skipped"] += 1
+            budget.add_existing(judgments_dir, [item_id])
             print(f"  SKIP {item_id} (already judged)")
             continue
+        if not budget.can_start_item():
+            budget_stopped_before = item_id
+            print(f"  STOP before {item_id}: ${budget.spent:.2f} spent of ${budget_usd:.2f} budget")
+            break
+        budget.begin_item()
 
         item_dir = dataset_dir / "items" / item_id
         meta_path = item_dir / "meta.json"
@@ -301,6 +321,7 @@ def judge_run(
         payload = {
             "status": "ok",
             "judge_model": judge_model,
+            "served_by_model": getattr(message, "model", None),
             "label_to_model": label_to_model,
             "model_to_label": invert_label_map(label_to_model),
             "candidates": normalized["candidates"],
@@ -312,6 +333,7 @@ def judge_run(
             "duration_ms": duration_ms,
         }
         totals["ok"] += 1
+        budget.add(cost)
         print(f"ok ({duration_ms}ms)")
         _atomic_write_text(out_path, json.dumps(payload, indent=2, ensure_ascii=False))
 
@@ -322,6 +344,9 @@ def judge_run(
         "judge_model": judge_model,
         "fallback_model": fallback_model,
         "seed": seed,
+        "budget_usd": budget_usd,
+        "estimated_cost_usd": round(budget.spent, 4),
+        "budget_stopped_before": budget_stopped_before,
         "git_sha": git_sha(),
         "started_at": started_at,
         "finished_at": finished_at,

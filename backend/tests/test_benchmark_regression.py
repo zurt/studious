@@ -142,7 +142,59 @@ def test_judge_against_reference_returns_scores_and_cost():
     assert "label" not in result
     call = beta_messages.calls[0]
     assert call["model"] == "claude-fable-5"
-    assert call["fallbacks"] == [{"model": "claude-opus-4-8"}]
+    # The pinned SDK has no typed `fallbacks` parameter, so it rides in extra_body.
+    assert call["extra_body"] == {"fallbacks": [{"model": "claude-opus-4-8"}]}
+    assert call["betas"] == ["server-side-fallback-2026-07-01"]
+    assert "fallbacks" not in call
+
+
+def test_judge_uses_category_routed_fallback_by_default_and_records_who_answered():
+    message = _judge_message(_GOOD_PAYLOAD)
+    message.model = "claude-opus-4-8"  # the fallback answered
+    client, beta_messages = _fake_client(message)
+    result = reference_judge.judge_against_reference(
+        client, b"x", "page", "r", "c", "claude-fable-5-2", "default"
+    )
+    assert beta_messages.calls[0]["extra_body"] == {"fallbacks": "default"}
+    assert result["judge_model"] == "claude-fable-5-2"
+    assert result["served_by_model"] == "claude-opus-4-8"
+
+
+def test_judge_retries_without_fallback_when_the_api_rejects_it():
+    import anthropic
+    import httpx
+
+    from benchmarks.model_eval import judge_cmd
+
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    rejection = anthropic.BadRequestError(
+        "fallbacks: this model does not support server-side fallback",
+        response=httpx.Response(400, request=request),
+        body=None,
+    )
+
+    class _Rejecting:
+        def create(self, **kwargs):
+            raise rejection
+
+    plain = _FakeBetaMessages(_judge_message(_GOOD_PAYLOAD))
+    client = SimpleNamespace(beta=SimpleNamespace(messages=_Rejecting()), messages=plain)
+    message = judge_cmd.call_judge(client, "claude-haiku-5-5", "default", [])
+    assert message.stop_reason == "end_turn"
+    assert "extra_body" not in plain.calls[0] and "betas" not in plain.calls[0]
+
+    # An unrelated 400 is not swallowed.
+    other = anthropic.BadRequestError(
+        "image too large", response=httpx.Response(400, request=request), body=None
+    )
+
+    class _Other:
+        def create(self, **kwargs):
+            raise other
+
+    client = SimpleNamespace(beta=SimpleNamespace(messages=_Other()), messages=plain)
+    with pytest.raises(anthropic.BadRequestError):
+        judge_cmd.call_judge(client, "claude-fable-5-2", "default", [])
 
 
 def test_judge_against_reference_clamps_out_of_range_scores():
@@ -331,3 +383,132 @@ def test_run_benchmark_without_judge_reports_string_metrics_only(monkeypatch):
     assert all("judge" not in r for r in result["fixtures"])
     assert "avg_cer" in result["summary"]
     assert "judged" not in result["summary"]
+
+
+# ---------------------------------------------------------------------------
+# New-models run: prices, dataset v2, spend cap
+# ---------------------------------------------------------------------------
+
+
+def test_new_candidate_and_judge_models_are_priced():
+    assert pricing.estimate_cost(
+        "claude-fable-5-2", {"input_tokens": 1_000_000, "output_tokens": 1_000_000}
+    ) == pytest.approx(48.00)
+    assert pricing.estimate_cost(
+        "claude-haiku-5-5", {"input_tokens": 1_000_000, "output_tokens": 1_000_000}
+    ) == pytest.approx(0.60)
+    for model in ("claude-sonnet-5-5", "claude-opus-5-5", "claude-sonnet-5", "claude-opus-4-8"):
+        assert pricing.estimate_cost(model, {"input_tokens": 1}) is not None
+
+
+def _quota_total(quotas: dict) -> int:
+    return sum(sum(q["region"].values()) + q["page"] for q in quotas.values())
+
+
+def test_v2_quotas_grow_the_dataset_and_favour_full_pages():
+    from benchmarks.model_eval import sampling
+
+    assert _quota_total(sampling.QUOTAS_V1) == 31
+    assert _quota_total(sampling.QUOTAS_V2) == 48
+    assert sampling.DEFAULT_QUOTAS is sampling.QUOTAS_V2
+    pages = lambda q: sum(src["page"] for src in q.values())  # noqa: E731
+    assert pages(sampling.QUOTAS_V2) == 14 and pages(sampling.QUOTAS_V1) == 6
+
+
+def test_exclude_documents_matches_filename_substrings_case_insensitively():
+    from benchmarks.model_eval import sampling
+
+    candidates = [
+        {"id": "a", "doc_filename": "Tobira Textbook.pdf"},
+        {"id": "b", "doc_filename": "魔女の宅急便.pdf"},
+        {"id": "c", "doc_filename": "tobira WORKBOOK.pdf"},
+        {"id": "d"},
+    ]
+    kept = sampling.exclude_documents(candidates, ["魔女", "workbook"])
+    assert [c["id"] for c in kept] == ["a", "d"]
+    assert sampling.exclude_documents(candidates, []) == candidates
+
+
+def test_budget_guard_stops_before_an_item_it_cannot_afford():
+    from benchmarks.model_eval.run_cmd import BudgetGuard
+
+    guard = BudgetGuard(1.00)
+    assert guard.can_start_item()  # nothing spent; first-item allowance fits
+    guard.begin_item()
+    guard.add(0.30)
+    guard.add(0.10)  # item one cost 0.40
+    guard.begin_item()
+    guard.add(0.15)  # item two cost 0.15; spent 0.55
+    assert guard.can_start_item()  # 0.55 + 0.40 reserve <= 1.00
+    guard.begin_item()
+    guard.add(0.10)  # spent 0.65
+    assert not guard.can_start_item()  # 0.65 + 0.40 > 1.00
+    assert guard.spent == pytest.approx(0.65)
+
+
+def test_budget_guard_counts_results_from_an_interrupted_run(tmp_path):
+    from benchmarks.model_eval.run_cmd import BudgetGuard
+
+    (tmp_path / "m1.json").write_text(json.dumps({"estimated_cost_usd": 0.5}))
+    (tmp_path / "m2.json").write_text(json.dumps({"status": "error"}))
+    guard = BudgetGuard(0.6)
+    guard.add_existing(tmp_path, ["m1", "m2", "missing"])
+    assert guard.spent == pytest.approx(0.5)
+    assert not guard.can_start_item()
+
+
+def test_budget_guard_without_a_budget_never_stops():
+    from benchmarks.model_eval.run_cmd import BudgetGuard
+
+    guard = BudgetGuard(None)
+    guard.add(1000.0)
+    assert guard.can_start_item()
+
+
+def test_run_dataset_stops_at_the_budget_between_items_and_resumes(tmp_path, monkeypatch):
+    from app.providers import registry
+    from app.providers.registry import TranscriptionResult
+    from benchmarks.model_eval import run_cmd
+
+    dataset = tmp_path / "dataset"
+    item_ids = ["item-1", "item-2", "item-3"]
+    for item_id in item_ids:
+        item_dir = dataset / "items" / item_id
+        item_dir.mkdir(parents=True)
+        (item_dir / "input.png").write_bytes(b"png")
+        (item_dir / "meta.json").write_text(json.dumps({"prompt_kind": "region"}))
+    (dataset / "manifest.json").write_text(json.dumps({"item_ids": item_ids}))
+
+    class _Provider:
+        calls = 0
+
+        def transcribe(self, image_bytes, prompt, config):
+            _Provider.calls += 1
+            # 100K input tokens of Sonnet 5 = $0.20 per call.
+            return TranscriptionResult(
+                markdown="text", raw="text",
+                meta={"usage": {"input_tokens": 100_000, "output_tokens": 0}},
+            )
+
+    monkeypatch.setattr(registry, "bootstrap_default_providers", lambda: None)
+    monkeypatch.setattr(registry, "get_vlm", lambda name: _Provider())
+
+    models = ["claude-sonnet-5", "claude-opus-4-8"]  # $0.20 + $0.50 = $0.70 an item
+    meta = run_cmd.run_dataset(dataset, tmp_path / "runs", models, "r1", budget_usd=1.00)
+
+    # Item 1 runs ($0.70); item 2 would need another $0.70 and is not started.
+    assert meta["budget_stopped_before"] == "item-2"
+    assert meta["estimated_cost_usd"] == pytest.approx(0.70)
+    assert _Provider.calls == 2
+    done = sorted(p.name for p in (tmp_path / "runs" / "r1" / "transcriptions").iterdir())
+    assert done == ["item-1"]
+
+    # Same run id, bigger budget: picks up where it stopped, counting item 1.
+    meta = run_cmd.run_dataset(dataset, tmp_path / "runs", models, "r1", budget_usd=1.50)
+    assert meta["budget_stopped_before"] == "item-3"
+    assert meta["estimated_cost_usd"] == pytest.approx(1.40)
+    assert meta["totals"]["skipped"] == 2 and _Provider.calls == 4
+
+    # No budget: finishes.
+    meta = run_cmd.run_dataset(dataset, tmp_path / "runs", models, "r1")
+    assert meta["budget_stopped_before"] is None and _Provider.calls == 6

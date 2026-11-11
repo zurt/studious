@@ -16,7 +16,11 @@ from .common import ensure_backend_on_path
 
 # Models the eval uses that the app's settings do not offer.
 EVAL_ONLY_PRICING: dict[str, dict[str, float]] = {
+    "claude-fable-5-2": {"input": 8.00, "output": 40.00, "cache_read": 0.20},
     "claude-fable-5": {"input": 10.00, "output": 50.00},
+    # Haiku 5.5 has two rate cards; this is the one for prompts of 100K
+    # tokens or fewer, which every eval call is.
+    "claude-haiku-5-5": {"input": 0.10, "output": 0.50},
 }
 
 # Defaults when a row carries no explicit cache rates: a cache read is billed

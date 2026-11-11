@@ -35,6 +35,7 @@ def build_dataset(
     name: str,
     seed: int,
     quotas: dict[str, Any] | None = None,
+    exclude: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build dataset `name` under `out_dir/<name>/`. Returns the manifest dict.
 
@@ -50,8 +51,12 @@ def build_dataset(
     quotas = quotas if quotas is not None else sampling.DEFAULT_QUOTAS
 
     enumerated = store.enumerate_store(data_dir)
+    exclude = exclude or []
     selection = sampling.select_dataset(
-        enumerated.region_candidates, enumerated.page_candidates, seed, quotas
+        sampling.exclude_documents(enumerated.region_candidates, exclude),
+        sampling.exclude_documents(enumerated.page_candidates, exclude),
+        seed,
+        quotas,
     )
 
     dataset_dir = out_dir / name
@@ -163,6 +168,7 @@ def build_dataset(
         "seed": seed,
         "data_dir": str(Path(data_dir).resolve()),
         "quotas": quotas,
+        "excluded_filename_patterns": exclude,
         "strata": [s.to_dict() for s in selection.stratum_stats],
         "shortfalls": [s.to_dict() for s in selection.stratum_stats if s.shortfall > 0],
         "item_ids": sorted(item_ids),

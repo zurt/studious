@@ -231,7 +231,17 @@ Priority 2 (second pass, bundled):
       wording on vocab lists, not misreadings). `benchmarks.compare` gates
       on a one-point judge drop. One price table for the app and both
       tools. `benchmarks/README.md` says which tool answers which question.
-      Not yet run against the live API
+      First live run 2026-11-11: 6/6 fixtures judged, avg overall 9.67; all
+      five vocab lists scored 10/10 at 19-45% CER
+- [x] New-models run prepared (2026-11): judge is `claude-fable-5-2` with a
+      refusal fallback that now actually engages; candidates default to
+      Sonnet 5.5, Opus 5.5, Haiku 5.5 plus Sonnet 5 and Opus 4.8 as a bridge
+      to July; dataset `v2` quotas total 48 items with 14 full pages (v1:
+      31 and 6); `run` and `judge` take `--budget-usd`; the provider sends
+      Haiku 5.5 the same effort as the other models
+- [ ] Run it: build `v2` from the local store, `run --budget-usd 5`,
+      `judge`, `analyze`, and write the curated report. The July `v1`
+      dataset no longer exists, so July's numbers are history only
 
 ## Phase 2: Sentence Breakdowns
 

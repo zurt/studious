@@ -19,8 +19,11 @@ DEFAULT_RUNS_DIR = MODEL_EVAL_DIR / "runs"
 
 # The judge is deliberately a stronger model than any candidate. Used by
 # both `model_eval judge` and the regression benchmark's reference judge.
-DEFAULT_JUDGE_MODEL = "claude-fable-5"
-DEFAULT_JUDGE_FALLBACK_MODEL = "claude-opus-4-8"
+DEFAULT_JUDGE_MODEL = "claude-fable-5-2"
+# What judges an item when the judge model declines it. "default" lets the
+# API pick by refusal category; a model id pins one. Either way the judgment
+# records which model actually answered (`served_by_model`).
+DEFAULT_JUDGE_FALLBACK_MODEL = "default"
 
 
 def ensure_backend_on_path() -> None:

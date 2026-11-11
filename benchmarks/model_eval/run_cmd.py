@@ -45,12 +45,55 @@ def _existing_result_ok(path: Path) -> bool:
         return False
 
 
+class BudgetGuard:
+    """Spend cap for a run, checked between items.
+
+    The cost of a call is only known afterwards, so an item may start only
+    if the budget still has room for the most expensive item seen so far
+    (or `FIRST_ITEM_ALLOWANCE` before any has finished). With no budget
+    every item may start.
+    """
+
+    FIRST_ITEM_ALLOWANCE = 0.25
+
+    def __init__(self, budget_usd: float | None) -> None:
+        self.budget_usd = budget_usd
+        self.spent = 0.0
+        self._item_cost = 0.0
+        self._max_item_cost = 0.0
+
+    def add(self, cost: float | None) -> None:
+        self.spent += cost or 0.0
+        self._item_cost += cost or 0.0
+        self._max_item_cost = max(self._max_item_cost, self._item_cost)
+
+    def add_existing(self, item_dir: Path, models: list[str]) -> None:
+        """Count results from an earlier, interrupted invocation of this run."""
+        self._item_cost = 0.0
+        for model in models:
+            try:
+                data = json.loads((item_dir / f"{model}.json").read_text("utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            self.add(data.get("estimated_cost_usd"))
+
+    def begin_item(self) -> None:
+        self._item_cost = 0.0
+
+    def can_start_item(self) -> bool:
+        if self.budget_usd is None:
+            return True
+        reserve = self._max_item_cost or self.FIRST_ITEM_ALLOWANCE
+        return self.spent + reserve <= self.budget_usd
+
+
 def run_dataset(
     dataset_dir: Path,
     runs_dir: Path,
     models: list[str],
     run_id: str,
     max_tokens: int = 8192,
+    budget_usd: float | None = None,
 ) -> dict[str, Any]:
     ensure_backend_on_path()
     from app.config import (
@@ -82,8 +125,21 @@ def run_dataset(
 
     started_at = _now_iso()
     totals = {"attempted": 0, "skipped": 0, "ok": 0, "error": 0}
+    budget = BudgetGuard(budget_usd)
+    budget_stopped_before: str | None = None
 
     for item_id in item_ids:
+        out_item_dir = transcriptions_dir / item_id
+        pending = [m for m in models if not _existing_result_ok(out_item_dir / f"{m}.json")]
+        budget.add_existing(out_item_dir, [m for m in models if m not in pending])
+        if pending and not budget.can_start_item():
+            # Stop between items, never inside one: an item some models
+            # transcribed and others didn't would be judged lopsidedly.
+            budget_stopped_before = item_id
+            print(f"  STOP before {item_id}: ${budget.spent:.2f} spent of ${budget_usd:.2f} budget")
+            break
+        budget.begin_item()
+
         item_dir = dataset_dir / "items" / item_id
         meta_path = item_dir / "meta.json"
         image_path = item_dir / "input.png"
@@ -98,7 +154,6 @@ def run_dataset(
             continue
         image_bytes = image_path.read_bytes()
 
-        out_item_dir = transcriptions_dir / item_id
         for model in models:
             out_path = out_item_dir / f"{model}.json"
             totals["attempted"] += 1
@@ -124,6 +179,7 @@ def run_dataset(
                     "estimated_cost_usd": cost,
                 }
                 totals["ok"] += 1
+                budget.add(cost)
                 print(f"ok ({duration_ms}ms)")
             except Exception as exc:
                 duration_ms = int((time.monotonic() - t0) * 1000)
@@ -145,6 +201,9 @@ def run_dataset(
         "dataset_manifest_hash": _manifest_hash(manifest_path),
         "models": models,
         "max_tokens": max_tokens,
+        "budget_usd": budget_usd,
+        "estimated_cost_usd": round(budget.spent, 4),
+        "budget_stopped_before": budget_stopped_before,
         "git_sha": git_sha(),
         "started_at": started_at,
         "finished_at": finished_at,

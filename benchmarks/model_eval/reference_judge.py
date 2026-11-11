@@ -95,6 +95,7 @@ def judge_against_reference(
 
     result = parse_reference_judgment(message)
     result["judge_model"] = judge_model
+    result["served_by_model"] = getattr(message, "model", None)
     usage = getattr(message, "usage", None)
     if usage is not None:
         result["estimated_cost_usd"] = estimate_cost(
