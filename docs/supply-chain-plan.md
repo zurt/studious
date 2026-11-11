@@ -65,6 +65,13 @@ Bundled for a follow-up phase:
 - An `apple` job on `macos-latest` builds every Swift target and runs
   `studious-tests`.
 
+- Dependabot patch and minor PRs auto-merge once CI passes
+  (`.github/workflows/dependabot-auto-merge.yml`); majors stay manual.
+  This depends on two repo settings: "Allow auto-merge", and a branch
+  protection rule on `main` with the CI jobs as required status checks.
+  Without the required checks, auto-merge has nothing to wait for and
+  merges before CI runs.
+
 ## Out of scope
 
 - Code signing / artifact provenance (sigstore, SLSA) — overkill for a
