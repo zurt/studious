@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-opus-5-5",
+    "D": "claude-sonnet-5",
+    "E": "claude-haiku-5-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-opus-5-5": "C",
+    "claude-sonnet-5": "D",
+    "claude-haiku-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All Japanese entries, readings, line indices (9–21, no 17) and 〔人名〕 tags match the image. Glosses are accurate throughout (e.g. まずない 'highly unlikely', かの 'that (famous)'). Minor: inconsistent full-width space before the Nixon gloss; small-type する/な/に not distinguished.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "B",
+      "notes": "Japanese text, readings and indices all correct. Glosses mostly accurate; a few slightly loose ones: 会談する 'to have a talk', 耳にする 'to overhear', まずない 'rarely'. Line-per-entry layout preserved.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Japanese text, readings and indices all correct. Glosses accurate (否 'no; refusal' is acceptable; 繊維 'textiles; fiber' fine). Minor spacing inconsistency around the 〔人名〕 glosses.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Japanese text and readings correct. Inserts blank lines between numbered groups that are not in the printed layout. Glosses mostly fine; 〜に応じる 'depending on' and 否 'not' are slightly off for the dictionary form; 'Nixon [proper name]' is acceptable.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "Japanese text, readings and indices correct. Glosses generally accurate but some are thin or oddly ordered: 口にする leads with 'to eat or drink', 否 'not', 繊維 only 'fiber', 温床 only 'hotbed'. Layout preserved.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 9,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "A",
+    "C",
+    "B",
+    "E",
+    "D"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
+    "claude-opus-4-8",
+    "claude-haiku-5-5",
+    "claude-sonnet-5"
+  ],
+  "rationale": "All five candidates transcribe the Japanese terms, furigana readings, line numbers and 〔人名〕 tags identically and correctly, so the ranking rests on gloss quality and layout fidelity. A and C have the most precise and complete glosses, with A slightly ahead. B has a few looser glosses, and E has several thin or less apt ones. D is last because it adds blank-line grouping not present in the source and has a couple of slightly off glosses.",
+  "usage": {
+    "input_tokens": 5400,
+    "output_tokens": 1393,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.09892,
+  "duration_ms": 13788
+}

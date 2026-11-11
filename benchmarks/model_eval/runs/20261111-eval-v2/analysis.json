@@ -1,0 +1,1614 @@
+{
+  "run_id": "20261111-eval-v2",
+  "dataset_dir": "/Users/kurt/Library/Mobile Documents/com~apple~CloudDocs/dev/cc/studious/benchmarks/model_eval/dataset/v2",
+  "git_sha": "29d8352",
+  "created_at": "2026-11-11T18:49:19.600231+00:00",
+  "overall": {
+    "per_model": {
+      "claude-opus-4-8": {
+        "n_scored": 47,
+        "mean_dims": {
+          "character_accuracy": 9.0,
+          "completeness": 9.404255319148936,
+          "formatting": 7.829787234042553,
+          "hallucination_control": 8.361702127659575,
+          "overall": 7.872340425531915
+        },
+        "mean_rank": 2.978723404255319,
+        "rank1_count": 7,
+        "n_ranked": 47
+      },
+      "claude-sonnet-5-5": {
+        "n_scored": 47,
+        "mean_dims": {
+          "character_accuracy": 9.085106382978724,
+          "completeness": 9.574468085106384,
+          "formatting": 7.25531914893617,
+          "hallucination_control": 7.914893617021277,
+          "overall": 7.702127659574468
+        },
+        "mean_rank": 3.4893617021276597,
+        "rank1_count": 6,
+        "n_ranked": 47
+      },
+      "claude-haiku-5-5": {
+        "n_scored": 47,
+        "mean_dims": {
+          "character_accuracy": 9.340425531914894,
+          "completeness": 9.319148936170214,
+          "formatting": 7.595744680851064,
+          "hallucination_control": 9.127659574468085,
+          "overall": 8.106382978723405
+        },
+        "mean_rank": 3.3404255319148937,
+        "rank1_count": 4,
+        "n_ranked": 47
+      },
+      "claude-sonnet-5": {
+        "n_scored": 47,
+        "mean_dims": {
+          "character_accuracy": 9.25531914893617,
+          "completeness": 9.25531914893617,
+          "formatting": 7.829787234042553,
+          "hallucination_control": 9.0,
+          "overall": 8.148936170212766
+        },
+        "mean_rank": 3.148936170212766,
+        "rank1_count": 7,
+        "n_ranked": 47
+      },
+      "claude-opus-5-5": {
+        "n_scored": 47,
+        "mean_dims": {
+          "character_accuracy": 9.957446808510639,
+          "completeness": 9.680851063829786,
+          "formatting": 8.23404255319149,
+          "hallucination_control": 9.851063829787234,
+          "overall": 9.02127659574468
+        },
+        "mean_rank": 2.0425531914893615,
+        "rank1_count": 23,
+        "n_ranked": 47
+      }
+    },
+    "win_matrix": {
+      "claude-haiku-5-5": {
+        "claude-opus-4-8": 18,
+        "claude-sonnet-5": 24,
+        "claude-opus-5-5": 11,
+        "claude-sonnet-5-5": 25
+      },
+      "claude-opus-4-8": {
+        "claude-sonnet-5": 24,
+        "claude-opus-5-5": 14,
+        "claude-sonnet-5-5": 28,
+        "claude-haiku-5-5": 29
+      },
+      "claude-sonnet-5": {
+        "claude-opus-5-5": 13,
+        "claude-sonnet-5-5": 28,
+        "claude-haiku-5-5": 23,
+        "claude-opus-4-8": 23
+      },
+      "claude-opus-5-5": {
+        "claude-sonnet-5-5": 36,
+        "claude-opus-4-8": 33,
+        "claude-haiku-5-5": 36,
+        "claude-sonnet-5": 34
+      },
+      "claude-sonnet-5-5": {
+        "claude-sonnet-5": 19,
+        "claude-opus-4-8": 19,
+        "claude-opus-5-5": 11,
+        "claude-haiku-5-5": 22
+      }
+    },
+    "n_judgments": 47
+  },
+  "sign_tests": [
+    {
+      "model_a": "claude-haiku-5-5",
+      "model_b": "claude-opus-4-8",
+      "wins_a": 18,
+      "wins_b": 29,
+      "n": 47,
+      "preferred": "claude-opus-4-8",
+      "p_value": 0.14386508844054902
+    },
+    {
+      "model_a": "claude-haiku-5-5",
+      "model_b": "claude-opus-5-5",
+      "wins_a": 11,
+      "wins_b": 36,
+      "n": 47,
+      "preferred": "claude-opus-5-5",
+      "p_value": 0.000346001140314911
+    },
+    {
+      "model_a": "claude-haiku-5-5",
+      "model_b": "claude-sonnet-5",
+      "wins_a": 24,
+      "wins_b": 23,
+      "n": 47,
+      "preferred": "claude-haiku-5-5",
+      "p_value": 1.0
+    },
+    {
+      "model_a": "claude-haiku-5-5",
+      "model_b": "claude-sonnet-5-5",
+      "wins_a": 25,
+      "wins_b": 22,
+      "n": 47,
+      "preferred": "claude-haiku-5-5",
+      "p_value": 0.7708669945730264
+    },
+    {
+      "model_a": "claude-opus-4-8",
+      "model_b": "claude-opus-5-5",
+      "wins_a": 14,
+      "wins_b": 33,
+      "n": 47,
+      "preferred": "claude-opus-5-5",
+      "p_value": 0.007942726509483578
+    },
+    {
+      "model_a": "claude-opus-4-8",
+      "model_b": "claude-sonnet-5",
+      "wins_a": 24,
+      "wins_b": 23,
+      "n": 47,
+      "preferred": "claude-opus-4-8",
+      "p_value": 1.0
+    },
+    {
+      "model_a": "claude-opus-4-8",
+      "model_b": "claude-sonnet-5-5",
+      "wins_a": 28,
+      "wins_b": 19,
+      "n": 47,
+      "preferred": "claude-opus-4-8",
+      "p_value": 0.24296021728332562
+    },
+    {
+      "model_a": "claude-opus-5-5",
+      "model_b": "claude-sonnet-5",
+      "wins_a": 34,
+      "wins_b": 13,
+      "n": 47,
+      "preferred": "claude-opus-5-5",
+      "p_value": 0.0030876764615186403
+    },
+    {
+      "model_a": "claude-opus-5-5",
+      "model_b": "claude-sonnet-5-5",
+      "wins_a": 36,
+      "wins_b": 11,
+      "n": 47,
+      "preferred": "claude-opus-5-5",
+      "p_value": 0.000346001140314911
+    },
+    {
+      "model_a": "claude-sonnet-5",
+      "model_b": "claude-sonnet-5-5",
+      "wins_a": 28,
+      "wins_b": 19,
+      "n": 47,
+      "preferred": "claude-sonnet-5",
+      "p_value": 0.24296021728332562
+    }
+  ],
+  "cost_latency": {
+    "claude-haiku-5-5": {
+      "n": 47,
+      "avg_duration_ms": 7274.872340425532,
+      "avg_cost_usd": 0.0011914957446808512,
+      "total_cost_usd": 0.0560003,
+      "output_chars": {
+        "mean": 552.2765957446809,
+        "median": 388,
+        "min": 64,
+        "max": 2023
+      }
+    },
+    "claude-opus-4-8": {
+      "n": 47,
+      "avg_duration_ms": 10607.68085106383,
+      "avg_cost_usd": 0.030636595744680854,
+      "total_cost_usd": 1.43992,
+      "output_chars": {
+        "mean": 584.063829787234,
+        "median": 410,
+        "min": 86,
+        "max": 1965
+      }
+    },
+    "claude-opus-5-5": {
+      "n": 47,
+      "avg_duration_ms": 7486.574468085107,
+      "avg_cost_usd": 0.030954723404255317,
+      "total_cost_usd": 1.454872,
+      "output_chars": {
+        "mean": 557.5957446808511,
+        "median": 415,
+        "min": 60,
+        "max": 1985
+      }
+    },
+    "claude-sonnet-5-5": {
+      "n": 47,
+      "avg_duration_ms": 3582.7021276595747,
+      "avg_cost_usd": 0.01206055319148936,
+      "total_cost_usd": 0.566846,
+      "output_chars": {
+        "mean": 571.936170212766,
+        "median": 453,
+        "min": 60,
+        "max": 1977
+      }
+    },
+    "claude-sonnet-5": {
+      "n": 47,
+      "avg_duration_ms": 4499.31914893617,
+      "avg_cost_usd": 0.012106978723404254,
+      "total_cost_usd": 0.569028,
+      "output_chars": {
+        "mean": 543.0851063829788,
+        "median": 437,
+        "min": 60,
+        "max": 1984
+      }
+    }
+  },
+  "by_source": {
+    "textbook": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 31,
+          "mean_dims": {
+            "character_accuracy": 9.612903225806452,
+            "completeness": 9.451612903225806,
+            "formatting": 8.0,
+            "hallucination_control": 9.387096774193548,
+            "overall": 8.516129032258064
+          },
+          "mean_rank": 2.6451612903225805,
+          "rank1_count": 5,
+          "n_ranked": 31
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 31,
+          "mean_dims": {
+            "character_accuracy": 9.548387096774194,
+            "completeness": 9.483870967741936,
+            "formatting": 7.225806451612903,
+            "hallucination_control": 9.064516129032258,
+            "overall": 8.129032258064516
+          },
+          "mean_rank": 3.4193548387096775,
+          "rank1_count": 5,
+          "n_ranked": 31
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 31,
+          "mean_dims": {
+            "character_accuracy": 9.612903225806452,
+            "completeness": 9.35483870967742,
+            "formatting": 7.580645161290323,
+            "hallucination_control": 9.387096774193548,
+            "overall": 8.161290322580646
+          },
+          "mean_rank": 3.6129032258064515,
+          "rank1_count": 2,
+          "n_ranked": 31
+        },
+        "claude-sonnet-5": {
+          "n_scored": 31,
+          "mean_dims": {
+            "character_accuracy": 9.64516129032258,
+            "completeness": 9.419354838709678,
+            "formatting": 7.774193548387097,
+            "hallucination_control": 9.483870967741936,
+            "overall": 8.419354838709678
+          },
+          "mean_rank": 3.064516129032258,
+          "rank1_count": 7,
+          "n_ranked": 31
+        },
+        "claude-opus-5-5": {
+          "n_scored": 31,
+          "mean_dims": {
+            "character_accuracy": 9.96774193548387,
+            "completeness": 9.612903225806452,
+            "formatting": 8.193548387096774,
+            "hallucination_control": 9.903225806451612,
+            "overall": 8.935483870967742
+          },
+          "mean_rank": 2.2580645161290325,
+          "rank1_count": 12,
+          "n_ranked": 31
+        }
+      },
+      "win_matrix": {
+        "claude-haiku-5-5": {
+          "claude-opus-4-8": 10,
+          "claude-sonnet-5": 13,
+          "claude-opus-5-5": 7,
+          "claude-sonnet-5-5": 13
+        },
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 19,
+          "claude-opus-5-5": 12,
+          "claude-sonnet-5-5": 21,
+          "claude-haiku-5-5": 21
+        },
+        "claude-sonnet-5": {
+          "claude-opus-5-5": 12,
+          "claude-sonnet-5-5": 18,
+          "claude-haiku-5-5": 18,
+          "claude-opus-4-8": 12
+        },
+        "claude-opus-5-5": {
+          "claude-sonnet-5-5": 23,
+          "claude-opus-4-8": 19,
+          "claude-haiku-5-5": 24,
+          "claude-sonnet-5": 19
+        },
+        "claude-sonnet-5-5": {
+          "claude-sonnet-5": 13,
+          "claude-opus-4-8": 10,
+          "claude-opus-5-5": 8,
+          "claude-haiku-5-5": 18
+        }
+      },
+      "n_judgments": 31
+    },
+    "workbook": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 16,
+          "mean_dims": {
+            "character_accuracy": 7.8125,
+            "completeness": 9.3125,
+            "formatting": 7.5,
+            "hallucination_control": 6.375,
+            "overall": 6.625
+          },
+          "mean_rank": 3.625,
+          "rank1_count": 2,
+          "n_ranked": 16
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 16,
+          "mean_dims": {
+            "character_accuracy": 8.1875,
+            "completeness": 9.75,
+            "formatting": 7.3125,
+            "hallucination_control": 5.6875,
+            "overall": 6.875
+          },
+          "mean_rank": 3.625,
+          "rank1_count": 1,
+          "n_ranked": 16
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 16,
+          "mean_dims": {
+            "character_accuracy": 8.8125,
+            "completeness": 9.25,
+            "formatting": 7.625,
+            "hallucination_control": 8.625,
+            "overall": 8.0
+          },
+          "mean_rank": 2.8125,
+          "rank1_count": 2,
+          "n_ranked": 16
+        },
+        "claude-sonnet-5": {
+          "n_scored": 16,
+          "mean_dims": {
+            "character_accuracy": 8.5,
+            "completeness": 8.9375,
+            "formatting": 7.9375,
+            "hallucination_control": 8.0625,
+            "overall": 7.625
+          },
+          "mean_rank": 3.3125,
+          "rank1_count": 0,
+          "n_ranked": 16
+        },
+        "claude-opus-5-5": {
+          "n_scored": 16,
+          "mean_dims": {
+            "character_accuracy": 9.9375,
+            "completeness": 9.8125,
+            "formatting": 8.3125,
+            "hallucination_control": 9.75,
+            "overall": 9.1875
+          },
+          "mean_rank": 1.625,
+          "rank1_count": 11,
+          "n_ranked": 16
+        }
+      },
+      "win_matrix": {
+        "claude-opus-5-5": {
+          "claude-haiku-5-5": 12,
+          "claude-sonnet-5-5": 13,
+          "claude-sonnet-5": 15,
+          "claude-opus-4-8": 14
+        },
+        "claude-haiku-5-5": {
+          "claude-sonnet-5-5": 12,
+          "claude-sonnet-5": 11,
+          "claude-opus-4-8": 8,
+          "claude-opus-5-5": 4
+        },
+        "claude-sonnet-5-5": {
+          "claude-sonnet-5": 6,
+          "claude-opus-4-8": 9,
+          "claude-haiku-5-5": 4,
+          "claude-opus-5-5": 3
+        },
+        "claude-sonnet-5": {
+          "claude-opus-4-8": 11,
+          "claude-haiku-5-5": 5,
+          "claude-sonnet-5-5": 10,
+          "claude-opus-5-5": 1
+        },
+        "claude-opus-4-8": {
+          "claude-haiku-5-5": 8,
+          "claude-sonnet-5-5": 7,
+          "claude-sonnet-5": 5,
+          "claude-opus-5-5": 2
+        }
+      },
+      "n_judgments": 16
+    }
+  },
+  "by_tag": {
+    "null": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 8.5,
+            "completeness": 9.142857142857142,
+            "formatting": 7.428571428571429,
+            "hallucination_control": 7.642857142857143,
+            "overall": 7.214285714285714
+          },
+          "mean_rank": 3.0714285714285716,
+          "rank1_count": 0,
+          "n_ranked": 14
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 8.357142857142858,
+            "completeness": 9.357142857142858,
+            "formatting": 7.071428571428571,
+            "hallucination_control": 6.357142857142857,
+            "overall": 6.857142857142857
+          },
+          "mean_rank": 3.7857142857142856,
+          "rank1_count": 2,
+          "n_ranked": 14
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 9.0,
+            "completeness": 8.857142857142858,
+            "formatting": 7.428571428571429,
+            "hallucination_control": 8.428571428571429,
+            "overall": 7.714285714285714
+          },
+          "mean_rank": 2.9285714285714284,
+          "rank1_count": 3,
+          "n_ranked": 14
+        },
+        "claude-sonnet-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 8.785714285714286,
+            "completeness": 8.571428571428571,
+            "formatting": 7.285714285714286,
+            "hallucination_control": 8.785714285714286,
+            "overall": 7.357142857142857
+          },
+          "mean_rank": 3.5714285714285716,
+          "rank1_count": 0,
+          "n_ranked": 14
+        },
+        "claude-opus-5-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.642857142857142,
+            "formatting": 8.357142857142858,
+            "hallucination_control": 9.857142857142858,
+            "overall": 9.142857142857142
+          },
+          "mean_rank": 1.6428571428571428,
+          "rank1_count": 9,
+          "n_ranked": 14
+        }
+      },
+      "win_matrix": {
+        "claude-haiku-5-5": {
+          "claude-opus-4-8": 7,
+          "claude-sonnet-5": 10,
+          "claude-opus-5-5": 3,
+          "claude-sonnet-5-5": 9
+        },
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 8,
+          "claude-opus-5-5": 3,
+          "claude-sonnet-5-5": 9,
+          "claude-haiku-5-5": 7
+        },
+        "claude-sonnet-5": {
+          "claude-opus-5-5": 1,
+          "claude-sonnet-5-5": 9,
+          "claude-haiku-5-5": 4,
+          "claude-opus-4-8": 6
+        },
+        "claude-opus-5-5": {
+          "claude-sonnet-5-5": 12,
+          "claude-opus-4-8": 11,
+          "claude-haiku-5-5": 11,
+          "claude-sonnet-5": 13
+        },
+        "claude-sonnet-5-5": {
+          "claude-sonnet-5": 5,
+          "claude-opus-4-8": 5,
+          "claude-opus-5-5": 2,
+          "claude-haiku-5-5": 5
+        }
+      },
+      "n_judgments": 14
+    },
+    "exercises": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 16,
+          "mean_dims": {
+            "character_accuracy": 8.9375,
+            "completeness": 9.5625,
+            "formatting": 8.1875,
+            "hallucination_control": 8.0,
+            "overall": 7.9375
+          },
+          "mean_rank": 3.0625,
+          "rank1_count": 5,
+          "n_ranked": 16
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 16,
+          "mean_dims": {
+            "character_accuracy": 9.1875,
+            "completeness": 9.75,
+            "formatting": 7.5,
+            "hallucination_control": 7.75,
+            "overall": 7.8125
+          },
+          "mean_rank": 3.5,
+          "rank1_count": 2,
+          "n_ranked": 16
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 16,
+          "mean_dims": {
+            "character_accuracy": 9.5,
+            "completeness": 9.625,
+            "formatting": 7.875,
+            "hallucination_control": 9.4375,
+            "overall": 8.5625
+          },
+          "mean_rank": 2.9375,
+          "rank1_count": 1,
+          "n_ranked": 16
+        },
+        "claude-sonnet-5": {
+          "n_scored": 16,
+          "mean_dims": {
+            "character_accuracy": 9.3125,
+            "completeness": 9.5625,
+            "formatting": 8.0,
+            "hallucination_control": 8.75,
+            "overall": 8.3125
+          },
+          "mean_rank": 3.3125,
+          "rank1_count": 1,
+          "n_ranked": 16
+        },
+        "claude-opus-5-5": {
+          "n_scored": 16,
+          "mean_dims": {
+            "character_accuracy": 9.9375,
+            "completeness": 9.8125,
+            "formatting": 8.25,
+            "hallucination_control": 9.8125,
+            "overall": 9.0
+          },
+          "mean_rank": 2.1875,
+          "rank1_count": 7,
+          "n_ranked": 16
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-opus-5-5": 5,
+          "claude-sonnet-5": 9,
+          "claude-haiku-5-5": 9,
+          "claude-sonnet-5-5": 8
+        },
+        "claude-opus-5-5": {
+          "claude-sonnet-5": 12,
+          "claude-haiku-5-5": 11,
+          "claude-sonnet-5-5": 11,
+          "claude-opus-4-8": 11
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-5-5": 6,
+          "claude-sonnet-5-5": 10,
+          "claude-opus-5-5": 4,
+          "claude-opus-4-8": 7
+        },
+        "claude-haiku-5-5": {
+          "claude-sonnet-5-5": 11,
+          "claude-opus-4-8": 7,
+          "claude-sonnet-5": 10,
+          "claude-opus-5-5": 5
+        },
+        "claude-sonnet-5-5": {
+          "claude-opus-5-5": 5,
+          "claude-haiku-5-5": 5,
+          "claude-opus-4-8": 8,
+          "claude-sonnet-5": 6
+        }
+      },
+      "n_judgments": 16
+    },
+    "grammar_points": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 9.666666666666666,
+            "completeness": 9.5,
+            "formatting": 7.333333333333333,
+            "hallucination_control": 9.833333333333334,
+            "overall": 8.333333333333334
+          },
+          "mean_rank": 2.3333333333333335,
+          "rank1_count": 2,
+          "n_ranked": 6
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 9.666666666666666,
+            "completeness": 9.5,
+            "formatting": 6.5,
+            "hallucination_control": 10.0,
+            "overall": 8.0
+          },
+          "mean_rank": 3.6666666666666665,
+          "rank1_count": 0,
+          "n_ranked": 6
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 9.333333333333334,
+            "completeness": 9.166666666666666,
+            "formatting": 6.5,
+            "hallucination_control": 9.666666666666666,
+            "overall": 7.333333333333333
+          },
+          "mean_rank": 4.333333333333333,
+          "rank1_count": 0,
+          "n_ranked": 6
+        },
+        "claude-sonnet-5": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 9.166666666666666,
+            "completeness": 9.333333333333334,
+            "formatting": 7.333333333333333,
+            "hallucination_control": 9.166666666666666,
+            "overall": 7.833333333333333
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 1,
+          "n_ranked": 6
+        },
+        "claude-opus-5-5": {
+          "n_scored": 6,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.5,
+            "formatting": 7.833333333333333,
+            "hallucination_control": 10.0,
+            "overall": 8.833333333333334
+          },
+          "mean_rank": 1.6666666666666667,
+          "rank1_count": 3,
+          "n_ranked": 6
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-opus-5-5": 2,
+          "claude-haiku-5-5": 5,
+          "claude-sonnet-5-5": 5,
+          "claude-sonnet-5": 4
+        },
+        "claude-opus-5-5": {
+          "claude-haiku-5-5": 6,
+          "claude-sonnet-5-5": 6,
+          "claude-sonnet-5": 4,
+          "claude-opus-4-8": 4
+        },
+        "claude-haiku-5-5": {
+          "claude-sonnet-5-5": 2,
+          "claude-sonnet-5": 1,
+          "claude-opus-4-8": 1
+        },
+        "claude-sonnet-5-5": {
+          "claude-sonnet-5": 3,
+          "claude-haiku-5-5": 4,
+          "claude-opus-4-8": 1
+        },
+        "claude-sonnet-5": {
+          "claude-opus-5-5": 2,
+          "claude-sonnet-5-5": 3,
+          "claude-haiku-5-5": 5,
+          "claude-opus-4-8": 2
+        }
+      },
+      "n_judgments": 6
+    },
+    "instructions": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 1,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 8.0,
+            "hallucination_control": 10.0,
+            "overall": 9.0
+          },
+          "mean_rank": 2.0,
+          "rank1_count": 0,
+          "n_ranked": 1
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 1,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 6.0,
+            "hallucination_control": 10.0,
+            "overall": 8.0
+          },
+          "mean_rank": 5.0,
+          "rank1_count": 0,
+          "n_ranked": 1
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 1,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 8.0,
+            "hallucination_control": 10.0,
+            "overall": 9.0
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 1
+        },
+        "claude-sonnet-5": {
+          "n_scored": 1,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 9.0,
+            "hallucination_control": 10.0,
+            "overall": 10.0
+          },
+          "mean_rank": 1.0,
+          "rank1_count": 1,
+          "n_ranked": 1
+        },
+        "claude-opus-5-5": {
+          "n_scored": 1,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 10.0,
+            "formatting": 6.0,
+            "hallucination_control": 10.0,
+            "overall": 8.0
+          },
+          "mean_rank": 4.0,
+          "rank1_count": 0,
+          "n_ranked": 1
+        }
+      },
+      "win_matrix": {
+        "claude-sonnet-5": {
+          "claude-opus-4-8": 1,
+          "claude-haiku-5-5": 1,
+          "claude-opus-5-5": 1,
+          "claude-sonnet-5-5": 1
+        },
+        "claude-opus-4-8": {
+          "claude-haiku-5-5": 1,
+          "claude-opus-5-5": 1,
+          "claude-sonnet-5-5": 1
+        },
+        "claude-haiku-5-5": {
+          "claude-opus-5-5": 1,
+          "claude-sonnet-5-5": 1
+        },
+        "claude-opus-5-5": {
+          "claude-sonnet-5-5": 1
+        }
+      },
+      "n_judgments": 1
+    },
+    "reading_passage": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.0,
+            "completeness": 8.8,
+            "formatting": 7.8,
+            "hallucination_control": 8.4,
+            "overall": 7.8
+          },
+          "mean_rank": 3.4,
+          "rank1_count": 0,
+          "n_ranked": 5
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.2,
+            "completeness": 9.2,
+            "formatting": 7.0,
+            "hallucination_control": 8.4,
+            "overall": 7.8
+          },
+          "mean_rank": 3.2,
+          "rank1_count": 1,
+          "n_ranked": 5
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.0,
+            "formatting": 7.8,
+            "hallucination_control": 9.8,
+            "overall": 8.4
+          },
+          "mean_rank": 3.4,
+          "rank1_count": 0,
+          "n_ranked": 5
+        },
+        "claude-sonnet-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.2,
+            "formatting": 8.4,
+            "hallucination_control": 10.0,
+            "overall": 9.2
+          },
+          "mean_rank": 2.2,
+          "rank1_count": 2,
+          "n_ranked": 5
+        },
+        "claude-opus-5-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.2,
+            "formatting": 8.4,
+            "hallucination_control": 10.0,
+            "overall": 9.2
+          },
+          "mean_rank": 2.8,
+          "rank1_count": 2,
+          "n_ranked": 5
+        }
+      },
+      "win_matrix": {
+        "claude-sonnet-5": {
+          "claude-opus-5-5": 3,
+          "claude-haiku-5-5": 4,
+          "claude-opus-4-8": 4,
+          "claude-sonnet-5-5": 3
+        },
+        "claude-opus-5-5": {
+          "claude-haiku-5-5": 3,
+          "claude-opus-4-8": 3,
+          "claude-sonnet-5-5": 3,
+          "claude-sonnet-5": 2
+        },
+        "claude-haiku-5-5": {
+          "claude-opus-4-8": 3,
+          "claude-sonnet-5-5": 2,
+          "claude-opus-5-5": 2,
+          "claude-sonnet-5": 1
+        },
+        "claude-opus-4-8": {
+          "claude-sonnet-5-5": 3,
+          "claude-haiku-5-5": 2,
+          "claude-opus-5-5": 2,
+          "claude-sonnet-5": 1
+        },
+        "claude-sonnet-5-5": {
+          "claude-sonnet-5": 2,
+          "claude-haiku-5-5": 3,
+          "claude-opus-4-8": 2,
+          "claude-opus-5-5": 2
+        }
+      },
+      "n_judgments": 5
+    },
+    "vocab_list": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.6,
+            "completeness": 10.0,
+            "formatting": 8.4,
+            "hallucination_control": 9.4,
+            "overall": 8.8
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 5
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.8,
+            "completeness": 10.0,
+            "formatting": 8.4,
+            "hallucination_control": 9.4,
+            "overall": 9.2
+          },
+          "mean_rank": 2.4,
+          "rank1_count": 1,
+          "n_ranked": 5
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.0,
+            "completeness": 10.0,
+            "formatting": 8.2,
+            "hallucination_control": 8.6,
+            "overall": 8.2
+          },
+          "mean_rank": 4.6,
+          "rank1_count": 0,
+          "n_ranked": 5
+        },
+        "claude-sonnet-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.6,
+            "completeness": 10.0,
+            "formatting": 8.6,
+            "hallucination_control": 9.0,
+            "overall": 8.8
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 2,
+          "n_ranked": 5
+        },
+        "claude-opus-5-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.8,
+            "completeness": 10.0,
+            "formatting": 8.6,
+            "hallucination_control": 9.6,
+            "overall": 9.0
+          },
+          "mean_rank": 2.0,
+          "rank1_count": 2,
+          "n_ranked": 5
+        }
+      },
+      "win_matrix": {
+        "claude-sonnet-5": {
+          "claude-opus-5-5": 2,
+          "claude-opus-4-8": 3,
+          "claude-sonnet-5-5": 2,
+          "claude-haiku-5-5": 3
+        },
+        "claude-opus-5-5": {
+          "claude-opus-4-8": 4,
+          "claude-sonnet-5-5": 3,
+          "claude-haiku-5-5": 5,
+          "claude-sonnet-5": 3
+        },
+        "claude-opus-4-8": {
+          "claude-sonnet-5-5": 2,
+          "claude-haiku-5-5": 5,
+          "claude-opus-5-5": 1,
+          "claude-sonnet-5": 2
+        },
+        "claude-sonnet-5-5": {
+          "claude-haiku-5-5": 5,
+          "claude-opus-4-8": 3,
+          "claude-opus-5-5": 2,
+          "claude-sonnet-5": 3
+        },
+        "claude-haiku-5-5": {
+          "claude-sonnet-5": 2
+        }
+      },
+      "n_judgments": 5
+    }
+  },
+  "by_kind": {
+    "page": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 8.5,
+            "completeness": 9.142857142857142,
+            "formatting": 7.428571428571429,
+            "hallucination_control": 7.642857142857143,
+            "overall": 7.214285714285714
+          },
+          "mean_rank": 3.0714285714285716,
+          "rank1_count": 0,
+          "n_ranked": 14
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 8.357142857142858,
+            "completeness": 9.357142857142858,
+            "formatting": 7.071428571428571,
+            "hallucination_control": 6.357142857142857,
+            "overall": 6.857142857142857
+          },
+          "mean_rank": 3.7857142857142856,
+          "rank1_count": 2,
+          "n_ranked": 14
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 9.0,
+            "completeness": 8.857142857142858,
+            "formatting": 7.428571428571429,
+            "hallucination_control": 8.428571428571429,
+            "overall": 7.714285714285714
+          },
+          "mean_rank": 2.9285714285714284,
+          "rank1_count": 3,
+          "n_ranked": 14
+        },
+        "claude-sonnet-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 8.785714285714286,
+            "completeness": 8.571428571428571,
+            "formatting": 7.285714285714286,
+            "hallucination_control": 8.785714285714286,
+            "overall": 7.357142857142857
+          },
+          "mean_rank": 3.5714285714285716,
+          "rank1_count": 0,
+          "n_ranked": 14
+        },
+        "claude-opus-5-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.642857142857142,
+            "formatting": 8.357142857142858,
+            "hallucination_control": 9.857142857142858,
+            "overall": 9.142857142857142
+          },
+          "mean_rank": 1.6428571428571428,
+          "rank1_count": 9,
+          "n_ranked": 14
+        }
+      },
+      "win_matrix": {
+        "claude-haiku-5-5": {
+          "claude-opus-4-8": 7,
+          "claude-sonnet-5": 10,
+          "claude-opus-5-5": 3,
+          "claude-sonnet-5-5": 9
+        },
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 8,
+          "claude-opus-5-5": 3,
+          "claude-sonnet-5-5": 9,
+          "claude-haiku-5-5": 7
+        },
+        "claude-sonnet-5": {
+          "claude-opus-5-5": 1,
+          "claude-sonnet-5-5": 9,
+          "claude-haiku-5-5": 4,
+          "claude-opus-4-8": 6
+        },
+        "claude-opus-5-5": {
+          "claude-sonnet-5-5": 12,
+          "claude-opus-4-8": 11,
+          "claude-haiku-5-5": 11,
+          "claude-sonnet-5": 13
+        },
+        "claude-sonnet-5-5": {
+          "claude-sonnet-5": 5,
+          "claude-opus-4-8": 5,
+          "claude-opus-5-5": 2,
+          "claude-haiku-5-5": 5
+        }
+      },
+      "n_judgments": 14
+    },
+    "region": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 33,
+          "mean_dims": {
+            "character_accuracy": 9.212121212121213,
+            "completeness": 9.515151515151516,
+            "formatting": 8.0,
+            "hallucination_control": 8.666666666666666,
+            "overall": 8.151515151515152
+          },
+          "mean_rank": 2.9393939393939394,
+          "rank1_count": 7,
+          "n_ranked": 33
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 33,
+          "mean_dims": {
+            "character_accuracy": 9.393939393939394,
+            "completeness": 9.666666666666666,
+            "formatting": 7.333333333333333,
+            "hallucination_control": 8.575757575757576,
+            "overall": 8.06060606060606
+          },
+          "mean_rank": 3.3636363636363638,
+          "rank1_count": 4,
+          "n_ranked": 33
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 33,
+          "mean_dims": {
+            "character_accuracy": 9.484848484848484,
+            "completeness": 9.515151515151516,
+            "formatting": 7.666666666666667,
+            "hallucination_control": 9.424242424242424,
+            "overall": 8.272727272727273
+          },
+          "mean_rank": 3.515151515151515,
+          "rank1_count": 1,
+          "n_ranked": 33
+        },
+        "claude-sonnet-5": {
+          "n_scored": 33,
+          "mean_dims": {
+            "character_accuracy": 9.454545454545455,
+            "completeness": 9.545454545454545,
+            "formatting": 8.06060606060606,
+            "hallucination_control": 9.090909090909092,
+            "overall": 8.484848484848484
+          },
+          "mean_rank": 2.9696969696969697,
+          "rank1_count": 7,
+          "n_ranked": 33
+        },
+        "claude-opus-5-5": {
+          "n_scored": 33,
+          "mean_dims": {
+            "character_accuracy": 9.93939393939394,
+            "completeness": 9.696969696969697,
+            "formatting": 8.181818181818182,
+            "hallucination_control": 9.848484848484848,
+            "overall": 8.969696969696969
+          },
+          "mean_rank": 2.212121212121212,
+          "rank1_count": 14,
+          "n_ranked": 33
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-opus-5-5": 11,
+          "claude-sonnet-5": 16,
+          "claude-haiku-5-5": 22,
+          "claude-sonnet-5-5": 19
+        },
+        "claude-opus-5-5": {
+          "claude-sonnet-5": 21,
+          "claude-haiku-5-5": 25,
+          "claude-sonnet-5-5": 24,
+          "claude-opus-4-8": 22
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-5-5": 19,
+          "claude-sonnet-5-5": 19,
+          "claude-opus-5-5": 12,
+          "claude-opus-4-8": 17
+        },
+        "claude-haiku-5-5": {
+          "claude-sonnet-5-5": 16,
+          "claude-opus-4-8": 11,
+          "claude-sonnet-5": 14,
+          "claude-opus-5-5": 8
+        },
+        "claude-sonnet-5-5": {
+          "claude-opus-5-5": 9,
+          "claude-haiku-5-5": 17,
+          "claude-opus-4-8": 14,
+          "claude-sonnet-5": 14
+        }
+      },
+      "n_judgments": 33
+    }
+  },
+  "by_prompt_kind": {
+    "page": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 8.5,
+            "completeness": 9.142857142857142,
+            "formatting": 7.428571428571429,
+            "hallucination_control": 7.642857142857143,
+            "overall": 7.214285714285714
+          },
+          "mean_rank": 3.0714285714285716,
+          "rank1_count": 0,
+          "n_ranked": 14
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 8.357142857142858,
+            "completeness": 9.357142857142858,
+            "formatting": 7.071428571428571,
+            "hallucination_control": 6.357142857142857,
+            "overall": 6.857142857142857
+          },
+          "mean_rank": 3.7857142857142856,
+          "rank1_count": 2,
+          "n_ranked": 14
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 9.0,
+            "completeness": 8.857142857142858,
+            "formatting": 7.428571428571429,
+            "hallucination_control": 8.428571428571429,
+            "overall": 7.714285714285714
+          },
+          "mean_rank": 2.9285714285714284,
+          "rank1_count": 3,
+          "n_ranked": 14
+        },
+        "claude-sonnet-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 8.785714285714286,
+            "completeness": 8.571428571428571,
+            "formatting": 7.285714285714286,
+            "hallucination_control": 8.785714285714286,
+            "overall": 7.357142857142857
+          },
+          "mean_rank": 3.5714285714285716,
+          "rank1_count": 0,
+          "n_ranked": 14
+        },
+        "claude-opus-5-5": {
+          "n_scored": 14,
+          "mean_dims": {
+            "character_accuracy": 10.0,
+            "completeness": 9.642857142857142,
+            "formatting": 8.357142857142858,
+            "hallucination_control": 9.857142857142858,
+            "overall": 9.142857142857142
+          },
+          "mean_rank": 1.6428571428571428,
+          "rank1_count": 9,
+          "n_ranked": 14
+        }
+      },
+      "win_matrix": {
+        "claude-haiku-5-5": {
+          "claude-opus-4-8": 7,
+          "claude-sonnet-5": 10,
+          "claude-opus-5-5": 3,
+          "claude-sonnet-5-5": 9
+        },
+        "claude-opus-4-8": {
+          "claude-sonnet-5": 8,
+          "claude-opus-5-5": 3,
+          "claude-sonnet-5-5": 9,
+          "claude-haiku-5-5": 7
+        },
+        "claude-sonnet-5": {
+          "claude-opus-5-5": 1,
+          "claude-sonnet-5-5": 9,
+          "claude-haiku-5-5": 4,
+          "claude-opus-4-8": 6
+        },
+        "claude-opus-5-5": {
+          "claude-sonnet-5-5": 12,
+          "claude-opus-4-8": 11,
+          "claude-haiku-5-5": 11,
+          "claude-sonnet-5": 13
+        },
+        "claude-sonnet-5-5": {
+          "claude-sonnet-5": 5,
+          "claude-opus-4-8": 5,
+          "claude-opus-5-5": 2,
+          "claude-haiku-5-5": 5
+        }
+      },
+      "n_judgments": 14
+    },
+    "region": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 28,
+          "mean_dims": {
+            "character_accuracy": 9.142857142857142,
+            "completeness": 9.428571428571429,
+            "formatting": 7.928571428571429,
+            "hallucination_control": 8.535714285714286,
+            "overall": 8.035714285714286
+          },
+          "mean_rank": 2.9285714285714284,
+          "rank1_count": 7,
+          "n_ranked": 28
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 28,
+          "mean_dims": {
+            "character_accuracy": 9.321428571428571,
+            "completeness": 9.607142857142858,
+            "formatting": 7.142857142857143,
+            "hallucination_control": 8.428571428571429,
+            "overall": 7.857142857142857
+          },
+          "mean_rank": 3.5357142857142856,
+          "rank1_count": 3,
+          "n_ranked": 28
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 28,
+          "mean_dims": {
+            "character_accuracy": 9.571428571428571,
+            "completeness": 9.428571428571429,
+            "formatting": 7.571428571428571,
+            "hallucination_control": 9.571428571428571,
+            "overall": 8.285714285714286
+          },
+          "mean_rank": 3.3214285714285716,
+          "rank1_count": 1,
+          "n_ranked": 28
+        },
+        "claude-sonnet-5": {
+          "n_scored": 28,
+          "mean_dims": {
+            "character_accuracy": 9.428571428571429,
+            "completeness": 9.464285714285714,
+            "formatting": 7.964285714285714,
+            "hallucination_control": 9.107142857142858,
+            "overall": 8.428571428571429
+          },
+          "mean_rank": 2.9642857142857144,
+          "rank1_count": 5,
+          "n_ranked": 28
+        },
+        "claude-opus-5-5": {
+          "n_scored": 28,
+          "mean_dims": {
+            "character_accuracy": 9.964285714285714,
+            "completeness": 9.642857142857142,
+            "formatting": 8.107142857142858,
+            "hallucination_control": 9.892857142857142,
+            "overall": 8.964285714285714
+          },
+          "mean_rank": 2.25,
+          "rank1_count": 12,
+          "n_ranked": 28
+        }
+      },
+      "win_matrix": {
+        "claude-opus-4-8": {
+          "claude-opus-5-5": 10,
+          "claude-sonnet-5": 14,
+          "claude-haiku-5-5": 17,
+          "claude-sonnet-5-5": 17
+        },
+        "claude-opus-5-5": {
+          "claude-sonnet-5": 18,
+          "claude-haiku-5-5": 20,
+          "claude-sonnet-5-5": 21,
+          "claude-opus-4-8": 18
+        },
+        "claude-sonnet-5": {
+          "claude-haiku-5-5": 16,
+          "claude-sonnet-5-5": 17,
+          "claude-opus-5-5": 10,
+          "claude-opus-4-8": 14
+        },
+        "claude-haiku-5-5": {
+          "claude-sonnet-5-5": 16,
+          "claude-opus-4-8": 11,
+          "claude-sonnet-5": 12,
+          "claude-opus-5-5": 8
+        },
+        "claude-sonnet-5-5": {
+          "claude-opus-5-5": 7,
+          "claude-haiku-5-5": 12,
+          "claude-opus-4-8": 11,
+          "claude-sonnet-5": 11
+        }
+      },
+      "n_judgments": 28
+    },
+    "vocab_list": {
+      "per_model": {
+        "claude-opus-4-8": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.6,
+            "completeness": 10.0,
+            "formatting": 8.4,
+            "hallucination_control": 9.4,
+            "overall": 8.8
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 0,
+          "n_ranked": 5
+        },
+        "claude-sonnet-5-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.8,
+            "completeness": 10.0,
+            "formatting": 8.4,
+            "hallucination_control": 9.4,
+            "overall": 9.2
+          },
+          "mean_rank": 2.4,
+          "rank1_count": 1,
+          "n_ranked": 5
+        },
+        "claude-haiku-5-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.0,
+            "completeness": 10.0,
+            "formatting": 8.2,
+            "hallucination_control": 8.6,
+            "overall": 8.2
+          },
+          "mean_rank": 4.6,
+          "rank1_count": 0,
+          "n_ranked": 5
+        },
+        "claude-sonnet-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.6,
+            "completeness": 10.0,
+            "formatting": 8.6,
+            "hallucination_control": 9.0,
+            "overall": 8.8
+          },
+          "mean_rank": 3.0,
+          "rank1_count": 2,
+          "n_ranked": 5
+        },
+        "claude-opus-5-5": {
+          "n_scored": 5,
+          "mean_dims": {
+            "character_accuracy": 9.8,
+            "completeness": 10.0,
+            "formatting": 8.6,
+            "hallucination_control": 9.6,
+            "overall": 9.0
+          },
+          "mean_rank": 2.0,
+          "rank1_count": 2,
+          "n_ranked": 5
+        }
+      },
+      "win_matrix": {
+        "claude-sonnet-5": {
+          "claude-opus-5-5": 2,
+          "claude-opus-4-8": 3,
+          "claude-sonnet-5-5": 2,
+          "claude-haiku-5-5": 3
+        },
+        "claude-opus-5-5": {
+          "claude-opus-4-8": 4,
+          "claude-sonnet-5-5": 3,
+          "claude-haiku-5-5": 5,
+          "claude-sonnet-5": 3
+        },
+        "claude-opus-4-8": {
+          "claude-sonnet-5-5": 2,
+          "claude-haiku-5-5": 5,
+          "claude-opus-5-5": 1,
+          "claude-sonnet-5": 2
+        },
+        "claude-sonnet-5-5": {
+          "claude-haiku-5-5": 5,
+          "claude-opus-4-8": 3,
+          "claude-opus-5-5": 2,
+          "claude-sonnet-5": 3
+        },
+        "claude-haiku-5-5": {
+          "claude-sonnet-5": 2
+        }
+      },
+      "n_judgments": 5
+    }
+  },
+  "worst_items": [
+    {
+      "item_id": "wb-r-exercises-c70ff50c",
+      "mean_overall": 6.6,
+      "worst_model": "claude-opus-4-8",
+      "worst_overall": 5,
+      "notes": "Inserts （円グラフ）（帯グラフ）（棒グラフ）（折れ線グラフ） directly under each blank, effectively filling in the answers. Adds furigana 書(か) that is not in the image. Misreads 2004年11月 as 2004年6月. Omits (%) and the y-axis values for chart 4. Statement furigana is otherwise correct and the word bank is complete."
+    },
+    {
+      "item_id": "wb-p-0070",
+      "mean_overall": 6.8,
+      "worst_model": "claude-opus-4-8",
+      "worst_overall": 5,
+      "notes": "Adds the same unprinted furigana as A (聞, 大学生, 友人, 買, 学年, 質問作成, 答, 出, sidebar 質問), and also invents 心(こころ) and 体(からだ) in the footer. 回答形式(かいとう) and 肯定文(こうてい) have the reading attached to the wrong span. Heavy &nbsp; clutter and extra bolding on the number markers."
+    },
+    {
+      "item_id": "wb-p-0073",
+      "mean_overall": 6.8,
+      "worst_model": "claude-opus-4-8",
+      "worst_overall": 3,
+      "notes": "Base text and word box are correct, but furigana is added to nearly every kanji (企業(きぎょう), 多(おお), 人(ひと), 働(はたら) in the footer, etc.). The image has only about ten furigana glosses, so most are invented. Also adds an emoji and bold not in the source."
+    },
+    {
+      "item_id": "wb-p-0072",
+      "mean_overall": 7.0,
+      "worst_model": "claude-opus-4-8",
+      "worst_overall": 5,
+      "notes": "Base text correct and every printed furigana is present. But it adds readings to nearly every kanji where the page has none: 日本(にほん), 日本人(にほんじん), 多(おお), 人(ひと), 中(なか), 高(たか), 店(みせ), 言(い), 長(なが), 名前(なまえ), 買(か), 見(み), 聞(き), 後(あと), 食(た), and 次(つぎ) in '次のような'. Bold 72 matches the page; list structure is good."
+    },
+    {
+      "item_id": "tb-p-0069",
+      "mean_overall": 7.2,
+      "worst_model": "claude-sonnet-5-5",
+      "worst_overall": 6,
+      "notes": "Invents furigana not on the page: 入(い), a second 郷(ごう), and 従(したが); only the first 郷, 敷 and 和也 carry furigana. Misses the bold ものの in section 4 examples, though bold in sections 5 and 6 is correct. Side tab (ユニット4 ことばと文化) included. Underline on なんてったって and the second blank lines are not shown."
+    }
+  ],
+  "n_items_judged": 47
+}

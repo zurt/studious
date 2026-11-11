@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-opus-5-5",
+    "D": "claude-sonnet-5-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-opus-5-5": "C",
+    "claude-sonnet-5-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text is fully accurate, and the furigana けんい on 権威 is captured inline. The blank after ⑤ is kept but rendered a little short (3 spaces) against the wider gap in the image. Full-width parentheses are a minor variance.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "All characters are correct, and the furigana on 権威 is included. The blank (⑤) is preserved at a reasonable width. Nothing is invented.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "C",
+      "notes": "Identical to B: accurate text, 権威(けんい) furigana captured, blank preserved, no additions.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "D",
+      "notes": "The base text is correct, but furigana readings are added to nearly every kanji (ぐたいてき, じっけんしゃ and so on). The image has furigana only on 権威. This is heavy invention and clutters the text.",
+      "character_accuracy": 7,
+      "completeness": 10,
+      "formatting": 4,
+      "hallucination_control": 2,
+      "overall": 4
+    },
+    {
+      "label": "E",
+      "notes": "The main text is accurate and the blank is preserved, slightly wide. It omits the furigana けんい under 権威, which is visible in the image.",
+      "character_accuracy": 9,
+      "completeness": 8,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "A",
+    "E",
+    "D"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "B and C are identical and fully faithful: correct text, the single furigana on 権威, and a well-sized blank. B is placed first only because a strict order is required. A is equally accurate but renders the blank a little short. E has correct body text but drops the one furigana annotation. D is last because it invents furigana for almost every kanji when the image has it only on 権威.",
+  "usage": {
+    "input_tokens": 2195,
+    "output_tokens": 1044,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.05932,
+  "duration_ms": 17306
+}

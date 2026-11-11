@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-opus-5-5",
+    "D": "claude-sonnet-5",
+    "E": "claude-haiku-5-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-opus-5-5": "C",
+    "claude-sonnet-5": "D",
+    "claude-haiku-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text is correct, including the header pattern, the quoted options and both items. Lines are reflowed into clean paragraphs and blanks are kept as empty parentheses. The bold and highlighted heading is not marked.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "All text is correct. It keeps the original line breaks inside sentences, which matches the scan but would render as stray soft breaks in markdown. Items are separated properly and blanks are preserved. No bold or highlight on the heading.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "All text is correct. Sentences are reflowed into paragraphs and blanks are preserved as empty parentheses. Heading emphasis is not marked. Practically identical to A.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "All text is correct. It keeps the scan's hard line breaks, but there is no blank line between items ① and ②, so they would merge into one paragraph in markdown. The blank in the instruction line is somewhat short. No heading emphasis.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "All text is correct. Sentences are reflowed, with no space after the circled numbers, which matches the image. Blanks are preserved, slightly wider than in the others. No heading emphasis.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "A",
+    "C",
+    "E",
+    "B",
+    "D"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5"
+  ],
+  "rationale": "All five candidates transcribe the text perfectly with nothing invented, so the ranking rests only on small formatting differences. A, C and E reflow each item into a clean paragraph with items separated, and are nearly indistinguishable; the order among them is close to arbitrary. B keeps the scan's mid-sentence line breaks, which is faithful to the image but slightly worse as markdown. D does the same and also omits the blank line between items ① and ②, so it comes last.",
+  "usage": {
+    "input_tokens": 2291,
+    "output_tokens": 1371,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.073168,
+  "duration_ms": 19941
+}

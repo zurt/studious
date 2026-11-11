@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-haiku-5-5",
+    "C": "claude-sonnet-5",
+    "D": "claude-sonnet-5-5",
+    "E": "claude-opus-5-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-haiku-5-5": "B",
+    "claude-sonnet-5": "C",
+    "claude-sonnet-5-5": "D",
+    "claude-opus-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text is fully accurate, including the missing period on ③b. The word box is rendered as a table but with an empty header row; a–d options are indented with &nbsp; rather than lists, which is clunky but faithful. Blanks are preserved.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Text is accurate. The bold wrongly covers the question number as well as the shaded label. The word box is plain text lines with no box or table. Options are bulleted lists, and the line break in the Q10 instruction is kept.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Text is accurate. Options a–d are neither indented nor listed. The word box is plain paragraphs with no box structure. The small box in the instruction is rendered as ［　］. Original line breaks are kept, including the split blank in ⑥.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "Text is accurate. The word box is a table, though its first row is treated as a header. Options are clean lists, the shaded labels are bolded, and blanks are preserved.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Text is accurate. The question lines are made into ## headings with bold inside, which is slightly heavy. The word box is plain text lines with no box or table. Option lists are good.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "D",
+    "A",
+    "E",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5-5",
+    "claude-opus-4-8",
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5"
+  ],
+  "rationale": "All five candidates transcribe the text essentially perfectly, with no hallucinations or omissions, so the ranking rests on formatting. D and A both show the boxed word bank as a table; D is cleaner, with proper option lists and no empty header row. E, B and C flatten the box to plain text. E has good lists and clear question structure, B bolds the question number along with the label, and C loses the option indentation entirely.",
+  "usage": {
+    "input_tokens": 7236,
+    "output_tokens": 1108,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.102208,
+  "duration_ms": 18770
+}

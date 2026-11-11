@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-haiku-5-5",
+    "D": "claude-opus-5-5",
+    "E": "claude-sonnet-5-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-haiku-5-5": "C",
+    "claude-opus-5-5": "D",
+    "claude-sonnet-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text and furigana (たから, じっさい, てつだ, けんきゅうかいはつ, せいこう) are correct. The option box is rendered as a table, but options a/b sit in the header row, which misrepresents them as headers. No space after the circled numbers; minor.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Text and furigana are fully correct. The option box is a blockquote, which suggests the box reasonably, but the two lines have no hard break and may merge when rendered. Blanks preserved.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Text and furigana are correct. Adds a '##' heading for the title, which is acceptable. The option box is plain text with no box structure, and its lines may merge when rendered. Uses full-width digits (１２月１日), a harmless variation.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "Text and furigana are all correct. The option box is a clean 2x2 table with an empty header row. Uses 'a.' with a half-width period instead of the image's 'a．'; negligible.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Text and furigana are all correct. The option box is a clean 2x2 table with an empty header, and the full-width periods and blank widths match the image closely.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    }
+  ],
+  "ranking": [
+    "E",
+    "D",
+    "A",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "All five candidates transcribe the text and furigana without error and invent nothing, so the ranking rests only on how well each represents the boxed option list. E and D use a clean 2x2 table with an empty header; E edges ahead by matching the full-width punctuation and blank widths. A's table wrongly puts options a/b in the header row. B's blockquote at least marks the box, while C has no box structure at all, and both risk the two option lines merging when rendered.",
+  "usage": {
+    "input_tokens": 4505,
+    "output_tokens": 1032,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.07732,
+  "duration_ms": 11616
+}

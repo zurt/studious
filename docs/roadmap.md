@@ -231,7 +231,40 @@ Priority 2 (second pass, bundled):
       wording on vocab lists, not misreadings). `benchmarks.compare` gates
       on a one-point judge drop. One price table for the app and both
       tools. `benchmarks/README.md` says which tool answers which question.
-      Not yet run against the live API
+      First live run 2026-11-11: 6/6 fixtures judged, avg overall 9.67; all
+      five vocab lists scored 10/10 at 19-45% CER
+- [x] New-models run prepared (2026-11): judge is `claude-fable-5-2` with a
+      refusal fallback that now actually engages; candidates default to
+      Sonnet 5.5, Opus 5.5, Haiku 5.5 plus Sonnet 5 and Opus 4.8 as a bridge
+      to July; dataset `v2` quotas total 48 items with 14 full pages (v1:
+      31 and 6); `run` and `judge` take `--budget-usd`; the provider sends
+      Haiku 5.5 the same effort as the other models
+- [x] Run `20261111-eval-v2` (47 items, 5 models, $8.71): Opus 5.5 leads
+      clearly (9.02, never below 8, beats every other model head-to-head);
+      the current default Sonnet 5.5 is last (7.70) because it invents
+      unprinted furigana, worst on workbook pages; Haiku 5.5 ties both
+      Sonnets at a tenth of the cost but misreads. Report:
+      `benchmarks/model_eval/reports/2026-11-11-model-comparison.md`. The
+      July `v1` dataset no longer exists, so July's numbers are history only
+- [x] Default VLM switched to `claude-opus-5-5` (2026-11-11) on that run.
+      About 2.6x Sonnet 5.5 per transcription ($0.031 vs $0.012) and twice
+      the latency; negligible at one user's volume. A model saved in
+      Settings (`data/preferences.json`) still overrides the default
+- [ ] **Sonnet 5.5 prompt fix — only if scale makes the cost gap matter.**
+      Its weakness is one habit: adding furigana the page does not print.
+      If a transcription-prompt change stops that, Sonnet 5.5 becomes a
+      2.6x cheaper, 2x faster default. Test by re-running that one model on
+      `dataset/v2` and re-judging (about $1.10). Not worth doing at
+      single-user volume
+- [ ] **Benchmarks for breakdowns, exercise completions and grammar
+      guides.** The model setting drives every job type, but both
+      benchmark tools measure transcription only (plus one structural
+      breakdown fixture). The Opus 5.5 switch is therefore unevaluated for
+      most of what the app does with the model, including cost: those jobs
+      run at higher effort with longer outputs. Needs a frozen dataset of
+      transcribed regions, a rubric per job type (gloss accuracy, vocab and
+      grammar coverage, answer correctness, level-appropriateness), and
+      the same blind-judge flow
 
 ## Phase 2: Sentence Breakdowns
 

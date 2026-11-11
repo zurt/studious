@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-opus-5-5",
+    "C": "claude-haiku-5-5",
+    "D": "claude-opus-4-8",
+    "E": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-opus-5-5": "B",
+    "claude-haiku-5-5": "C",
+    "claude-opus-4-8": "D",
+    "claude-sonnet-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Body text is accurate. The closing dash in 糸井's line is rendered as 'ーー' (katakana long-vowel marks) instead of '――'. Omits the dotted underlines and the 1/2 question markers under つまり and 結果として, and the margin line numbers. Dialogue as a bullet list is acceptable; half-width digits and parentheses are minor.",
+      "character_accuracy": 9,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 7
+    },
+    {
+      "label": "B",
+      "notes": "Text is accurate, with the correct dash and full-width digits. Speaker names are bolded, which is a reasonable choice. Omits the dotted underlines and the 1/2 markers under つまり and 結果として, and the margin line numbers. Furigana is given inline in parentheses.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "The only candidate to capture the 1 and 2 annotation markers on つまり and 結果として, as superscripts, though without the underline itself. Changes the footnote mark '*1' to '※1' and adds '：' after speaker names, which is not in the image. （中略） is wrongly placed as a list item. Body text is otherwise accurate.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Text is accurate, and paragraph indentation is preserved with full-width spaces. Dialogue is set as separate paragraphs, faithful to the layout. Omits the dotted underlines and the 1/2 markers, and the margin line numbers. Bolding 'CD1 Track 7' is harmless.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "Text is accurate. The footnote mark is rendered as full-width '＊１', which is acceptable. CD1/Track/7 is split over three lines, and parentheses are a mix of half- and full-width. Omits the dotted underlines and the 1/2 markers, and the margin line numbers.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "C",
+    "D",
+    "B",
+    "E",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-haiku-5-5",
+    "claude-opus-4-8",
+    "claude-opus-5-5",
+    "claude-sonnet-5",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "All five candidates transcribe the body text essentially without error, so the ranking turns on small differences. C ranks first because it alone keeps the 1 and 2 markers attached to the underlined phrases, which matter for the textbook's questions; this outweighs its added colons and the '※' substitution. D comes next for clean text and layout-faithful paragraphing with indentation. B is equally accurate, with sensible bolding of speaker names. E is accurate but slightly less tidy in the CD label and punctuation widths. A is last because it replaces the dash with 'ーー', a real character error, and also omits the markers.",
+  "usage": {
+    "input_tokens": 7319,
+    "output_tokens": 2166,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.145192,
+  "duration_ms": 23644
+}

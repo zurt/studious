@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-haiku-5-5",
+    "C": "claude-opus-5-5",
+    "D": "claude-opus-4-8",
+    "E": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-haiku-5-5": "B",
+    "claude-opus-5-5": "C",
+    "claude-opus-4-8": "D",
+    "claude-sonnet-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All Japanese terms, readings, indices (22–30, (2), (5), 1, 2, 4) and both section headers match the image. Glosses are accurate; only quibble is the noun 'liberalization' listed first for the verb 自由化する, though 'to liberalize' is also given. Blank lines around headers reflect the layout. Headers are plain text with a 【📖】 stand-in for the icon.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Japanese text, readings and indices all match the image. Gloss problems: 生まれ育つ is given as 'to grow up; to be raised', dropping the 'born' sense; 自由化する leads with the noun 'liberalization'. Other glosses are accurate. No blank line after the second header, which is minor.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 8,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Japanese text, readings, indices and headers all match the image. Glosses are accurate and consistently in verb form (e.g. 'liberalize; deregulate', 'be born and raised'). 'At any cost' for なんでもかんでも is a valid secondary dictionary sense. Headers are plain text with an icon placeholder.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Japanese text, readings and indices all match the image. 自由化する is glossed only with nouns ('liberalization; deregulation') although the entry is a verb. 文章 leads with 'sentence', which is acceptable but less apt than 'text'. Other glosses are accurate.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "Japanese text, readings and indices all match the image; full-width spaces after index numbers are fine. Glosses are accurate but terse and stylistically inconsistent (some with 'to', some without). 文章 as 'sentence; writing' is acceptable but 'text' would be better. No gloss errors.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "A",
+    "E",
+    "D",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "All five candidates transcribe the Japanese terms, readings, indices and headers identically and correctly, so the ranking rests on gloss accuracy and consistency. C has the most precise and consistent glosses. A is nearly as good, with one noun-first gloss for a verb. E is accurate but inconsistent in style. D glosses the verb 自由化する only with nouns. B is last because its gloss for 生まれ育つ omits the 'born' sense, on top of the same noun-first gloss as A.",
+  "usage": {
+    "input_tokens": 5234,
+    "output_tokens": 2009,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.122232,
+  "duration_ms": 17297
+}

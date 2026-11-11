@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-haiku-5-5",
+    "C": "claude-sonnet-5",
+    "D": "claude-sonnet-5-5",
+    "E": "claude-opus-5-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-haiku-5-5": "B",
+    "claude-sonnet-5": "C",
+    "claude-sonnet-5-5": "D",
+    "claude-opus-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Base text and word box are correct, but furigana is added to nearly every kanji (企業(きぎょう), 多(おお), 人(ひと), 働(はたら) in the footer, etc.). The image has only about ten furigana glosses, so most are invented. Also adds an emoji and bold not in the source.",
+      "character_accuracy": 5,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 1,
+      "overall": 3
+    },
+    {
+      "label": "B",
+      "notes": "All ten printed furigana are captured correctly, including 勝(か), with none added. Circled numbers are kept, and the word box and footer are correct. Only quibble is the blanks added after クラス and 名前, which is a reasonable reading of the header rule.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Accurate text with no inventions, but misses the furigana 勝(か) in item ①. The first row of the word box is used as a table header, and an emoji stands in for the icon. Otherwise faithful.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "Items ①–⑩ are accurate, including 勝(か). But it adds unprinted furigana to the instruction line (最(もっと)も, 適当(てきとう)) and then inserts a self-contradictory note saying that furigana is not printed. Both are extraneous to the page.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 4,
+      "overall": 6
+    },
+    {
+      "label": "E",
+      "notes": "Text and furigana are all correct, including 勝(か). Circled numbers ①–⑩ are converted to a 1.–10. list, losing the original markers. Adds blanks after クラス and 名前, and bolds the instruction.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "B",
+    "E",
+    "C",
+    "D",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-haiku-5-5",
+    "claude-opus-5-5",
+    "claude-sonnet-5",
+    "claude-sonnet-5-5",
+    "claude-opus-4-8"
+  ],
+  "rationale": "B is the most faithful: every printed furigana is present, nothing is added, and the circled numbers are kept. E matches B on text but replaces the circled numbers with a plain numbered list. C invents nothing but drops the 勝(か) furigana. D is accurate in the items but adds unprinted furigana to the instruction plus a contradictory note. A is last because it fabricates furigana for almost every kanji on the page.",
+  "usage": {
+    "input_tokens": 6438,
+    "output_tokens": 1239,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.101064,
+  "duration_ms": 12894
+}

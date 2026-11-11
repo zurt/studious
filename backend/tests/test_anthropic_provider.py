@@ -429,3 +429,24 @@ def test_opus_5_family_recognised_for_temperature_thinking_and_effort(vlm):
     assert call["thinking"] == {"type": "adaptive"}
     assert call["output_config"] == {"effort": "high"}
     assert call["betas"] == ["server-side-fallback-2026-07-01"]
+
+
+def test_haiku_5_5_gets_adaptive_thinking_explicit_effort_and_no_temperature(vlm):
+    # Haiku 5.5 400s on a non-default temperature and defaults to `medium`
+    # effort; it must be sent the same effort as the models it is compared to.
+    inst, messages, _ = vlm
+    inst.transcribe(b"img", "prompt", {"model": "claude-haiku-5-5", "temperature": 0.2})
+    call = messages.calls[0]
+    assert "temperature" not in call
+    assert call["thinking"] == {"type": "adaptive"}
+    assert call["output_config"] == {"effort": "high"}
+    # No server-side fallback exists for Haiku 5.5: plain endpoint, no beta.
+    assert "betas" not in call and "extra_body" not in call
+
+
+def test_haiku_4_5_request_shape_is_unchanged(vlm):
+    inst, messages, _ = vlm
+    inst.transcribe(b"img", "prompt", {"model": "claude-haiku-4-5", "temperature": 0.2})
+    call = messages.calls[0]
+    assert call["temperature"] == 0.2
+    assert "thinking" not in call and "output_config" not in call

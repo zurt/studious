@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-opus-5-5",
+    "D": "claude-haiku-5-5",
+    "E": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-opus-5-5": "C",
+    "claude-haiku-5-5": "D",
+    "claude-sonnet-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Invents furigana not on the page: 入(い), a second 郷(ごう), and 従(したが); only the first 郷, 敷 and 和也 carry furigana. Misses the bold ものの in section 4 examples, though bold in sections 5 and 6 is correct. Side tab (ユニット4 ことばと文化) included. Underline on なんてったって and the second blank lines are not shown.",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 6,
+      "hallucination_control": 5,
+      "overall": 6
+    },
+    {
+      "label": "B",
+      "notes": "Furigana correct (ごう, し, かずや). Bold ものの and なんといっても correct, but 6② bolds the whole span とても外国人とは思えぬ instead of just とても and ぬ. Only candidate to show the two-line blanks. Adds a 📱 emoji for the icon and ● for the CD marks. Side tab included. No underline on なんてったって.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 8,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Furigana correct and all bold accurate, including ものの, なんといっても, とても/ない/ぬ. The dialogue in 5① is restructured into a bullet list, a minor layout deviation. Side tab included. Continuation blank lines and the underline on なんてったって are omitted.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Text and furigana correct. Misses the bold ものの in section 4 and the bold ぬ in 6②. Adds list bullets to the example sentences and bolds the ❶❷ markers. Side tab included. No underline on なんてったって; single blanks only.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 7
+    },
+    {
+      "label": "E",
+      "notes": "Text and furigana correct, but all bold emphasis on the grammar patterns is dropped. The side tab (ユニット4 ことばと文化) is omitted. Adds 🔊 emoji for the CD marks. Horizontal rules approximate the dashed boxes. No underline on なんてったって.",
+      "character_accuracy": 9,
+      "completeness": 7,
+      "formatting": 5,
+      "hallucination_control": 8,
+      "overall": 6
+    }
+  ],
+  "ranking": [
+    "C",
+    "B",
+    "D",
+    "A",
+    "E"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-opus-4-8",
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "claude-sonnet-5"
+  ],
+  "rationale": "All five read the main text accurately, so the ranking turns on furigana fidelity, bold emphasis and completeness. C has correct furigana and fully accurate bold, with only a minor restructuring of the dialogue. B is equally complete and best on blank-line layout, but mis-scopes one bold span and adds an emoji. D is accurate but drops the bold on ものの and ぬ. A invents three furigana readings that are not on the page and misses the bold ものの. E is last because it loses all bold emphasis and omits the side tab, though it invents no text.",
+  "usage": {
+    "input_tokens": 6151,
+    "output_tokens": 2099,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.133168,
+  "duration_ms": 23053
+}

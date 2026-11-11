@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-opus-5-5",
+    "C": "claude-sonnet-5-5",
+    "D": "claude-sonnet-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-opus-5-5": "B",
+    "claude-sonnet-5-5": "C",
+    "claude-sonnet-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text correct, including 冨山 and the visible space in 山本 真知子. Title marked as a heading. The English subtitle's four lines are merged into one, and the two-line Japanese title is collapsed into one.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "All characters correct. No heading markup for the title; English subtitle merged into one line; title collapsed into one line. Drops the small space in 山本 真知子 (trivial). Identical to C.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Identical to B: all characters correct, but no heading markup, English subtitle merged into one line, and the space in 山本 真知子 is dropped (trivial).",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "All text correct. Title marked as a heading and the four-line English subtitle keeps its line breaks as in the image. Only nits: the title is on one line rather than two, and the space in 山本 真知子 is missing.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "E",
+      "notes": "All text correct. Line breaks follow the image closely: 新 on its own, title split as 中級から上級への / 日本語, English subtitle on four lines. No heading markup for the title; space in 山本 真知子 missing.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "D",
+    "E",
+    "A",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-5-5",
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "All five candidates transcribe every character correctly and invent nothing, so the ranking rests on formatting alone. D is best because it combines a title heading with the original line breaks of the English subtitle. E follows the image's line layout most closely but has no heading, and A has the heading and the 山本 真知子 space but merges the subtitle lines; I put E just ahead for layout fidelity. B and C are identical, with neither heading nor line breaks, so they come last and their order is arbitrary.",
+  "usage": {
+    "input_tokens": 3738,
+    "output_tokens": 1365,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.084504,
+  "duration_ms": 13193
+}

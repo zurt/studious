@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-haiku-5-5",
+    "C": "claude-opus-4-8",
+    "D": "claude-opus-5-5",
+    "E": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-haiku-5-5": "B",
+    "claude-opus-4-8": "C",
+    "claude-opus-5-5": "D",
+    "claude-sonnet-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All Japanese terms, readings, index numbers and page references match the image. The gloss for ～割 ('percent; tenths') is imprecise, since 割 means units of ten percent. Other glosses are accurate. Headers are plain text with bracketed icons, not markdown headings.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Japanese text and readings are all correct. The gloss for 〜割 ('in tenths; percent') is imprecise. The first section icon is rendered as a memo emoji, inconsistent with the book icon in the image. Headers are plain text, not markdown headings.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "All Japanese terms, readings and indices are correct. Glosses are accurate, including 〜割 as 'ten percent; tenth'. A blank line is added before group 2, which is harmless. Headers are plain text, not markdown headings.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "All Japanese terms, readings and indices are correct. Glosses are accurate; 'general acceptance' for 市民権 is a valid dictionary sense (as in 市民権を得る), and 〜割 is correctly 'tenth; ten percent'. Line order follows the image closely. Headers are plain text, not markdown headings.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "The reading for 生物学的な is given as せいぶつがくてきな, but the image prints せいぶつがくてき; the な is inserted. 'ユニット3' loses the spacing of the original. Glosses are accurate, though 口べた has only a single gloss. A blank line is added before group 2.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 8,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "D",
+    "C",
+    "A",
+    "B",
+    "E"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5"
+  ],
+  "rationale": "All five candidates are complete and nearly identical in the Japanese text, so the ranking turns on small differences. D and C have no transcription errors and fully accurate glosses; D is placed first because it keeps the original line grouping without an added blank line. A and B both give an imprecise 'percent' gloss for 割, and B also uses the wrong icon for the first section header. E is last because it is the only one that alters printed Japanese, adding な to the reading of 生物学的な.",
+  "usage": {
+    "input_tokens": 4322,
+    "output_tokens": 1632,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.099856,
+  "duration_ms": 17090
+}

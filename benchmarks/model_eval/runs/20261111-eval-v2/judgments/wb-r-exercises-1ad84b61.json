@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-haiku-5-5",
+    "D": "claude-opus-5-5",
+    "E": "claude-sonnet-5-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-haiku-5-5": "C",
+    "claude-opus-5-5": "D",
+    "claude-sonnet-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text is accurate. Furigana for 調査/結果 in ④ is dumped on a separate line (ちょうさ　けっか) instead of attached to the words, inconsistent with the other items. The first row of the word box is used as a table header. The underline on ひらがな is not marked. Book icon rendered as an emoji.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "All text and furigana are correct and inline. Circled numbers are preserved, the word box is a table with an empty header, and the book icon is represented. Only miss is the underline on ひらがな.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "All text and furigana are correct. The title is rendered as a heading, which is reasonable; the book icon is omitted. Circled numbers are kept. The underline on ひらがな is not marked.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Text and furigana are correct. Circled numbers ①–⑩ are replaced with a plain 1.–10. list, which is slightly less faithful. No icon or heading for the title. The underline on ひらがな is not marked.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "Text and furigana are correct and inline, and circled numbers are preserved. The title is plain text with no icon or heading. The underline on ひらがな is not marked.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "B",
+    "C",
+    "E",
+    "D",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
+    "claude-sonnet-5"
+  ],
+  "rationale": "All five candidates transcribe the text essentially perfectly, so the ranking turns on small formatting differences. B keeps the circled numbers, puts all furigana inline and represents the book icon. C and E are the same minus the icon, with C marking the title as a heading and E leaving it plain. D swaps the circled numbers for a generic numbered list. A is last because it detaches the furigana in item ④ onto a separate line and treats the first row of the word box as a table header.",
+  "usage": {
+    "input_tokens": 6156,
+    "output_tokens": 1155,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.095448,
+  "duration_ms": 12997
+}

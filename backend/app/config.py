@@ -703,13 +703,16 @@ class Settings(BaseModel):
     anthropic_api_key: str | None
     wanikani_api_token: str | None = None
     tesseract_cmd: str | None
-    default_vlm_model: str = "claude-sonnet-5-5"
+    # Opus 5.5 since 2026-11: best transcriber of five in model-eval run
+    # 20261111-eval-v2, and the only one that doesn't invent unprinted
+    # furigana (benchmarks/model_eval/reports/2026-11-11-model-comparison.md).
+    default_vlm_model: str = "claude-opus-5-5"
     # Models offered in the settings UI for VLM selection. The first entry
     # is treated as the canonical default; anything outside this list is
     # still accepted server-side for forward compatibility.
     selectable_vlm_models: list[str] = [
-        "claude-sonnet-5-5",
         "claude-opus-5-5",
+        "claude-sonnet-5-5",
         "claude-sonnet-5",
         "claude-opus-4-8",
         "claude-opus-4-7",

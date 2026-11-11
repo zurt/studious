@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-5-5",
+    "B": "claude-sonnet-5-5",
+    "C": "claude-haiku-5-5",
+    "D": "claude-sonnet-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-opus-5-5": "A",
+    "claude-sonnet-5-5": "B",
+    "claude-haiku-5-5": "C",
+    "claude-sonnet-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text fully accurate. Boxes rendered as valid markdown tables with 代わりに / うえで in a separate column, though the header row with an empty cell is slightly awkward. Underlines in the example sentences are not marked.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Text correct, but full-width ／, （） and ： are normalised to half-width. Box shown as plain text with a ｜ separator; the ただし / ナ形 lines have lost their indentation. Underlines are missing.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Text accurate. In the first box, 代わりに is detached onto its own line below, losing the bracket relationship with the connection forms. No blank lines between explanation and examples, and the second example's indent is lost. Underlines are missing.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 7
+    },
+    {
+      "label": "D",
+      "notes": "Text accurate. Plain-text layout with ｜ separators and indentation mirrors both boxes well. Underlines are missing and the box borders are not represented.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Text accurate, with minor variants: 〜 instead of ～ and full-width brackets. The three-column table row is a sensible structure but has no header separator row, so it will not render as a markdown table. Underlines are missing.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "A",
+    "D",
+    "E",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "All five candidates transcribe the text essentially perfectly, add nothing invented, and all omit the underlines in the example sentences, so the ranking turns on how well the boxed connection-form layouts are represented. A uses valid tables that keep the bracket relationship; D preserves it faithfully in plain text. E's table idea is good but the markdown is invalid and it has small character variants. B normalises punctuation to half-width and loses indentation. C comes last because it detaches 代わりに from the first box, breaking the structure.",
+  "usage": {
+    "input_tokens": 3507,
+    "output_tokens": 1505,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.088256,
+  "duration_ms": 22070
+}

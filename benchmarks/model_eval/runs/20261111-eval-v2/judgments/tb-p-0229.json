@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-sonnet-5-5",
+    "C": "claude-sonnet-5",
+    "D": "claude-opus-5-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-sonnet-5-5": "B",
+    "claude-sonnet-5": "C",
+    "claude-opus-5-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All words, readings and line numbers (8–46) are correct and present. The header is not marked as a heading, and the ＊影響を及ぼす / ＊心に芽生える sub-entries are flattened to the same level as main entries. Column break is only a blank line.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "All line numbers (8, 9, 10 … 46) are omitted. Readings are rewritten as inline per-kanji furigana, e.g. 効(き)く and 見(み)た目(め), where the source has the word followed by the full reading in parentheses. The reading for まとめる（まとめる） is dropped. Sub-entries are nested correctly.",
+      "character_accuracy": 8,
+      "completeness": 6,
+      "formatting": 4,
+      "hallucination_control": 7,
+      "overall": 5
+    },
+    {
+      "label": "C",
+      "notes": "Text, readings and line numbers are all accurate and complete. Sub-entries are indented with a full-width space. However, entries are plain lines with no list markup or hard breaks, so they would collapse into one paragraph when rendered as markdown.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "Complete and accurate, with all line numbers, words and readings. Has a heading, bulleted entries, properly nested ＊ sub-entries, and a rule separating the two columns. The most faithful to the page layout.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "E",
+      "notes": "All line numbers are omitted. Reading format is inconsistent: な-adjectives and する-verbs are rewritten inline, e.g. 立派(りっぱ)な and 影響(えいきょう)する, while other entries keep the original trailing parentheses. Keeps まとめる（まとめる） and nests sub-entries correctly. The bold on 017 is harmless.",
+      "character_accuracy": 9,
+      "completeness": 6,
+      "formatting": 5,
+      "hallucination_control": 8,
+      "overall": 6
+    }
+  ],
+  "ranking": [
+    "D",
+    "A",
+    "C",
+    "E",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "D, A and C all transcribe every word, reading and line number correctly, so they are separated by formatting: D has heading, bullets, nested sub-entries and a column separator; A has clean bullets but flattens sub-entries and lacks a heading; C would run together when rendered. E and B both drop all line numbers and restructure the readings. E ranks above B because it keeps the original parenthetical form for most entries and retains まとめる（まとめる）, whereas B converts everything to per-kanji furigana and drops that reading.",
+  "usage": {
+    "input_tokens": 8243,
+    "output_tokens": 1672,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.132824,
+  "duration_ms": 17509
+}

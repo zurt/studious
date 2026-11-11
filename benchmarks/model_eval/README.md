@@ -26,10 +26,16 @@ python -m benchmarks.model_eval <subcommand> [options]
 ```
 python -m benchmarks.model_eval build-dataset \
     --data-dir backend/data \
-    --seed 20260706 \
+    --seed 20261111 \
     --out benchmarks/model_eval/dataset \
-    --name v1
+    --name v2 \
+    --exclude 魔女
 ```
+
+`--exclude TEXT` (repeatable) skips documents whose filename contains TEXT.
+Use it to keep unrelated uploads out: anything that isn't a workbook is
+classified as `textbook`, so a novel would otherwise land in the textbook
+strata.
 
 Enumerates every document/chapter/region in the on-disk store, classifies
 each document as `textbook` or `workbook` (by filename, case-insensitive
@@ -38,22 +44,26 @@ substring match on "workbook"), and stratified-samples items with a seeded
 random draw, so the same seed always yields the same dataset regardless of
 directory-listing order.
 
-Default quotas (see `sampling.DEFAULT_QUOTAS`, a plain dict — pass a
-different quotas dict to `dataset_build.build_dataset()` to override):
+Default quotas (`sampling.QUOTAS_V2`, a plain dict — pass a different
+quotas dict to `dataset_build.build_dataset()` to override):
 
-| Source | Region tag | Quota |
-|---|---|---|
-| textbook | exercises | 5 |
-| textbook | grammar_points | 5 |
-| textbook | vocab_list | 4 |
-| textbook | reading_passage | 3 |
-| textbook | instructions | 1 |
-| workbook | exercises | 7 |
+| Source | Region tag | v2 quota | v1 (2026-07) |
+|---|---|---|---|
+| textbook | exercises | 6 | 5 |
+| textbook | grammar_points | 6 | 5 |
+| textbook | vocab_list | 5 | 4 |
+| textbook | reading_passage | 5 | 3 |
+| textbook | instructions | 2 | 1 |
+| textbook | full pages | 8 | 4 |
+| workbook | exercises | 10 | 7 |
+| workbook | full pages | 6 | 2 |
+| | **total** | **48** | **31** |
 
-Plus full pages: 4 from the textbook, 2 from the workbook, sampled from
-"content pages" (pages with at least one region), softly preferring pages
-not already used by a sampled region (falls back to reusing a page if there
-aren't enough unused ones — this never fails the build).
+v2 more than doubles full pages (14 vs 6): whole-page transcription is where
+v1 had the least evidence and the widest gap between models. Pages are
+sampled from "content pages" (pages with at least one region), softly
+preferring pages not already used by a sampled region (falls back to reusing
+a page if there aren't enough unused ones — this never fails the build).
 
 If a stratum has fewer candidates than its quota, `build-dataset` takes all
 of them and records the shortfall in the manifest instead of failing.
@@ -80,10 +90,19 @@ exact dataset," not "the latest dataset."
 ```
 python -m benchmarks.model_eval run \
     --dataset benchmarks/model_eval/dataset/v1 \
-    --models claude-haiku-4-5,claude-sonnet-5,claude-opus-4-8 \
-    --run-id 20260706-153000 \
-    --max-tokens 8192
+    --run-id 20261111-eval-v2 \
+    --budget-usd 5
 ```
+
+`--models` defaults to the current generation (`claude-sonnet-5-5`,
+`claude-opus-5-5`, `claude-haiku-5-5`) plus `claude-sonnet-5` and
+`claude-opus-4-8`, the two the July 2026 run found tied, as a bridge to that
+run.
+
+`--budget-usd N` stops the run once the estimated spend would pass N. It
+stops *between items*, never inside one, so every item in the run has a
+result from every model. Re-run with the same `--run-id` and a higher budget
+to continue.
 
 Reads each item's frozen `input.png` (never re-crops), picks the prompt by
 the item's `prompt_kind` (`page` / `region` / `vocab_list` — same prompts
@@ -110,14 +129,15 @@ Requires `ANTHROPIC_API_KEY` (falls back to macOS Keychain lookup like
 
 ```
 python -m benchmarks.model_eval judge \
-    --run-id 20260706-153000 \
-    --dataset benchmarks/model_eval/dataset/v1 \
-    --judge-model claude-fable-5 \
-    --fallback-model claude-opus-4-8
+    --run-id 20261111-eval-v2 \
+    --budget-usd 8
 ```
 
+Defaults: `--judge-model claude-fable-5-2`, `--fallback-model default`,
+`--dataset .../dataset/v2`. `--budget-usd` works as it does for `run`.
+
 For every item with >= 2 successful transcriptions, shuffles the candidate
-order with `random.Random(f"{seed}:{item_id}")` and labels them A/B/C — the
+order with `random.Random(f"{seed}:{item_id}")` and labels them A-E — the
 judge never sees which model produced which candidate. The judge gets the
 source image plus the shuffled candidates and scores each on:
 
@@ -137,14 +157,21 @@ Judge design:
   schema has no numeric min/max (not supported in the structured-outputs
   schema subset) — the 0-10 range is enforced by prompt text and by
   `judging.clamp_score()` afterward.
-  Because Fable is `claude-fable-5`, no `thinking`/`temperature`/`top_p` is
-  passed. `stop_reason` is always checked before reading content; a
+  The judge is a Fable model, so no `thinking`/`temperature`/`top_p` is
+  passed (thinking is always on and counts toward `max_tokens`, hence
+  16000). `stop_reason` is always checked before reading content; a
   `"refusal"` is recorded as `{"status": "refused", ...}` rather than
   treated as an error.
-- **Server-side fallback to Opus**: calls `client.beta.messages.create(...,
-  betas=[...], fallbacks=[{"model": fallback_model}], ...)`; if the API
-  rejects the beta/fallbacks parameter, retries once via plain
-  `client.messages.create` without them.
+- **Server-side refusal fallback**: if the judge model declines an item,
+  the API re-runs it on a fallback model inside the same call
+  (`--fallback-model default` lets the API choose by refusal category; a
+  model id pins one). Each judgment records `served_by_model`, so an item a
+  different model judged is visible. The parameter is sent through
+  `extra_body` because the pinned SDK (0.96) has no typed `fallbacks`
+  argument — passing it as a keyword raised a `TypeError` that the old
+  retry swallowed, so runs before 2026-11 never actually had a fallback. If
+  the API itself rejects the fallback request, the call is retried once
+  without one and says so.
 
 Output: `runs/<run_id>/judgments/<item_id>.json` — judge model, the
 label→model mapping (and its inverse), the raw per-candidate scores, the
@@ -272,5 +299,7 @@ network access required.
 ## Curated reports
 
 Machine-generated per-run tables land in `runs/<run_id>/report.md`. Human-curated
-writeups (findings, corrections, recommendations) live in `reports/` — start with
-[`reports/2026-07-06-model-comparison.md`](reports/2026-07-06-model-comparison.md).
+writeups (findings, corrections, recommendations) live in `reports/` — the
+latest is [`reports/2026-11-11-model-comparison.md`](reports/2026-11-11-model-comparison.md);
+[`reports/2026-07-06-model-comparison.md`](reports/2026-07-06-model-comparison.md)
+covers the first run.

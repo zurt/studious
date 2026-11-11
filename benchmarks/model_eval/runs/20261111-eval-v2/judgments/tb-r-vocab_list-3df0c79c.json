@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-haiku-5-5",
+    "C": "claude-sonnet-5",
+    "D": "claude-opus-5-5",
+    "E": "claude-sonnet-5-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-haiku-5-5": "B",
+    "claude-sonnet-5": "C",
+    "claude-opus-5-5": "D",
+    "claude-sonnet-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Both kana entries and indices (1), (2) are correct. Glosses 'to bring; to cause; to bring about' and 'namely; that is; in other words' are accurate, though slightly longer than a short gloss. Full-width space after the index is a harmless variation.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "B",
+      "notes": "Kana and indices are correct. 'to bring about' is accurate; 'to result in' is a looser rendering of もたらす than a standard dictionary gloss. The すなわち gloss is accurate.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 10,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Kana and indices are correct. Glosses 'to bring about; to cause' and 'that is; namely' are concise and accurate. Clean two-line layout.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 10,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "D",
+      "notes": "Identical to C: kana and indices correct, glosses accurate and concise, layout faithful.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 10,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "E",
+      "notes": "Kana and indices are correct. 'to bring about; to bring' is accurate but slightly redundant. The すなわち gloss is accurate. Full-width spacing after the index is a minor variation.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "D",
+    "A",
+    "E",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-sonnet-5",
+    "claude-opus-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "All five candidates transcribe the two kana entries and their indices perfectly, so the ranking rests only on gloss quality and minor formatting. C and D are identical, with concise and accurate glosses; their order is an arbitrary tie-break. A is equally accurate but a little wordier. E's gloss for もたらす is somewhat redundant. B comes last because 'to result in' is the least dictionary-like gloss, though still acceptable.",
+  "usage": {
+    "input_tokens": 1297,
+    "output_tokens": 994,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.050136,
+  "duration_ms": 14128
+}

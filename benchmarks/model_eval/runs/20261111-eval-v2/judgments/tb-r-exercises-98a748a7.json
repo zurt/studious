@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-sonnet-5",
+    "C": "claude-sonnet-5-5",
+    "D": "claude-opus-5-5",
+    "E": "claude-haiku-5-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-sonnet-5": "B",
+    "claude-sonnet-5-5": "C",
+    "claude-opus-5-5": "D",
+    "claude-haiku-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text correct. Uses full-width parentheses and half-width 7/4 where the image has half-width parentheses and full-width ７/４; trivial normalisation. Headers and item structure are faithful.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "All text correct. Uses H1 headers and inserts a horizontal rule '---' between sections that is not a distinct element in the image. Same full-width parentheses and half-width digit normalisation as A.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "Text is accurate, but each item is double-numbered ('1. (1)', '2. (2)' and so on), adding ordered-list markers that are not in the source.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 8,
+      "overall": 7
+    },
+    {
+      "label": "D",
+      "notes": "Text is accurate, with full-width ７/４ and half-width parentheses as in the image. Spacing after the line references, e.g. '(13行目) とありますが', matches the source. Clean structure.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 10,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "E",
+      "notes": "Text is accurate and matches D except that it omits the space after the line-reference parentheses. Clean structure, nothing added.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    }
+  ],
+  "ranking": [
+    "D",
+    "E",
+    "A",
+    "B",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "All five candidates transcribe the text without character errors, so the ranking rests on formatting fidelity. D matches the image most closely in numbering style, digit width and spacing; E is the same minus small spacing details. A normalises parentheses and digit width but is otherwise clean. B adds a horizontal rule and uses H1 headers. C ranks last because it adds redundant list numbers in front of every item.",
+  "usage": {
+    "input_tokens": 4833,
+    "output_tokens": 876,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.073704,
+  "duration_ms": 13611
+}

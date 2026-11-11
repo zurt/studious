@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-5-5",
+    "B": "claude-haiku-5-5",
+    "C": "claude-sonnet-5",
+    "D": "claude-sonnet-5-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-opus-5-5": "A",
+    "claude-haiku-5-5": "B",
+    "claude-sonnet-5": "C",
+    "claude-sonnet-5-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All text and all ten furigana readings are correct and attached to the right words, including 努力(どりょく) on its first occurrence. Circled numbers kept and footer correct. Minor: first row of the word box is used as a table header, the book icon is omitted, and the double underline on 漢字 is not marked.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "B",
+      "notes": "Text and furigana are all correct and correctly placed. The word box uses an empty header row, which is faithful to the box. Minor: 読んでみよう is not marked as a section heading, the footer bullet is rendered ◎, and the book icon is omitted.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "C",
+      "notes": "In ①, the furigana is misplaced as 応援していた（おうえん）. In ⑩, the どりょく reading on 努力 is missing. クラス and 名前 are merged into the H1 title. Remaining text and furigana are correct.",
+      "character_accuracy": 8,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 7
+    },
+    {
+      "label": "D",
+      "notes": "Invents a furigana reading 漢字(かんじ) in the instruction; the image has only a double underline there. Circled numbers ①–⑩ are replaced with a 1.–10. list. All other furigana are correct and correctly placed.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 7,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "Several furigana are detached from their words: (さいきん) sits at the end of ④, and (せいせき)(のこ) sit at the end of ⑩. 努力(どりょく) is attached to the second occurrence instead of the first. Base text is otherwise correct.",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 6,
+      "hallucination_control": 9,
+      "overall": 6
+    }
+  ],
+  "ranking": [
+    "A",
+    "B",
+    "D",
+    "C",
+    "E"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8"
+  ],
+  "rationale": "A and B are both essentially flawless; A edges ahead for marking the section heading and matching the footer bullet. D has fully correct furigana placement but invents 漢字(かんじ) and drops the circled numbers. C misplaces one furigana and omits another. E is last because it misplaces or misattaches four readings.",
+  "usage": {
+    "input_tokens": 6158,
+    "output_tokens": 1692,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.116944,
+  "duration_ms": 17435
+}

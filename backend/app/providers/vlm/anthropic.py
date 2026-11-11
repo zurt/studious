@@ -14,8 +14,13 @@ from ...config import get_settings
 from ..registry import Prompt, ToolCallResult, TranscriptionResult, prompt_text
 
 # Prefix matching: "claude-sonnet-5" also covers claude-sonnet-5-5, and
-# "claude-opus-5" covers claude-opus-5-5.
-_TEMPERATURE_DEPRECATED_PREFIXES = ("claude-opus-4-7", "claude-opus-4-8", "claude-opus-5", "claude-sonnet-5")
+# "claude-opus-5" covers claude-opus-5-5. "claude-haiku-5" is Haiku 5.5:
+# unlike Haiku 4.5 it 400s on a non-default temperature, thinks adaptively
+# and takes `effort` (its own default is `medium`, so sending the settings
+# effort keeps it on the same footing as the other models).
+_TEMPERATURE_DEPRECATED_PREFIXES = (
+    "claude-opus-4-7", "claude-opus-4-8", "claude-opus-5", "claude-sonnet-5", "claude-haiku-5",
+)
 # Models that support adaptive thinking (`thinking: {type: "adaptive"}`).
 _ADAPTIVE_THINKING_PREFIXES = (
     "claude-opus-4-6",
@@ -24,6 +29,7 @@ _ADAPTIVE_THINKING_PREFIXES = (
     "claude-opus-5",
     "claude-sonnet-4-6",
     "claude-sonnet-5",
+    "claude-haiku-5",
 )
 # Models that support the `effort` output_config parameter.
 _EFFORT_PREFIXES = (
@@ -34,6 +40,7 @@ _EFFORT_PREFIXES = (
     "claude-opus-5",
     "claude-sonnet-4-6",
     "claude-sonnet-5",
+    "claude-haiku-5",
 )
 # Models that 400 on a forced `tool_choice` (`any` / `tool`). Their tool calls
 # go through structured outputs (`output_config.format`) instead: the forced

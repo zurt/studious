@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-haiku-5-5",
+    "C": "claude-opus-5-5",
+    "D": "claude-sonnet-5",
+    "E": "claude-sonnet-5-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-haiku-5-5": "B",
+    "claude-opus-5-5": "C",
+    "claude-sonnet-5": "D",
+    "claude-sonnet-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Inserts （円グラフ）（帯グラフ）（棒グラフ）（折れ線グラフ） directly under each blank, effectively filling in the answers. Adds furigana 書(か) that is not in the image. Misreads 2004年11月 as 2004年6月. Omits (%) and the y-axis values for chart 4. Statement furigana is otherwise correct and the word bank is complete.",
+      "character_accuracy": 7,
+      "completeness": 7,
+      "formatting": 7,
+      "hallucination_control": 3,
+      "overall": 5
+    },
+    {
+      "label": "B",
+      "notes": "Wrong furigana 量(ふ) for りょう, and invented 高(たか). Chart 2 has 3.3 where the image appears to read 4.3. All chart data is moved to the end, detached from its questions, under English labels (pie chart, line chart) that reveal the chart types. Word bank is broken up by messy bold fragments. Does include the y-axis values and the correct 2004年11月.",
+      "character_accuracy": 6,
+      "completeness": 8,
+      "formatting": 4,
+      "hallucination_control": 5,
+      "overall": 5
+    },
+    {
+      "label": "C",
+      "notes": "Furigana accurate throughout, with none invented on 書, 高 or 円. Marks the hard-to-read 1979 反対 value as [?] rather than guessing. Includes both axes for chart 4 and the (%) unit. Minor additions: 項目/割合 table headers and 縦軸/横軸 labels. Word bank complete with correct furigana. Does not reveal the answers.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 8,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Accurate text and data, including 2004年11月 and 4.3. Drops the せん furigana on 線 in the word bank. Omits (%) and the y-axis values for chart 4. Word bank rendered as a one-cell table, which is acceptable. No invented furigana and no answer leakage.",
+      "character_accuracy": 9,
+      "completeness": 8,
+      "formatting": 8,
+      "hallucination_control": 9,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "Invents furigana 書(か), 高(たか) and 円(えん), none of which appear in the image. The tiny source and legend furigana are expanded speculatively. Bracketed descriptions [円グラフ: …] and [折れ線グラフ: …] reveal two answers. Drops the brackets around the source note. Chart data is accurate and stays in order with its questions.",
+      "character_accuracy": 7,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 5,
+      "overall": 6
+    }
+  ],
+  "ranking": [
+    "C",
+    "D",
+    "E",
+    "A",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5",
+    "claude-sonnet-5-5",
+    "claude-opus-4-8",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "C is the most faithful: correct furigana, complete chart data, honest handling of an unclear value, and no answers revealed. D is nearly as clean but drops one furigana and some axis details. E keeps the layout and data but invents three furigana and names two chart types in its descriptions. A is structurally sound but writes the answer under every blank, adds one furigana and gets a date wrong. B is last because it has a wrong furigana, a wrong number, charts detached from their questions, and English labels that also reveal the chart types.",
+  "usage": {
+    "input_tokens": 8474,
+    "output_tokens": 3026,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.188832,
+  "duration_ms": 29906
+}

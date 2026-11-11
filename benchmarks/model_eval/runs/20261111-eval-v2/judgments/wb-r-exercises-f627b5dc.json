@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-sonnet-5-5",
+    "C": "claude-sonnet-5",
+    "D": "claude-opus-5-5",
+    "E": "claude-opus-4-8"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-sonnet-5-5": "B",
+    "claude-sonnet-5": "C",
+    "claude-opus-5-5": "D",
+    "claude-opus-4-8": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Base-text error: 'できたら' instead of 'できましたら'. Adds furigana ねが to お願い in bullet 2, which is not in the image. Omits several furigana that are present: second 試験 and 両親 in Task 2, second 試験 in Task 3, first 提出 and 両親 in Task 4. Underlines not captured. Bold headings are reasonable.",
+      "character_accuracy": 7,
+      "completeness": 7,
+      "formatting": 7,
+      "hallucination_control": 8,
+      "overall": 7
+    },
+    {
+      "label": "B",
+      "notes": "Base text fully correct and all real furigana present. Invents four furigana not in the image: 来週(らいしゅう), お願(ねが) in bullet 2, 日(び), 書(か). No heading markup at all; underlines not captured.",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 6,
+      "hallucination_control": 6,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Base text correct, but heavily over-annotated with furigana absent from the image: 日(ひ), 日本(にほん), 来(く), 行(い), 田中先生(たなかせんせい), 午後(ごご), 大学(だいがく), 書(か), 日(び), お願(ねが) in bullet 2. Also misreads 締(しき)め切(き) where the image has 締(し)め切(き). Underlines not captured.",
+      "character_accuracy": 6,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 2,
+      "overall": 5
+    },
+    {
+      "label": "D",
+      "notes": "Base text and furigana match the image exactly, including no furigana on お願い in bullet 2, on 書, or on 来週. Nothing added. Headings are clear. Only gap is that the underlined expressions are not marked.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Base text correct. Furigana errors in the expressions section: し/き omitted in bullet 1; misattached as 日(しき) in bullet 2; 書(か) added and 終(お) omitted in bullet 3. Task sections are fully correct. Underlines not captured.",
+      "character_accuracy": 7,
+      "completeness": 7,
+      "formatting": 7,
+      "hallucination_control": 8,
+      "overall": 7
+    }
+  ],
+  "ranking": [
+    "D",
+    "B",
+    "E",
+    "A",
+    "C"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-opus-4-8",
+    "claude-haiku-5-5",
+    "claude-sonnet-5"
+  ],
+  "rationale": "D reproduces the text and furigana exactly with nothing invented, missing only the underlines (which no candidate captured). B has correct text and all real furigana but adds four that are not in the image. E has correct text and accurate tasks but omits or misplaces several furigana in the expressions section. A drops 'まし' from 'できましたら' and omits a number of furigana in the tasks. C ranks last because, despite correct base text, it invents furigana on many words that have none in the image and misreads 締 as しき.",
+  "usage": {
+    "input_tokens": 6832,
+    "output_tokens": 2467,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.153336,
+  "duration_ms": 22879
+}

@@ -16,9 +16,11 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-# Default sampling quotas. A data structure (not hardcoded logic) so callers
-# can override quotas per-source/per-tag without touching sampling code.
-DEFAULT_QUOTAS: dict[str, dict[str, Any]] = {
+# Sampling quotas. Data structures (not hardcoded logic) so callers can
+# override quotas per-source/per-tag without touching sampling code.
+#
+# v1 (2026-07): 31 items. Kept for the record; that dataset no longer exists.
+QUOTAS_V1: dict[str, dict[str, Any]] = {
     "textbook": {
         "region": {
             "exercises": 5,
@@ -36,6 +38,44 @@ DEFAULT_QUOTAS: dict[str, dict[str, Any]] = {
         "page": 2,
     },
 }
+
+# v2 (2026-11): 48 items. Full pages go from 6 to 14 — whole-page
+# transcription is where v1 had the least evidence (n=6) and the widest gap
+# between models — and every region stratum grows a little. At n=48 a
+# 31-17 head-to-head split is significant at p<0.05; v1's 19-12 was not.
+QUOTAS_V2: dict[str, dict[str, Any]] = {
+    "textbook": {
+        "region": {
+            "exercises": 6,
+            "grammar_points": 6,
+            "vocab_list": 5,
+            "reading_passage": 5,
+            "instructions": 2,
+        },
+        "page": 8,
+    },
+    "workbook": {
+        "region": {
+            "exercises": 10,
+        },
+        "page": 6,
+    },
+}
+
+DEFAULT_QUOTAS = QUOTAS_V2
+
+
+def exclude_documents(candidates: list[dict], patterns: list[str]) -> list[dict]:
+    """Drop candidates whose document filename contains any of `patterns`
+    (case-insensitive). Keeps unrelated uploads — a novel, say — out of the
+    textbook strata, which classify by filename alone."""
+    lowered = [p.lower() for p in patterns if p]
+    if not lowered:
+        return list(candidates)
+    return [
+        c for c in candidates
+        if not any(p in str(c.get("doc_filename") or "").lower() for p in lowered)
+    ]
 
 
 @dataclass

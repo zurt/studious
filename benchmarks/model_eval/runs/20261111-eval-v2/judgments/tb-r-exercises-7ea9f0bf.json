@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-sonnet-5-5",
+    "C": "claude-opus-5-5",
+    "D": "claude-haiku-5-5",
+    "E": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-sonnet-5-5": "B",
+    "claude-opus-5-5": "C",
+    "claude-haiku-5-5": "D",
+    "claude-sonnet-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text fully correct. Bold ようなものだ preserved in both examples, dashed box rendered as blockquote, header as heading, CD icon shown as ●. Blanks preserved.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 10,
+      "hallucination_control": 10,
+      "overall": 10
+    },
+    {
+      "label": "B",
+      "notes": "Text correct, but the bold on ようなものだ is lost, the example box is not indicated, and the header is plain text. ① and ② are not separated by a blank line, so they may run together in markdown.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Text correct. No bold on ようなものだ, no box indication, plain header. Paragraph separation is clean.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "Text correct. Bold preserved, box as blockquote, header as heading. CD2-26 placed in parentheses rather than shown with an icon marker — minor deviation.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Text correct. Horizontal rules approximate the box, but bold on ようなものだ is missing. Speaker emoji substituted for the CD icon; plain header.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 8
+    }
+  ],
+  "ranking": [
+    "A",
+    "D",
+    "E",
+    "C",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-haiku-5-5",
+    "claude-sonnet-5",
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "All five candidates transcribe the characters accurately, so the ranking rests on formatting. A and D preserve the bold key phrase and the boxed examples; A also represents the CD icon more faithfully. E marks the box with rules but drops the bold. C and B lose both the bold and the box, and B additionally lacks paragraph separation between ① and ②.",
+  "usage": {
+    "input_tokens": 2615,
+    "output_tokens": 673,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.04784,
+  "duration_ms": 10684
+}

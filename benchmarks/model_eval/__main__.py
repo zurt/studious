@@ -26,8 +26,11 @@ from .common import (
     git_sha,
 )
 
-DEFAULT_SEED = 20260706
-DEFAULT_MODELS = "claude-haiku-4-5,claude-sonnet-5,claude-opus-4-8"
+DEFAULT_SEED = 20261111
+DEFAULT_DATASET_NAME = "v2"
+# The current generation plus the two models the July 2026 run found tied,
+# so a new run can be read against that one even though its dataset is gone.
+DEFAULT_MODELS = "claude-sonnet-5-5,claude-opus-5-5,claude-haiku-5-5,claude-sonnet-5,claude-opus-4-8"
 
 
 def _utc_run_id() -> str:
@@ -49,6 +52,7 @@ def _cmd_build_dataset(args: argparse.Namespace) -> int:
         out_dir=Path(args.out),
         name=args.name,
         seed=args.seed,
+        exclude=args.exclude,
     )
     print(f"Built {manifest['item_count']} items.")
     for stratum in manifest["strata"]:
@@ -80,9 +84,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
         models=models,
         run_id=args.run_id,
         max_tokens=args.max_tokens,
+        budget_usd=args.budget_usd,
     )
     print()
     print(f"Totals: {run_meta['totals']}")
+    print(f"Estimated cost: ${run_meta['estimated_cost_usd']:.2f}")
+    if run_meta["budget_stopped_before"]:
+        print(
+            f"Stopped at the budget before {run_meta['budget_stopped_before']}. "
+            "Re-run with the same --run-id and a higher --budget-usd to continue."
+        )
     print(f"Run dir: {Path(args.runs_dir) / args.run_id}")
     return 0
 
@@ -113,9 +124,16 @@ def _cmd_judge(args: argparse.Namespace) -> int:
         judge_model=args.judge_model,
         seed=seed,
         fallback_model=args.fallback_model,
+        budget_usd=args.budget_usd,
     )
     print()
     print(f"Totals: {summary['totals']}")
+    print(f"Estimated cost: ${summary['estimated_cost_usd']:.2f}")
+    if summary["budget_stopped_before"]:
+        print(
+            f"Stopped at the budget before {summary['budget_stopped_before']}. "
+            "Re-run with the same --run-id and a higher --budget-usd to continue."
+        )
     return 0
 
 
@@ -146,29 +164,41 @@ def build_parser() -> argparse.ArgumentParser:
     p_build.add_argument("--data-dir", default=str(DEFAULT_DATA_DIR))
     p_build.add_argument("--seed", type=int, default=DEFAULT_SEED)
     p_build.add_argument("--out", default=str(DEFAULT_DATASET_DIR))
-    p_build.add_argument("--name", default="v1")
+    p_build.add_argument("--name", default=DEFAULT_DATASET_NAME)
+    p_build.add_argument(
+        "--exclude", action="append", default=[], metavar="TEXT",
+        help="skip documents whose filename contains TEXT (repeatable)",
+    )
     p_build.set_defaults(func=_cmd_build_dataset)
 
     p_run = sub.add_parser("run", help="Run dataset items through one or more models")
-    p_run.add_argument("--dataset", default=str(DEFAULT_DATASET_DIR / "v1"))
+    p_run.add_argument("--dataset", default=str(DEFAULT_DATASET_DIR / DEFAULT_DATASET_NAME))
     p_run.add_argument("--models", default=DEFAULT_MODELS)
     p_run.add_argument("--run-id", default=None)
     p_run.add_argument("--max-tokens", type=int, default=8192)
+    p_run.add_argument(
+        "--budget-usd", type=float, default=None,
+        help="stop between items once the estimated spend would exceed this",
+    )
     p_run.add_argument("--runs-dir", default=str(DEFAULT_RUNS_DIR))
     p_run.set_defaults(func=_cmd_run)
 
     p_judge = sub.add_parser("judge", help="Blind-judge candidate transcriptions for a run")
     p_judge.add_argument("--run-id", required=True)
-    p_judge.add_argument("--dataset", default=str(DEFAULT_DATASET_DIR / "v1"))
+    p_judge.add_argument("--dataset", default=str(DEFAULT_DATASET_DIR / DEFAULT_DATASET_NAME))
     p_judge.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
     p_judge.add_argument("--seed", type=int, default=None)
     p_judge.add_argument("--fallback-model", default=DEFAULT_JUDGE_FALLBACK_MODEL)
+    p_judge.add_argument(
+        "--budget-usd", type=float, default=None,
+        help="stop between items once the estimated spend would exceed this",
+    )
     p_judge.add_argument("--runs-dir", default=str(DEFAULT_RUNS_DIR))
     p_judge.set_defaults(func=_cmd_judge)
 
     p_analyze = sub.add_parser("analyze", help="Aggregate judgments into a report")
     p_analyze.add_argument("--run-id", required=True)
-    p_analyze.add_argument("--dataset", default=str(DEFAULT_DATASET_DIR / "v1"))
+    p_analyze.add_argument("--dataset", default=str(DEFAULT_DATASET_DIR / DEFAULT_DATASET_NAME))
     p_analyze.add_argument("--runs-dir", default=str(DEFAULT_RUNS_DIR))
     p_analyze.set_defaults(func=_cmd_analyze)
 

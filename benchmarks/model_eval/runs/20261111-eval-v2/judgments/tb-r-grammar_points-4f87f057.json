@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-sonnet-5-5",
+    "C": "claude-opus-4-8",
+    "D": "claude-sonnet-5",
+    "E": "claude-opus-5-5"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-sonnet-5-5": "B",
+    "claude-opus-4-8": "C",
+    "claude-sonnet-5": "D",
+    "claude-opus-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text is fully correct. No heading markup, and single line breaks only, so the lines would merge into one paragraph in rendered markdown. All underlines (家族、友人、 / 上司 / 痛みを和らげ / 消化を助ける / さらに ×2) are missing. Uses half-width ')' in 例).",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 5,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "B",
+      "notes": "Text is fully correct and paragraphs are properly separated. The title '12. さらには' is not marked as a heading, and none of the underlines are reproduced.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 6,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Text is fully correct, with a heading marker and clean paragraph separation. Underlines on the key phrases are not reproduced, and the indentation of the example lines is lost.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Identical to C: accurate text, heading marked, paragraphs separated. Underlines are missing.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Identical to C and D: accurate text, heading marked, paragraphs separated. Underlines are missing.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "C",
+    "D",
+    "E",
+    "B",
+    "A"
+  ],
+  "ranking_models": [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "All five candidates transcribe the text without character errors or invented content, and all five omit the underlines that mark the grammar points. The ranking therefore rests on formatting alone: C, D and E are identical and best because they mark the title as a heading and separate paragraphs, so their order among themselves is arbitrary. B separates paragraphs but has no heading, and A has neither a heading nor blank lines between paragraphs.",
+  "usage": {
+    "input_tokens": 2784,
+    "output_tokens": 1012,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.062752,
+  "duration_ms": 11644
+}

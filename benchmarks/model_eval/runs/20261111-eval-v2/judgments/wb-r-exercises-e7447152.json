@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-haiku-5-5",
+    "B": "claude-sonnet-5",
+    "C": "claude-opus-4-8",
+    "D": "claude-opus-5-5",
+    "E": "claude-sonnet-5-5"
+  },
+  "model_to_label": {
+    "claude-haiku-5-5": "A",
+    "claude-sonnet-5": "B",
+    "claude-opus-4-8": "C",
+    "claude-opus-5-5": "D",
+    "claude-sonnet-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All twelve furigana are present and correct, and circled numbers are kept. Stray space in 「ライ ンでは」 in item ③; the padding spaces inside the choice parentheses are dropped.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "B",
+      "notes": "Body text is accurate and circled numbers are kept. Omits the furigana しゅっせき on 出席 in item ①; all other furigana are correct.",
+      "character_accuracy": 9,
+      "completeness": 8,
+      "formatting": 9,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Text and all real furigana are correct. Invents furigana 入院(にゅういん), which is not in the image. Adds a ## heading, which is a reasonable choice.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 7,
+      "overall": 8
+    },
+    {
+      "label": "D",
+      "notes": "All text and furigana are correct and nothing is invented. Circled numbers ①–⑤ are converted to a 1.–5. ordered list, a small loss of fidelity to the original markers.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "E",
+      "notes": "Base text is correct, but furigana is added to nearly every kanji (代, 適切, 選, 入院, 間, 夫, 料理, 工場, 人間, 円, 安, 長, 使 and more) where the image has none. The image annotates only twelve words, so this is heavy fabrication.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 7,
+      "hallucination_control": 2,
+      "overall": 4
+    }
+  ],
+  "ranking": [
+    "D",
+    "A",
+    "B",
+    "C",
+    "E"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5-5"
+  ],
+  "rationale": "D and A both reproduce all text and exactly the furigana in the image; D has no text errors but changes the circled numbers to a plain list, while A keeps them but has a stray space in ライン, so D edges ahead. B drops one furigana (しゅっせき) and C invents one (にゅういん); I rank the omission above the invention because adding content not in the image is the worse fault. E is last because it fabricates furigana for almost every kanji.",
+  "usage": {
+    "input_tokens": 4915,
+    "output_tokens": 1530,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.10052,
+  "duration_ms": 18014
+}

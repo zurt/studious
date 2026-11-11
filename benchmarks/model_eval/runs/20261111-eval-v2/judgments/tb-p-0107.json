@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-sonnet-5-5",
+    "B": "claude-opus-4-8",
+    "C": "claude-opus-5-5",
+    "D": "claude-haiku-5-5",
+    "E": "claude-sonnet-5"
+  },
+  "model_to_label": {
+    "claude-sonnet-5-5": "A",
+    "claude-opus-4-8": "B",
+    "claude-opus-5-5": "C",
+    "claude-haiku-5-5": "D",
+    "claude-sonnet-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "All content is present, including page number, CD labels and the unit tab. But it invents furigana in example 1① that are not in the image: 母(はは), 東京(とうきょう), 行(おこな), 年(とし), 年(ねん), 生(う). Only 間際(まぎわ) has furigana on the page. Bold and blanks are otherwise fine; the dashed boxes are not marked.",
+      "character_accuracy": 8,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 4,
+      "overall": 6
+    },
+    {
+      "label": "B",
+      "notes": "Complete: page number, title, CD track badge, unit tab and CD labels are all there. Blockquotes represent the dashed boxes well, and line breaks and bold are faithful. One invented furigana in the side tab, 働(はたら)く, which is not in the image. The ● before the CD labels is a reasonable rendering of the disc icon.",
+      "character_accuracy": 9,
+      "completeness": 10,
+      "formatting": 9,
+      "hallucination_control": 8,
+      "overall": 8
+    },
+    {
+      "label": "C",
+      "notes": "Text is accurate, with only the real まぎわ furigana. Page number, unit tab, CD badge and CD labels are all included. Bold is correct in the examples. The dashed boxes are not marked, and the unit tab is placed before the title, which is a minor ordering choice. Nothing invented.",
+      "character_accuracy": 10,
+      "completeness": 10,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    },
+    {
+      "label": "D",
+      "notes": "Body text is accurate, but it omits the CD2 Track 48-57 badge, all three CD2-48/49/50 labels and the ユニット6 働くということ side tab. Bolds つまり in exercise ❷, which is not bold in the image. The page number is turned into an H1 heading.",
+      "character_accuracy": 10,
+      "completeness": 6,
+      "formatting": 7,
+      "hallucination_control": 9,
+      "overall": 6
+    },
+    {
+      "label": "E",
+      "notes": "Body text is accurate and the CD labels are included. Omits the page number 105 and the unit side tab. Drops the bold on につれ/につれて in the section 3 examples. No box marking. Nothing invented.",
+      "character_accuracy": 10,
+      "completeness": 8,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 7
+    }
+  ],
+  "ranking": [
+    "C",
+    "B",
+    "E",
+    "A",
+    "D"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "C is complete and accurate with nothing invented. B is equally complete and has the best layout (blockquotes for the boxes), but adds one furigana that is not on the page. E has clean text but drops the page number, the unit tab and the section 3 bold. A is complete but invents six furigana readings in the first example, a notable fidelity problem that I weighed more heavily than E's peripheral omissions. D omits the most: every CD label and the unit tab, and it adds a spurious bold.",
+  "usage": {
+    "input_tokens": 6306,
+    "output_tokens": 1704,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.118608,
+  "duration_ms": 17748
+}

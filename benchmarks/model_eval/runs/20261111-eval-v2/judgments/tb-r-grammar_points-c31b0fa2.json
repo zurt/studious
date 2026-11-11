@@ -1,0 +1,89 @@
+{
+  "status": "ok",
+  "judge_model": "claude-fable-5-2",
+  "served_by_model": "claude-fable-5-2",
+  "label_to_model": {
+    "A": "claude-opus-4-8",
+    "B": "claude-haiku-5-5",
+    "C": "claude-sonnet-5",
+    "D": "claude-sonnet-5-5",
+    "E": "claude-opus-5-5"
+  },
+  "model_to_label": {
+    "claude-opus-4-8": "A",
+    "claude-haiku-5-5": "B",
+    "claude-sonnet-5": "C",
+    "claude-sonnet-5-5": "D",
+    "claude-opus-5-5": "E"
+  },
+  "candidates": [
+    {
+      "label": "A",
+      "notes": "Text is accurate throughout, but the strikethrough on ます in the connection box is dropped, which changes the grammar notation. Underlines on かねない/かもしれない in the examples are missing. Blockquote for the box is reasonable; examples turned into a bullet list with 例） inside the first bullet.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 6,
+      "hallucination_control": 9,
+      "overall": 7
+    },
+    {
+      "label": "B",
+      "notes": "Strikethrough is kept but the kana is misread as ませ instead of ます, an error in the key grammar formula. Underlines in the examples are missing. Body text is otherwise accurate; examples rendered as a list.",
+      "character_accuracy": 8,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 8,
+      "overall": 6
+    },
+    {
+      "label": "C",
+      "notes": "Text is accurate, but the strikethrough on ます is missing and the example underlines are omitted. Uses an H1 heading and a blockquote for the box; example lines are split into separate paragraphs.",
+      "character_accuracy": 9,
+      "completeness": 9,
+      "formatting": 6,
+      "hallucination_control": 9,
+      "overall": 7
+    },
+    {
+      "label": "D",
+      "notes": "All text is correct and the strikethrough on ます is preserved. No heading markup on the title, no indication of the box, and the example underlines are missing. Example layout is kept with indentation.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 7,
+      "hallucination_control": 10,
+      "overall": 8
+    },
+    {
+      "label": "E",
+      "notes": "All text is correct, the strikethrough on ます is preserved, and the title is marked as a heading. Example underlines are missing and the box is not indicated. Example indentation is faithful.",
+      "character_accuracy": 10,
+      "completeness": 9,
+      "formatting": 8,
+      "hallucination_control": 10,
+      "overall": 9
+    }
+  ],
+  "ranking": [
+    "E",
+    "D",
+    "A",
+    "C",
+    "B"
+  ],
+  "ranking_models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-5-5"
+  ],
+  "rationale": "All five candidates transcribe the body text accurately and all omit the underlines in the examples, so the ranking turns on the connection formula and structure. E and D correctly keep the strikethrough on ます; E ranks first because it also marks the title as a heading. A and C lose the strikethrough, which is a notable notation loss, but their characters are correct; A's structure is slightly cleaner than C's. B keeps the strikethrough but misreads ます as ませ, a character error in the key formula, so it ranks last.",
+  "usage": {
+    "input_tokens": 3196,
+    "output_tokens": 1384,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+  },
+  "estimated_cost_usd": 0.080928,
+  "duration_ms": 19780
+}
