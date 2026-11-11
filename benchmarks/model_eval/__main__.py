@@ -19,6 +19,8 @@ from pathlib import Path
 from .common import (
     DEFAULT_DATA_DIR,
     DEFAULT_DATASET_DIR,
+    DEFAULT_JUDGE_FALLBACK_MODEL,
+    DEFAULT_JUDGE_MODEL,
     DEFAULT_RUNS_DIR,
     ensure_anthropic_api_key,
     git_sha,
@@ -158,9 +160,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_judge = sub.add_parser("judge", help="Blind-judge candidate transcriptions for a run")
     p_judge.add_argument("--run-id", required=True)
     p_judge.add_argument("--dataset", default=str(DEFAULT_DATASET_DIR / "v1"))
-    p_judge.add_argument("--judge-model", default="claude-fable-5")
+    p_judge.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
     p_judge.add_argument("--seed", type=int, default=None)
-    p_judge.add_argument("--fallback-model", default="claude-opus-4-8")
+    p_judge.add_argument("--fallback-model", default=DEFAULT_JUDGE_FALLBACK_MODEL)
     p_judge.add_argument("--runs-dir", default=str(DEFAULT_RUNS_DIR))
     p_judge.set_defaults(func=_cmd_judge)
 

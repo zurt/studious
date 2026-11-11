@@ -1,9 +1,7 @@
-"""Shared, I/O-touching helpers used by every model_eval subcommand.
-
-Mirrors the conventions in benchmarks/run_benchmark.py: Keychain fallback for
-the API key, short git sha for provenance, and inserting backend/ onto
-sys.path so `app.*` imports work when this package is invoked from the repo
-root as `python -m benchmarks.model_eval`.
+"""Shared, I/O-touching helpers for model_eval and benchmarks/run_benchmark.py:
+Keychain fallback for the API key, short git sha for provenance, and
+inserting backend/ onto sys.path so `app.*` imports work when these are
+invoked from the repo root (`python -m benchmarks...`).
 """
 from __future__ import annotations
 
@@ -19,6 +17,11 @@ DEFAULT_DATA_DIR = BACKEND_DIR / "data"
 DEFAULT_DATASET_DIR = MODEL_EVAL_DIR / "dataset"
 DEFAULT_RUNS_DIR = MODEL_EVAL_DIR / "runs"
 
+# The judge is deliberately a stronger model than any candidate. Used by
+# both `model_eval judge` and the regression benchmark's reference judge.
+DEFAULT_JUDGE_MODEL = "claude-fable-5"
+DEFAULT_JUDGE_FALLBACK_MODEL = "claude-opus-4-8"
+
 
 def ensure_backend_on_path() -> None:
     backend = str(BACKEND_DIR)
@@ -29,9 +32,9 @@ def ensure_backend_on_path() -> None:
 def ensure_anthropic_api_key() -> None:
     """Populate ANTHROPIC_API_KEY from macOS Keychain if not already set.
 
-    Copied from benchmarks/run_benchmark.py: `make` and non-interactive
-    subshells don't source the shell rc files where the key is normally
-    exported, so fall back to a direct Keychain lookup.
+    `make` and non-interactive subshells don't source the shell rc files
+    where the key is normally exported, so fall back to a direct Keychain
+    lookup.
     """
     if os.environ.get("ANTHROPIC_API_KEY"):
         return

@@ -29,7 +29,7 @@ make lint             # ruff (backend, benchmarks) + Biome (frontend)
 make test-e2e         # Playwright smoke suite (mock VLM, isolated data dir)
 make test-apple       # Swift suite (needs a Mac)
 make audit            # run npm audit + pip-audit
-make benchmark        # run quality benchmarks (when fixtures exist)
+make benchmark        # regression benchmark: fixtures vs. the default model, judged (real API calls)
 ```
 
 ## Post-Commit Workflow
@@ -52,10 +52,17 @@ After every commit, follow these steps:
 
 ## Quality Benchmarks
 
-For comparing VLM models against each other (rather than tracking one
-provider over time), use the model-eval framework:
-`uv run --project backend python -m benchmarks.model_eval <build-dataset|run|judge|analyze>`
-— see `benchmarks/model_eval/README.md`.
+Two tools; `benchmarks/README.md` says which answers which question. Both
+make real API calls.
+
+- **Regression** (`make benchmark`): did a change make the shipping setup
+  worse? Run it before and after, then
+  `uv run --project backend python -m benchmarks.compare <before> <after>`.
+  Act on the judge score; CER is only a fallback.
+- **Model comparison**
+  (`uv run --project backend python -m benchmarks.model_eval <build-dataset|run|judge|analyze>`):
+  which model should ship? Run it before changing the default model — see
+  `benchmarks/model_eval/README.md`.
 
 Run `make benchmark` when making significant changes to:
 - Provider logic (OCR or VLM providers)

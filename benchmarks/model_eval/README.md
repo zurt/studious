@@ -6,11 +6,12 @@ region/page crops from the store, runs the same crops through multiple
 Claude models via the app's own VLM provider, has a blind LLM judge rank the
 results on a rubric, and aggregates the judgments into a report.
 
-Unlike `benchmarks/run_benchmark.py` (which checks single-provider output
-against hand-written ground truth on a handful of fixtures), this framework
-compares *models against each other* at scale, using an LLM judge instead of
-string-similarity metrics, because "did this read the furigana right" is not
-something CER captures well.
+Unlike the regression benchmark (`make benchmark`, which checks the shipping
+model against reviewed references on a handful of committed fixtures), this
+framework compares *models against each other* at scale. Both score with the
+same LLM judge and rubric rather than relying on string similarity, because
+"did this read the furigana right" is not something CER captures well. See
+`benchmarks/README.md` for which to use when.
 
 Run everything as a module from the repo root:
 
@@ -186,7 +187,9 @@ and `runs/<run_id>/report.md` (markdown tables + quotes for humans).
   work.
 - To expand quotas or add a source/tag later, add entries to a quotas dict
   and build a new dataset name (`v2`, ...); don't mutate `v1` in place.
-- To add a model, add it to `pricing.MODEL_PRICING` (for cost estimates) and
+- To add a model, make sure it has a price row — in `backend/app/config.py`'s
+  `MODEL_PRICING` if the app offers it, otherwise in
+  `pricing.EVAL_ONLY_PRICING` — and
   pass it in `--models` / `--judge-model` / `--fallback-model` — no other
   code changes needed unless the model needs special request handling (see
   `app/providers/vlm/anthropic.py`'s capability-prefix lists).
@@ -250,7 +253,8 @@ and unit test without an API key) is split out from the I/O/CLI layer:
 |---|---|---|
 | `items.py` | pure | source classification, item id / prompt_kind naming |
 | `sampling.py` | pure | stratified sampling, quotas, shortfall handling |
-| `pricing.py` | pure | per-model USD/MTok pricing + `estimate_cost()` |
+| `pricing.py` | pure | `estimate_cost()` over the app's price table plus eval-only models |
+| `reference_judge.py` | network | judges one transcription against image + reference (used by `make benchmark`) |
 | `judging.py` | pure | label shuffling, `JUDGE_SCHEMA`, response validation/clamping |
 | `analysis.py` | pure | aggregation, win matrix, binomial sign test |
 | `store.py` | read-only I/O | walks the on-disk store into candidate dicts |
