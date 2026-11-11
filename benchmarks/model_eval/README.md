@@ -86,7 +86,7 @@ python -m benchmarks.model_eval run \
 
 Reads each item's frozen `input.png` (never re-crops), picks the prompt by
 the item's `prompt_kind` (`page` / `region` / `vocab_list` — same prompts
-`app/jobs.py` and `app/api/regions.py` use in production), and calls the
+`app/jobs/` and `app/api/regions.py` use in production), and calls the
 `anthropic` VLM provider's `transcribe()` directly — the same code path a
 real transcription job takes, so results reflect production behavior
 (including the temperature/adaptive-thinking/effort handling in

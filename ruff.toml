@@ -1,0 +1,16 @@
+# Lint config for backend/ and benchmarks/. Run: make lint
+# Linting only — the codebase is not auto-formatted, so line length
+# (E501) is deliberately not enforced.
+target-version = "py311"
+extend-exclude = ["frontend", "apple"]
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+ignore = [
+    "E501",  # line length: no formatter in use
+    "E741",  # short names like `l` are common in the parsing code
+    "B008",  # FastAPI's Depends()/File() defaults are the intended idiom
+]
+
+[lint.isort]
+known-first-party = ["app", "benchmarks"]

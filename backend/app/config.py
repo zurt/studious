@@ -10,6 +10,37 @@ from pydantic import BaseModel
 load_dotenv()
 
 
+BLANK_TRANSCRIBE_RULES = """\
+<blanks>
+A blank is a printed line, box, or empty bracket where the student
+writes an answer. Never drop a blank or leave it as spaces.
+- Write every underline-style blank as ＿＿＿＿＿ (exactly five
+  full-width underscores, U+FF3F), however long or short the printed
+  line is. Never use ASCII underscores, backslash escapes, spaces, or
+  full-width spaces in its place.
+- A blank that wraps from the end of one line onto the next is ONE
+  blank: write ＿＿＿＿＿ once, where it begins, and keep the sentence
+  flowing on the same line (no line break at the wrap). Two separate
+  blanks in one item are two separate ＿＿＿＿＿.
+- Empty brackets and boxes — （　　）, （　）, □, [　] — and dotted
+  leaders such as …… are transcribed exactly as printed.
+- A line drawn UNDER printed text (single, double, or dotted) is
+  decoration: transcribe the text plainly. A line with no text on it is
+  a blank. A blank can appear in instructions too, e.g. a short line in
+  「…形を変えて＿＿＿＿＿にひらがなで書きなさい」.
+
+Examples (printed → transcription):
+- 山田：歌がお上手ですね。 / 中山：いえいえ、[long line]。山田さんほどではないですよ。
+  → 中山：いえいえ、＿＿＿＿＿。山田さんほどではないですよ。
+- 十分に[line to the margin] / [short line]と思う。 (one blank wrapped)
+  → 十分に＿＿＿＿＿と思う。
+- 私がボールを投げようものなら、すぐ[line]。 → …すぐ＿＿＿＿＿。
+- A：健康のために… / B：ランニングをしていると言っても、[long line]が。
+  → B：ランニングをしていると言っても、＿＿＿＿＿が。
+</blanks>
+"""
+
+
 DEFAULT_VLM_PROMPT = """\
 You are an expert OCR transcriber specializing in Japanese textbooks
 for English speakers. The image is a single page that mixes Japanese
@@ -35,9 +66,10 @@ visual structure to Markdown semantics:
 - Transcribe Japanese exactly as printed. Do not "correct" spelling,
   punctuation (including 、 and 。), or kana/kanji choices.
 - Transcribe English exactly as printed.
-- Ignore decorative underlines (e.g. dotted underlines marking
-  textbook grammar points). Transcribe the underlined text as plain
-  text — do not emit <u>…</u> tags.
+- Ignore decorative underlines drawn under printed text (e.g. dotted
+  underlines marking textbook grammar points). Transcribe the
+  underlined text as plain text — do not emit <u>…</u> tags. This does
+  NOT apply to blanks: see <blanks>.
 - Ignore body-text line numbers in the page margin (e.g. small "5",
   "10", "15" markers every Nth line). Do not include them in the
   transcription.
@@ -50,11 +82,12 @@ visual structure to Markdown semantics:
 - Do not summarize. Output the full page text.
 </rules>
 
+{{BLANK_RULES}}
 <output_format>
 Return only the Markdown transcription, with no preamble or closing
 remarks. Begin directly with the first line of the page.
 </output_format>
-"""
+""".replace("{{BLANK_RULES}}", BLANK_TRANSCRIBE_RULES)
 
 
 REGION_TRANSCRIBE_PROMPT = """\
@@ -76,9 +109,10 @@ if the region has no title.
 - Transcribe Japanese and English exactly as printed. Do not
   "correct" spelling, punctuation (including 、 and 。), or
   kana/kanji choices.
-- Ignore decorative underlines (e.g. dotted underlines marking
-  textbook grammar points). Transcribe the underlined text as
-  plain text — do not emit <u>…</u> tags.
+- Ignore decorative underlines drawn under printed text (e.g. dotted
+  underlines marking textbook grammar points). Transcribe the
+  underlined text as plain text — do not emit <u>…</u> tags. This
+  does NOT apply to blanks: see <blanks>.
 - Ignore body-text line numbers in the page margin (e.g. small
   "5", "10", "15" markers every Nth line). Do not include them.
 - If a character or word is unclear, write [?]. If part of the region
@@ -86,11 +120,12 @@ if the region has no title.
 - Do not add commentary or translations that are not on the page.
 </rules>
 
+{{BLANK_RULES}}
 <output_format>
 Return only the Markdown transcription, with no preamble or closing
 remarks.
 </output_format>
-"""
+""".replace("{{BLANK_RULES}}", BLANK_TRANSCRIBE_RULES)
 
 
 VOCAB_LIST_TRANSCRIBE_PROMPT = """\
@@ -176,8 +211,15 @@ split at those sentence boundaries (one entry per sentence, spanning
 whatever cells are needed).
 
 Fill-in-the-blank exercise items are first-class entries. Lines
-containing blanks rendered as ＿, ___, ……, （　　）, or similar
-placeholders ARE valid sentences — do not skip them. When the input
+containing blanks ARE valid sentences — do not skip them. The
+canonical blank is a run of full-width underscores (＿＿＿＿＿), but
+older transcriptions use other styles: ASCII underscores (___), ……,
+（　　）, （　）, □, [　], or a run of full-width spaces in the middle of
+a sentence. Treat all of these as blanks and copy them exactly as they
+appear in the input — never rewrite one into a different style and never
+add backslash escapes. A blank inside an instruction header (e.g.
+「…＿＿＿＿＿にひらがなで書きなさい」) refers to the blanks in the
+items; it is part of the header, not a separate item. When the input
 is or contains a numbered exercise (①②③…, 1./2., (1)/(2)…), emit one
 entry per numbered item. Copy the item VERBATIM into `text`, blanks
 and all, including ALL text from the item's number marker up to (but
@@ -249,15 +291,23 @@ single chapter of a Japanese textbook. Different regions are separated by
 
 <task>
 Read through these grammar points from the textbook. Make a concise study
-guide in a mix of Japanese and English for the grammar points in this
-chapter. Keep it simple and direct. Provide related grammar and
-expressions where appropriate (both to group related patterns and to
-disambiguate). Include a few short, clear examples.
+guide for the grammar points in this chapter. Keep it simple and direct.
+Provide related grammar and expressions where appropriate (both to group
+related patterns and to disambiguate). Include a few short, clear examples.
+
+Language: write all explanatory prose — meanings, nuance, usage notes,
+form descriptions, comparisons, everything that isn't itself a piece of
+Japanese being quoted — in English. Japanese appears only for: the
+pattern itself, a Japanese term or form being named or quoted (e.g. a
+conjugation label, or the specific word being defined), and example
+sentences (each paired with its English translation on the next line).
+Never write a paragraph of Japanese-only explanation — the reader is an
+English speaker who cannot yet read fluent Japanese prose.
 </task>
 
 <structure>
-- `intro`: optional one- or two-sentence orientation for the chapter
-  (markdown).
+- `intro`: optional one- or two-sentence orientation for the chapter, in
+  English (markdown).
 - `points`: one entry per grammar point in the chapter, in the order
   they appear. For each point:
   - `title`: the Japanese pattern itself, e.g. "〜ばかりで",
@@ -270,10 +320,11 @@ disambiguate). Include a few short, clear examples.
     `Variations`, `Related`. Adapt the set to what each grammar point
     actually needs — do not invent content, but do regroup the
     textbook's information into these clearer buckets. Each section's
-    `body_md` is GitHub-flavored markdown; use bullet lists for forms,
-    pair Japanese example sentences with their English translation on
-    the next line, and write related/contrasting patterns as bullets
-    with a short English gloss in parentheses.
+    `body_md` is GitHub-flavored markdown, written in English prose per
+    the language rule above; use bullet lists for forms, pair Japanese
+    example sentences with their English translation on the next line,
+    and write related/contrasting patterns as bullets with a short
+    English gloss in parentheses.
 </structure>
 
 <rules>
@@ -322,14 +373,24 @@ GRAMMAR_GUIDE_TOOL_SCHEMA: dict = {
 }
 
 
+# A template: `{example_count}` and `{question_length}` are filled from the
+# learner profile (services/learner_profile.py), which also appends a
+# <learner_profile> block when a JLPT level is set. Render it with
+# learner_profile.render_exercise_completion_prompt, never send it raw.
 EXERCISE_COMPLETION_PROMPT = """\
 You are a Japanese-language tutor for English-speaking learners. The
-input has two parts:
+input has up to three parts:
 - `<region_transcription>`: the full transcribed text of an exercises
   region from a Japanese textbook. Use this for context — it usually
   contains the instruction header (what kind of drill this is),
   surrounding numbered items, and any choice bank or vocabulary list
   that applies to the whole region.
+- `<reading_reference>` (optional): reading passage(s) this exercises
+  region is about, printed elsewhere in the textbook (or in another
+  textbook). Each passage starts with a `[Source: …]` line naming the
+  book, chapter, and page(s). Use it to answer questions about the
+  reading's content and to decide items that depend on it. It is
+  background material only — never an item to complete.
 - `<target_sentence>`: the single item you are being asked to complete.
   This is one line from the region transcription.
 
@@ -337,36 +398,134 @@ input has two parts:
 First decide whether `<target_sentence>` is actually an exercise item
 to complete. The instruction header, section title, choice bank, or a
 plain example sentence printed by the textbook are NOT exercises — only
-the numbered drill items the student is meant to fill in or transform
-are exercises.
+the numbered items the student is meant to fill in, transform, or
+answer are exercises. A numbered question the student answers in their
+own words (e.g. a comprehension question about a reading) IS an
+exercise.
 
-If the target IS an exercise, complete it using the surrounding region
-as context (read the instruction header to figure out what is being
-practiced, and look at sibling items and any choice bank). Call the
-`record_exercise_completion` tool with:
+If the target IS an exercise, next decide which of three shapes it has:
+- `constrained`: the correct fill is limited to a specific closed set
+  the textbook already gives you. Three common cases:
+    (a) a shared word/phrase bank for the whole region (an instruction
+        like "choose from the list below" or "use each word only
+        once", with the bank printed once and drawn on by every
+        numbered item) — pick whichever bank entry best fits THIS
+        item;
+    (b) two or more candidates printed inline in `<target_sentence>`
+        itself (e.g. together in parentheses or separated by a slash,
+        such as "（は／が）") — pick the one that is correct here;
+    (c) a multiple-choice question whose lettered or numbered options
+        are printed with it (e.g. 「次のどの意味ですか。」 followed by
+        a./b./c. lines) — pick the correct option.
+  In every case exactly one of the given options is the defensible
+  answer for this item. This job only sees one item at a time and does
+  not know what sibling items already used from the bank, so just pick
+  whichever bank entry is the best semantic/grammatical fit for THIS
+  sentence; do not try to guess or avoid what other items might have
+  taken.
+- `question`: a question the student answers in their own words
+  rather than a sentence they complete or transform — typically a
+  comprehension question about a reading (「〜とは何ですか。」,
+  「筆者は〜と述べていますか。」, 「なぜ〜のですか。」) or a
+  discussion question asking for the student's own opinion or
+  experience. A question that prints its own answer options (a/b/c
+  choices, or candidates like（昔・現代）) is `constrained`, not
+  `question`.
+- `open`: everything else — a free completion or transformation where
+  the textbook does not hand you a closed set of candidates, so
+  multiple different words or phrasings could correctly fill the
+  blank.
+
+If the exercise is `constrained`, complete it using the surrounding
+region as context (read the instruction header, look at sibling items,
+and weigh the full bank or inline candidates against each other — and,
+when the item is about a reading, against what `<reading_reference>`
+says) and call `record_exercise_completion` with:
+- exercise_type: "constrained"
+- answer: the completed sentence, in Japanese, with the printed
+  portions of `<target_sentence>` preserved VERBATIM — copy them
+  character-for-character, including punctuation and ordering. Fill in
+  only the one chosen bank entry or inline candidate. Add readings as
+  described in `<readings>`. For a multiple-choice question
+  (case c), `answer` is instead just the chosen option exactly as
+  printed (e.g. `c. これは病気だ`), and `filled_text` is that same
+  string.
+- answer_english: a concise English translation of the completed
+  answer sentence.
+- explanation: one or two sentences in English explaining why this
+  option is correct here, and briefly why the other candidate(s) fit
+  less well. When the item is about a reading, cite the phrase in the
+  reading that decides it.
+- filled_text: the exact substring of `answer` that you inserted for
+  the blank — copy it character-for-character as it appears in
+  `answer`, including any furigana annotation you added (e.g.
+  `仕上(しあ)げて`). This is used to highlight the filled-in portion for
+  the learner, so it must be an exact, verbatim substring of `answer`.
+- examples: an empty array. Do NOT invent alternative completions for
+  a `constrained` exercise — every other bank entry or inline
+  candidate is either wrong for this item or is the answer to a
+  sibling item, so presenting it as an "alternative" would mislead the
+  learner.
+
+If the exercise is a `question`, answer it and call
+`record_exercise_completion` with:
+- exercise_type: "question"
+- answer: a model answer in natural Japanese, as a strong student would
+  write it — {question_length}, answering every part of what is asked
+  and nothing more. Do NOT repeat the question. For a
+  comprehension question, base the answer on `<reading_reference>` (or
+  on the region itself, if the reading is printed there) and put the
+  relevant content in your own words rather than copying a long
+  stretch verbatim, unless the question asks for a quotation. For a
+  question about the student's own opinion or experience, write a
+  plausible first-person sample answer. Add readings as described in
+  `<readings>`.
+- answer_english: a concise English translation of the answer.
+- explanation: one or two sentences in English. For a comprehension
+  question, point to where the answer comes from in the reading,
+  quoting the key Japanese phrase. For an opinion question, say what
+  the question is asking the student to express. If the question
+  depends on a reading you were not given, say so here, starting with
+  "The reading was not provided", and give the most plausible answer
+  you can from the question and region alone.
+- filled_text: an empty string.
+- examples: an empty array.
+
+If the exercise is `open`, complete it using the surrounding region as
+context (read the instruction header to figure out what is being
+practiced, and look at sibling items) and call
+`record_exercise_completion` with:
+- exercise_type: "open"
 - answer: the completed sentence with the blank filled in, in Japanese.
   Preserve the printed portions of the target sentence VERBATIM —
   copy them character-for-character from `<target_sentence>`, including
-  punctuation and ordering. Fill ONLY the blank(s). Include furigana on
-  uncommon kanji as `漢字(かな)`. If the exercise is a transformation
+  punctuation and ordering. Fill ONLY the blank(s). Add readings as
+  described in `<readings>`. If the exercise is a transformation
   rather than a blank, give the transformed sentence.
 - answer_english: a concise English translation of the completed answer
   sentence above.
 - explanation: one or two sentences in English explaining the answer
   (what grammar/word is being practiced, why this answer fits).
-- examples: a list of three ALTERNATIVE COMPLETIONS of the same target
-  sentence. Each example is the target sentence with the blank filled
+- filled_text: the exact substring of `answer` that you inserted for
+  the blank — copy it character-for-character as it appears in
+  `answer`, including any furigana annotation you added (e.g.
+  `仕上(しあ)げて`). This is used to highlight the filled-in portion for
+  the learner, so it must be an exact, verbatim substring of `answer`.
+  If the exercise is a transformation with no single blank to point at
+  (the whole sentence or clause changed), leave this empty.
+- examples: a list of {example_count} ALTERNATIVE COMPLETIONS of the same
+  target sentence. Each example is the target sentence with the blank filled
   in a different way — the printed portions of the target sentence
   must appear VERBATIM in every example. Do NOT rewrite the
   surrounding clauses, swap subjects, change tense outside the blank,
   or invent unrelated sentences. The FIRST example must be the
   simplest, most natural completion — short, plain vocabulary in the
-  blank, the most obvious fit. The SECOND and THIRD examples are
+  blank, the most obvious fit. Any further examples are
   appropriate, slightly richer alternative completions that show
   different ways the blank could be filled while keeping the rest of
   the sentence unchanged. Each example object has:
-    - japanese: the completed sentence, with furigana on uncommon
-      kanji as `漢字(かな)`. The portions outside the blank must match
+    - japanese: the completed sentence, with readings as described in
+      `<readings>`. The portions outside the blank must match
       `<target_sentence>` verbatim.
     - reading: the full sentence written in kana (hiragana/katakana
       only — no kanji). For sentences that are already kana-only, just
@@ -374,26 +533,57 @@ practiced, and look at sibling items and any choice bank). Call the
     - english: a concise English translation.
     - explanation: one short English sentence describing WHY this
       completion fits the blank. For the first example, explain why it
-      is the most natural fit. For the second and third examples, note
-      what nuance or variation this alternative completion shows.
+      is the most natural fit. For each further example, note what
+      nuance or variation this alternative completion shows.
 
 If the input is NOT an exercise, call the tool with:
 - no_exercise: true
 - reason: a short English sentence explaining why (e.g. "This line is a
   section heading, not a drill item.").
-Do NOT invent an exercise that is not present. Omit `answer` and
-`examples` in this case.
+Do NOT invent an exercise that is not present. Omit `answer`,
+`exercise_type`, `filled_text`, and `examples` in this case.
 </task>
 
+<readings>
+The app shows the learner the reading of every kanji word, hidden until
+they tap it, so it needs a reading for EVERY word that contains kanji —
+in `answer`, in each example's `japanese`, and in any Japanese you quote
+inside `explanation`. Write the reading in hiragana, in half-width
+parentheses, right after the kanji it reads: 健康病(けんこうびょう),
+自分(じぶん)の言葉(ことば), 食(た)べる, 無視(むし)する.
+- Okurigana and other kana stay outside the parentheses: 食(た)べる,
+  not 食べる(たべる).
+- Every kanji needs a reading. Annotate each word, or a whole run of
+  kanji at once — 健康(けんこう)第一(だいいち) or
+  健康第一(けんこうだいいち) — but never leave kanji right before an
+  annotated word bare (not 健康第一(だいいち)).
+- Use the reading that fits this context: 何(なに) vs 何(なん),
+  一日(いちにち) vs 一日(ついたち).
+- Readings are the one permitted addition to text that must otherwise
+  be copied verbatim: printed text from `<target_sentence>` with
+  `(かな)` inserted after its kanji still counts as verbatim, and
+  `filled_text` includes the readings exactly as they appear in
+  `answer`.
+</readings>
+
 <rules>
-- If the exercise has multiple blanks, fill all of them.
-- The printed (non-blank) portions of `<target_sentence>` MUST appear
-  verbatim in `answer` and in every example's `japanese`. Vary only
-  what fills the blank.
-- The first example must be the simplest natural completion of the
-  three. Provide exactly three examples.
-- The `<region_transcription>` is context only; complete exactly the
-  one line given in `<target_sentence>`, not any other item.
+- If the exercise has multiple blanks, fill all of them. `filled_text`
+  should still be a single verbatim substring of `answer` — if there
+  are multiple separate blanks, pick the one the exercise is actually
+  testing (usually the only one that varies across sibling items) or
+  leave `filled_text` empty rather than guessing.
+- For `constrained` (other than a multiple-choice question) and `open`
+  exercises, the printed (non-blank) portions of `<target_sentence>`
+  MUST appear verbatim in `answer` and in every example's `japanese`.
+  Vary only what fills the blank.
+- For a `constrained` exercise, return `examples: []` — never pad it
+  with invented alternatives, and never fill the blank with anything
+  outside the given bank or inline candidates.
+- For an `open` exercise, the first example must be the simplest
+  natural completion. Provide exactly {example_count} examples.
+- The `<region_transcription>` and `<reading_reference>` are context
+  only; complete exactly the one line given in `<target_sentence>`, not
+  any other item.
 - Do not return prose; return only the tool call.
 </rules>
 """
@@ -402,12 +592,17 @@ Do NOT invent an exercise that is not present. Omit `answer` and
 EXERCISE_COMPLETION_TOOL_SCHEMA: dict = {
     "type": "object",
     "properties": {
+        "exercise_type": {"type": "string", "enum": ["open", "constrained", "question"]},
         "answer": {"type": "string"},
         "answer_english": {"type": "string"},
         "explanation": {"type": "string"},
+        "filled_text": {"type": "string"},
         "examples": {
+            # Required non-empty (3) for `exercise_type: "open"`; must be `[]`
+            # for `"constrained"` (word bank / inline choice) and `"question"`
+            # (comprehension/discussion — see EXERCISE_COMPLETION_PROMPT). Not strict-validated on a
+            # forced tool call, so this is documentation, not enforcement.
             "type": "array",
-            "minItems": 3,
             "maxItems": 3,
             "items": {
                 "type": "object",
@@ -477,11 +672,17 @@ BREAKDOWN_TOOL_SCHEMA: dict = {
 # Per-model pricing in USD per 1M tokens. Keep in sync with Anthropic's
 # published pricing. Image tokens are billed as input tokens by Anthropic
 # and are already included in `usage.input_tokens`, so no separate rate.
+# Prompt-cache rates default to 1.25x input for a (5-minute) cache write and
+# 0.1x input for a cache read (services/costs.py); `cache_write` /
+# `cache_read` override them where a model's rates differ.
 MODEL_PRICING: dict[str, dict[str, float]] = {
+    # Claude 5 family (Anthropic's published table as of 2026-09-25).
+    "claude-sonnet-5-5": {"input": 2.0, "output": 10.0, "cache_write": 2.5, "cache_read": 0.2},
+    "claude-opus-5-5": {"input": 4.0, "output": 20.0, "cache_write": 5.0, "cache_read": 0.2},
     # Claude 4 family. Opus pricing dropped to $5/$25 with Opus 4.5; the
-    # original Opus 4 and 4.1 remain at the launch $15/$75.
-    # Sonnet 5 launch pricing ($2/$10) applies through 2026-08-31, then
-    # reverts to the $3/$15 sticker — bump this entry at that point.
+    # original Opus 4 and 4.1 remain at the launch $15/$75. Sonnet 5 is still
+    # listed at $2/$10 as of 2026-09-25 (its launch pricing was announced as
+    # ending 2026-08-31 — re-check if the sticker changes).
     "claude-sonnet-5": {"input": 2.0, "output": 10.0},
     "claude-opus-4-8": {"input": 5.0, "output": 25.0},
     "claude-opus-4-7": {"input": 5.0, "output": 25.0},
@@ -500,12 +701,15 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
 class Settings(BaseModel):
     data_dir: Path
     anthropic_api_key: str | None
+    wanikani_api_token: str | None = None
     tesseract_cmd: str | None
-    default_vlm_model: str = "claude-sonnet-5"
+    default_vlm_model: str = "claude-sonnet-5-5"
     # Models offered in the settings UI for VLM selection. The first entry
     # is treated as the canonical default; anything outside this list is
     # still accepted server-side for forward compatibility.
     selectable_vlm_models: list[str] = [
+        "claude-sonnet-5-5",
+        "claude-opus-5-5",
         "claude-sonnet-5",
         "claude-opus-4-8",
         "claude-opus-4-7",
@@ -540,6 +744,7 @@ def get_settings() -> Settings:
     return Settings(
         data_dir=data_dir,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
+        wanikani_api_token=os.environ.get("WANIKANI_API_TOKEN") or None,
         tesseract_cmd=os.environ.get("TESSERACT_CMD") or None,
         **overrides,
     )

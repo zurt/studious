@@ -1,13 +1,12 @@
 """Tests for `app.middleware.StructuredFormatter` and `CorrelationMiddleware`.
 
 These guard against regression of the allowlist behaviour fixed in Phase 1.6
-(item #1 in `docs/logging-improvements.md`): every `extra={...}` field a
+(item #1 in `docs/archive/logging-improvements.md`): every `extra={...}` field a
 caller passes must end up in the emitted JSON. Adding a new log field
 should not require touching the formatter.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 

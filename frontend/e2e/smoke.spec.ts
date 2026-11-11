@@ -96,6 +96,11 @@ test("drawing a region and transcribing it renders mock markdown", async ({ page
     timeout: 15_000,
   });
   await expect(page.locator("#region-detail")).toContainText("私(わたし)は日本語(にほんご)を");
+  // Inline readings render as furigana in the transcription pane too, with
+  // the pane's own mode toggle.
+  const detail = page.locator("#region-detail");
+  await expect(detail.locator(".markdown ruby.furi").first()).toBeVisible();
+  await expect(detail.locator(".furigana-toggle")).toHaveCount(1);
 });
 
 test("generating a sentence breakdown renders cards and vocab/grammar popovers", async ({ page }) => {
@@ -115,6 +120,10 @@ test("generating a sentence breakdown renders cards and vocab/grammar popovers",
   await expect(card.locator(".breakdown-text")).toContainText(
     "私(わたし)は日本語(にほんご)を勉強(べんきょう)しています。",
   );
+  // The sentence's readings render as furigana, including inside vocab
+  // links (which cover only the kanji in the raw text).
+  await expect(card.locator(".breakdown-text ruby.furi")).toHaveCount(3);
+  await expect(card.locator('.bd-link:has(ruby.furi)', { hasText: "日本語" })).toHaveCount(1);
 
   // The backend annotates vocab/grammar spans as inline links; clicking one
   // opens the popover with the matching entry.
@@ -224,10 +233,36 @@ test("completing an exercise renders the answer and example sentences", async ({
 
   await bdCard.locator("[data-completion-gen]").click();
   const completion = bdCard.locator(".exercise-completion");
-  await expect(completion.locator(".exercise-completion-answer")).toContainText(
-    "私は日本語を勉強しています。",
+  const answer = completion.locator(".exercise-completion-answer");
+  await expect(answer).toContainText(
+    "私(わたし)は日本語(にほんご)を勉強(べんきょう)しています。",
     { timeout: 15_000 },
   );
+
+  // Readings render as furigana, veiled by default; tapping a word reveals
+  // just that one, and the pane's Show toggle reveals them all.
+  const rubies = answer.locator("ruby.furi");
+  await expect(rubies).toHaveCount(3);
+  await expect(page.locator("html")).toHaveAttribute("data-furigana", "hidden");
+  await rubies.nth(1).click();
+  await expect(rubies.nth(1)).toHaveClass(/is-revealed/);
+  await expect(rubies.nth(0)).not.toHaveClass(/is-revealed/);
+  await pane.locator('.furigana-toggle [data-furigana-mode="shown"]').click();
+  await expect(page.locator("html")).toHaveAttribute("data-furigana", "shown");
+  // The filled-in blank keeps its reading inside the highlight.
+  await expect(answer.locator("mark.exercise-completion-fill ruby.furi")).toHaveCount(1);
+
+  // Cycling modes must not move anything: readings keep their space when
+  // veiled or off, so the pane neither reflows nor scrolls.
+  const cardHeightIn = async (mode: string) => {
+    await pane.locator(`.furigana-toggle [data-furigana-mode="${mode}"]`).click();
+    await expect(page.locator("html")).toHaveAttribute("data-furigana", mode);
+    return (await bdCard.boundingBox())!.height;
+  };
+  const shownHeight = await cardHeightIn("shown");
+  expect(await cardHeightIn("off")).toBe(shownHeight);
+  expect(await cardHeightIn("hidden")).toBe(shownHeight);
+  await cardHeightIn("shown");
   await expect(completion).toContainText("Mock completion: the blank takes the て-form plus います.");
   await expect(completion.locator(".exercise-completion-example")).toHaveCount(3);
   await expect(completion.locator(".exercise-completion-example.is-primary")).toContainText(
@@ -285,6 +320,29 @@ test("linking a continuation region combines transcriptions across pages", async
   await expect(page.locator("#region-detail")).toContainText("continues on page 2");
 });
 
+test("arrow keys typed into a field don't flip the page behind it", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#doc-grid .doc-card").first().click();
+  await page.locator("#banner-link").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+  const pageInfo = page.locator("#page-info");
+  await expect(pageInfo).toContainText("1 (1-2)");
+
+  // Editing a Settings text field: the arrows move the caret, not the page.
+  await page.locator("#settings-btn").click();
+  await page.locator("#settings-learner-note").click();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowRight");
+  await expect(pageInfo).toContainText("1 (1-2)");
+
+  // With the modal closed and no field focused, the shortcut still works.
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".settings-modal")).toHaveCount(0);
+  await page.keyboard.press("ArrowRight");
+  await expect(pageInfo).toContainText("2 (1-2)");
+});
+
 test("a document can be deleted from the library card menu", async ({ page }) => {
   await page.goto("/");
 
@@ -308,4 +366,146 @@ test("a document can be deleted from the library card menu", async ({ page }) =>
   await expect(card).toHaveCount(0);
   await expect(page.locator("#doc-grid .doc-card")).toHaveCount(1);
   await expect(page.locator("#doc-grid")).toContainText("sample.pdf");
+});
+
+test("the vocab dashboard lists harvested items and status changes persist", async ({ page }) => {
+  // Breakdown journeys above already harvested their vocab/grammar into the
+  // central store via the post-breakdown hook.
+  await page.goto("/vocab");
+
+  const row = page.locator(".study-row", { hasText: "勉強" });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("study");
+  await expect(row.locator(".study-badge-breakdown").first()).toBeVisible();
+
+  // Mark it known via the row's status toggle; the change survives a reload.
+  await row.locator('.study-status-btn[data-status="known"]').click();
+  await expect(row.locator('.study-status-btn[data-status="known"]')).toHaveClass(/active/);
+  await page.reload();
+  await expect(
+    page.locator(".study-row", { hasText: "勉強" }).locator('.study-status-btn[data-status="known"]'),
+  ).toHaveClass(/active/);
+
+  // The stats chips filter: Known shows the item, Inbox does not.
+  await page.locator(".study-stat-chip", { hasText: "Known" }).click();
+  await expect(page.locator(".study-row", { hasText: "勉強" })).toBeVisible();
+  await page.locator(".study-stat-chip", { hasText: "Inbox" }).click();
+  await expect(page.locator(".study-row", { hasText: "勉強" })).toHaveCount(0);
+
+  // The grammar dashboard shows the harvested pattern from the breakdown.
+  await page.locator('.topbar-nav a[href="/grammar"]').click();
+  const grammarRow = page.locator(".study-row", { hasText: "〜ている" });
+  await expect(grammarRow).toBeVisible();
+  await expect(grammarRow).toContainText("Ongoing action");
+});
+
+test("an exercises region can cite a reading from another document", async ({ page }) => {
+  // Runs after the delete journey (which counts library cards) and adds a
+  // second document holding the reading.
+  await page.goto("/");
+  await page.locator("#upload-input").setInputFiles({
+    name: "reader.pdf",
+    mimeType: "application/pdf",
+    buffer: fs.readFileSync(FIXTURE_PDF),
+  });
+  await page.waitForURL(/\/doc\/[0-9a-f]+$/, { timeout: 30_000 });
+  await page.locator("#new-chapter-btn").click();
+  await page.locator("#ch-title").fill("読み物の課");
+  await page.locator("#ch-start").fill("1");
+  await page.locator("#ch-end").fill("1");
+  await page.locator("#ch-save").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+
+  const canvas = page.locator("#left-pane canvas");
+  await expect(canvas).toBeVisible();
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.5, { steps: 5 });
+  await page.mouse.up();
+  await page.locator("#tag-select").selectOption("reading_passage");
+  await page.locator("#region-label").fill("読み物");
+  await page.locator("#tag-save").click();
+  await page.locator(".region-card", { hasText: "読み物" }).getByRole("button", { name: "Transcribe" }).click();
+  await expect(page.locator("#region-detail")).toContainText("Mock transcription", { timeout: 15_000 });
+
+  // Back to the shared document's exercises region (page 2, "練習").
+  await page.goto("/");
+  await page.locator("#doc-grid .doc-card", { hasText: "sample.pdf" }).click();
+  await page.locator("#banner-link").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+  await page.locator("#next-btn").click();
+  // Clicking a selected card deselects it, and page 2 may auto-select 練習;
+  // go via the other card so the end state is deterministic.
+  await page.locator(".region-card", { hasText: "続き" }).click();
+  await page.locator(".region-card", { hasText: "練習" }).click();
+  await expect(page.locator(".region-card.selected")).toContainText("練習");
+
+  const refs = page.locator("#region-references");
+  await expect(refs).toContainText("Reading references");
+  await expect(refs).toContainText("None.");
+  await refs.getByRole("button", { name: "Add…" }).click();
+
+  const picker = page.locator(".reference-picker");
+  await picker.locator(".reference-picker-doc").selectOption({ label: "reader.pdf" });
+  await picker.locator(".reference-picker-candidate", { hasText: "読み物" }).click();
+  await expect(picker.locator(".reference-picker-tray")).toContainText("reader.pdf › 読み物の課 › p.1");
+  await picker.getByRole("button", { name: "Save" }).click();
+  await expect(picker).toHaveCount(0);
+
+  await expect(refs.locator(".region-references-list li")).toHaveCount(1);
+  await expect(refs.locator(".region-references-list")).toContainText("reader.pdf");
+  await expect(refs.getByRole("button", { name: "Edit…" })).toBeVisible();
+
+  // Regenerating the completion now sends the reading as context.
+  const bdCard = page.locator("#breakdown-pane .breakdown-card");
+  await bdCard.locator("[data-completion-regen]").click();
+  await page.locator("#confirm-ok").click();
+  await expect(bdCard.locator(".exercise-completion")).toContainText(
+    "Mock completion: answered using the reading reference.",
+    { timeout: 15_000 },
+  );
+});
+
+test("region popover remembers the last tag and Enter completes creation", async ({ page }) => {
+  // Self-contained: uploads its own document/chapter rather than reusing
+  // the shared one, so it can't disturb the other journeys' exact
+  // pending-region and harvested-item counts.
+  await page.goto("/");
+  await page.locator("#upload-input").setInputFiles(FIXTURE_PDF);
+  await page.waitForURL(/\/doc\/[0-9a-f]+$/, { timeout: 30_000 });
+
+  await page.locator("#new-chapter-btn").click();
+  await page.locator("#ch-title").fill("popover test");
+  await page.locator("#ch-start").fill("1");
+  await page.locator("#ch-end").fill("1");
+  await page.locator("#ch-save").click();
+  await page.waitForURL(/\/doc\/[0-9a-f]+\/chapter\/[0-9a-f]+/);
+
+  const canvas = page.locator("#left-pane canvas");
+  await expect(canvas).toBeVisible();
+  const box = (await canvas.boundingBox())!;
+
+  async function drag(x1: number, y1: number, x2: number, y2: number) {
+    await page.mouse.move(box.x + box.width * x1, box.y + box.height * y1);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * x2, box.y + box.height * y2, { steps: 5 });
+    await page.mouse.up();
+  }
+
+  // First region: explicitly pick a non-default tag and save normally.
+  await drag(0.05, 0.05, 0.4, 0.2);
+  await page.locator("#tag-select").selectOption("grammar_points");
+  await page.locator("#tag-save").click();
+  await expect(page.locator(".region-card")).toHaveCount(1);
+
+  // Second region: the popover should default to the tag just used, and
+  // Enter (without touching Create) should submit it.
+  await drag(0.05, 0.3, 0.4, 0.45);
+  await expect(page.locator("#tag-select")).toHaveValue("grammar_points");
+  await page.keyboard.press("Enter");
+
+  const cards = page.locator(".region-card");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(1).locator(".badge")).toHaveClass(/tag-grammar_points/);
 });

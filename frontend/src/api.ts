@@ -69,8 +69,14 @@ export type Region = {
   transcribed_at?: string | null;
   transcribed_model?: string | null;
   continues_to?: string | null;
+  // exercises regions only: ordered reading_passage regions (any chapter or
+  // document) sent as context to exercise completion. Absent on regions
+  // created before references existed.
+  references?: RegionReference[];
   created_at: string;
 };
+
+export type RegionReference = { doc_id: string; chapter_id: string; region_id: string };
 
 export type BreakdownVocab = { word: string; reading?: string; meaning: string };
 export type BreakdownGrammar = { pattern: string; explanation: string };
@@ -126,6 +132,11 @@ export type JobEvent = {
     | "page-done"
     | "page-skipped"
     | "page-error"
+    | "phase-started"
+    | "region-started"
+    | "region-done"
+    | "region-skipped"
+    | "region-error"
     | "job-done"
     | "job-failed"
     | "ping";
@@ -232,19 +243,33 @@ export async function getProviders(): Promise<ProvidersResponse> {
   return jget("/api/providers");
 }
 
+export type JlptLevel = "N5" | "N4" | "N3" | "N2" | "N1";
+export type AnswerLength = "brief" | "standard" | "detailed";
+
 export type Preferences = {
   vlm_model: string;
   vlm_model_override: string | null;
   available_vlm_models: string[];
   default_vlm_model: string;
+  // Learner profile for exercise completions: answers are pitched at (or one
+  // step above) this level, and `answer_length` sizes the Japanese answer.
+  learner_level: JlptLevel | null;
+  learner_note: string;
+  answer_length: AnswerLength;
 };
 
 export async function getPreferences(): Promise<Preferences> {
   return jget("/api/preferences");
 }
 
+/** Each field: omit to leave unchanged, "" to reset to the default. */
 export async function updatePreferences(
-  patch: { vlm_model?: string | null }
+  patch: {
+    vlm_model?: string | null;
+    learner_level?: JlptLevel | "";
+    learner_note?: string;
+    answer_length?: AnswerLength | "";
+  }
 ): Promise<Preferences> {
   return jput("/api/preferences", patch);
 }
@@ -344,6 +369,32 @@ export async function deleteGrammarGuide(
   return jdelete(`/api/documents/${docId}/chapters/${chapterId}/grammar-guide`, cid);
 }
 
+export type BulkChapterPlanEntry = { region_id: string; page: number; tag: string };
+export type BulkChapterPlan = { transcribe: BulkChapterPlanEntry[]; breakdown: BulkChapterPlanEntry[] };
+export type BulkChapterRequest = {
+  transcribe?: boolean;
+  breakdown?: boolean;
+  overwrite_transcriptions?: boolean;
+  overwrite_breakdowns?: boolean;
+  dry_run?: boolean;
+};
+export type BulkChapterResponse = { plan: BulkChapterPlan; job_id: string | null };
+
+export async function bulkPrepareChapter(
+  docId: string,
+  chapterId: string,
+  opts: BulkChapterRequest = {},
+  cid: string = generateCorrelationId(),
+): Promise<BulkChapterResponse> {
+  return jpost(`/api/documents/${docId}/chapters/${chapterId}/bulk`, {
+    transcribe: opts.transcribe ?? true,
+    breakdown: opts.breakdown ?? true,
+    overwrite_transcriptions: opts.overwrite_transcriptions ?? false,
+    overwrite_breakdowns: opts.overwrite_breakdowns ?? false,
+    dry_run: opts.dry_run ?? false,
+  }, cid);
+}
+
 // ---------- Regions ----------
 
 export async function createRegion(
@@ -384,6 +435,19 @@ export async function linkRegion(
   return jpost(
     `/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/link`,
     { continues_to: continuesTo },
+  );
+}
+
+/** Replace an exercises region's reading references (whole-list semantics). */
+export async function setRegionReferences(
+  docId: string,
+  chapterId: string,
+  regionId: string,
+  references: RegionReference[],
+): Promise<Region> {
+  return jput(
+    `/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/references`,
+    { references },
   );
 }
 
@@ -443,8 +507,18 @@ export type ExerciseCompletionEntry = {
   answer: string;
   answer_english?: string;
   explanation?: string;
+  // "constrained" (word bank / inline choice) and "question" (comprehension
+  // or discussion question) items come back with an empty `examples` by
+  // design — that's not a sign of a malformed response.
+  exercise_type?: "open" | "constrained" | "question";
+  // Verbatim substring of `answer` that fills the blank, for highlighting.
+  // Empty for transformation-type answers with no single blank.
+  filled_text?: string;
   examples: ExerciseCompletionExample[];
   model?: string;
+  // Learner settings in effect when this entry was generated (absent on
+  // entries from before the learner profile existed).
+  profile?: { level: JlptLevel | null; answer_length: AnswerLength | null };
   updated_at?: string;
 };
 export type ExerciseCompletion = {
@@ -519,7 +593,8 @@ export function openJobStream(jobId: string, onEvent: (e: JobEvent) => void): ()
   const es = new EventSource(`/api/jobs/${jobId}/events`);
   const types: JobEvent["event"][] = [
     "snapshot", "job-started", "page-started", "page-done",
-    "page-skipped", "page-error", "job-done", "job-failed", "ping",
+    "page-skipped", "page-error", "phase-started", "region-started",
+    "region-done", "region-skipped", "region-error", "job-done", "job-failed", "ping",
   ];
   for (const t of types) {
     es.addEventListener(t, (ev: MessageEvent) => {
@@ -530,4 +605,255 @@ export function openJobStream(jobId: string, onEvent: (e: JobEvent) => void): ()
   }
   es.onerror = () => es.close();
   return () => es.close();
+}
+
+// ---------- Vocab/Grammar store ----------
+
+export type StoreKind = "vocab" | "grammar";
+export type StoreStatus = "unreviewed" | "active" | "known" | "ignored";
+
+export type StoreSighting = {
+  doc_id: string;
+  chapter_id: string;
+  region_id: string;
+  sentence_index: number | null;
+  surface: string;
+  sentence_text: string;
+  source: "breakdown" | "vocab_list" | "manual";
+  seen_at: string;
+};
+
+export type StoreClassifications = {
+  jlpt?: string;
+  jmdict_common?: boolean;
+  wanikani_level?: number;
+} & Record<string, unknown>;
+
+export type VocabItem = {
+  id: string;
+  headword: string;
+  reading: string;
+  meaning: string;
+  surface_variants?: string[];
+  meaning_source: string;
+  pos: string[];
+  jmdict_seq: number | null;
+  enriched_at?: string | null;
+  status: StoreStatus;
+  classifications: StoreClassifications;
+  priority_group: number | null;
+  sightings: StoreSighting[];
+  links: Record<string, string>;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GrammarItem = {
+  id: string;
+  pattern: string;
+  pattern_normalized: string;
+  explanation: string;
+  status: StoreStatus;
+  classifications: StoreClassifications;
+  sightings: StoreSighting[];
+  links: Record<string, string>;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StoreItem = VocabItem | GrammarItem;
+
+export type StoreListResponse<T> = { items: T[]; total: number };
+
+export type StoreListParams = {
+  status?: StoreStatus;
+  q?: string;
+  doc_id?: string;
+  chapter_id?: string;
+  source?: string;
+  sort?: "recent" | "updated" | "alpha" | "priority";
+  limit?: number;
+  offset?: number;
+};
+
+export type StoreStats = {
+  vocab: Record<string, number>;
+  grammar: Record<string, number>;
+};
+
+async function jpatch<T>(url: string, body: unknown, cid: string = generateCorrelationId()): Promise<T> {
+  const done = startTimer("api", `PATCH ${url}`, { correlation_id: cid });
+  const r = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", "x-correlation-id": cid },
+    body: JSON.stringify(body),
+  });
+  done({ status: r.status });
+  if (!r.ok) throw new Error(`${url}: ${r.status} ${await r.text()}`);
+  return (await r.json()) as T;
+}
+
+export async function listStoreItems<T extends StoreItem>(
+  kind: StoreKind,
+  params: StoreListParams = {}
+): Promise<StoreListResponse<T>> {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") search.set(key, String(value));
+  }
+  const qs = search.toString();
+  return jget(`/api/${kind}${qs ? "?" + qs : ""}`);
+}
+
+export async function createStoreItem<T extends StoreItem>(
+  kind: StoreKind,
+  body: Record<string, string>
+): Promise<T> {
+  return jpost(`/api/${kind}`, body);
+}
+
+export async function patchStoreItem<T extends StoreItem>(
+  kind: StoreKind,
+  itemId: string,
+  changes: Partial<Record<"status" | "notes" | "headword" | "reading" | "meaning" | "pattern" | "explanation", string>>
+): Promise<T> {
+  return jpatch(`/api/${kind}/${itemId}`, changes);
+}
+
+export async function deleteStoreItem(kind: StoreKind, itemId: string): Promise<void> {
+  return jdelete(`/api/${kind}/${itemId}`);
+}
+
+export async function mergeStoreItems<T extends StoreItem>(
+  kind: StoreKind,
+  targetId: string,
+  sourceId: string
+): Promise<T> {
+  return jpost(`/api/${kind}/${targetId}/merge`, { source_id: sourceId });
+}
+
+export type VocabLookupMatch = { id: string; status: StoreStatus } | null;
+
+export async function lookupVocab(
+  entries: { headword: string; reading?: string }[]
+): Promise<VocabLookupMatch[]> {
+  const r = await jpost<{ matches: VocabLookupMatch[] }>("/api/vocab/lookup", { entries });
+  return r.matches;
+}
+
+export type StoreCoverage = Record<StoreKind, Record<string, number>>;
+
+export async function getStoreCoverage(chapterId: string): Promise<StoreCoverage> {
+  return jget(`/api/store/coverage?chapter_id=${encodeURIComponent(chapterId)}`);
+}
+
+export async function getStoreStats(): Promise<StoreStats> {
+  return jget("/api/store/stats");
+}
+
+export async function runStoreBackfill(): Promise<Record<string, number>> {
+  return jpost("/api/store/backfill");
+}
+
+// ---------- Study (built-in SRS) ----------
+
+export type StudyCardType = "word" | "context" | "pattern";
+export type StudyGrade = 1 | 2 | 3 | 4; // Again, Hard, Good, Easy
+
+export type StudyCardState = {
+  reps: number;
+  lapses: number;
+  stability: number | null;
+  difficulty: number | null;
+  last_grade: StudyGrade | null;
+  last_ts: string | null;
+  due: string | null;
+  interval_days: number | null;
+};
+
+export type StudyCard = {
+  kind: StoreKind;
+  item_id: string;
+  card_type: StudyCardType;
+  item: {
+    headword?: string;
+    reading?: string;
+    meaning?: string;
+    pos?: string[];
+    pattern?: string;
+    explanation?: string;
+    notes: string;
+    links: Record<string, string>;
+    classifications: StoreClassifications;
+  };
+  sighting: StoreSighting | null;
+  state: StudyCardState;
+};
+
+export type StudyQueue = {
+  cards: StudyCard[];
+  counts: { due: number; new: number; active_items: number };
+};
+
+export async function getStudyQueue(limit = 20, newLimit = 10): Promise<StudyQueue> {
+  return jget(`/api/study/queue?limit=${limit}&new_limit=${newLimit}`);
+}
+
+export async function postStudyReview(
+  card: Pick<StudyCard, "kind" | "item_id" | "card_type">,
+  grade: StudyGrade,
+  elapsedMs?: number
+): Promise<{ state: StudyCardState }> {
+  return jpost("/api/study/reviews", {
+    kind: card.kind,
+    item_id: card.item_id,
+    card_type: card.card_type,
+    grade,
+    elapsed_ms: elapsedMs ?? null,
+  });
+}
+
+// ---------- Reference data (JMdict enrichment, WaniKani) ----------
+
+export type WkSubjectView = {
+  id: number;
+  object: "radical" | "kanji" | "vocabulary" | "kana_vocabulary";
+  characters: string | null;
+  slug: string;
+  level: number;
+  document_url: string;
+  meanings: string[];
+  readings: string[];
+  meaning_mnemonic: string;
+  reading_mnemonic: string;
+  user_notes?: { meaning_note: string; reading_note: string; synonyms: string[] };
+  srs?: { stage: number; stage_name: string; burned_at: string | null; passed_at: string | null };
+};
+
+export type WkDrilldown = WkSubjectView & {
+  kanji: (WkSubjectView & { radicals: WkSubjectView[] })[];
+};
+
+export type WanikaniStatus = {
+  configured: boolean;
+  synced_at: string | null;
+  counts: Record<string, number>;
+};
+
+export async function getWanikaniStatus(): Promise<WanikaniStatus> {
+  return jget("/api/refs/wanikani/status");
+}
+
+export async function syncWanikani(full = false): Promise<Record<string, unknown>> {
+  return jpost(`/api/refs/wanikani/sync${full ? "?full=true" : ""}`);
+}
+
+export async function getVocabWanikani(itemId: string): Promise<WkDrilldown> {
+  return jget(`/api/vocab/${itemId}/wanikani`);
+}
+
+export async function runStoreEnrich(force = false): Promise<Record<string, unknown>> {
+  return jpost(`/api/store/enrich${force ? "?force=true" : ""}`);
 }

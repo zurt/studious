@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +28,7 @@ def _check_id(value: str) -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _atomic_write_text(path: Path, text: str) -> None:
@@ -248,6 +248,7 @@ def create_region(
         "transcribed_at": None,
         "transcribed_model": None,
         "continues_to": None,
+        "references": [],
         "created_at": _now_iso(),
     }
     _atomic_write_text(

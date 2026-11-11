@@ -24,6 +24,19 @@ def resolve_chain(doc_id: str, chapter_id: str, region_id: str) -> list[dict[str
     return chain
 
 
+def find_inbound_source(doc_id: str, chapter_id: str, region_id: str) -> dict[str, Any] | None:
+    """Find the region (if any) whose `continues_to` points at `region_id`.
+
+    A non-None result means `region_id` is a continuation target rather than
+    a chain head — breakdowns and exercise completions run from the head
+    instead, since the chain's combined transcription is used there.
+    """
+    for other in storage.list_regions(doc_id, chapter_id):
+        if other.get("id") != region_id and other.get("continues_to") == region_id:
+            return other
+    return None
+
+
 def combined_transcription(chain: list[dict[str, Any]]) -> str:
     """Concatenate each region's transcription_md as one continuous text.
 

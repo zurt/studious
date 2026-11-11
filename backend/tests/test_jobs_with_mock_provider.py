@@ -158,7 +158,7 @@ async def test_vlm_job_writes_llm_audit_log(isolated_data_dir, mock_vlm_provider
 
     entries = llm_audit.read_all()
     assert len(entries) == 2
-    for entry, expected_page in zip(entries, [1, 2]):
+    for entry, expected_page in zip(entries, [1, 2], strict=True):
         assert entry["provider"] == "mock-vlm"
         assert entry["model"] == "mock-model"
         assert entry["job_type"] == "transcribe_pages"
@@ -355,6 +355,7 @@ class _MockBreakdownVlm:
         # test drive retry behaviour (e.g. malformed then well-formed).
         self.responses = responses
         self.calls: list[tuple[str, str, dict, dict]] = []
+        self.raw_prompts: list = []
 
     def info(self):
         return {"name": self.name, "kind": "vlm"}
@@ -363,7 +364,8 @@ class _MockBreakdownVlm:
         raise NotImplementedError
 
     def call_tool(self, prompt, tool_name, tool_schema, config):
-        self.calls.append((prompt, tool_name, tool_schema, config))
+        self.calls.append((registry.prompt_text(prompt), tool_name, tool_schema, config))
+        self.raw_prompts.append(prompt)
         if self.raise_exc is not None:
             raise self.raise_exc
         if self.responses:
@@ -607,6 +609,102 @@ async def test_exercise_completion_job_retries_malformed_then_succeeds(isolated_
     assert [e["status"] for e in entries] == ["error", "success"]
 
 
+_VALID_CONSTRAINED_COMPLETION = {
+    "exercise_type": "constrained",
+    "answer": "1. 私は学校に行く。",
+    "answer_english": "I go to school.",
+    "explanation": "に is the bank entry that marks the destination here.",
+    "filled_text": "に",
+    "examples": [],
+}
+
+
+async def test_exercise_completion_job_accepts_empty_examples_for_constrained_type(isolated_data_dir):
+    # A word-bank / inline-choice item is expected to return `examples: []` —
+    # that alone must not be treated as malformed or trigger a retry.
+    mock = _MockBreakdownVlm(tool_input=_VALID_CONSTRAINED_COMPLETION, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-constrained-ok", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "exercise_completion",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "region_id": region_id,
+                "sentence_index": 0,
+                "sentence_text": "1. 私は学校＿＿行く。",
+                "region_transcription": "口べたで料理好きの父親。",
+                "engine": "vlm",
+                "provider": "mock-exercise-constrained-ok",
+                "config": {"model": "mock-model", "max_tokens": 8192},
+                "prompt": "EXERCISE_COMPLETION_PROMPT",
+                "tool_name": "record_exercise_completion",
+                "tool_schema": {"type": "object"},
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    assert len(mock.calls) == 1  # no retry — empty examples is correct here
+    saved = storage.load_exercise_completion(meta["id"], chapter_id, region_id)
+    entry = saved["completions"]["0"]
+    assert entry["answer"] == _VALID_CONSTRAINED_COMPLETION["answer"]
+    assert entry["exercise_type"] == "constrained"
+    assert entry["filled_text"] == "に"
+    assert entry["examples"] == []
+    entries = llm_audit.read_all()
+    assert [e["status"] for e in entries] == ["success"]
+
+
+async def test_exercise_completion_job_drops_filled_text_not_found_in_answer(isolated_data_dir):
+    # `filled_text` is highlighted client-side via a plain substring search
+    # against `answer`; a hallucinated/mismatched value would just silently
+    # fail to highlight, so the job drops it rather than storing something
+    # misleading.
+    bad = {**_VALID_CONSTRAINED_COMPLETION, "filled_text": "食べる"}
+    mock = _MockBreakdownVlm(tool_input=bad, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-filled-text-bad", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "exercise_completion",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "region_id": region_id,
+                "sentence_index": 0,
+                "sentence_text": "1. 私は学校＿＿行く。",
+                "region_transcription": "口べたで料理好きの父親。",
+                "engine": "vlm",
+                "provider": "mock-exercise-filled-text-bad",
+                "config": {"model": "mock-model", "max_tokens": 8192},
+                "prompt": "EXERCISE_COMPLETION_PROMPT",
+                "tool_name": "record_exercise_completion",
+                "tool_schema": {"type": "object"},
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    saved = storage.load_exercise_completion(meta["id"], chapter_id, region_id)
+    assert saved["completions"]["0"]["filled_text"] == ""
+
+
 async def test_exercise_completion_job_fails_after_retry_exhausted(isolated_data_dir):
     # Malformed on every attempt → fail with the generic message after retrying.
     mock = _MockBreakdownVlm(tool_input={"explanation": "still no answer"}, stop_reason="tool_use")
@@ -644,6 +742,105 @@ async def test_exercise_completion_job_fails_after_retry_exhausted(isolated_data
     assert len(mock.calls) == 2  # initial attempt + one retry, then give up
     entries = llm_audit.read_all()
     assert [e["status"] for e in entries] == ["error", "error"]
+
+
+_VALID_QUESTION_COMPLETION = {
+    "exercise_type": "question",
+    "answer": "自分では健康だと思っているが、健康を気にしすぎて心が蝕(むしば)まれている状態。",
+    "answer_english": "A state where you think you're healthy but worrying about health is eating away at you.",
+    "explanation": "The reading defines it: 「本人は病気とは思っていない」.",
+    "filled_text": "",
+    "examples": [],
+}
+
+
+def _submit_exercise_completion(mgr: JobManager, doc_id: str, chapter_id: str, region_id: str, provider: str):
+    return mgr.submit(
+        {
+            "job_type": "exercise_completion",
+            "doc_id": doc_id,
+            "chapter_id": chapter_id,
+            "region_id": region_id,
+            "sentence_index": 0,
+            "sentence_text": "(1)「健康病」とは何ですか。",
+            "region_transcription": "(1)「健康病」とは何ですか。",
+            "engine": "vlm",
+            "provider": provider,
+            "config": {"model": "mock-model", "max_tokens": 8192},
+            "prompt": "EXERCISE_COMPLETION_PROMPT",
+            "tool_name": "record_exercise_completion",
+            "tool_schema": {"type": "object"},
+        }
+    )
+
+
+async def test_exercise_completion_job_accepts_empty_examples_for_question_type(isolated_data_dir):
+    # A comprehension/discussion question has no alternative completions —
+    # `examples: []` is correct and must not trigger the malformed retry.
+    mock = _MockBreakdownVlm(tool_input=_VALID_QUESTION_COMPLETION, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-question-ok", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = _submit_exercise_completion(mgr, meta["id"], chapter_id, region_id, "mock-exercise-question-ok")
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    assert len(mock.calls) == 1
+    entry = storage.load_exercise_completion(meta["id"], chapter_id, region_id)["completions"]["0"]
+    assert entry["exercise_type"] == "question"
+    assert entry["answer"] == _VALID_QUESTION_COMPLETION["answer"]
+    assert entry["examples"] == []
+
+
+async def test_exercise_completion_prompt_includes_reading_reference_only_when_set(isolated_data_dir):
+    mock = _MockBreakdownVlm(tool_input=_VALID_QUESTION_COMPLETION, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-refs", lambda: mock)
+
+    meta = _make_doc_with_pages(2)
+    ch = storage.create_chapter(meta["id"], title="第5課", page_start=1, page_end=2)
+    reading = storage.create_region(
+        meta["id"], ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage"
+    )
+    storage.update_region(
+        meta["id"], ch["id"], reading["id"], transcription_md="健康病が心身をむしばむ"
+    )
+    ex = storage.create_region(meta["id"], ch["id"], page=2, bbox=[0, 0, 1, 1], tag="exercises")
+    storage.update_region(
+        meta["id"], ch["id"], ex["id"], transcription_md="(1)「健康病」とは何ですか。"
+    )
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = _submit_exercise_completion(mgr, meta["id"], ch["id"], ex["id"], "mock-exercise-refs")
+        assert (await _wait_for_terminal(job["id"]))["status"] == "completed"
+
+        storage.update_region(
+            meta["id"], ch["id"], ex["id"],
+            references=[{"doc_id": meta["id"], "chapter_id": ch["id"], "region_id": reading["id"]}],
+        )
+        job = _submit_exercise_completion(mgr, meta["id"], ch["id"], ex["id"], "mock-exercise-refs")
+        assert (await _wait_for_terminal(job["id"]))["status"] == "completed"
+    finally:
+        await mgr.stop()
+
+    without_refs, with_refs = mock.calls[0][0], mock.calls[1][0]
+    assert "</reading_reference>" not in without_refs
+    assert (
+        "</region_transcription>\n\n"
+        "<reading_reference>\n"
+        "[Source: dummy.pdf — chapter \"第5課\", p.1]\n"
+        "健康病が心身をむしばむ\n"
+        "</reading_reference>\n\n"
+        "<target_sentence>"
+    ) in with_refs
 
 
 async def test_breakdown_job_fails_when_region_has_no_transcription(isolated_data_dir):
@@ -717,3 +914,251 @@ async def test_overwrite_false_skips_existing(isolated_data_dir, mock_ocr_provid
         assert t2["markdown"].startswith("# page from")
     finally:
         await mgr.stop()
+
+
+# ---------- bulk_chapter runner (docs/design/bulk-operations-plan.md) ----------
+
+
+class _MockBulkVlm:
+    """Mock VLM implementing both `transcribe` and `call_tool`, keyed by
+    call order, for `bulk_chapter` runner tests."""
+
+    name = "mock-bulk-vlm"
+
+    def __init__(self, *, fail_transcribe_indices: set[int] | None = None) -> None:
+        self.fail_transcribe_indices = fail_transcribe_indices or set()
+        self.transcribe_calls: list[tuple[bytes, str, dict]] = []
+        self.call_tool_calls: list[tuple[str, str, dict, dict]] = []
+
+    def info(self):
+        return {"name": self.name, "kind": "vlm"}
+
+    def transcribe(self, image_bytes, prompt, config):
+        idx = len(self.transcribe_calls)
+        self.transcribe_calls.append((image_bytes, prompt, config))
+        if idx in self.fail_transcribe_indices:
+            raise RuntimeError(f"boom transcribing call {idx}")
+        return registry.TranscriptionResult(
+            markdown=f"# transcribed {idx}",
+            raw="raw",
+            meta={"model": config.get("model", "mock-model"), "usage": {"input_tokens": 10, "output_tokens": 5}},
+        )
+
+    def call_tool(self, prompt, tool_name, tool_schema, config):
+        idx = len(self.call_tool_calls)
+        self.call_tool_calls.append((registry.prompt_text(prompt), tool_name, tool_schema, config))
+        return registry.ToolCallResult(
+            tool_input={"sentences": [{"text": f"sentence {idx}", "gloss": "gloss"}]},
+            meta={"model": config.get("model", "mock-model"), "usage": {"input_tokens": 20, "output_tokens": 10}},
+        )
+
+
+def _make_chapter_with_regions(doc_id: str, n: int, *, tag: str = "reading_passage") -> tuple[str, list[str]]:
+    """One region per page, pages 1..n — page order pins `list_regions` order
+    deterministically (rather than relying on created_at tie-breaking)."""
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=n)
+    ids = [
+        storage.create_region(doc_id, ch["id"], page=page, bbox=[0, 0, 1, 1], tag=tag)["id"]
+        for page in range(1, n + 1)
+    ]
+    return ch["id"], ids
+
+
+async def test_bulk_chapter_job_two_phases_pick_up_phase1_output(isolated_data_dir):
+    mock = _MockBulkVlm()
+    registry.register_vlm("mock-bulk-vlm", lambda: mock)
+    meta = _make_doc_with_pages(1)
+    chapter_id, (region_id,) = _make_chapter_with_regions(meta["id"], 1)
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "bulk_chapter",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "transcribe": True,
+                "breakdown": True,
+                "overwrite_transcriptions": False,
+                "overwrite_breakdowns": False,
+                "provider": "mock-bulk-vlm",
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    region = storage.load_region(meta["id"], chapter_id, region_id)
+    assert region["transcription_md"] == "# transcribed 0"
+    breakdown = storage.load_breakdown(meta["id"], chapter_id, region_id)
+    assert breakdown is not None
+    assert breakdown["sentences"][0]["text"] == "sentence 0"
+    # Phase 1 (transcribe) ran to completion before phase 2 (breakdown)
+    # started — the breakdown's prompt embeds the freshly produced
+    # transcription, which is only possible if it ran second.
+    assert len(mock.transcribe_calls) == 1
+    assert len(mock.call_tool_calls) == 1
+    assert "# transcribed 0" in mock.call_tool_calls[0][0]
+
+
+async def test_bulk_chapter_job_failing_region_continues_and_marks_errors(isolated_data_dir):
+    mock = _MockBulkVlm(fail_transcribe_indices={1})
+    registry.register_vlm("mock-bulk-vlm-fail", lambda: mock)
+    meta = _make_doc_with_pages(3)
+    chapter_id, region_ids = _make_chapter_with_regions(meta["id"], 3)
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "bulk_chapter",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "transcribe": True,
+                "breakdown": False,
+                "provider": "mock-bulk-vlm-fail",
+            }
+        )
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed_with_errors"
+    assert len(final["errors"]) == 1
+    err = final["errors"][0]
+    assert err["op"] == "transcribe"
+    assert err["region_id"] == region_ids[1]
+    assert "boom" in err["message"]
+    # All three regions were attempted despite the failure on the second.
+    assert len(mock.transcribe_calls) == 3
+    r0 = storage.load_region(meta["id"], chapter_id, region_ids[0])
+    r1 = storage.load_region(meta["id"], chapter_id, region_ids[1])
+    r2 = storage.load_region(meta["id"], chapter_id, region_ids[2])
+    assert r0["transcription_md"] is not None
+    assert r1["transcription_md"] is None
+    assert r2["transcription_md"] is not None
+
+
+async def test_bulk_chapter_job_emits_phase_and_region_events(isolated_data_dir):
+    mock = _MockBulkVlm()
+    registry.register_vlm("mock-bulk-vlm-events", lambda: mock)
+    meta = _make_doc_with_pages(2)
+    chapter_id, region_ids = _make_chapter_with_regions(meta["id"], 2)
+
+    mgr = JobManager()
+    await mgr.start()
+    events: list[dict] = []
+    try:
+        job = mgr.submit(
+            {
+                "job_type": "bulk_chapter",
+                "doc_id": meta["id"],
+                "chapter_id": chapter_id,
+                "transcribe": True,
+                "breakdown": True,
+                "provider": "mock-bulk-vlm-events",
+            }
+        )
+        # Subscribe before yielding control back to the event loop so no
+        # events emitted once the worker picks up the job are missed.
+        queue = mgr.subscribe(job["id"])
+        final = await _wait_for_terminal(job["id"])
+        while not queue.empty():
+            events.append(queue.get_nowait())
+    finally:
+        await mgr.stop()
+
+    assert final["status"] == "completed"
+    names = [e["event"] for e in events]
+    assert names.count("phase-started") == 2
+    assert names.count("region-started") == 4  # 2 regions x 2 phases
+    assert names.count("region-done") == 4
+    assert "job-done" in names
+    # transcribe phase entirely precedes the breakdown phase
+    first_breakdown_phase = next(
+        i for i, e in enumerate(events) if e["event"] == "phase-started" and e["data"]["op"] == "breakdown"
+    )
+    assert all(
+        e["data"].get("op") != "breakdown"
+        for e in events[:first_breakdown_phase]
+        if e["event"] in {"region-started", "region-done"}
+    )
+
+
+async def test_exercise_completion_caches_shared_prefix_and_records_profile(isolated_data_dir):
+    mock = _MockBreakdownVlm(tool_input=_VALID_QUESTION_COMPLETION, stop_reason="tool_use")
+    registry.register_vlm("mock-exercise-blocks", lambda: mock)
+
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = _submit_exercise_completion(mgr, meta["id"], chapter_id, region_id, "mock-exercise-blocks")
+        final = await _wait_for_terminal(job["id"])
+    finally:
+        await mgr.stop()
+    assert final["status"] == "completed"
+
+    blocks = mock.raw_prompts[0]
+    assert [b.get("cache", False) for b in blocks] == [True, True, False]
+    assert blocks[0]["text"].startswith("EXERCISE_COMPLETION_PROMPT")
+    assert blocks[1]["text"].startswith("<region_transcription>")
+    assert blocks[2]["text"] == "<target_sentence>\n(1)「健康病」とは何ですか。\n</target_sentence>"
+    entry = storage.load_exercise_completion(meta["id"], chapter_id, region_id)["completions"]["0"]
+    assert entry["profile"] == {"level": None, "answer_length": None}
+
+
+async def test_breakdown_caches_only_instructions(isolated_data_dir):
+    mock = _MockBreakdownVlm(
+        tool_input={"sentences": [{"text": "口べたで料理好きの父親。", "gloss": "g"}]},
+        stop_reason="tool_use",
+    )
+    registry.register_vlm("mock-breakdown-blocks", lambda: mock)
+    meta = _make_doc_with_pages(1)
+    chapter_id, region_id = _make_region_with_transcription(meta["id"])
+
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        job = mgr.submit({
+            "job_type": "breakdown_region", "doc_id": meta["id"], "chapter_id": chapter_id,
+            "region_id": region_id, "page": 1, "engine": "vlm", "provider": "mock-breakdown-blocks",
+            "config": {"model": "mock-model"}, "prompt": "BREAKDOWN_PROMPT",
+            "tool_name": "record_breakdown", "tool_schema": {"type": "object"},
+        })
+        assert (await _wait_for_terminal(job["id"]))["status"] == "completed"
+    finally:
+        await mgr.stop()
+
+    blocks = mock.raw_prompts[0]
+    assert blocks[0] == {"text": "BREAKDOWN_PROMPT\n\n", "cache": True}
+    assert "cache" not in blocks[1] and "口べた" in blocks[1]["text"]
+
+
+async def test_unexpected_exception_marks_job_failed(isolated_data_dir):
+    """A job whose runner raises outside the handled error paths must land
+    in status "failed", not sit in "queued"/"running" forever (the worker
+    used to only log the exception)."""
+    mgr = JobManager()
+    await mgr.start()
+    try:
+        # No "pages"/"engine" keys: _run_pages_job raises KeyError before
+        # any of its own error handling is reached.
+        job = mgr.submit({"doc_id": "nonexistent", "job_type": "transcribe_pages"})
+        for _ in range(50):
+            await asyncio.sleep(0.05)
+            current = storage.load_job(job["id"])
+            if current and current.get("status") == "failed":
+                break
+    finally:
+        await mgr.stop()
+
+    final = storage.load_job(job["id"])
+    assert final is not None
+    assert final["status"] == "failed"
+    assert final["errors"] and "internal error" in final["errors"][0]["message"]

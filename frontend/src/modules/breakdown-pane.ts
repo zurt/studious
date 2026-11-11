@@ -1,14 +1,18 @@
 import {
   getBreakdown, requestBreakdown, openJobStream,
   getExerciseCompletion, requestExerciseCompletion,
+  lookupVocab, patchStoreItem,
   type Breakdown, type BreakdownLink, type BreakdownSentence, type Region,
   type ExerciseCompletion, type ExerciseCompletionEntry,
-
+  type BreakdownVocab, type StoreStatus,
 } from "../api";
+import { emit, on, STORE_STATUS_CHANGED, type StoreStatusChange } from "./events";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { confirmDialog } from "./confirm";
+import { createFuriganaToggle, furiganaHtml, furiganaUnits, snapToUnits } from "./furigana";
 import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, setPaneCollapsed } from "./collapsible";
 import { makeCopyButton, ICON_REDO } from "./region-list";
+import { escapeHtml } from "./html";
 
 type Ctx = { docId: string; chapterId: string; region: Region };
 
@@ -24,6 +28,27 @@ function setTextSize(size: TextSize): void {
   localStorage.setItem(TEXT_SIZE_KEY, String(size));
 }
 
+// Bolds the filled-in span within an answer for markdown output, found by a
+// plain substring search — `filled_text` is a verbatim substring of `answer`
+// (validated server-side) rather than a character offset, since offsets are
+// unreliable for the model to produce but exact substrings are not.
+function highlightFillMarkdown(answer: string, filledText?: string): string {
+  if (!filledText) return answer;
+  const i = answer.indexOf(filledText);
+  if (i < 0) return answer;
+  return answer.slice(0, i) + "**" + filledText + "**" + answer.slice(i + filledText.length);
+}
+
+
+// Tooltip naming the learner settings an entry was generated with, so answers
+// made before a Study profile change are recognizable.
+function profileTitle(entry: ExerciseCompletionEntry): string {
+  const p = entry.profile;
+  if (!p) return "";
+  const level = p.level ? `JLPT ${p.level}` : "no level set";
+  return ` title="Generated for ${escapeHtml(level)} · ${escapeHtml(p.answer_length || "brief")} answers"`;
+}
+
 export function completionToMarkdown(
   entry: ExerciseCompletionEntry,
   sentenceText?: string,
@@ -31,9 +56,9 @@ export function completionToMarkdown(
   const parts: string[] = [];
   if (sentenceText) parts.push(sentenceText);
   const answerEn = entry.answer_english ? ` (${entry.answer_english})` : "";
-  parts.push(`**Answer:** ${entry.answer}${answerEn}`);
+  parts.push(`**Answer:** ${highlightFillMarkdown(entry.answer, entry.filled_text)}${answerEn}`);
   if (entry.explanation) parts.push(entry.explanation);
-  if (entry.examples && entry.examples.length) {
+  if (entry.examples?.length) {
     const rows = entry.examples.map((ex) => {
       const reading = ex.reading ? `（${ex.reading}）` : "";
       const note = ex.explanation ? `\n  ${ex.explanation}` : "";
@@ -57,11 +82,95 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   const completionErrors = new Map<number, string>();
   const completionNotExercise = new Map<number, string>();
   const completionStreams = new Map<number, () => void>();
+  // word|reading -> store item, for "in store" indicators and known-word
+  // de-emphasis. Loaded after the breakdown; failures just omit the feature.
+  let storeMatches = new Map<string, { id: string; status: StoreStatus }>();
+  const STORE_STATUSES: StoreStatus[] = ["unreviewed", "active", "known", "ignored"];
+  const STORE_STATUS_LABELS: Record<StoreStatus, string> = {
+    unreviewed: "Inbox", active: "Active", known: "Known", ignored: "Ignored",
+  };
+
+  function storeKey(v: BreakdownVocab): string {
+    return `${v.word}|${v.reading || ""}`;
+  }
+
+  async function loadStoreMatches() {
+    if (!breakdown) return;
+    const entries: { headword: string; reading: string }[] = [];
+    const seen = new Set<string>();
+    for (const s of breakdown.sentences) {
+      for (const v of s.vocab || []) {
+        const key = storeKey(v);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        entries.push({ headword: v.word, reading: v.reading || "" });
+      }
+    }
+    if (!entries.length) return;
+    try {
+      const matches = await lookupVocab(entries);
+      const map = new Map<string, { id: string; status: StoreStatus }>();
+      entries.forEach((e, i) => {
+        const m = matches[i];
+        if (m) map.set(`${e.headword}|${e.reading}`, m);
+      });
+      storeMatches = map;
+      if (!destroyed) render();
+    } catch (e: any) {
+      // De-emphasis is an enhancement; the breakdown itself still works.
+      logError("BreakdownPane", "store_lookup_failed", { region_id: ctx.region.id, error: e.message });
+    }
+  }
+
+  // Reflect a changed status everywhere the word appears without a
+  // re-render (which would close the popover).
+  function applyStoreStatus(key: string, status: StoreStatus) {
+    const match = storeMatches.get(key);
+    if (match) match.status = status;
+    container.querySelectorAll<HTMLElement>(`[data-store-key="${CSS.escape(key)}"]`).forEach((el) => {
+      if (el.classList.contains("bd-link")) el.classList.toggle("bd-link-known", status === "known");
+      else if (el.tagName === "TR") el.classList.toggle("bd-vocab-known", status === "known");
+    });
+    popover.querySelectorAll<HTMLButtonElement>("[data-store-status]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.storeStatus === status);
+    });
+  }
+
+  const offStatusChanged = on<StoreStatusChange>(STORE_STATUS_CHANGED, (change) => {
+    if (change.kind !== "vocab") return;
+    for (const [key, match] of storeMatches) {
+      if (match.id === change.id && match.status !== change.status) {
+        applyStoreStatus(key, change.status);
+      }
+    }
+  });
+
   const popover = document.createElement("div");
   popover.className = "bd-link-popover";
   popover.setAttribute("role", "dialog");
   popover.hidden = true;
   let activeLinkBtn: HTMLButtonElement | null = null;
+
+  popover.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest("[data-store-status]") as HTMLButtonElement | null;
+    if (!btn) return;
+    e.stopPropagation();
+    const status = btn.dataset.storeStatus as StoreStatus;
+    const id = btn.dataset.storeId!;
+    const key = btn.dataset.storeKeyBtn!;
+    const match = storeMatches.get(key);
+    if (!match || match.status === status) return;
+    void (async () => {
+      try {
+        await patchStoreItem("vocab", id, { status });
+        applyStoreStatus(key, status);
+        emit<StoreStatusChange>(STORE_STATUS_CHANGED, { kind: "vocab", id, status });
+        info("BreakdownPane", "store_status_set", { item_id: id, status });
+      } catch (err: any) {
+        logError("BreakdownPane", "store_status_failed", { item_id: id, error: err.message });
+      }
+    })();
+  });
 
   function closePopover(returnFocus = false) {
     if (popover.hidden) return;
@@ -96,11 +205,26 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
         const v = s.vocab?.[r.index];
         if (!v) continue;
         labels.push(`vocab: ${v.word}`);
+        const key = storeKey(v);
+        const match = storeMatches.get(key);
+        const storeBlock = match
+          ? `
+            <div class="bd-popover-store">
+              <span class="bd-popover-store-label">In store:</span>
+              <span class="study-status-toggle">
+                ${STORE_STATUSES.map(
+                  (st) =>
+                    `<button type="button" class="study-status-btn${match.status === st ? " active" : ""}" data-store-status="${st}" data-store-id="${match.id}" data-store-key-btn="${escapeHtml(key)}" title="${STORE_STATUS_LABELS[st]}">${STORE_STATUS_LABELS[st]}</button>`,
+                ).join("")}
+              </span>
+            </div>`
+          : "";
         sections.push(`
           <div class="bd-popover-section" data-kind="vocab">
             <div class="bd-popover-word" lang="ja">${escapeHtml(v.word)}</div>
             ${v.reading ? `<div class="bd-popover-reading" lang="ja">${escapeHtml(v.reading)}</div>` : ""}
             <div class="bd-popover-meaning">${escapeHtml(v.meaning)}</div>
+            ${storeBlock}
           </div>`);
       } else {
         const g = s.grammar?.[r.index];
@@ -133,7 +257,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     if (popover.hidden) return;
     const target = e.target as Node;
     if (popover.contains(target)) return;
-    if (activeLinkBtn && activeLinkBtn.contains(target)) return;
+    if (activeLinkBtn?.contains(target)) return;
     const linkBtn = (target as HTMLElement).closest?.(".bd-link") as HTMLButtonElement | null;
     if (linkBtn && container.contains(linkBtn)) return;
     closePopover();
@@ -149,14 +273,14 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
 
   function sentenceToMarkdown(s: BreakdownSentence): string {
     const parts: string[] = [s.text];
-    if (s.vocab && s.vocab.length) {
+    if (s.vocab?.length) {
       const rows = s.vocab.map((v) => {
         const reading = v.reading ? `（${v.reading}）` : "";
         return `- ${v.word}${reading} — ${v.meaning}`;
       });
       parts.push("**Vocab**\n" + rows.join("\n"));
     }
-    if (s.grammar && s.grammar.length) {
+    if (s.grammar?.length) {
       const rows = s.grammar.map((g) => `- ${g.pattern} — ${g.explanation}`);
       parts.push("**Grammar**\n" + rows.join("\n"));
     }
@@ -171,9 +295,9 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
       if (!entry) return base;
       const parts: string[] = [base];
       const answerEn = entry.answer_english ? ` (${entry.answer_english})` : "";
-      parts.push(`**Answer:** ${entry.answer}${answerEn}`);
+      parts.push(`**Answer:** ${highlightFillMarkdown(entry.answer, entry.filled_text)}${answerEn}`);
       if (entry.explanation) parts.push(entry.explanation);
-      if (entry.examples && entry.examples.length) {
+      if (entry.examples?.length) {
         const rows = entry.examples.map((ex) => {
           const reading = ex.reading ? `（${ex.reading}）` : "";
           const note = ex.explanation ? `\n  ${ex.explanation}` : "";
@@ -185,39 +309,60 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("\n\n──────────\n\n");
   }
 
-  function escapeHtml(s: string): string {
-    return s
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  // Highlights the filled-in span within an exercise-completion answer,
+  // found by a plain substring search against `filled_text` (see
+  // highlightFillMarkdown above for why this is a substring, not an offset).
+  // The answer renders with furigana; the highlight is widened to whole
+  // reading units so a fill like 仕上 isn't cut off from its (しあ).
+  function highlightFillHtml(answer: string, filledText?: string): string {
+    if (!filledText) return furiganaHtml(answer);
+    const i = answer.indexOf(filledText);
+    if (i < 0) return furiganaHtml(answer);
+    const [a, b] = snapToUnits(furiganaUnits(answer), i, i + filledText.length);
+    return (
+      furiganaHtml(answer.slice(0, a))
+      + `<mark class="exercise-completion-fill">${furiganaHtml(answer.slice(a, b))}</mark>`
+      + furiganaHtml(answer.slice(b))
+    );
   }
 
   function sentenceTextHtml(s: BreakdownSentence, sIdx: number): string {
     const text = s.text;
+    const units = furiganaUnits(text);
+    // Links usually cover a word's kanji but not the (かな) after it; widen
+    // each to whole reading units so the word still renders as ruby. The
+    // link keeps its original `start` for the popover lookup.
     const raw = (s.links || [])
       .filter((l) => (l.kind === "vocab" || l.kind === "grammar")
         && Number.isInteger(l.start) && Number.isInteger(l.end)
         && l.start >= 0 && l.end <= text.length && l.start < l.end)
-      .slice()
+      .map((l) => {
+        const [start, end] = snapToUnits(units, l.start, l.end);
+        return { l, start, end };
+      })
       .sort((a, b) => a.start - b.start);
-    const links: BreakdownLink[] = [];
+    const links: { l: BreakdownLink; start: number; end: number }[] = [];
     let cursor = 0;
-    for (const l of raw) {
-      if (l.start < cursor) continue;
-      links.push(l);
-      cursor = l.end;
+    for (const r of raw) {
+      if (r.start < cursor) continue;
+      links.push(r);
+      cursor = r.end;
     }
-    if (!links.length) return escapeHtml(text);
+    if (!links.length) return furiganaHtml(text);
     const out: string[] = [];
     let i = 0;
-    for (const l of links) {
-      if (l.start > i) out.push(escapeHtml(text.slice(i, l.start)));
-      const span = text.slice(l.start, l.end);
+    for (const { l, start, end } of links) {
+      if (start > i) out.push(furiganaHtml(text.slice(i, start)));
+      const span = text.slice(start, end);
+      const v = l.kind === "vocab" ? s.vocab?.[l.index] : undefined;
+      const key = v ? storeKey(v) : "";
+      const known = v ? storeMatches.get(key)?.status === "known" : false;
       out.push(
-        `<button type="button" class="bd-link" data-s-idx="${sIdx}" data-kind="${l.kind}" data-idx="${l.index}" data-start="${l.start}">${escapeHtml(span)}</button>`,
+        `<button type="button" class="bd-link${known ? " bd-link-known" : ""}" data-s-idx="${sIdx}" data-kind="${l.kind}" data-idx="${l.index}" data-start="${l.start}"${v ? ` data-store-key="${escapeHtml(key)}"` : ""}>${furiganaHtml(span)}</button>`,
       );
-      i = l.end;
+      i = end;
     }
-    if (i < text.length) out.push(escapeHtml(text.slice(i)));
+    if (i < text.length) out.push(furiganaHtml(text.slice(i)));
     return out.join("");
   }
 
@@ -235,23 +380,23 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     if (entry) {
       const examples = (entry.examples || []).map((ex, ei) => `
         <li class="exercise-completion-example${ei === 0 ? " is-primary" : ""}">
-          <div class="exercise-completion-example-jp" lang="ja">${escapeHtml(ex.japanese)}</div>
-          <div class="exercise-completion-example-reading" lang="ja">${escapeHtml(ex.reading)}</div>
+          <div class="exercise-completion-example-jp" lang="ja">${furiganaHtml(ex.japanese)}</div>
+          <div class="exercise-completion-example-reading furi-reveal" lang="ja" title="Reading">${escapeHtml(ex.reading)}</div>
           <div class="exercise-completion-example-en">${escapeHtml(ex.english)}</div>
-          <div class="exercise-completion-example-note">${escapeHtml(ex.explanation)}</div>
+          <div class="exercise-completion-example-note">${furiganaHtml(ex.explanation)}</div>
         </li>`).join("");
       return `
         <div class="exercise-completion">
           <div class="exercise-completion-header">
-            <span class="exercise-completion-label">Completion</span>
+            <span class="exercise-completion-label"${profileTitle(entry)}>Completion</span>
             <span class="exercise-completion-actions">
               <span data-completion-copy-slot="${idx}"></span>
               <button type="button" class="icon-btn" data-completion-regen="${idx}" title="Regenerate completion" aria-label="Regenerate completion">${ICON_REDO}</button>
             </span>
           </div>
-          <div class="exercise-completion-answer" lang="ja"><strong>Answer:</strong> ${escapeHtml(entry.answer)}</div>
+          <div class="exercise-completion-answer" lang="ja"><strong>Answer:</strong> ${highlightFillHtml(entry.answer, entry.filled_text)}</div>
           ${entry.answer_english ? `<div class="exercise-completion-answer-en">${escapeHtml(entry.answer_english)}</div>` : ""}
-          ${entry.explanation ? `<div class="exercise-completion-explanation">${escapeHtml(entry.explanation)}</div>` : ""}
+          ${entry.explanation ? `<div class="exercise-completion-explanation">${furiganaHtml(entry.explanation)}</div>` : ""}
           ${examples ? `<ol class="exercise-completion-examples">${examples}</ol>` : ""}
         </div>`;
     }
@@ -329,12 +474,16 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     const metaText = meta.join(" · ");
 
     const cards = breakdown.sentences.map((s, i) => {
-      const vocab = (s.vocab || []).map((v) => `
-        <tr>
+      const vocab = (s.vocab || []).map((v) => {
+        const key = storeKey(v);
+        const known = storeMatches.get(key)?.status === "known";
+        return `
+        <tr class="${known ? "bd-vocab-known" : ""}" data-store-key="${escapeHtml(key)}">
           <td class="bd-vocab-word">${escapeHtml(v.word)}</td>
           <td class="bd-vocab-reading">${escapeHtml(v.reading || "")}</td>
           <td class="bd-vocab-meaning">${escapeHtml(v.meaning)}</td>
-        </tr>`).join("");
+        </tr>`;
+      }).join("");
       const grammar = (s.grammar || []).map((g) => `
         <li><span class="bd-grammar-pattern">${escapeHtml(g.pattern)}</span> — <span class="bd-grammar-explanation">${escapeHtml(g.explanation)}</span></li>`).join("");
       const hasAnswers = !!(vocab || grammar);
@@ -367,8 +516,10 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     }).join("");
 
     container.innerHTML = `
-      ${headerHtml(`${textSizeControlHtml()}<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
+      ${headerHtml(`<span class="furigana-toggle-slot"></span>${textSizeControlHtml()}<button type="button" id="bd-regenerate" class="icon-btn" title="Regenerate" aria-label="Regenerate">${ICON_REDO}</button><span class="breakdown-copy-all-slot"></span>`, metaText)}
       <div class="breakdown-list">${cards}</div>`;
+
+    container.querySelector(".furigana-toggle-slot")?.replaceWith(createFuriganaToggle());
 
     const copyAllSlot = container.querySelector<HTMLElement>(".breakdown-copy-all-slot");
     if (copyAllSlot) {
@@ -612,6 +763,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
     render();
     try {
       breakdown = await getBreakdown(ctx.docId, ctx.chapterId, ctx.region.id);
+      if (breakdown) void loadStoreMatches();
       if (isExercise && breakdown) {
         try {
           completion = await getExerciseCompletion(ctx.docId, ctx.chapterId, ctx.region.id);
@@ -656,6 +808,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
         if (kind === "done") {
           try {
             breakdown = await getBreakdown(ctx.docId, ctx.chapterId, ctx.region.id);
+            if (breakdown) void loadStoreMatches();
           } catch (e: any) {
             errMsg = "Failed to reload breakdown: " + e.message;
           }
@@ -691,6 +844,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
 
   return () => {
     destroyed = true;
+    offStatusChanged();
     if (closeStream) { closeStream(); closeStream = null; }
     for (const close of completionStreams.values()) close();
     completionStreams.clear();

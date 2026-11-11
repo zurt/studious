@@ -54,6 +54,17 @@ Bundled for a follow-up phase:
   runs without network access in production and consider resource
   limits (memory/time) on the rendering job.
 
+## Status update (2026-11)
+
+- Dependabot's backend entry now uses the `uv` ecosystem, so update PRs
+  change `backend/uv.lock` (transitive deps included) instead of raising
+  `>=` bounds in `pyproject.toml`.
+- CI also runs on a weekly schedule, so a new advisory shows up as a
+  failed scheduled run even when the repo is idle (the July-November
+  2026 gap let ~40 advisories accumulate unnoticed).
+- An `apple` job on `macos-latest` builds every Swift target and runs
+  `studious-tests`.
+
 ## Out of scope
 
 - Code signing / artifact provenance (sigstore, SLSA) — overkill for a

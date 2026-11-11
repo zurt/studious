@@ -1,6 +1,6 @@
 """Compute inline vocab links for sentence breakdowns.
 
-Per `docs/breakdown-vocab-links-plan.md`, vocab linking only — grammar
+Per `docs/design/breakdown-vocab-links-plan.md`, vocab linking only — grammar
 links are deferred until the LLM emits span offsets directly.
 
 Offsets are character indices into the sentence text (Unicode code
@@ -10,7 +10,8 @@ points; Python string indexing is code-point based).
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 log = logging.getLogger("studious.breakdown_links")
 

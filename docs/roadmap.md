@@ -1,6 +1,14 @@
 # Studious - Roadmap
 
-## Phase 1: Chapters + Regions + Targeted Transcription (Current)
+**Where things stand (2026-11):** Phases 1–3 are shipped. Exercise
+reading references (2.5) and chapter bulk operations are shipped as
+beta, pending real use. The Apple apps (Phase 5) are built and compiled
+in CI but have not been run on a device. Open work: Phase 4 (Anki
+export, exercise walkthroughs), region editing, mobile-responsive web
+layout, and the hosting/auth findings in
+`docs/archive/audit-2026-07-mobile-spike.md`.
+
+## Phase 1: Chapters + Regions + Targeted Transcription (Shipped)
 
 - [x] PDF and image upload with page rendering
 - [x] Anthropic Claude VLM integration with custom prompt
@@ -43,7 +51,7 @@
 
 ## Phase 1.6: Logging & Observability Improvements
 
-Detailed implementation notes for each item in `docs/logging-improvements.md`.
+Detailed implementation notes for each item in `docs/archive/logging-improvements.md`.
 Items 1–4 are the highest-leverage and should ship together; 5–8 are the next
 batch; 9–12 are polish.
 
@@ -67,7 +75,7 @@ P2 — polish:
 
 ## Phase 1.7: Test Coverage
 
-See `docs/test-coverage-plan.md` for the full phased plan.
+See `docs/archive/test-coverage-plan.md` for the full phased plan.
 
 Done since the phase was opened:
 - [x] `CorrelationMiddleware` + `StructuredFormatter` regression tests
@@ -106,7 +114,7 @@ Outstanding:
 ## Phase 1.8: Frontend Test Coverage
 
 Vitest + jsdom now run as part of `make test`. See the frontend section of
-`docs/test-coverage-plan.md` for the original plan.
+`docs/archive/test-coverage-plan.md` for the original plan.
 
 - [x] Stand up Vitest + jsdom (respect 7-day cooldown in `frontend/.npmrc`);
       add `test` and `test:coverage` scripts; wire `make test` to run both
@@ -131,7 +139,7 @@ mock VLM provider — deterministic, no API key, no tokens. Deliberately small:
 one test per core journey, no visual regression (the web app is a prototype;
 see "Web MVP now, native later" in `docs/plan.md`). Also serves as executable
 UI documentation and a seeded environment for agent-driven browser
-verification. See the E2E section of `docs/test-coverage-plan.md`.
+verification. See the E2E section of `docs/archive/test-coverage-plan.md`.
 
 - [x] Playwright scaffold: `frontend/playwright.config.ts`, `make test-e2e`,
       dedicated ports (backend 8765 / frontend 5273) so runs never touch a
@@ -157,6 +165,9 @@ verification. See the E2E section of `docs/test-coverage-plan.md`.
       transcription
 - [x] Journey: document lifecycle — upload a second document, delete it
       from the library card menu behind the confirm dialog
+- [x] Journey: vocab dashboard lists breakdown-harvested items; status
+      change persists across reload; stat-chip filters; grammar
+      dashboard shows the harvested pattern
 - [ ] Wire `make test-e2e` into CI (after journeys above stabilize)
 
 ## Phase 1.9: Supply Chain Hardening
@@ -198,10 +209,21 @@ Priority 2 (second pass, bundled):
       Haiku 5.81 (0 first-place finishes)
 - [x] Default VLM switched to `claude-sonnet-5` (tied quality, ~2.3× cheaper,
       wins workbook scans); Opus 4.8/4.7 remain selectable in settings
+- [x] `claude-sonnet-5-5` and `claude-opus-5-5` registered (2026-09-29).
+      Neither accepts a forced `tool_choice`, so their tool calls use
+      structured outputs (`output_config.format`); refusals raise a clear
+      error and opt into server-side fallback (`fallbacks: "default"`)
+- [x] Default VLM switched to `claude-sonnet-5-5` (2026-09-29). Same-code
+      `make benchmark` single runs: avg CER 32.6% vs 40.4% on Sonnet 5, line
+      accuracy 16.5% vs 12.3%, better on 4/5 vocab-list fixtures, slightly
+      worse on the full-page fixture (10.1% vs 7.3%); breakdown 3/3, recall
+      100% on both
 - [x] Curated report: `benchmarks/model_eval/reports/2026-07-06-model-comparison.md`
 - [ ] Re-run the 31-item benchmark when a new model tier ships or
       transcription prompts / image preprocessing change (~$4.50/run);
-      expand a stratum only when a decision hinges on it
+      expand a stratum only when a decision hinges on it — due for the
+      5.5 models (the Sonnet 5.5 default switch rests on `make benchmark`
+      only)
 
 ## Phase 2: Sentence Breakdowns
 
@@ -212,7 +234,7 @@ Priority 2 (second pass, bundled):
 
 ### Phase 2.1: Inline vocab/grammar links
 
-See `docs/breakdown-vocab-links-plan.md`.
+See `docs/design/breakdown-vocab-links-plan.md`.
 
 - [x] Iter 1 — Backend vocab linker (exact/reading/stem) + lazy migration on read
 - [x] Iter 2 — Frontend renders linked spans with click-to-open popover (vocab)
@@ -250,6 +272,25 @@ See `docs/breakdown-vocab-links-plan.md`.
       delete with the region; cleared automatically when a region's
       breakdown is regenerated (sentence indices would otherwise become
       stale).
+- [x] Study profile (Settings → General, 2026-09-29): JLPT level + note and
+      answer length (brief / standard / detailed) render into the prompt.
+      Answers sit at the level with at most one or two named "stretch"
+      items one step above; brief = one short sentence for questions and
+      two examples for `open` items (English explanations unaffected).
+      Each saved entry records the `profile` it was generated with.
+- [x] Tap-to-reveal furigana (2026-09-29): completions now carry a
+      reading on every kanji word (the old "uncommon kanji" rule was
+      unreliable), and `漢字(かな)` renders as ruby in completions,
+      transcriptions and breakdown sentences. Global mode on
+      `<html data-furigana>`: hidden (default, tap a word to reveal),
+      shown, off — toggles in the pane headers and `F` in the chapter view.
+      Breakdown link spans are widened to keep a word with its reading.
+- [x] Prompt caching fixed (2026-09-29): the whole prompt used to be one
+      cached block ending in the per-item target line, so every call wrote
+      a fresh ~3.8k-token cache entry that was never read (109 writes /
+      1 read in the audit log). Now the instructions and the exercise
+      block's context are separate cached blocks and only the target line
+      is uncached; breakdowns/grammar guides cache just their instructions.
 
 Beyond MVP (deferred):
 - [ ] Bulk "Complete all exercises in this region" action that fans out
@@ -295,13 +336,171 @@ Beyond MVP (deferred):
       notice plus a "Go to source on p.N →" jump button instead of the
       Generate-breakdown UI.
 
+### Phase 2.5: Exercise Reading References
+
+Shipped 2026-09-29 as **beta** — see `docs/design/exercise-references-plan.md`.
+Covered by unit + E2E tests against the mock provider, but not yet run
+against real VLM completions; promote out of beta after the first live
+chapter (the 生きた素材で学ぶ 第5課 comprehension questions are the
+motivating case).
+
+- [x] Region schema gains an ordered `references` list (many, cross-
+      document, target must be `reading_passage`). Distinct from Phase
+      2.4's `continues_to`: that's a single same-chapter continuation
+      pointer; this is a citation of separate background material,
+      possibly from another textbook.
+- [x] `PUT .../regions/{region_id}/references` endpoint (replace-whole-
+      list semantics, duplicates dropped); validates source is
+      `exercises`-tagged and a chain head (409 on a continuation), and
+      every target is `reading_passage`-tagged.
+- [x] `region_reference.resolve_references` +
+      `combined_reference_text` helpers, consumed by the exercise-
+      completion job as a new `<reading_reference>` prompt block.
+      Consecutive same-chapter references share one `[Source: …]` label
+      (a reading split across regions stays one passage); missing or
+      untranscribed targets are skipped with a warning log.
+- [x] Completion prompt gains a `question` exercise shape (comprehension
+      / discussion questions → a model answer + explanation citing the
+      reading, `examples: []`) and a multiple-choice case under
+      `constrained` — comprehension questions previously had no shape
+      and risked `no_exercise`.
+- [x] Reference picker modal (Document → Chapter browse of
+      `reading_passage` regions with per-page "Add all", ordered
+      selection tray with ↑/↓/✕) and a "Reading references" section in
+      the chapter view, shown for any region of an exercises chain and
+      editing the chain head's list.
+
 ## Phase 3: Central Vocab/Grammar Store
 
-- [ ] Global vocab store (JSONL-based, across all textbooks)
-- [ ] Global grammar store (same pattern)
-- [ ] Status tracking (new → reviewing → known)
-- [ ] Vocab dashboard with filtering and search
-- [ ] Auto-populate store from breakdowns (dedup by headword+reading)
+The long-term core study workflow: vocab and grammar accumulate across
+textbooks into a single graded, dictionary-linked, editable store that
+eventually powers built-in SRS and an iOS companion. Design agreed
+2026-07-01 — see `docs/design/vocab-store-plan.md` for schemas, decisions, and
+rationale.
+
+### 3.1 Store foundation + harvest
+
+Shipped 2026-07-01.
+
+- [x] Sync-ready JSONL stores (`data/store/{vocab,grammar}.jsonl`):
+      UUID ids, `updated_at`, tombstones, append-only
+      latest-per-id-wins; dedup index derived in memory (no index file
+      to drift)
+- [x] Ingest hook: breakdown generation appends deduped vocab/grammar
+      items with sighting provenance (doc/chapter/region/sentence +
+      sentence text); harvest failures log but never fail the parent job
+- [x] Ingest hook: `vocab_list` transcription save parses the
+      `term（reading）gloss` format (item indices, section headers,
+      kana-only entries; tolerates stray bullet markers)
+- [x] Idempotent backfill over existing breakdowns and vocab_list
+      transcriptions (`POST /api/store/backfill` + dashboard button)
+- [x] Curation status lifecycle: unreviewed (inbox) → active → known /
+      ignored — distinct from SRS state; deletes are tombstones and
+      block re-harvest
+- [x] `/api/vocab` + `/api/grammar` routers (filters, search, sorts,
+      pagination, PATCH, manual create with 409-on-duplicate, DELETE)
+      plus `/api/store/stats`
+- [x] Vocab + grammar dashboards at `/vocab` and `/grammar`: stat-chip
+      filters, search, textbook/source filters, inbox with bulk
+      accept/ignore, expandable sightings linking back to chapters,
+      manual add
+
+### 3.2 Enrichment + classification
+
+Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
+
+- [x] Bundle JMdict locally (jmdict-simplified 3.6.2 JSON; URL + SHA-256
+      pinned in `backend/refs.lock.json`, fetched/built via `make refs`
+      into a read-only SQLite index; EDRDG CC BY-SA attribution in README)
+- [x] JMdict linking (`jmdict_seq`, glosses, POS, common flags) with
+      reading-disambiguated homographs and variant-spelling matching;
+      enrichment runs after every harvest and `POST /api/store/enrich`
+      re-links everything. User-edited meanings (`meaning_source:
+      "user"`) are never overwritten
+- [x] JLPT level tagging (tanos.co.uk-derived lists pinned to an
+      immutable commit; kana-listed and variant-spelling fallbacks)
+- [ ] ~~Frequency rank tagging~~ deferred: jmdict-simplified folds
+      JMdict's nf frequency bands into a boolean `common` flag, so a
+      finer rank needs a separate corpus dataset (BCCWJ/wordfreq).
+      Revisit if JLPT + common + WK level prove too coarse for queue
+      ordering
+- [x] WaniKani sync: subjects + study_materials + assignments via
+      personal API token (Keychain, `WANIKANI_API_TOKEN`); incremental
+      `updated_after` cursors; gitignored personal-use cache; WK SRS
+      history is a display signal only — never auto-marks items known
+- [x] Vocab → kanji → radical drill-down (dashboard row detail +
+      `GET /api/vocab/{id}/wanikani`) with WK mnemonics, the user's own
+      WK notes, and SRS chips ("burned 2022")
+- [x] Outbound reference links (jisho.org search, WaniKani subject pages)
+- [x] Derived priority grouping (pure function of jlpt/common/WK-level
+      signals, 1–5) + "By study priority" sort on the vocab dashboard
+
+### 3.3 Curation + editing
+
+Shipped 2026-07-01.
+
+- [x] Manual add (3.1) + inline edit of any entry's fields and notes in
+      the dashboard row detail; hand-edited meanings keep
+      `meaning_source: "user"` so enrichment never overwrites them
+- [x] Merge-duplicates: `POST /api/{vocab,grammar}/{id}/merge` unions
+      sightings, keeps the canonical entry's curated fields (an
+      unreviewed target adopts the source's status), records the losing
+      spelling in `surface_variants` (searchable), and tombstones the
+      source with `merged_into` — re-harvests of the merged-away
+      spelling redirect to the canonical item
+- [x] Bulk status operations via row checkboxes on both dashboards
+      (set any status on the selection; Merge needs 2+ selected and asks
+      which entry to keep); the inbox "accept/ignore all shown" from 3.1
+      stays
+- [x] Known-vocab de-emphasis in breakdowns: sentence vocab is
+      batch-resolved against the store (`POST /api/vocab/lookup`,
+      surface variants included); known words render dimmed in the vocab
+      table and inline links, and the word popover gains an in-store
+      status toggle
+- [x] Chapter vocab coverage: "Vocab N/M known" chip in the chapter
+      topbar (`GET /api/store/coverage?chapter_id=…`) linking to the
+      chapter-filtered vocab dashboard; updates live as statuses change
+      in the breakdown popover (new `modules/events.ts` pub/sub bus, per
+      the plan's state-syncing note)
+
+### 3.4 Built-in SRS (web)
+
+Shipped 2026-07-01.
+
+- [x] Append-only review event log (`data/store/reviews.jsonl`): one
+      JSON line per graded review (item, card type, grade 1–4, ts,
+      elapsed_ms); SRS state is always derived by replaying a card's
+      events, so the log stays the single source of truth and the
+      scheduling formula can change without a data migration
+- [x] FSRS-4.5 scheduler implemented in-repo (`services/srs.py`, default
+      reference weights, no new dependency): retention target 0.9 (next
+      interval = stability), whole-day intervals with a 10-minute
+      same-day relearn step after "Again"
+- [x] Cards per (item, card type), each scheduled independently: vocab
+      gets a word card (headword → reading/meaning) plus a
+      sentence-context card when a sighting carries the sentence;
+      grammar gets a pattern card — resolves the plan's open question 3
+      as "both card types"
+- [x] Queue API: `GET /api/study/queue` (due cards most-overdue first,
+      then new cards capped by `new_limit`, new vocab in dashboard
+      priority order; only curation-status `active` items enter) and
+      `POST /api/study/reviews` (appends an event, returns the new
+      derived state)
+- [x] Flashcard UI at `/study` (topbar "Study" link): reveal with
+      space/enter, grade Again/Hard/Good/Easy with 1–4 keys, elapsed-ms
+      capture, failed cards re-queued at the end of the session,
+      session-done summary with "Keep studying"
+
+### 3.5 Sync groundwork (design only)
+
+Shipped 2026-07-01.
+
+- [x] CloudKit record mapping documented in `docs/design/cloudkit-sync-plan.md`:
+      `VocabItem`/`GrammarItem`/`ReviewEvent` record types in one custom
+      zone (private DB), items last-writer-wins on `updated_at` with
+      tombstone-wins, review events create-only (union merge, FSRS state
+      re-derived per device), JSONL stays canonical on the Mac; no code
+      until Phase 5
 
 ## Phase 4: Export + Exercises
 
@@ -311,7 +510,32 @@ Beyond MVP (deferred):
 
 ## Phase 5: Polish + Native
 
-- [ ] Bulk operations (transcribe/breakdown all regions in a chapter)
+- [x] Bulk operations (transcribe/breakdown all regions in a chapter):
+      one-click "Prepare chapter" — see `docs/design/bulk-operations-plan.md`.
+      Shipped 2026-07-06 as **beta**: covered by tests and verified
+      against an isolated server (dry-run plan, failure isolation,
+      SSE progress), but not yet exercised on a live chapter with real
+      VLM calls — promote out of beta after first real use
 - [ ] Region editing (resize, move, reorder)
-- [ ] Native macOS/iOS/iPad apps (SwiftUI, same backend API)
+- [x] iOS/iPadOS study companion (see `docs/design/ios-app-plan.md`): SwiftPM
+      package `apple/StudiousKit` with the FSRS-4.5 Swift port
+      (golden-file parity against `services/srs.py`), same-format JSONL
+      store, study/browse/curation SwiftUI app, CloudKit sync engine
+      (`CKSyncEngine`, per `docs/design/cloudkit-sync-plan.md`), Mac-side
+      `studious-sync` CLI (CloudKit push/pull + manual JSONL
+      merge/export fallback), and an Xcode app shell at
+      `apple/Studious.xcodeproj`. Needs a machine with Xcode + an Apple
+      Developer team to run on device — shipped 2026-07-02, source
+      checked into the repo 2026-07-04
+- [ ] Run the companion on a device end-to-end and deploy the CloudKit
+      schema to the production environment
+- [x] Native macOS app (see `docs/design/mac-app-plan.md`; shipped 2026-07-05):
+      `studious-mac` executable target in `apple/StudiousKit` reusing
+      the iOS companion's SwiftUI (study/browse/curation), pointed
+      directly at the backend's canonical `data/store/` JSONL — the
+      Mac app doubles as the bridge to the local FastAPI server, no
+      CloudKit or developer account needed. Builds/runs with CLT only
+      (`make run-mac`). Still open: signed .app bundle + in-app
+      CloudKit once an Xcode machine is available (replaces the
+      `studious-sync sync` CLI)
 - [ ] Mobile-responsive web layout

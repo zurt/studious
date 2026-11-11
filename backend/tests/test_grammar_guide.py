@@ -150,7 +150,7 @@ class _MockGuideVlm:
         raise NotImplementedError
 
     def call_tool(self, prompt, tool_name, tool_schema, config):
-        self.calls.append((prompt, tool_name, tool_schema, config))
+        self.calls.append((registry.prompt_text(prompt), tool_name, tool_schema, config))
         return registry.ToolCallResult(
             tool_input=self.tool_input or {},
             meta={

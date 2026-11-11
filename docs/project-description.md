@@ -10,12 +10,15 @@ The tool replaces a manual ChatGPT-based study workflow with persistent storage,
 
 ### Backend (Python 3.11+)
 - **Framework**: FastAPI with uvicorn
-- **VLM**: Anthropic Claude API (configurable model: sonnet, opus, haiku;
-  default `claude-opus-4-8`, switchable to `claude-opus-4-7` from the settings
-  UI; selection persists in `data/preferences.json`). Adaptive thinking and
-  per-stage `effort` (default
-  `high` for transcription, `xhigh` for sentence breakdowns) are applied where
-  supported; ephemeral prompt caching is enabled on text/tool-schema blocks.
+- **VLM**: Anthropic Claude API (configurable model; default
+  `claude-sonnet-5-5`, with Opus 5.5, Sonnet 5, Opus 4.8 and Opus 4.7
+  selectable in the settings UI; selection persists in
+  `data/preferences.json`). Adaptive thinking and per-stage `effort` (default
+  `high` for transcription, `xhigh` for tool calls) are applied where
+  supported; models without forced tool use (Sonnet 5.5, Opus 5.5) return
+  tool results as structured JSON output. Prompt caching covers the fixed
+  instructions of every tool call and, for exercise completions, the
+  exercise block's context shared across its items.
 - **Storage**: File-based (JSON metadata, PNG page images, JSON transcriptions)
 - **Job queue**: In-process async queue with SSE progress streaming
 - **Config**: Pydantic Settings with .env file support

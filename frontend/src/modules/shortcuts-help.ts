@@ -1,3 +1,4 @@
+import { escapeHtml } from "./html";
 type Shortcut = { keys: string[]; desc: string };
 type Group = { title: string; items: Shortcut[] };
 
@@ -14,6 +15,8 @@ const GROUPS: Group[] = [
     items: [
       { keys: ["←"], desc: "Previous page" },
       { keys: ["→"], desc: "Next page" },
+      { keys: ["F"], desc: "Furigana: hidden (tap to reveal) → shown → off (chapter view)" },
+      { keys: ["L"], desc: "Link a continuation region (chapter view)" },
     ],
   },
   {
@@ -21,6 +24,16 @@ const GROUPS: Group[] = [
     items: [
       { keys: ["Trackpad pinch"], desc: "Zoom" },
       { keys: ["Two-finger scroll"], desc: "Pan" },
+    ],
+  },
+  {
+    title: "Study session",
+    items: [
+      { keys: ["Space"], desc: "Show answer" },
+      { keys: ["1"], desc: "Grade: Again" },
+      { keys: ["2"], desc: "Grade: Hard" },
+      { keys: ["3"], desc: "Grade: Good" },
+      { keys: ["4"], desc: "Grade: Easy" },
     ],
   },
   {
@@ -83,11 +96,6 @@ function renderItem(s: Shortcut): string {
   return `<dt>${keys}</dt><dd>${escapeHtml(s.desc)}</dd>`;
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]!));
-}
 
 export function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -95,4 +103,15 @@ export function isTypingTarget(el: EventTarget | null): boolean {
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
   if (el.isContentEditable) return true;
   return false;
+}
+
+/**
+ * Page-level single-key shortcuts (arrow-key page flips, `L` for link mode)
+ * are registered on `document`, so they also see keystrokes meant for a
+ * field or dialog. Skip them while the user is typing in a field or while
+ * any modal is open (all modals render a `.modal-bg` overlay) — the key
+ * belongs to that field or dialog, not to the page behind it.
+ */
+export function pageShortcutsSuppressed(e: KeyboardEvent): boolean {
+  return isTypingTarget(e.target) || document.querySelector(".modal-bg") !== null;
 }

@@ -1,9 +1,10 @@
 import {
   getDocument, getChapter, pageImageUrl,
   createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream, linkRegion,
-  requestGrammarGuide,
-  type DocMeta, type Chapter, type Region,
+  requestGrammarGuide, getStoreCoverage, bulkPrepareChapter, setRegionReferences,
+  type DocMeta, type Chapter, type Region, type RegionReference,
 } from "../api";
+import { on, STORE_STATUS_CHANGED } from "../modules/events";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { navigate, replaceQuery } from "../router";
 import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawer";
@@ -16,42 +17,19 @@ import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, 
 import { attachPageInput } from "../modules/page-input";
 import { attachPaneSplitter } from "../modules/pane-splitter";
 import { renderMarkdown } from "../modules/markdown";
-
-const VALID_TAGS = ["reading_passage", "vocab_list", "grammar_points", "exercises", "instructions", "other"];
-
-type TextSize = 1 | 2 | 3;
-const TEXT_SIZE_KEY = "studious.transcription.textSize";
-function getTranscriptionTextSize(): TextSize {
-  const v = Number(localStorage.getItem(TEXT_SIZE_KEY));
-  return v === 2 || v === 3 ? v : 1;
-}
-function setTranscriptionTextSize(size: TextSize) {
-  localStorage.setItem(TEXT_SIZE_KEY, String(size));
-}
-
-const LAST_REGION_KEY = "studious.lastRegion";
-function lastRegionMap(): Record<string, string> {
-  try {
-    return JSON.parse(localStorage.getItem(LAST_REGION_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-function getRememberedRegion(chapterId: string, page: number): string | null {
-  return lastRegionMap()[`${chapterId}:${page}`] || null;
-}
-function rememberRegion(chapterId: string, page: number, regionId: string | null) {
-  const map = lastRegionMap();
-  const key = `${chapterId}:${page}`;
-  if (regionId) map[key] = regionId;
-  else delete map[key];
-  localStorage.setItem(LAST_REGION_KEY, JSON.stringify(map));
-}
-
-function pickFirstRegion(regs: Region[]): Region | null {
-  if (regs.length === 0) return null;
-  return [...regs].sort((a, b) => a.bbox[1] - b.bbox[1] || a.bbox[0] - b.bbox[0])[0];
-}
+import { pageShortcutsSuppressed } from "../modules/shortcuts-help";
+import { applyFurigana, createFuriganaToggle, cycleFuriganaMode } from "../modules/furigana";
+import {
+  createReferenceResolver, openReferencePicker, renderReferenceLabel, type ReferenceInfo,
+} from "../modules/reference-picker";
+import { escapeHtml } from "../modules/html";
+import {
+  VALID_TAGS, getLastTag, setLastTag, getTranscriptionTextSize, setTranscriptionTextSize,
+  getRememberedRegion, rememberRegion, pickFirstRegion,
+} from "../modules/chapter-prefs";
+import {
+  resolveChain, chainHeadOf, combinedTranscriptionHtml, combinedTranscriptionMd,
+} from "../modules/region-chain";
 
 export function mountChapterView(params: Record<string, string>, container: HTMLElement) {
   const docId = params.id;
@@ -66,7 +44,9 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           <button id="prev-chapter-btn" class="chapter-nav-btn" title="Previous chapter" aria-label="Previous chapter" disabled>&larr;</button>
           <button id="next-chapter-btn" class="chapter-nav-btn" title="Next chapter" aria-label="Next chapter" disabled>&rarr;</button>
           <div class="spacer"></div>
+          <button id="coverage-chip" class="coverage-chip" style="display:none" title="Chapter vocab coverage — open in the vocab dashboard"></button>
           <a id="grammar-guide-btn" class="topbar-link-btn" style="display:none" href=""></a>
+          <button id="prepare-chapter-btn" title="Transcribe and break down every remaining region in this chapter">Prepare chapter…</button>
           <button id="link-mode-btn" title="Link continuation region (L)">Link</button>
           <button id="tracker-btn" title="Untranscribed regions">0 pending</button>
           <button id="prev-btn" disabled>&larr;</button>
@@ -79,6 +59,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         <div class="pane left" id="left-pane"></div>
         <div class="pane" id="right-pane">
           <div id="region-list-container"></div>
+          <div id="region-references" class="region-references" style="display:none"></div>
           <div id="region-detail" class="region-detail"></div>
           <div id="breakdown-pane" class="breakdown-pane"></div>
         </div>
@@ -101,11 +82,15 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   const linkModeBtn = container.querySelector<HTMLButtonElement>("#link-mode-btn")!;
   const linkBanner = container.querySelector<HTMLElement>("#link-mode-banner")!;
   const grammarGuideBtn = container.querySelector<HTMLAnchorElement>("#grammar-guide-btn")!;
+  const prepareChapterBtn = container.querySelector<HTMLButtonElement>("#prepare-chapter-btn")!;
   const prevChapterBtn = container.querySelector<HTMLButtonElement>("#prev-chapter-btn")!;
   const nextChapterBtn = container.querySelector<HTMLButtonElement>("#next-chapter-btn")!;
   const leftPane = container.querySelector<HTMLElement>("#left-pane")!;
   const regionListContainer = container.querySelector<HTMLElement>("#region-list-container")!;
   const regionDetail = container.querySelector<HTMLElement>("#region-detail")!;
+  const referencesPane = container.querySelector<HTMLElement>("#region-references")!;
+  const referenceResolver = createReferenceResolver();
+  let referencesToken = 0;
   const breakdownPane = container.querySelector<HTMLElement>("#breakdown-pane")!;
   let breakdownDestroy: (() => void) | null = null;
   let breakdownMountKey: string | null = null;
@@ -138,6 +123,18 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   let batchDoneCount = 0;
   let linkMode = false;
   let pendingLinkSourceId: string | null = null;
+  // Job streams stay open across navigation unless closed at unmount —
+  // otherwise a completing job can navigate or toast on a page the user
+  // has already left.
+  let destroyed = false;
+  const jobStreamCloses: Array<() => void> = [];
+
+  function trackJobStream(jobId: string, onEvent: Parameters<typeof openJobStream>[1]) {
+    jobStreamCloses.push(openJobStream(jobId, (event) => {
+      if (destroyed) return;
+      onEvent(event);
+    }));
+  }
 
   function syncUrl() {
     replaceQuery({ page: String(page), region: selectedRegionId });
@@ -247,7 +244,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           updateGrammarGuideBtn();
         }
       };
-      openJobStream(job_id, (event) => {
+      trackJobStream(job_id, (event) => {
         if (event.event === "job-done") void settle("done");
         else if (event.event === "job-failed") void settle("failed", event.data?.error);
         else if (event.event === "snapshot") {
@@ -267,6 +264,139 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   grammarGuideBtn.addEventListener("click", (e) => void handleGrammarGuideClick(e));
+
+  // ---------- Prepare chapter (bulk transcribe + breakdown) ----------
+  let prepareBusy = false;
+  let preparePhaseLabel = "";
+
+  function updatePrepareChapterBtn() {
+    prepareChapterBtn.disabled = prepareBusy;
+    prepareChapterBtn.textContent = prepareBusy ? (preparePhaseLabel || "Preparing chapter…") : "Prepare chapter…";
+  }
+
+  async function refreshAfterBulkRegionEvent() {
+    try {
+      regions = await listRegions(docId, chapterId);
+    } catch {
+      /* ignore — the final reload after job-done will retry */
+    }
+    updateTrackerBtn();
+    refreshRegionUI();
+  }
+
+  async function handlePrepareChapter() {
+    if (prepareBusy) return;
+    const cid = generateCorrelationId();
+
+    let plan: Awaited<ReturnType<typeof bulkPrepareChapter>>["plan"];
+    try {
+      ({ plan } = await bulkPrepareChapter(docId, chapterId, { dry_run: true }, cid));
+    } catch (e: any) {
+      logError("ChapterView", "prepare_chapter_dry_run_failed", {
+        chapter_id: chapterId, error: e.message, stack: e.stack, correlation_id: cid,
+      });
+      toastError("Failed to compute chapter prep plan: " + e.message);
+      return;
+    }
+
+    const transcribeCount = plan.transcribe.length;
+    const breakdownCount = plan.breakdown.length;
+    if (transcribeCount === 0 && breakdownCount === 0) {
+      toastInfo("Nothing to do — all regions are transcribed and broken down.");
+      return;
+    }
+    const parts: string[] = [];
+    if (transcribeCount > 0) parts.push(`transcribe ${transcribeCount} region${transcribeCount === 1 ? "" : "s"}`);
+    if (breakdownCount > 0) parts.push(`break down ${breakdownCount} region${breakdownCount === 1 ? "" : "s"}`);
+    const message = parts.join(", ") + ".";
+    const ok = await confirmDialog(
+      "Prepare chapter?",
+      message.charAt(0).toUpperCase() + message.slice(1),
+      "Prepare chapter",
+    );
+    if (!ok) return;
+
+    prepareBusy = true;
+    preparePhaseLabel = "Preparing chapter…";
+    updatePrepareChapterBtn();
+
+    let job_id: string | null;
+    try {
+      ({ job_id } = await bulkPrepareChapter(docId, chapterId, {}, cid));
+    } catch (e: any) {
+      prepareBusy = false;
+      updatePrepareChapterBtn();
+      logError("ChapterView", "prepare_chapter_submit_failed", {
+        chapter_id: chapterId, error: e.message, stack: e.stack, correlation_id: cid,
+      });
+      toastError("Failed to start chapter prep: " + e.message);
+      return;
+    }
+    if (!job_id) {
+      // The plan changed between dry-run and submit (e.g. another action
+      // already covered it) — nothing was queued.
+      prepareBusy = false;
+      updatePrepareChapterBtn();
+      toastInfo("Nothing to do — all regions are transcribed and broken down.");
+      return;
+    }
+
+    info("ChapterView", "prepare_chapter_started", { chapter_id: chapterId, job_id, correlation_id: cid });
+
+    let phaseOp: "transcribe" | "breakdown" | null = null;
+    let phaseTotal = 0;
+    let phaseDone = 0;
+    let settled = false;
+
+    const phaseLabel = () => `Preparing chapter: ${phaseOp === "breakdown" ? "breaking down" : "transcribing"} ${phaseDone}/${phaseTotal}…`;
+
+    const settle = async (kind: "done" | "failed", errCount?: number, msg?: string) => {
+      if (settled) return;
+      settled = true;
+      prepareBusy = false;
+      updatePrepareChapterBtn();
+      await refreshAfterBulkRegionEvent();
+      if (kind === "done") {
+        toastInfo(errCount ? `Done with ${errCount} error${errCount === 1 ? "" : "s"}` : "Chapter ready");
+      } else {
+        logError("ChapterView", "prepare_chapter_failed", {
+          chapter_id: chapterId, job_id, error: msg, correlation_id: cid,
+        });
+        toastError("Chapter prep failed: " + (msg || "unknown error"));
+      }
+    };
+
+    trackJobStream(job_id, (event) => {
+      if (event.event === "phase-started") {
+        phaseOp = event.data?.op ?? null;
+        phaseTotal = event.data?.count ?? 0;
+        phaseDone = 0;
+        preparePhaseLabel = phaseLabel();
+        updatePrepareChapterBtn();
+      } else if (event.event === "region-done" || event.event === "region-error") {
+        phaseDone += 1;
+        preparePhaseLabel = phaseLabel();
+        updatePrepareChapterBtn();
+        void refreshAfterBulkRegionEvent();
+      } else if (event.event === "job-done") {
+        void settle("done", (event.data?.errors || []).length);
+      } else if (event.event === "job-failed") {
+        void settle("failed", undefined, event.data?.error);
+      } else if (event.event === "snapshot") {
+        // Race: the job may already be terminal before the EventSource
+        // subscribed (fast jobs). The replayed snapshot is then the only
+        // signal — without this, prepareBusy would spin forever.
+        const status = event.data?.status;
+        if (status === "completed" || status === "completed_with_errors") {
+          void settle("done", (event.data?.errors || []).length);
+        } else if (status === "failed") {
+          void settle("failed", undefined, event.data?.errors?.[0]?.message);
+        }
+      }
+    });
+  }
+
+  prepareChapterBtn.addEventListener("click", () => void handlePrepareChapter());
 
   function updateTrackerBtn() {
     const pending = regions.filter((r) => !r.transcription_md).length;
@@ -312,7 +442,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           return `
           <div class="tracker-item${isTranscribing ? " is-transcribing" : ""}" data-page="${r.page}" data-id="${r.id}">
             <div class="tracker-item-info">
-              <div class="tracker-item-title">${r.label || r.tag.replace("_", " ")}</div>
+              <div class="tracker-item-title">${escapeHtml(r.label || r.tag.replace("_", " "))}</div>
               <div class="tracker-item-meta">p. ${r.page} &middot; ${r.tag.replace("_", " ")}</div>
             </div>
             <span class="tracker-status ${statusClass}">${statusLabel}</span>
@@ -324,7 +454,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     // Click to navigate to region's page
     trackerPopover.querySelectorAll<HTMLElement>(".tracker-item").forEach((el) => {
       el.addEventListener("click", () => {
-        const targetPage = parseInt(el.dataset.page!);
+        const targetPage = parseInt(el.dataset.page!, 10);
         const targetId = el.dataset.id!;
         if (targetPage !== page) {
           page = targetPage;
@@ -363,9 +493,17 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       try {
         const { job_id } = await transcribeRegion(docId, chapterId, region.id, batchCid);
         await new Promise<void>((resolve) => {
-          openJobStream(job_id, async (event) => {
+          trackJobStream(job_id, async (event) => {
             if (event.event === "job-done" || event.event === "job-failed") {
               resolve();
+            } else if (event.event === "snapshot") {
+              // Race: the job may already be terminal before the EventSource
+              // subscribed (fast jobs). The replayed snapshot is then the
+              // only signal — without this the batch waits forever.
+              const status = event.data?.status;
+              if (status === "completed" || status === "completed_with_errors" || status === "failed") {
+                resolve();
+              }
             }
           });
         });
@@ -397,8 +535,14 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   }
 
   async function load() {
-    doc = await getDocument(docId);
-    chapter = await getChapter(docId, chapterId);
+    try {
+      doc = await getDocument(docId);
+      chapter = await getChapter(docId, chapterId);
+    } catch (e: any) {
+      logError("ChapterView", "load_failed", { doc_id: docId, chapter_id: chapterId, error: e.message });
+      container.innerHTML = `<div class="library"><p class="error">Failed to load chapter — it may have been deleted.</p></div>`;
+      return;
+    }
     if (!chapter) {
       container.innerHTML = `<div class="library"><p class="error">Chapter not found</p></div>`;
       return;
@@ -426,7 +570,41 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     updateTrackerBtn();
     setupDrawer();
     updatePage();
+    void refreshCoverage();
   }
+
+  const coverageChip = container.querySelector<HTMLButtonElement>("#coverage-chip")!;
+  coverageChip.addEventListener("click", () => navigate(`/vocab?chapter=${chapterId}`));
+  let coverageTimer: number | undefined;
+
+  async function refreshCoverage() {
+    try {
+      const cov = await getStoreCoverage(chapterId);
+      const v = cov.vocab || {};
+      if (!v.total) {
+        coverageChip.style.display = "none";
+        return;
+      }
+      coverageChip.textContent = `Vocab ${v.known ?? 0}/${v.total} known`;
+      const parts = [
+        `${v.active ?? 0} active`,
+        `${v.unreviewed ?? 0} in inbox`,
+        `${v.ignored ?? 0} ignored`,
+      ];
+      if (cov.grammar?.total) parts.push(`grammar: ${cov.grammar.known ?? 0}/${cov.grammar.total} known`);
+      coverageChip.title = `Chapter vocab coverage (${parts.join(", ")}) — open in the vocab dashboard`;
+      coverageChip.style.display = "";
+    } catch (e: any) {
+      logError("ChapterView", "coverage_failed", { chapter_id: chapterId, error: e.message });
+    }
+  }
+
+  // Statuses toggled from the breakdown popover update the chip without
+  // a reload; debounce since bulk changes arrive as a burst of events.
+  const offCoverage = on(STORE_STATUS_CHANGED, () => {
+    window.clearTimeout(coverageTimer);
+    coverageTimer = window.setTimeout(() => void refreshCoverage(), 400);
+  });
 
   function setupDrawer() {
     if (drawer) drawer.destroy();
@@ -610,41 +788,6 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     refreshRegionUI();
   }
 
-  function resolveChain(headId: string): Region[] {
-    const out: Region[] = [];
-    const seen = new Set<string>();
-    let curId: string | null = headId;
-    while (curId && !seen.has(curId)) {
-      const r = regions.find((x) => x.id === curId);
-      if (!r) break;
-      seen.add(curId);
-      out.push(r);
-      curId = r.continues_to || null;
-    }
-    return out;
-  }
-
-  function combinedTranscriptionHtml(chain: Region[]): string {
-    return chain
-      .map((r, idx) => {
-        const md = r.transcription_md || "";
-        const body = renderMarkdown(md);
-        if (idx === 0) return body;
-        return `<div class="region-chain-separator" style="margin: 12px 0; padding: 6px 10px; border-top: 1px dashed rgba(16,185,129,0.5); color: rgb(16,185,129); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">↓ continues on page ${r.page}</div>${body}`;
-      })
-      .join("");
-  }
-
-  function combinedTranscriptionMd(chain: Region[]): string {
-    return chain
-      .map((r, idx) => {
-        const md = r.transcription_md || "";
-        if (idx === 0) return md;
-        return `\n\n---\n_(continues on page ${r.page})_\n\n${md}`;
-      })
-      .join("");
-  }
-
   function syncBreakdownPane(region: Region | undefined) {
     // Show the breakdown pane only on regions that (a) aren't vocab_list and
     // (b) have an existing transcription. Remount when the target region or
@@ -687,16 +830,108 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     }
   }
 
+  // Reading references live on the exercises chain head (where completions
+  // run from); selecting any piece of the chain shows and edits the head's.
+  function renderReferences(region: Region | undefined) {
+    const token = ++referencesToken;
+    const head = region ? chainHeadOf(regions, region) : null;
+    if (!region || !head || head.tag !== "exercises") {
+      referencesPane.style.display = "none";
+      referencesPane.innerHTML = "";
+      return;
+    }
+    const refs = head.references || [];
+    referencesPane.style.display = "";
+    referencesPane.innerHTML = `
+      <div class="region-references-header">
+        <span>Reading references</span>
+        <button type="button" class="region-references-edit">${refs.length ? "Edit…" : "Add…"}</button>
+      </div>
+    `;
+    referencesPane.querySelector<HTMLButtonElement>(".region-references-edit")!
+      .addEventListener("click", () => void editReferences(head));
+    if (head.id !== region.id) {
+      const note = document.createElement("p");
+      note.className = "region-references-note";
+      note.textContent = `Shared with the exercises this continues from on p.${head.page}.`;
+      referencesPane.appendChild(note);
+    }
+    if (refs.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "region-references-note";
+      empty.textContent = "None. Add the reading passages these exercises ask about so completions can use them.";
+      referencesPane.appendChild(empty);
+      return;
+    }
+    const list = document.createElement("ol");
+    list.className = "region-references-list";
+    referencesPane.appendChild(list);
+    const here = { docId, chapterId };
+    // Same-chapter targets label straight from `regions` (always current);
+    // others come from the resolver's cache, fetched on first sight.
+    const known = (ref: RegionReference): ReferenceInfo | undefined =>
+      ref.doc_id === docId && ref.chapter_id === chapterId
+        ? { ref, region: regions.find((r) => r.id === ref.region_id) ?? null, docName: doc?.name ?? "", chapterTitle: chapter?.title ?? "" }
+        : referenceResolver.peek(ref);
+    const fill = () => {
+      list.innerHTML = "";
+      for (const ref of refs) {
+        const info = known(ref);
+        const li = document.createElement("li");
+        if (!info) {
+          li.textContent = "Loading…";
+        } else if (info.region) {
+          const link = document.createElement("a");
+          link.href = "#";
+          link.title = "Go to this reading";
+          link.appendChild(renderReferenceLabel(info, here));
+          link.addEventListener("click", (e) => {
+            e.preventDefault();
+            if (ref.doc_id === docId && ref.chapter_id === chapterId) jumpToRegion(ref.region_id);
+            else navigate(`/doc/${ref.doc_id}/chapter/${ref.chapter_id}?page=${info.region!.page}&region=${ref.region_id}`);
+          });
+          li.appendChild(link);
+        } else {
+          li.appendChild(renderReferenceLabel(info, here));
+        }
+        list.appendChild(li);
+      }
+    };
+    fill();
+    const pending = refs.filter((ref) => !known(ref));
+    if (pending.length) {
+      void Promise.all(pending.map((ref) => referenceResolver.resolve(ref))).then(() => {
+        if (token === referencesToken) fill();
+      });
+    }
+  }
+
+  async function editReferences(head: Region) {
+    const result = await openReferencePicker({ docId, chapterId, initial: head.references || [] });
+    if (!result) return;
+    try {
+      const updated = await setRegionReferences(docId, chapterId, head.id, result);
+      const idx = regions.findIndex((r) => r.id === head.id);
+      if (idx >= 0) regions[idx] = { ...regions[idx], references: updated.references ?? result };
+      info("ChapterView", "references_saved", { region_id: head.id, count: result.length });
+      refreshRegionUI();
+    } catch (e: any) {
+      logError("ChapterView", "references_save_failed", { region_id: head.id, error: e.message });
+      toastError("Failed to save references: " + e.message);
+    }
+  }
+
   function renderDetail() {
     const region = regions.find((r) => r.id === selectedRegionId);
     syncBreakdownPane(region);
+    renderReferences(region);
     if (!region) {
       regionDetail.innerHTML = "";
       return;
     }
     const inFlight = transcribingIds.has(region.id);
     if (region.transcription_md) {
-      const chain = region.continues_to ? resolveChain(region.id) : [region];
+      const chain = region.continues_to ? resolveChain(regions, region.id) : [region];
       const displayHtml = chain.length > 1 ? combinedTranscriptionHtml(chain) : renderMarkdown(region.transcription_md);
       const copyMd = chain.length > 1 ? combinedTranscriptionMd(chain) : region.transcription_md;
       const meta: string[] = [];
@@ -723,8 +958,12 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       `;
       const detailActions = regionDetail.querySelector(".region-detail-actions");
       if (detailActions) {
+        detailActions.prepend(createFuriganaToggle());
         detailActions.appendChild(makeCopyButton(() => copyMd));
       }
+      // Textbook furigana arrive inline as 漢字(かな); render them as ruby.
+      const markdownEl = regionDetail.querySelector<HTMLElement>(".markdown");
+      if (markdownEl) applyFurigana(markdownEl);
       const infoBtn = regionDetail.querySelector<HTMLButtonElement>('.pane-info-btn[data-meta-toggle="transcription"]');
       const metaEl = regionDetail.querySelector<HTMLElement>('.region-detail-meta[data-meta-target="transcription"]');
       if (infoBtn && metaEl) {
@@ -780,6 +1019,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   });
 
   function showTagPopover(bbox: [number, number, number, number]) {
+    const defaultTag = getLastTag();
     const bg = document.createElement("div");
     bg.className = "modal-bg";
     bg.innerHTML = `
@@ -788,7 +1028,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         <div class="field">
           <label>Tag</label>
           <select id="tag-select">
-            ${VALID_TAGS.map((t) => `<option value="${t}">${t.replace("_", " ")}</option>`).join("")}
+            ${VALID_TAGS.map((t) => `<option value="${t}"${t === defaultTag ? " selected" : ""}>${t.replace("_", " ")}</option>`).join("")}
           </select>
         </div>
         <div class="field">
@@ -804,13 +1044,16 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     `;
     (document.fullscreenElement ?? document.body).appendChild(bg);
 
-    bg.querySelector("#tag-cancel")!.addEventListener("click", () => bg.remove());
-    bg.addEventListener("click", (e) => { if (e.target === bg) bg.remove(); });
+    function close() {
+      document.removeEventListener("keydown", onKey);
+      bg.remove();
+    }
 
-    bg.querySelector("#tag-save")!.addEventListener("click", async () => {
+    async function save() {
       const tag = (bg.querySelector<HTMLSelectElement>("#tag-select")!).value;
       const label = (bg.querySelector<HTMLInputElement>("#region-label")!).value.trim();
-      bg.remove();
+      setLastTag(tag);
+      close();
       try {
         const region = await createRegion(docId, chapterId, { page, bbox, tag, label });
         info("ChapterView", "region_created", { region_id: region.id, tag });
@@ -825,7 +1068,18 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         });
         toastError("Failed to create region: " + e.message);
       }
-    });
+    }
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+      else if (e.key === "Enter") save();
+    }
+
+    bg.querySelector("#tag-cancel")!.addEventListener("click", () => close());
+    bg.addEventListener("click", (e) => { if (e.target === bg) close(); });
+    bg.querySelector("#tag-save")!.addEventListener("click", () => save());
+    document.addEventListener("keydown", onKey);
+    setTimeout(() => (bg.querySelector<HTMLInputElement>("#region-label"))!.focus(), 0);
   }
 
   async function handleTranscribe(region: Region) {
@@ -854,7 +1108,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         refreshRegionUI();
       };
 
-      openJobStream(job_id, async (event) => {
+      trackJobStream(job_id, async (event) => {
         if (event.event === "job-done") {
           await settle("done");
         } else if (event.event === "job-failed") {
@@ -926,10 +1180,10 @@ export function mountChapterView(params: Record<string, string>, container: HTML
 
   function onKey(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey) return; // let zoom-pan handle Cmd keys
-    const tag = (e.target as HTMLElement | null)?.tagName;
-    const inField = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement | null)?.isContentEditable;
     if (e.key === "Escape" && linkMode) { toggleLinkMode(false); return; }
-    if (!inField && (e.key === "l" || e.key === "L")) { toggleLinkMode(); return; }
+    if (pageShortcutsSuppressed(e)) return;
+    if (e.key === "l" || e.key === "L") { toggleLinkMode(); return; }
+    if (e.key === "f" || e.key === "F") { cycleFuriganaMode(); return; }
     if (e.key === "ArrowLeft") prevBtn.click();
     if (e.key === "ArrowRight") nextBtn.click();
   }
@@ -938,8 +1192,12 @@ export function mountChapterView(params: Record<string, string>, container: HTML
   load();
 
   return () => {
+    destroyed = true;
+    for (const close of jobStreamCloses) close();
     document.removeEventListener("keydown", onKey);
     document.removeEventListener("click", onDocClick);
+    offCoverage();
+    window.clearTimeout(coverageTimer);
     if (breakdownDestroy) breakdownDestroy();
     drawer?.destroy();
     viewer.destroy();

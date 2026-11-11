@@ -15,7 +15,7 @@ from ..config import (
     VOCAB_LIST_TRANSCRIBE_PROMPT,
 )
 from ..jobs import manager
-from ..services import breakdown_links, storage
+from ..services import breakdown_links, learner_profile, region_chain, storage
 from ..services.preferences import get_active_vlm_model
 
 log = logging.getLogger("studious.api.regions")
@@ -49,13 +49,6 @@ def _require_chapter(doc_id: str, chapter_id: str) -> dict:
     if chapter is None:
         raise HTTPException(404, "chapter not found")
     return chapter
-
-
-def _find_inbound_source(doc_id: str, chapter_id: str, region_id: str) -> dict | None:
-    for other in storage.list_regions(doc_id, chapter_id):
-        if other.get("id") != region_id and other.get("continues_to") == region_id:
-            return other
-    return None
 
 
 def _validate_bbox(bbox: list[float]) -> None:
@@ -192,6 +185,68 @@ def link_region(doc_id: str, chapter_id: str, region_id: str, body: LinkRegion):
     return updated
 
 
+class RegionReference(BaseModel):
+    doc_id: str
+    chapter_id: str
+    region_id: str
+
+
+class SetReferences(BaseModel):
+    references: list[RegionReference] = Field(..., max_length=100)
+
+
+@router.put("/{region_id}/references")
+def set_region_references(doc_id: str, chapter_id: str, region_id: str, body: SetReferences):
+    """Replace an exercises region's ordered list of cited reading passages.
+
+    Targets may be in any chapter of any document. Duplicate entries are
+    dropped, keeping the first occurrence's position.
+    """
+    _require_chapter(doc_id, chapter_id)
+    region = storage.load_region(doc_id, chapter_id, region_id)
+    if region is None:
+        raise HTTPException(404, "region not found")
+    if region.get("tag") != "exercises":
+        raise HTTPException(400, "references can only be set on exercises regions")
+    inbound = region_chain.find_inbound_source(doc_id, chapter_id, region_id)
+    if inbound is not None:
+        raise HTTPException(
+            409,
+            f"this region is a continuation of region {inbound['id']} on page {inbound['page']}; "
+            "set references there instead",
+        )
+
+    references: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for ref in body.references:
+        key = (ref.doc_id, ref.chapter_id, ref.region_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        if storage.load_document(ref.doc_id) is None:
+            raise HTTPException(404, f"referenced document {ref.doc_id} not found")
+        if storage.load_chapter(ref.doc_id, ref.chapter_id) is None:
+            raise HTTPException(404, f"referenced chapter {ref.chapter_id} not found")
+        target = storage.load_region(ref.doc_id, ref.chapter_id, ref.region_id)
+        if target is None:
+            raise HTTPException(404, f"referenced region {ref.region_id} not found")
+        if target.get("tag") != "reading_passage":
+            raise HTTPException(400, f"referenced region {ref.region_id} is not a reading_passage region")
+        references.append(ref.model_dump())
+
+    updated = storage.update_region(doc_id, chapter_id, region_id, references=references)
+    log.info(
+        "region_references_set",
+        extra={
+            "doc_id": doc_id,
+            "chapter_id": chapter_id,
+            "region_id": region_id,
+            "reference_count": len(references),
+        },
+    )
+    return updated
+
+
 @router.post("/{region_id}/transcribe")
 def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
     _require_chapter(doc_id, chapter_id)
@@ -256,7 +311,7 @@ def request_region_breakdown(
         raise HTTPException(400, "breakdowns are not available on vocab_list regions")
     if not region.get("transcription_md"):
         raise HTTPException(409, "region has no transcription")
-    inbound = _find_inbound_source(doc_id, chapter_id, region_id)
+    inbound = region_chain.find_inbound_source(doc_id, chapter_id, region_id)
     if inbound is not None:
         raise HTTPException(
             409,
@@ -315,7 +370,7 @@ def request_region_exercise_completion(
         raise HTTPException(404, "region not found")
     if region.get("tag") != "exercises":
         raise HTTPException(400, "exercise completions are only available on exercises regions")
-    inbound = _find_inbound_source(doc_id, chapter_id, region_id)
+    inbound = region_chain.find_inbound_source(doc_id, chapter_id, region_id)
     if inbound is not None:
         raise HTTPException(
             409,
@@ -342,6 +397,7 @@ def request_region_exercise_completion(
     ):
         raise HTTPException(409, "exercise completion already exists; pass overwrite=true to regenerate")
 
+    profile = learner_profile.current()
     payload: dict[str, Any] = {
         "job_type": "exercise_completion",
         "doc_id": doc_id,
@@ -352,13 +408,21 @@ def request_region_exercise_completion(
         "region_transcription": region.get("transcription_md") or "",
         "engine": "vlm",
         "provider": "anthropic",
-        # answer + answer_english + explanation + three fully-glossed Japanese
-        # examples (japanese/reading/english/explanation each) is a large forced
-        # tool call; 2048 truncated longer items mid-`examples` and surfaced as
+        # Worst case (an `open` exercise) is answer + answer_english +
+        # explanation + three fully-glossed Japanese examples
+        # (japanese/reading/english/explanation each) — a large forced tool
+        # call; 2048 truncated longer items mid-`examples` and surfaced as
         # "tool response missing `answer` or `examples`". Match the breakdown
-        # budget. See docs/troubleshooting.md.
+        # budget. `constrained` exercises (word bank / inline choice) return
+        # no examples and need far less, but the budget is sized for the
+        # worst case. See docs/troubleshooting.md.
         "config": {"model": get_active_vlm_model(), "max_tokens": 8192},
-        "prompt": EXERCISE_COMPLETION_PROMPT,
+        # Rendered for the learner at submit time, so the job record shows
+        # exactly what was sent.
+        "prompt": learner_profile.render_exercise_completion_prompt(
+            EXERCISE_COMPLETION_PROMPT, profile
+        ),
+        "profile": profile,
         "tool_name": "record_exercise_completion",
         "tool_schema": EXERCISE_COMPLETION_TOOL_SCHEMA,
     }

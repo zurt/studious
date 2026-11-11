@@ -15,6 +15,8 @@ from .api import (
     preferences,
     providers,
     regions,
+    store,
+    study,
     transcribe,
 )
 from .config import get_settings
@@ -68,6 +70,8 @@ app.include_router(jobs.router)
 app.include_router(providers.router)
 app.include_router(preferences.router)
 app.include_router(costs.router)
+app.include_router(store.router)
+app.include_router(study.router)
 
 
 @app.get("/api/health")

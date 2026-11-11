@@ -25,6 +25,13 @@ data/
 # Benchmarks
 benchmarks/results/
 
+# Swift / Xcode (iOS companion under apple/)
+.build/
+.swiftpm/
+xcuserdata/
+DerivedData/
+*.xcworkspace/xcshareddata/swiftpm/
+
 # Editor / OS
 .DS_Store
 .idea/

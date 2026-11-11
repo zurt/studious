@@ -1,0 +1,39 @@
+{
+  "_comment": "Pinned reference datasets for `make refs` (scripts/fetch_refs.py). Every artifact is pinned by exact URL + SHA-256; the fetcher refuses mismatches. Update deliberately: pick a release/commit at least 7 days old (same spirit as the package cooldown), download, verify, and record the new hash here.",
+  "jmdict": {
+    "name": "jmdict-simplified (English)",
+    "version": "3.6.2+20260622163854",
+    "url": "https://github.com/scriptin/jmdict-simplified/releases/download/3.6.2%2B20260622163854/jmdict-eng-3.6.2%2B20260622163854.json.tgz",
+    "sha256": "7223c7f428063a7ba3225698db154e1ad14cdbd695b49588aea13a47d93b1b0c",
+    "json_member": "jmdict-eng-3.6.2.json",
+    "license": "JMdict is property of EDRDG, used under the EDRDG licence (CC BY-SA 4.0). https://www.edrdg.org/edrdg/licence.html",
+    "homepage": "https://github.com/scriptin/jmdict-simplified"
+  },
+  "jlpt": {
+    "name": "JLPT vocabulary lists (tanos.co.uk-derived)",
+    "source": "https://github.com/elzup/jlpt-word-list @ 13aa3c54b27115be72d8a62cd4071077c68d2171",
+    "license": "Underlying JLPT lists by Jonathan Waller (tanos.co.uk), CC BY. Unofficial: the JLPT has published no official lists since 2010.",
+    "files": {
+      "n1": {
+        "url": "https://raw.githubusercontent.com/elzup/jlpt-word-list/13aa3c54b27115be72d8a62cd4071077c68d2171/src/n1.csv",
+        "sha256": "bea8e456d4719bed019e642f24aa249564f9dbf551dc04b267d317c772daf780"
+      },
+      "n2": {
+        "url": "https://raw.githubusercontent.com/elzup/jlpt-word-list/13aa3c54b27115be72d8a62cd4071077c68d2171/src/n2.csv",
+        "sha256": "6b804f6d0365646740d979cc1ff6890dd85ea35833cf1a5ccfac415e79d6891b"
+      },
+      "n3": {
+        "url": "https://raw.githubusercontent.com/elzup/jlpt-word-list/13aa3c54b27115be72d8a62cd4071077c68d2171/src/n3.csv",
+        "sha256": "5828232b852f8d43e7d5ee09e9d8c218ed8e315ccbb425cd4d9205c77f5be6e3"
+      },
+      "n4": {
+        "url": "https://raw.githubusercontent.com/elzup/jlpt-word-list/13aa3c54b27115be72d8a62cd4071077c68d2171/src/n4.csv",
+        "sha256": "10377b5d9a0289991b79532deb30cbe70892a2251cd013a21d62ca2a75cf5c76"
+      },
+      "n5": {
+        "url": "https://raw.githubusercontent.com/elzup/jlpt-word-list/13aa3c54b27115be72d8a62cd4071077c68d2171/src/n5.csv",
+        "sha256": "8863a96442adeadfa3510edb84bd60b158ed6b3839172b93cab2ceb026e5ef8a"
+      }
+    }
+  }
+}

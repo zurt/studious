@@ -139,7 +139,7 @@ export function createZoomPanViewer(parent: HTMLElement): ZoomPanViewer {
       const rect = viewport.getBoundingClientRect();
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
-      const factor = Math.pow(0.99, e.deltaY);
+      const factor = 0.99 ** e.deltaY;
       zoomBy(factor, cx, cy);
     } else {
       // Pan

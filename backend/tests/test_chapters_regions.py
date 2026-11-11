@@ -368,10 +368,20 @@ def test_exercise_completion_submit_and_overwrite(isolated_data_dir, tmp_path: P
     assert job["sentence_index"] == 0
     assert job["sentence_text"] == "1. 私は学校＿＿行く。"
     assert "友達" in job["region_transcription"]
-    assert job["tool_schema"]["properties"]["examples"]["minItems"] == 3
+    # `examples` is required (3) for an `open` item but must be `[]` for a
+    # `constrained` (word-bank / inline-choice) item, so the schema no longer
+    # forces minItems — the prompt drives the shape per exercise_type.
+    assert job["tool_schema"]["properties"]["examples"]["maxItems"] == 3
+    assert job["tool_schema"]["properties"]["exercise_type"]["enum"] == ["open", "constrained", "question"]
     # Budget must be large enough for answer + three fully-glossed examples;
     # 2048 truncated longer items mid-`examples`. See docs/troubleshooting.md.
     assert job["config"]["max_tokens"] == 8192
+    # The prompt is rendered for the learner profile at submit time (defaults:
+    # no level, brief → two examples) and the profile rides along on the job.
+    assert "{example_count}" not in job["prompt"] and "{question_length}" not in job["prompt"]
+    assert "Provide exactly two examples." in job["prompt"]
+    assert "<learner_profile>" not in job["prompt"]
+    assert job["profile"] == {"level": None, "note": "", "answer_length": "brief"}
 
     # Seed an existing completion at idx=0 → second POST without overwrite 409s
     storage.upsert_exercise_completion_entry(
@@ -464,3 +474,105 @@ def test_delete_chapter_cascades_regions(isolated_data_dir, tmp_path: Path):
     assert len(storage.list_regions(doc_id, ch["id"])) == 2
     storage.delete_chapter(doc_id, ch["id"])
     assert storage.list_regions(doc_id, ch["id"]) == []
+
+
+# ---------- POST .../bulk (docs/design/bulk-operations-plan.md) ----------
+
+
+def test_bulk_endpoint_dry_run_returns_plan_without_submitting(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    passage = storage.create_region(doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
+    vocab = storage.create_region(doc_id, ch["id"], page=2, bbox=[0, 0, 1, 1], tag="vocab_list")
+
+    client = TestClient(app)
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/bulk",
+        json={"dry_run": True},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["job_id"] is None
+    assert {e["region_id"] for e in body["plan"]["transcribe"]} == {passage["id"], vocab["id"]}
+    assert body["plan"]["breakdown"] == []
+
+
+def test_bulk_endpoint_empty_plan_returns_null_job_id(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    region = storage.create_region(doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
+    storage.update_region(doc_id, ch["id"], region["id"], transcription_md="一文。")
+    storage.save_breakdown(
+        doc_id, ch["id"], region["id"], {"sentences": [{"text": "一文。", "gloss": "x"}]}
+    )
+
+    client = TestClient(app)
+    # Not a dry run — everything is already done, so nothing is submitted
+    # either, and this is a 200 (not an error).
+    r = client.post(f"/api/documents/{doc_id}/chapters/{ch['id']}/bulk", json={})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["job_id"] is None
+    assert body["plan"] == {"transcribe": [], "breakdown": []}
+
+
+def test_bulk_endpoint_submit_returns_202_with_job(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    region = storage.create_region(doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
+
+    client = TestClient(app)
+    r = client.post(f"/api/documents/{doc_id}/chapters/{ch['id']}/bulk", json={})
+    assert r.status_code == 202
+    body = r.json()
+    assert body["job_id"] is not None
+    assert body["plan"]["transcribe"] == [
+        {"region_id": region["id"], "page": region["page"], "tag": region["tag"]}
+    ]
+    job = storage.load_job(body["job_id"])
+    assert job["job_type"] == "bulk_chapter"
+    assert job["doc_id"] == doc_id
+    assert job["chapter_id"] == ch["id"]
+    assert job["transcribe"] is True
+    assert job["breakdown"] is True
+
+
+def test_bulk_endpoint_overwrite_flags_widen_plan(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    region = storage.create_region(doc_id, ch["id"], page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
+    storage.update_region(doc_id, ch["id"], region["id"], transcription_md="一文。")
+    storage.save_breakdown(
+        doc_id, ch["id"], region["id"], {"sentences": [{"text": "一文。", "gloss": "x"}]}
+    )
+
+    client = TestClient(app)
+    r = client.post(
+        f"/api/documents/{doc_id}/chapters/{ch['id']}/bulk",
+        json={
+            "dry_run": True,
+            "overwrite_transcriptions": True,
+            "overwrite_breakdowns": True,
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert {e["region_id"] for e in body["plan"]["transcribe"]} == {region["id"]}
+    assert {e["region_id"] for e in body["plan"]["breakdown"]} == {region["id"]}
+
+
+def test_bulk_endpoint_404s(isolated_data_dir, tmp_path: Path):
+    doc = _make_doc(tmp_path)
+    doc_id = doc["id"]
+    ch = storage.create_chapter(doc_id, title="Ch", page_start=1, page_end=5)
+    client = TestClient(app)
+
+    r = client.post(f"/api/documents/missing/chapters/{ch['id']}/bulk", json={})
+    assert r.status_code == 404
+
+    r = client.post(f"/api/documents/{doc_id}/chapters/missing/bulk", json={})
+    assert r.status_code == 404

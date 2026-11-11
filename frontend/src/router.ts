@@ -1,5 +1,6 @@
 export type Route = {
   pattern: string;
+  // biome-ignore lint/suspicious/noConfusingVoidType: pages may return nothing or an unmount callback
   mount: (params: Record<string, string>, container: HTMLElement) => void | (() => void);
 };
 

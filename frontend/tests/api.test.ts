@@ -24,6 +24,7 @@ import {
   requestBreakdown,
   submitTranscription,
   openJobStream,
+  bulkPrepareChapter,
 } from "../src/api";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -268,6 +269,52 @@ describe("api", () => {
       fetchMock.mockResolvedValueOnce(new Response("bad pdf", { status: 422 }));
       const file = new File(["x"], "x.pdf");
       await expect(uploadDocument(file)).rejects.toThrow(/422.*bad pdf/);
+    });
+
+    it("bulkPrepareChapter posts default flags and returns plan/job_id", async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({ plan: { transcribe: [], breakdown: [] }, job_id: null }),
+      );
+      const result = await bulkPrepareChapter("d", "c", { dry_run: true });
+      const [url, init] = fetchMock.mock.calls[0]!;
+      expect(url).toBe("/api/documents/d/chapters/c/bulk");
+      expect(init.method).toBe("POST");
+      expect(JSON.parse(init.body as string)).toEqual({
+        transcribe: true,
+        breakdown: true,
+        overwrite_transcriptions: false,
+        overwrite_breakdowns: false,
+        dry_run: true,
+      });
+      expect(result.job_id).toBeNull();
+    });
+
+    it("bulkPrepareChapter passes through explicit flags and returns a job_id", async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({
+          plan: { transcribe: [{ region_id: "r1", page: 1, tag: "reading_passage" }], breakdown: [] },
+          job_id: "job-1",
+        }),
+      );
+      const result = await bulkPrepareChapter("d", "c", {
+        overwrite_transcriptions: true,
+        breakdown: false,
+      });
+      const [, init] = fetchMock.mock.calls[0]!;
+      expect(JSON.parse(init.body as string)).toEqual({
+        transcribe: true,
+        breakdown: false,
+        overwrite_transcriptions: true,
+        overwrite_breakdowns: false,
+        dry_run: false,
+      });
+      expect(result.job_id).toBe("job-1");
+      expect(result.plan.transcribe).toHaveLength(1);
+    });
+
+    it("bulkPrepareChapter throws with body on non-2xx", async () => {
+      fetchMock.mockResolvedValueOnce(new Response("nope", { status: 500 }));
+      await expect(bulkPrepareChapter("d", "c")).rejects.toThrow(/500.*nope/);
     });
   });
 

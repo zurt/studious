@@ -7,6 +7,7 @@ machine consumption) and report.md (for humans).
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -17,9 +18,9 @@ WORST_ITEMS_COUNT = 5
 
 
 def _now_iso() -> str:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _atomic_write_text(path: Path, text: str) -> None:

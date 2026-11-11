@@ -7,12 +7,8 @@ import { navigate } from "../router";
 import { confirmDialog } from "../modules/confirm";
 import { makeCopyButton, ICON_REDO } from "../modules/region-list";
 import { renderMarkdown } from "../modules/markdown";
+import { escapeHtml } from "../modules/html";
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 
 function pointToMarkdown(p: GrammarGuidePoint, idx: number): string {
   const lines: string[] = [];
@@ -27,7 +23,9 @@ function pointToMarkdown(p: GrammarGuidePoint, idx: number): string {
 function guideToMarkdown(chapter: Chapter, guide: GrammarGuide): string {
   const out: string[] = [`# ${chapter.title} — Grammar Guide`];
   if (guide.intro) out.push(guide.intro.trim());
-  guide.points.forEach((p, i) => out.push(pointToMarkdown(p, i)));
+  guide.points.forEach((p, i) => {
+    out.push(pointToMarkdown(p, i));
+  });
   return out.join("\n\n");
 }
 

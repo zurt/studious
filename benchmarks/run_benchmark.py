@@ -16,7 +16,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -88,9 +88,8 @@ def line_accuracy(reference: str, hypothesis: str) -> float:
 def find_input_file(fixture_dir: Path) -> Path | None:
     """Find the input document in a fixture directory."""
     for child in sorted(fixture_dir.iterdir()):
-        if child.suffix.lower() in IMAGE_SUFFIXES | PDF_SUFFIXES:
-            if child.stem.lower().startswith("input"):
-                return child
+        if child.suffix.lower() in IMAGE_SUFFIXES | PDF_SUFFIXES and child.stem.lower().startswith("input"):
+            return child
     # Fallback: any image or PDF
     for child in sorted(fixture_dir.iterdir()):
         if child.suffix.lower() in IMAGE_SUFFIXES | PDF_SUFFIXES:
@@ -362,7 +361,7 @@ def main():
     if provider == "anthropic":
         ensure_anthropic_api_key()
 
-    print(f"Studious Quality Benchmark")
+    print("Studious Quality Benchmark")
     print(f"  engine:   {args.engine}")
     print(f"  provider: {provider}")
     print(f"  git:      {git_sha()}")
@@ -375,10 +374,10 @@ def main():
 
     # Save results
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     result_file = RESULTS_DIR / f"{timestamp}_{args.engine}_{provider}.json"
     output = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "git_sha": git_sha(),
         "engine": args.engine,
         "provider": provider,

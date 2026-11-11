@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-import pytest
 from PIL import Image
 
 from app.jobs import JobManager

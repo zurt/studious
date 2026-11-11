@@ -39,7 +39,7 @@ async def job_events(job_id: str, request: Request):
                     break
                 try:
                     item = await asyncio.wait_for(queue.get(), timeout=15.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield {"event": "ping", "data": "{}"}
                     continue
                 yield {"event": item["event"], "data": json.dumps(item["data"], ensure_ascii=False)}
