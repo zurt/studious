@@ -61,7 +61,27 @@ def _existing_result_ok(path: Path) -> bool:
         return False
 
 
-def _build_rubric_text() -> str:
+# The production vocab-list prompt deliberately instructs the transcriber to
+# supply a short dictionary-style English gloss when the printed list has
+# none. Without this note the judge penalizes that intended behavior as
+# hallucination (seen in run 20260706-eval-v1, where it depressed every
+# model's vocab scores). Appended to the judge intro for vocab_list items.
+VOCAB_GLOSS_POLICY = (
+    "\n\nIMPORTANT — intended pipeline behavior for vocabulary lists: "
+    "the transcriber was explicitly instructed to append a short "
+    "dictionary-style English gloss to each entry when the printed "
+    "list has none. Supplied glosses are therefore EXPECTED, even if "
+    "absent from the image — do NOT penalize their presence under "
+    "hallucination_control. Instead, judge whether each supplied "
+    "gloss is an accurate dictionary translation of the printed "
+    "term; penalize inaccurate glosses under character_accuracy "
+    "and hallucination_control. All Japanese text, readings, "
+    "indices, and section headers must still match the image "
+    "exactly."
+)
+
+
+def build_rubric_text() -> str:
     lines = ["For EACH candidate, score 0-10 (integers) on:"]
     for dim, desc in RUBRIC_DESCRIPTIONS.items():
         lines.append(f"- {dim}: {desc}")
@@ -93,30 +113,13 @@ def build_judge_content(
         "are NOT told which system produced which candidate; judge blind."
     )
     if item_meta.get("prompt_kind") == "vocab_list":
-        # The production vocab-list prompt deliberately instructs the
-        # transcriber to supply a short dictionary-style English gloss when
-        # the printed list has none. Without this note the judge penalizes
-        # that intended behavior as hallucination (seen in run
-        # 20260706-eval-v1, where it depressed every model's vocab scores).
-        intro += (
-            "\n\nIMPORTANT — intended pipeline behavior for vocabulary lists: "
-            "the transcriber was explicitly instructed to append a short "
-            "dictionary-style English gloss to each entry when the printed "
-            "list has none. Supplied glosses are therefore EXPECTED, even if "
-            "absent from the image — do NOT penalize their presence under "
-            "hallucination_control. Instead, judge whether each supplied "
-            "gloss is an accurate dictionary translation of the printed "
-            "term; penalize inaccurate glosses under character_accuracy "
-            "and hallucination_control. All Japanese text, readings, "
-            "indices, and section headers must still match the image "
-            "exactly."
-        )
+        intro += VOCAB_GLOSS_POLICY
     candidates_text_parts = []
     for label in sorted(label_to_markdown.keys()):
         candidates_text_parts.append(f"--- Candidate {label} ---\n{label_to_markdown[label]}")
     candidates_text = "\n\n".join(candidates_text_parts)
 
-    text = f"{intro}\n\n{_build_rubric_text()}\n\n{candidates_text}"
+    text = f"{intro}\n\n{build_rubric_text()}\n\n{candidates_text}"
 
     return [
         {
@@ -127,7 +130,7 @@ def build_judge_content(
     ]
 
 
-def _call_judge(client: Any, judge_model: str, fallback_model: str, content: list[dict[str, Any]]):
+def call_judge(client: Any, judge_model: str, fallback_model: str, content: list[dict[str, Any]]):
     """Call the judge endpoint, falling back to a plain (non-beta) call if the
     beta fallbacks parameter itself is rejected by the API."""
     try:
@@ -220,7 +223,7 @@ def judge_run(
         print(f"  JUDGE {item_id} ({len(successful)} candidates)...", end=" ", flush=True)
         t0 = time.monotonic()
         try:
-            message = _call_judge(client, judge_model, fallback_model, content)
+            message = call_judge(client, judge_model, fallback_model, content)
         except Exception as exc:
             duration_ms = int((time.monotonic() - t0) * 1000)
             payload = {

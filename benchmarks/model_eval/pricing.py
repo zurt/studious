@@ -1,45 +1,52 @@
-"""Pure cost-estimation math for model_eval.
+"""Cost-estimation math for model_eval and the regression benchmark.
 
-Kept separate from backend/app/config.py's MODEL_PRICING (which drives the
-app's own cost-tracking UI) because this eval intentionally covers models —
-and introductory/promotional pricing windows — that the shipping app config
-does not need to know about.
+Prices come from one place: `backend/app/config.py`'s MODEL_PRICING, the
+table the app's own cost tracking uses. `EVAL_ONLY_PRICING` adds models the
+eval calls but the app does not offer (e.g. a judge model). A model listed
+in both uses the app's row, so the two can never disagree.
+
+Rates are USD per 1,000,000 tokens, in the app's row format:
+`input`, `output`, and optional `cache_write` / `cache_read` overrides.
 """
 from __future__ import annotations
 
 from typing import Any
 
-# USD per 1,000,000 tokens. "in" = input tokens, "out" = output tokens.
-#
-# claude-sonnet-5: introductory pricing in effect through 2026-08-31;
-# reverts to sticker $3/$15 after that (matches the launch discount pattern
-# Anthropic used for opus-4-5). Re-check before relying on old run costs
-# past that date.
-MODEL_PRICING: dict[str, dict[str, float]] = {
-    "claude-haiku-4-5": {"in": 1.00, "out": 5.00},
-    "claude-sonnet-5": {"in": 2.00, "out": 10.00},
-    "claude-opus-4-8": {"in": 5.00, "out": 25.00},
-    "claude-fable-5": {"in": 10.00, "out": 50.00},
+from .common import ensure_backend_on_path
+
+# Models the eval uses that the app's settings do not offer.
+EVAL_ONLY_PRICING: dict[str, dict[str, float]] = {
+    "claude-fable-5": {"input": 10.00, "output": 50.00},
 }
 
-# Cache reads are billed at a fraction of the base input rate; cache writes
-# (creation) carry a surcharge over the base input rate. Same multipliers
-# Anthropic documents for prompt caching generally.
+# Defaults when a row carries no explicit cache rates: a cache read is billed
+# at a fraction of the input rate, a (5-minute) cache write at a surcharge.
 CACHE_READ_MULTIPLIER = 0.1
 CACHE_CREATION_MULTIPLIER = 1.25
+
+
+def pricing_table() -> dict[str, dict[str, float]]:
+    """The merged table: eval-only rows, overridden by the app's rows."""
+    ensure_backend_on_path()
+    from app.config import MODEL_PRICING as APP_PRICING
+
+    return {**EVAL_ONLY_PRICING, **APP_PRICING}
 
 
 def _rate_for(model: str) -> dict[str, float] | None:
     """Look up the pricing row for `model`, allowing dated-suffix aliases.
 
     e.g. "claude-haiku-4-5-20251001" resolves to the "claude-haiku-4-5" row.
+    The longest matching name wins, so a dated "claude-sonnet-5-5-..." id
+    resolves to "claude-sonnet-5-5" and never to "claude-sonnet-5".
     """
-    if model in MODEL_PRICING:
-        return MODEL_PRICING[model]
-    for known, rate in MODEL_PRICING.items():
-        if model.startswith(known):
-            return rate
-    return None
+    table = pricing_table()
+    if model in table:
+        return table[model]
+    matches = [known for known in table if model.startswith(known + "-")]
+    if not matches:
+        return None
+    return table[max(matches, key=len)]
 
 
 def estimate_cost(model: str, usage: dict[str, Any] | None) -> float | None:
@@ -58,10 +65,13 @@ def estimate_cost(model: str, usage: dict[str, Any] | None) -> float | None:
     cache_read_tokens = usage.get("cache_read_input_tokens") or 0
     cache_creation_tokens = usage.get("cache_creation_input_tokens") or 0
 
+    cache_read_rate = rate.get("cache_read", rate["input"] * CACHE_READ_MULTIPLIER)
+    cache_write_rate = rate.get("cache_write", rate["input"] * CACHE_CREATION_MULTIPLIER)
+
     cost = (
-        input_tokens * rate["in"]
-        + output_tokens * rate["out"]
-        + cache_read_tokens * (rate["in"] * CACHE_READ_MULTIPLIER)
-        + cache_creation_tokens * (rate["in"] * CACHE_CREATION_MULTIPLIER)
+        input_tokens * rate["input"]
+        + output_tokens * rate["output"]
+        + cache_read_tokens * cache_read_rate
+        + cache_creation_tokens * cache_write_rate
     ) / 1_000_000
     return cost

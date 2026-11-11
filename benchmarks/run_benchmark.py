@@ -1,47 +1,43 @@
-"""Quality benchmark runner for Studious transcription pipeline.
+"""Regression benchmark for the Studious transcription pipeline.
 
-Processes fixture documents through OCR/VLM providers and compares output
-against ground-truth transcriptions. Results are saved as timestamped JSON
-for tracking quality over time.
+Answers one question: "did my change to a prompt, the provider or the
+pipeline make the shipping configuration worse?" It runs the committed
+fixtures through the app's own provider with the app's default model and
+scores each transcription two ways:
+
+- a judge model grades it against the source image and the reviewed
+  reference transcription, on the same 0-10 rubric model_eval uses. This is
+  the score to act on.
+- character error rate and line accuracy against the reference. Free and
+  deterministic, but blind to what matters most (a wrong furigana reading
+  costs one character); treat it as a tripwire, not a verdict.
+
+Results are saved as timestamped JSON under benchmarks/results/; compare two
+with `python -m benchmarks.compare`. To compare *models* against each other,
+use `python -m benchmarks.model_eval` instead.
 
 Usage:
-    python -m benchmarks.run_benchmark [--provider anthropic] [--engine vlm]
+    python -m benchmarks.run_benchmark [--engine vlm] [--provider anthropic]
+                                       [--no-judge] [--judge-model M]
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
-import subprocess
 import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
-
-def ensure_anthropic_api_key() -> None:
-    """Populate ANTHROPIC_API_KEY from macOS Keychain if not already set.
-
-    The README's recommended setup stores the key in Keychain and exports it
-    from interactive shell rc files. `make` spawns a non-interactive subshell
-    that does not source those files, so fall back to a direct Keychain lookup.
-    """
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return
-    user = os.environ.get("USER")
-    if not user or sys.platform != "darwin":
-        return
-    try:
-        value = subprocess.check_output(
-            ["security", "find-generic-password", "-s", "ANTHROPIC_API_KEY", "-a", user, "-w"],
-            text=True,
-            stderr=subprocess.DEVNULL,
-        ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return
-    if value:
-        os.environ["ANTHROPIC_API_KEY"] = value
+from benchmarks.model_eval.common import (
+    DEFAULT_JUDGE_FALLBACK_MODEL,
+    DEFAULT_JUDGE_MODEL,
+    ensure_anthropic_api_key,
+    ensure_backend_on_path,
+    git_sha,
+)
 
 BENCHMARKS_DIR = Path(__file__).parent
 FIXTURES_DIR = BENCHMARKS_DIR / "fixtures"
@@ -108,7 +104,7 @@ def find_text_input(fixture_dir: Path) -> Path | None:
 
 def run_breakdown(text: str, provider: str) -> dict:
     """Run a sentence breakdown via the configured VLM tool-use path."""
-    sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
+    ensure_backend_on_path()
     from app.config import (
         BREAKDOWN_TOOL_SCHEMA,
         SENTENCE_BREAKDOWN_PROMPT,
@@ -169,21 +165,54 @@ def evaluate_breakdown(tool_input: dict, expected: dict) -> dict:
     }
 
 
-def git_sha() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], text=True, stderr=subprocess.DEVNULL
-        ).strip()
-    except Exception:
-        return "unknown"
+def summarize_judgments(results: list[dict]) -> dict:
+    """Average each rubric dimension over the fixtures the judge scored."""
+    judged = [r["judge"] for r in results if r.get("judge", {}).get("status") == "ok"]
+    attempted = [r for r in results if "judge" in r]
+    if not attempted:
+        return {}
+    out: dict = {"judged": len(judged), "judge_failures": len(attempted) - len(judged)}
+    if judged:
+        from benchmarks.model_eval.judging import RUBRIC_DIMENSIONS
+
+        for dim in RUBRIC_DIMENSIONS:
+            out[f"avg_judge_{dim}"] = round(sum(j[dim] for j in judged) / len(judged), 2)
+        out["min_judge_overall"] = min(j["overall"] for j in judged)
+        costs = [j.get("estimated_cost_usd") for j in judged]
+        if all(c is not None for c in costs):
+            out["judge_cost_usd"] = round(sum(costs), 4)
+    return out
+
+
+def make_judge(judge_model: str, fallback_model: str) -> Any:
+    """Bind an Anthropic client and models into the callable run_benchmark takes."""
+    import anthropic
+
+    from benchmarks.model_eval.reference_judge import judge_against_reference
+
+    ensure_backend_on_path()
+    from app.config import get_settings
+    from app.services import pdf
+
+    client = anthropic.Anthropic()
+    max_edge = get_settings().vlm_max_edge
+
+    def judge(image_path: Path, prompt_kind: str, reference_md: str, candidate_md: str) -> dict:
+        # The same bytes the transcriber is sent, so both see one image.
+        image_png = pdf.prepare_for_vlm(image_path, max_edge)
+        return judge_against_reference(
+            client, image_png, prompt_kind, reference_md, candidate_md,
+            judge_model, fallback_model,
+        )
+
+    return judge
 
 
 def run_transcription(
     image_path: Path, engine: str, provider: str, prompt_kind: str = "page"
 ) -> dict:
     """Run transcription through the Studious pipeline and return results."""
-    # Import here to allow running from project root
-    sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
+    ensure_backend_on_path()
     from app.config import (
         REGION_TRANSCRIBE_PROMPT,
         VOCAB_LIST_TRANSCRIBE_PROMPT,
@@ -219,11 +248,17 @@ def run_transcription(
         "markdown": result.markdown,
         "meta": result.meta,
         "duration_ms": duration_ms,
+        "model": settings.default_vlm_model if engine == "vlm" else None,
     }
 
 
-def run_benchmark(engine: str, provider: str) -> dict:
-    """Run the full benchmark suite and return results."""
+def run_benchmark(engine: str, provider: str, judge: Any = None) -> dict:
+    """Run the full benchmark suite and return results.
+
+    `judge`, when given, is called as `judge(image_path, prompt_kind,
+    reference_md, candidate_md)` for every image fixture that has a
+    reference, and its result dict is stored under the fixture's "judge" key.
+    """
     fixtures = sorted(
         d for d in FIXTURES_DIR.iterdir() if d.is_dir() and not d.name.startswith(".")
     )
@@ -248,6 +283,10 @@ def run_benchmark(engine: str, provider: str) -> dict:
         kind = meta_data.get("kind", "transcription")
 
         if kind == "breakdown":
+            if engine != "vlm":
+                print(f"  SKIP {name}: breakdowns need the vlm engine")
+                results.append({"fixture": name, "status": "skipped", "reason": "not a vlm run"})
+                continue
             text_input = find_text_input(fixture_dir)
             if text_input is None:
                 print(f"  SKIP {name}: no text input (input.md/input.txt) for breakdown fixture")
@@ -305,6 +344,8 @@ def run_benchmark(engine: str, provider: str) -> dict:
             "output_chars": len(output["markdown"]),
             "meta": output.get("meta", {}),
         }
+        if output.get("model"):
+            entry["model"] = output["model"]
 
         if has_ground_truth:
             ref = ground_truth_path.read_text("utf-8")
@@ -312,7 +353,15 @@ def run_benchmark(engine: str, provider: str) -> dict:
             line_acc = line_accuracy(ref, output["markdown"])
             entry["cer"] = round(cer, 4)
             entry["line_accuracy"] = round(line_acc, 4)
-            print(f"CER={cer:.2%} line_acc={line_acc:.2%} ({output['duration_ms']}ms)")
+            line = f"CER={cer:.2%} line_acc={line_acc:.2%}"
+            if judge is not None:
+                judgment = judge(input_file, prompt_kind, ref, output["markdown"])
+                entry["judge"] = judgment
+                if judgment.get("status") == "ok":
+                    line += f" judge={judgment['overall']}/10"
+                else:
+                    line += f" judge={judgment.get('status')}"
+            print(f"{line} ({output['duration_ms']}ms)")
         else:
             print(f"no ground truth ({output['duration_ms']}ms)")
 
@@ -332,6 +381,7 @@ def run_benchmark(engine: str, provider: str) -> dict:
         summary["avg_line_accuracy"] = round(
             sum(r["line_accuracy"] for r in with_cer) / len(with_cer), 4
         )
+    summary.update(summarize_judgments(ok_results))
     if ok_results:
         summary["avg_duration_ms"] = round(
             sum(r["duration_ms"] for r in ok_results) / len(ok_results)
@@ -354,20 +404,26 @@ def main():
     parser = argparse.ArgumentParser(description="Run Studious quality benchmarks")
     parser.add_argument("--engine", default="vlm", choices=["ocr", "vlm"])
     parser.add_argument("--provider", default=None, help="Provider name (default: tesseract for ocr, anthropic for vlm)")
+    parser.add_argument("--no-judge", action="store_true", help="Skip the judge; report CER/line accuracy only")
+    parser.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
+    parser.add_argument("--fallback-model", default=DEFAULT_JUDGE_FALLBACK_MODEL)
     args = parser.parse_args()
 
     provider = args.provider or ("tesseract" if args.engine == "ocr" else "anthropic")
 
-    if provider == "anthropic":
+    use_judge = not args.no_judge
+    if provider == "anthropic" or use_judge:
         ensure_anthropic_api_key()
 
     print("Studious Quality Benchmark")
     print(f"  engine:   {args.engine}")
     print(f"  provider: {provider}")
+    print(f"  judge:    {args.judge_model if use_judge else 'off'}")
     print(f"  git:      {git_sha()}")
     print()
 
-    result = run_benchmark(args.engine, provider)
+    judge = make_judge(args.judge_model, args.fallback_model) if use_judge else None
+    result = run_benchmark(args.engine, provider, judge=judge)
 
     if not result["fixtures"]:
         sys.exit(0)
@@ -381,6 +437,7 @@ def main():
         "git_sha": git_sha(),
         "engine": args.engine,
         "provider": provider,
+        "judge_model": args.judge_model if use_judge else None,
         **result,
     }
     result_file.write_text(json.dumps(output, indent=2, ensure_ascii=False), "utf-8")
@@ -388,6 +445,9 @@ def main():
     print()
     print(f"Summary: {result['summary']}")
     print(f"Results saved to: {result_file}")
+    if result["summary"].get("errors"):
+        # A run where calls failed is not a clean baseline; say so to scripts.
+        sys.exit(1)
 
 
 if __name__ == "__main__":

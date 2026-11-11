@@ -224,6 +224,14 @@ Priority 2 (second pass, bundled):
       expand a stratum only when a decision hinges on it — due for the
       5.5 models (the Sonnet 5.5 default switch rests on `make benchmark`
       only)
+- [x] Benchmark cleanup (2026-11): `make benchmark` is now the
+      *regression* check and scores each fixture with the same judge and
+      rubric as `model_eval`, against the image plus the reviewed reference;
+      CER stays as a fallback (the 30-40% CERs above are mostly gloss
+      wording on vocab lists, not misreadings). `benchmarks.compare` gates
+      on a one-point judge drop. One price table for the app and both
+      tools. `benchmarks/README.md` says which tool answers which question.
+      Not yet run against the live API
 
 ## Phase 2: Sentence Breakdowns
 

@@ -1,6 +1,7 @@
 # Benchmark Fixtures
 
-Place test documents here for quality benchmarking.
+Inputs for the regression benchmark (`make benchmark`). See
+`../README.md` for what the benchmark measures and how to read its output.
 
 ## Structure
 
@@ -29,6 +30,10 @@ ground-truth/
 3. Create the expected transcription in `ground-truth/<name>.md`
 4. (Optional) Add `meta.json` to override the prompt for non-page fixtures
 5. Run `make benchmark` to verify
+
+The ground-truth file is shown to the judge as a reviewed reference, so it
+must be checked against the image by a person. A model's output saved
+unreviewed would teach the judge that model's mistakes.
 
 ### Selecting a prompt (`meta.json`)
 

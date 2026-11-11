@@ -90,6 +90,9 @@ logs:
 audit-log:
 	tail -F backend/data/llm_audit.jsonl | jq -C .
 
+# Regression benchmark: runs the committed fixtures through the app's
+# default model and has a judge model grade the results. Makes real API
+# calls. See benchmarks/README.md (and model_eval/ for comparing models).
 benchmark:
 	uv run --project backend python -m benchmarks.run_benchmark
 
