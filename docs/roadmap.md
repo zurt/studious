@@ -246,9 +246,25 @@ Priority 2 (second pass, bundled):
       Sonnets at a tenth of the cost but misreads. Report:
       `benchmarks/model_eval/reports/2026-11-11-model-comparison.md`. The
       July `v1` dataset no longer exists, so July's numbers are history only
-- [ ] Decide the default VLM in light of that run (recommendation:
-      `claude-opus-5-5`), and whether to test a prompt fix for Sonnet 5.5's
-      furigana habit first
+- [x] Default VLM switched to `claude-opus-5-5` (2026-11-11) on that run.
+      About 2.6x Sonnet 5.5 per transcription ($0.031 vs $0.012) and twice
+      the latency; negligible at one user's volume. A model saved in
+      Settings (`data/preferences.json`) still overrides the default
+- [ ] **Sonnet 5.5 prompt fix — only if scale makes the cost gap matter.**
+      Its weakness is one habit: adding furigana the page does not print.
+      If a transcription-prompt change stops that, Sonnet 5.5 becomes a
+      2.6x cheaper, 2x faster default. Test by re-running that one model on
+      `dataset/v2` and re-judging (about $1.10). Not worth doing at
+      single-user volume
+- [ ] **Benchmarks for breakdowns, exercise completions and grammar
+      guides.** The model setting drives every job type, but both
+      benchmark tools measure transcription only (plus one structural
+      breakdown fixture). The Opus 5.5 switch is therefore unevaluated for
+      most of what the app does with the model, including cost: those jobs
+      run at higher effort with longer outputs. Needs a frozen dataset of
+      transcribed regions, a rubric per job type (gloss accuracy, vocab and
+      grammar coverage, answer correctness, level-appropriateness), and
+      the same blind-judge flow
 
 ## Phase 2: Sentence Breakdowns
 

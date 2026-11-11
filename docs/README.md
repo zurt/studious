@@ -4,6 +4,7 @@
 
 | Doc | What it is |
 |---|---|
+| [next-steps.md](next-steps.md) | Handoff: what is decided, what is open, where the next sessions start |
 | [project-description.md](project-description.md) | What Studious is and the tech stack |
 | [plan.md](plan.md) | Architecture and data model |
 | [roadmap.md](roadmap.md) | Phase-by-phase status; what is shipped, beta, and open |

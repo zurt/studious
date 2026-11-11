@@ -168,8 +168,10 @@ Sonnet 4.6+); on Haiku 4.5 they are silently omitted. The `temperature`
 config field is silently dropped on Claude Opus 4.7+ and Sonnet 5+ (which
 removed it).
 
-The default VLM model is `claude-sonnet-5-5`. **Settings → General** offers
-Claude Sonnet 5.5, Opus 5.5, Sonnet 5, Opus 4.8 and Opus 4.7; the choice
+The default VLM model is `claude-opus-5-5` (chosen on the November 2026
+model comparison: `benchmarks/model_eval/reports/2026-11-11-model-comparison.md`).
+**Settings → General** offers
+Claude Opus 5.5, Sonnet 5.5, Sonnet 5, Opus 4.8 and Opus 4.7; the choice
 persists to `data/preferences.json` and is exposed via
 `GET`/`PUT /api/preferences`. Sonnet 5.5 and Opus 5.5 don't accept a forced
 tool call, so their breakdowns, grammar guides and exercise completions use
