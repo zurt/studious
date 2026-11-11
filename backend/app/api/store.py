@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from ..services import anki as anki_service
 from ..services import enrich, harvest, jmdict, store, wanikani
 
 log = logging.getLogger("studious.api.store")
@@ -20,6 +21,7 @@ log = logging.getLogger("studious.api.store")
 router = APIRouter(prefix="/api", tags=["store"])
 
 _SORTS = ("recent", "updated", "alpha", "priority")
+_ANKI_FILTERS = ("any", "none", *anki_service.STATES)
 
 
 class CreateVocab(BaseModel):
@@ -94,8 +96,11 @@ def _list_items(
     sort: str,
     limit: int,
     offset: int,
+    anki_filter: str | None = None,
 ) -> dict[str, Any]:
     _check_status(status)
+    if anki_filter is not None and anki_filter not in _ANKI_FILTERS:
+        raise HTTPException(400, f"invalid anki filter: {anki_filter!r}")
     if sort not in _SORTS:
         raise HTTPException(400, f"invalid sort: {sort!r}")
     if source is not None and source not in store.SOURCES:
@@ -135,6 +140,18 @@ def _list_items(
         # Unenriched items (priority_group null) sort last within their bucket.
         items.sort(key=lambda i: (i.get("priority_group") or 9, i.get("reading") or ""))
     # "recent" is list_items' natural order (created_at desc).
+
+    if kind == "vocab":
+        # Anki state is joined at read time from the snapshot (never stored).
+        # Filter before paging so `total` matches what the filter returns.
+        index = anki_service.get_index()
+        items = [{**i, "anki": anki_service.lookup(i.get("headword", ""), i.get("reading"), index)} for i in items]
+        if anki_filter == "any":
+            items = [i for i in items if i["anki"]]
+        elif anki_filter == "none":
+            items = [i for i in items if not i["anki"]]
+        elif anki_filter:
+            items = [i for i in items if i["anki"] and i["anki"]["state"] == anki_filter]
 
     total = len(items)
     return {"items": items[offset : offset + limit], "total": total}
@@ -211,9 +228,11 @@ def list_vocab(
     sort: str = "recent",
     limit: int = 100,
     offset: int = 0,
+    anki: str | None = None,
 ):
     return _list_items(
         "vocab",
+        anki_filter=anki,
         status=status,
         q=q,
         doc_id=doc_id,
@@ -361,6 +380,26 @@ async def run_enrich(force: bool = False):
 @router.get("/refs/wanikani/status")
 def wanikani_status():
     return wanikani.status()
+
+
+@router.get("/refs/anki/status")
+def anki_status():
+    return anki_service.status()
+
+
+@router.post("/refs/anki/sync")
+async def anki_sync():
+    """Read-only import of Anki card state via AnkiConnect (Anki must be
+    open). 503 with an actionable message when Anki is unreachable."""
+    try:
+        result = await asyncio.to_thread(anki_service.sync)
+    except anki_service.AnkiUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+    index = anki_service.get_index()
+    matched = sum(
+        1 for i in store.list_items("vocab") if anki_service.lookup(i.get("headword", ""), i.get("reading"), index)
+    )
+    return {**result, "matched": matched}
 
 
 @router.post("/refs/wanikani/sync")

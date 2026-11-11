@@ -9,6 +9,8 @@ import {
   getWanikaniStatus,
   syncWanikani,
   getVocabWanikani,
+  getAnkiStatus,
+  syncAnki,
   runStoreEnrich,
   mergeStoreItems,
   lookupVocab,
@@ -96,6 +98,32 @@ describe("store api", () => {
     fetchMock.mockResolvedValue(jsonResponse({ attempted: 0 }));
     await runStoreEnrich(true);
     expect(fetchMock.mock.calls[3][0]).toBe("/api/store/enrich?force=true");
+  });
+
+  it("anki endpoints and list filter hit the right URLs", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ has_snapshot: false, total_cards: 0 }));
+    await getAnkiStatus();
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/refs/anki/status");
+    fetchMock.mockResolvedValue(jsonResponse({ total_cards: 3, matched: 2 }));
+    const r = await syncAnki();
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/refs/anki/sync");
+    expect(fetchMock.mock.calls[1][1].method).toBe("POST");
+    expect(r.matched).toBe(2);
+    fetchMock.mockResolvedValue(jsonResponse({ items: [], total: 0 }));
+    await listStoreItems("vocab", { anki: "mature" });
+    expect(fetchMock.mock.calls[2][0]).toBe("/api/vocab?anki=mature");
+  });
+
+  it("ankiBadge renders only for matched items; ankiErrorDetail unwraps 503 detail", async () => {
+    const { ankiBadge, ankiErrorDetail } = await import("../src/pages/study-dashboard");
+    expect(ankiBadge({ anki: null } as any)).toBe("");
+    expect(ankiBadge({ anki: { state: "mature", deck: "K", interval: 30, match: "exact" } } as any)).toContain(
+      "Anki · mature",
+    );
+    expect(ankiErrorDetail('/api/refs/anki/sync: 503 {"detail":"Anki is not reachable"}')).toBe(
+      "Anki is not reachable",
+    );
+    expect(ankiErrorDetail("network down")).toBe("network down");
   });
 
   it("mergeStoreItems posts the source id to the merge route", async () => {

@@ -311,6 +311,29 @@ against a 60/min rate limit and can take ~30s; on 429 the client honors
 display-only by design: a burned item still lands in the Inbox, because
 burned-years-ago knowledge is exactly what the store is re-learning.
 
+### Sync Anki fails
+The button toasts the backend's 503 message: "Anki is not reachable at
+<url>". Anki must be open on this Mac with the AnkiConnect add-on (code
+2055492159) installed; check with `curl -s localhost:8765 -d
+'{"action":"version","version":6}'`. If AnkiConnect listens on another
+port, set `ANKI_CONNECT_URL` and restart the backend. A message starting
+"AnkiConnect error" means Anki answered but rejected a call (read the
+text; an Anki profile may be mid-load). A failed sync leaves the previous
+snapshot (`backend/data/refs/anki/snapshot.json`) untouched; logs are
+`anki_unreachable` / `anki_sync_done` under `studious.anki`.
+
+### An item I study in Anki shows no Anki badge
+Matching uses the note type's word field, picked by name (Word,
+Expression, Vocabulary, Vocab, Kanji, Front, else the first field). See
+what was used with `GET /api/refs/anki/status` (`note_types`); a wrong
+`word_field` means that note type's name is not recognised — add it to
+`WORD_FIELD_CANDIDATES` in `backend/app/services/anki.py`. Cards whose
+cleaned word is empty or over 30 characters are skipped. If the word
+matches but the reading differs (e.g. Anki holds kanji-with-furigana or a
+different reading), the badge still appears by headword only; no badge at
+all means the headword itself differs (okurigana, 食べる vs 食べ). Re-run
+Sync Anki after changing cards; state is read from the snapshot.
+
 ### A vocab-list entry didn't show up in the vocab store
 The harvest parser (`backend/app/services/harvest.py`) only ingests lines it
 can positively identify as entries; everything else is treated as a section

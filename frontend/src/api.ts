@@ -629,6 +629,15 @@ export type StoreClassifications = {
   wanikani_level?: number;
 } & Record<string, unknown>;
 
+export type AnkiState = "mature" | "young" | "learning" | "new" | "suspended";
+
+export type AnkiMatch = {
+  state: AnkiState;
+  deck: string;
+  interval: number;
+  match: "exact" | "headword";
+};
+
 export type VocabItem = {
   id: string;
   headword: string;
@@ -642,6 +651,8 @@ export type VocabItem = {
   status: StoreStatus;
   classifications: StoreClassifications;
   priority_group: number | null;
+  /** Joined at read time from the Anki snapshot; null when no card matches. */
+  anki?: AnkiMatch | null;
   sightings: StoreSighting[];
   links: Record<string, string>;
   notes: string;
@@ -673,6 +684,8 @@ export type StoreListParams = {
   doc_id?: string;
   chapter_id?: string;
   source?: string;
+  /** Vocab only: "any" | "none" | an AnkiState. */
+  anki?: string;
   sort?: "recent" | "updated" | "alpha" | "priority";
   limit?: number;
   offset?: number;
@@ -848,6 +861,25 @@ export async function getWanikaniStatus(): Promise<WanikaniStatus> {
 
 export async function syncWanikani(full = false): Promise<Record<string, unknown>> {
   return jpost(`/api/refs/wanikani/sync${full ? "?full=true" : ""}`);
+}
+
+export type AnkiStatus = {
+  has_snapshot: boolean;
+  synced_at: string | null;
+  anki_connect_version: number | null;
+  total_cards: number;
+  counts: Record<AnkiState, number>;
+  decks: Record<string, Record<string, number>>;
+  note_types: Record<string, { word_field: string | null; reading_field: string | null }>;
+};
+
+export async function getAnkiStatus(): Promise<AnkiStatus> {
+  return jget("/api/refs/anki/status");
+}
+
+/** Read-only import of Anki card state; `matched` = store vocab items with a card. */
+export async function syncAnki(): Promise<AnkiStatus & { matched: number }> {
+  return jpost("/api/refs/anki/sync");
 }
 
 export async function getVocabWanikani(itemId: string): Promise<WkDrilldown> {
