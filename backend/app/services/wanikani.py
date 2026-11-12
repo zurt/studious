@@ -254,6 +254,49 @@ def level_for(characters: str) -> int | None:
     return (subject.get("data") or {}).get("level")
 
 
+def _build_burned_index() -> dict[str, bool]:
+    burned_subjects = {
+        (rec.get("data") or {}).get("subject_id")
+        for rec in _load_latest("assignments").values()
+        if (rec.get("data") or {}).get("burned_at")
+    }
+    subjects = _load_latest("subjects")
+    index: dict[str, bool] = {}
+    # Same precedence as vocab_subject: "vocabulary" wins over "kana_vocabulary".
+    for obj in ("kana_vocabulary", "vocabulary"):
+        for rec in subjects.values():
+            data = rec.get("data") or {}
+            if rec.get("object") == obj and data.get("characters") and not data.get("hidden_at"):
+                index[data["characters"]] = rec["id"] in burned_subjects
+    return index
+
+
+def _file_stamp(resource: str) -> tuple[int, int] | None:
+    try:
+        st = _resource_path(resource).stat()
+    except FileNotFoundError:
+        return None
+    return st.st_mtime_ns, st.st_size
+
+
+_burned_cache: tuple[Any, dict[str, bool]] | None = None
+
+
+def burned_index() -> dict[str, bool]:
+    """headword -> whether its WaniKani vocabulary subject is burned.
+
+    One index for the whole list, cached on the subjects and assignments
+    file stamps. Empty when WaniKani has never been synced. Display signal
+    only, like all WK state."""
+    global _burned_cache
+    stamp = (str(cache_dir()), _file_stamp("subjects"), _file_stamp("assignments"))
+    if _burned_cache and _burned_cache[0] == stamp:
+        return _burned_cache[1]
+    index = _build_burned_index()
+    _burned_cache = (stamp, index)
+    return index
+
+
 def has_subjects() -> bool:
     return bool(_load_latest("subjects"))
 
