@@ -337,6 +337,11 @@ decisions:
   (`GET /api/refs/anki/status`, `POST /api/refs/anki/sync`). Card state is
   joined onto `/api/vocab` items at read time and never stored in the
   append-only JSONL.
+- **Frequency rank.** `classifications.freq_rank` (1 = most frequent) comes
+  from the JPDB-derived Yomitan frequency list, built by `make refs` into
+  `data/refs/freq/jpdb-freq.sqlite` (git-ignored local download; kanji
+  spelling and kana spelling are ranked separately, the item's own spelling
+  wins). It does not feed `priority_group`.
 - **Multiple classification signals, derived priority.** JLPT level
   (community lists), frequency rank, JMdict common flags, WK level, and
   textbook order are stored independently; a derived `priority_group`

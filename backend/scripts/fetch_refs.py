@@ -1,4 +1,4 @@
-"""Fetch pinned reference datasets (JMdict, JLPT lists) and build the
+"""Fetch pinned reference datasets (JMdict, JLPT lists, JPDB frequency list) and build the
 local lookup index at data/refs/jmdict/jmdict.sqlite.
 
 Usage: uv run python scripts/fetch_refs.py [--force]

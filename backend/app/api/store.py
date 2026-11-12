@@ -20,7 +20,7 @@ log = logging.getLogger("studious.api.store")
 
 router = APIRouter(prefix="/api", tags=["store"])
 
-_SORTS = ("recent", "updated", "alpha", "priority")
+_SORTS = ("recent", "updated", "alpha", "priority", "frequency")
 _ANKI_FILTERS = ("any", "none", *anki_service.STATES)
 
 
@@ -139,6 +139,12 @@ def _list_items(
     elif sort == "priority":
         # Unenriched items (priority_group null) sort last within their bucket.
         items.sort(key=lambda i: (i.get("priority_group") or 9, i.get("reading") or ""))
+    elif sort == "frequency":
+        if kind != "vocab":
+            raise HTTPException(400, "sort=frequency applies to vocab only")
+        # Rank ascending; unranked last. list.sort is stable, so ties and the
+        # unranked tail keep the newest-first order.
+        items.sort(key=lambda i: (i.get("classifications") or {}).get("freq_rank") or float("inf"))
     # "recent" is list_items' natural order (created_at desc).
 
     if kind == "vocab":

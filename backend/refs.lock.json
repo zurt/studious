@@ -35,5 +35,13 @@
         "sha256": "8863a96442adeadfa3510edb84bd60b158ed6b3839172b93cab2ceb026e5ef8a"
       }
     }
+  },
+  "freq": {
+    "name": "JPDB frequency list (MarvNC/jpdb-freq-list, Yomitan format)",
+    "version": "2022-05-09",
+    "url": "https://github.com/MarvNC/jpdb-freq-list/releases/download/2022-05-09/Freq.JPDB_2022-05-10T03_27_02.930Z.zip",
+    "sha256": "5bda39a9e3b443b02199435ea723aa0555c891d1ce2c92ea7680163b72b07a0e",
+    "license": "No licence file in the repository. Rank data derived from jpdb.io's corpus; used here only as a local, git-ignored download for personal study ranking, never redistributed or committed.",
+    "homepage": "https://github.com/MarvNC/jpdb-freq-list"
   }
 }

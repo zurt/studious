@@ -477,10 +477,20 @@ Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
       /api/refs/anki/sync` reads every card through AnkiConnect
       (`findCards`/`cardsInfo` only) into an atomic snapshot under
       `data/refs/anki/`; `GET /api/vocab` joins card state onto items at
-      read time (exact word+reading, else headword) with an `anki` filter,
+      read time (exact word+reading, else the same JMdict entry so variant
+      spellings like うれしい/嬉しい match, else headword; non-exact matches
+      show a `~` on the badge) with an `anki` filter,
       and the dashboard has a "Sync Anki" button and `Anki · state`
       badges. Never written to the store. The reverse direction (pushing
       chosen items to Anki) is planned and not built
+- [x] Frequency rank: `make refs` also builds `data/refs/freq/jpdb-freq.sqlite`
+      from the pinned JPDB frequency list (local download, not committed);
+      enrichment writes `classifications.freq_rank` (and `freq_checked`, so
+      existing items are revisited once per list revision), `GET /api/vocab`
+      has `sort=frequency`, and the dashboard shows a `#1.2k` badge and a
+      "By frequency" sort. `priority_group` is unchanged
+- [x] Dashboard shortlist aids: "N items" count and a chapter filter beside
+      the textbook filter (vocab and grammar)
 - [x] Derived priority grouping (pure function of jlpt/common/WK-level
       signals, 1–5) + "By study priority" sort on the vocab dashboard
 

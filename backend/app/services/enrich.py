@@ -8,6 +8,10 @@ creation, so the store never depends on the (optional) reference index:
   cheap and idempotent.
 - ``enrich_pending(force=True)`` re-links everything — used by
   ``POST /api/store/enrich`` after the index is (re)built.
+- Items already enriched are also revisited, once, when the frequency
+  index is available and they have not been checked against its current
+  revision (``freq_checked``), so a newly built frequency list reaches
+  existing items without a flag.
 
 Field policy: JMdict data fills ``jmdict_seq``/``pos``/classifications
 and replaces ``meaning`` only while ``meaning_source`` is ``"llm"`` —
@@ -22,7 +26,7 @@ import urllib.parse
 from datetime import UTC, datetime
 from typing import Any
 
-from . import jmdict, store, wanikani
+from . import freq, jmdict, store, wanikani
 
 log = logging.getLogger("studious.enrich")
 
@@ -107,6 +111,17 @@ def vocab_changes(item: dict[str, Any]) -> dict[str, Any]:
             if wk_data.get("document_url"):
                 links["wanikani"] = wk_data["document_url"]
 
+    # Frequency rank (JPDB corpus). freq_checked records which list was
+    # consulted, even on a miss, so unranked items are not retried forever.
+    freq_revision = freq.revision()
+    if freq_revision:
+        rank = freq.lookup(headword, reading)
+        if rank is not None:
+            classifications["freq_rank"] = rank
+        else:
+            classifications.pop("freq_rank", None)
+        changes["freq_checked"] = freq_revision
+
     changes["classifications"] = classifications
     changes["links"] = links
     changes["priority_group"] = compute_priority(
@@ -119,12 +134,17 @@ def enrich_pending(*, force: bool = False) -> dict[str, Any]:
     """Enrich vocab items that haven't been attempted yet (or all, with
     force). No-op until at least one source (JMdict index, WaniKani
     subjects cache) exists."""
-    if not jmdict.is_available() and not wanikani.has_subjects():
+    if not jmdict.is_available() and not wanikani.has_subjects() and not freq.is_available():
         return {"available": False, "attempted": 0, "linked": 0}
 
+    freq_revision = freq.revision()
     attempted = linked = 0
     for item in store.list_items("vocab"):
-        if not force and item.get("enriched_at"):
+        if (
+            not force
+            and item.get("enriched_at")
+            and (not freq_revision or item.get("freq_checked") == freq_revision)
+        ):
             continue
         changes = vocab_changes(item)
         store.update_item("vocab", item["id"], **changes)

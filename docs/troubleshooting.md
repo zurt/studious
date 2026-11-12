@@ -330,9 +330,31 @@ what was used with `GET /api/refs/anki/status` (`note_types`); a wrong
 `WORD_FIELD_CANDIDATES` in `backend/app/services/anki.py`. Cards whose
 cleaned word is empty or over 30 characters are skipped. If the word
 matches but the reading differs (e.g. Anki holds kanji-with-furigana or a
-different reading), the badge still appears by headword only; no badge at
-all means the headword itself differs (okurigana, 食べる vs 食べ). Re-run
-Sync Anki after changing cards; state is read from the snapshot.
+different reading), the badge still appears by headword only (`~`, "matched
+on spelling only, reading differs"). Variant spellings (うれしい in the store,
+嬉しい in Anki) match through the JMdict entry (`~`, "matched by dictionary
+entry"): that needs the JMdict index (`make refs`) and an Anki card with a
+reading that the entry confirms; a card without a reading is matched only
+exactly or by headword. Both indexes are rebuilt automatically when the
+snapshot or the JMdict file changes. No badge at all means none of the three
+tiers (exact, entry, headword) hit: the headword itself differs (okurigana,
+食べる vs 食べ) or the item has no `jmdict_seq` yet (run
+`POST /api/store/enrich`). Re-run Sync Anki after changing cards; state is
+read from the snapshot.
+
+### No frequency ranks (`#1.2k` badges) shown, or "By frequency" does nothing
+Ranks need the frequency index: `ls backend/data/refs/freq/jpdb-freq.sqlite`
+(built by `make refs`; `sqlite3 ... "SELECT * FROM meta"` shows the list
+revision and row count). If it exists but items have no rank, they have not
+been re-enriched yet: restart the backend (it runs a pending-enrichment pass
+at startup) or `POST /api/store/enrich`; items are re-checked once per list
+revision (`freq_checked`), no `force` needed. Items stay unranked when the
+list does not contain their spelling (terms jpdb never saw are dropped by
+design); those sort last. If `make refs` fails on the frequency step, a
+checksum mismatch means the pinned release changed (re-pin
+`backend/refs.lock.json` deliberately), and "unsafe zip member" / "too
+large" / "unexpected frequency list format" mean the archive was rejected by
+the build's safety checks and nothing was written.
 
 ### A vocab-list entry didn't show up in the vocab store
 The harvest parser (`backend/app/services/harvest.py`) only ingests lines it
