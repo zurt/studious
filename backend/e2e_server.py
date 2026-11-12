@@ -13,9 +13,11 @@ STUDIOUS_DATA_DIR). Never use this entrypoint outside E2E runs.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from app.providers import registry
+from app.services import anki_push
 
 MOCK_MODEL = "mock-vlm-model"
 
@@ -105,6 +107,27 @@ MOCK_EXERCISE_COMPLETION: dict[str, Any] = {
 # reading references actually reached the completion prompt.
 MOCK_REFERENCE_EXPLANATION = "Mock completion: answered using the reading reference."
 
+def mock_examples(prompt: Any) -> dict[str, Any]:
+    """A valid example-sentence response for every word in the prompt's
+    <words> block: これは<word>です。 with real furigana for the word."""
+    text = registry.prompt_text(prompt)
+    words = json.loads(text.rsplit("<words>", 1)[1].split("</words>", 1)[0])
+    out = []
+    for w in words:
+        head = w["headword"]
+        furi = anki_push.furigana(head, anki_push.pick_reading(head, w.get("reading") or ""))
+        out.append(
+            {
+                "id": w["id"],
+                "sentence": f"これは{head}です。",
+                "surface": head,
+                "furigana": "これは" + (" " if furi != head else "") + furi + "です。",
+                "gloss": "This is a mock example sentence.",
+            }
+        )
+    return {"examples": out}
+
+
 _TOOL_RESPONSES: dict[str, dict[str, Any]] = {
     "record_breakdown": MOCK_BREAKDOWN,
     "record_grammar_guide": MOCK_GRAMMAR_GUIDE,
@@ -139,6 +162,8 @@ class MockVlm:
         tool_schema: dict[str, Any],
         config: dict[str, Any],
     ) -> registry.ToolCallResult:
+        if tool_name == "record_examples":
+            return registry.ToolCallResult(tool_input=mock_examples(prompt), meta=self._meta(config))
         if tool_name not in _TOOL_RESPONSES:
             raise ValueError(f"e2e mock has no canned response for tool {tool_name!r}")
         tool_input = _TOOL_RESPONSES[tool_name]

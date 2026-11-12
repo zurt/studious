@@ -25,3 +25,13 @@ def _no_real_anki(monkeypatch: pytest.MonkeyPatch):
         raise anki.AnkiUnavailable("test: real AnkiConnect is blocked")
 
     monkeypatch.setattr(anki, "_post", refuse)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_say(monkeypatch: pytest.MonkeyPatch):
+    """Tests must never run the real `say`: audio is unavailable unless a test
+    fakes the subprocess itself."""
+    from app.services import tts
+
+    tts.reset_cache()
+    monkeypatch.setattr(tts.shutil, "which", lambda name: None)

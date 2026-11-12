@@ -11,10 +11,20 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 from ..services import anki as anki_service
-from ..services import enrich, harvest, jmdict, store, wanikani
+from ..services import (
+    anki_push,
+    enrich,
+    examples,
+    harvest,
+    jmdict,
+    store,
+    tts,
+    wanikani,
+)
 from ..services import shortlist as shortlist_service
 
 log = logging.getLogger("studious.api.store")
@@ -39,6 +49,11 @@ class UpdateVocab(BaseModel):
     meaning: str | None = None
     notes: str | None = None
     status: str | None = None
+
+
+class ExamplesBody(BaseModel):
+    item_ids: list[str] = Field(min_length=1, max_length=40)
+    force: bool = False
 
 
 class MergeBody(BaseModel):
@@ -229,6 +244,7 @@ def _update_item(kind: str, item_id: str, body: UpdateVocab | UpdateGrammar) -> 
     if kind == "vocab" and "meaning" in changes:
         # A hand-edited meaning must survive future enrichment passes.
         changes["meaning_source"] = "user"
+        changes["meaning_context"] = (changes["meaning"] or "").strip()
     updated = store.update_item(kind, item_id, **changes)
     if updated is None:
         raise HTTPException(404, f"{kind} item not found")
@@ -300,6 +316,49 @@ def update_vocab(item_id: str, body: UpdateVocab):
 @router.delete("/vocab/{item_id}")
 def delete_vocab(item_id: str):
     return _delete_item("vocab", item_id)
+
+
+@router.post("/vocab/examples")
+def generate_vocab_examples(body: ExamplesBody):
+    """Generate (and store) an example sentence for each item, in the Kaishi
+    style. Items that already have one are reported as `kept` unless `force`."""
+    try:
+        return examples.generate_examples(body.item_ids, force=body.force)
+    except examples.ExamplesError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
+
+
+@router.delete("/vocab/{item_id}/example")
+def delete_vocab_example(item_id: str):
+    if not examples.remove_example(item_id):
+        raise HTTPException(404, "vocab item not found")
+    return {"ok": True}
+
+
+@router.get("/tts/status")
+def tts_status():
+    return {"available": tts.is_available(), "voice": tts.voice()}
+
+
+@router.get("/vocab/{item_id}/audio")
+def vocab_audio(item_id: str, part: str = "word"):
+    """The clip for the item's word or sentence, as it would go on the card."""
+    if part not in ("word", "sentence"):
+        raise HTTPException(400, "part must be 'word' or 'sentence'")
+    item = store.get_item("vocab", item_id)
+    if item is None or item.get("deleted"):
+        raise HTTPException(404, "vocab item not found")
+    note = anki_push.build_note(item)
+    text = note["word_text"] if part == "word" else note["sentence_text"]
+    if not text:
+        raise HTTPException(404, f"this item has no {part} to speak")
+    if not tts.is_available():
+        raise HTTPException(503, f"The {tts.voice()!r} voice is not available (needs macOS with `say`)")
+    try:
+        path = tts.synthesize(text)
+    except tts.TtsError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return FileResponse(path, media_type="audio/mp4")
 
 
 @router.post("/vocab/{item_id}/merge")

@@ -637,8 +637,8 @@ export type AnkiMatch = {
   state: AnkiState;
   deck: string;
   interval: number;
-  /** exact word+reading, same JMdict entry (variant spelling), or word alone. */
-  match: "exact" | "entry" | "headword";
+  /** exact word+reading, same word with or without する/な, same JMdict entry (variant spelling), or word alone. */
+  match: "exact" | "stem" | "entry" | "headword";
 };
 
 export type ShortlistReason =
@@ -655,6 +655,18 @@ export type ShortlistSummary = {
   wk_burned: number;
 };
 
+/** A generated example sentence stored on a vocab item (plain text, no HTML). */
+export type VocabExample = {
+  sentence: string;
+  surface: string;
+  /** Anki furigana syntax: 漢字[よみ], a space before a kanji run that follows kana. */
+  furigana: string;
+  gloss: string;
+  source: string;
+  model: string;
+  created_at: string;
+};
+
 export type VocabItem = {
   id: string;
   headword: string;
@@ -665,6 +677,9 @@ export type VocabItem = {
   pos: string[];
   jmdict_seq: number | null;
   enriched_at?: string | null;
+  example?: VocabExample | null;
+  /** The textbook-context meaning; `meaning` may be a dictionary gloss. */
+  meaning_context?: string;
   status: StoreStatus;
   classifications: StoreClassifications;
   priority_group: number | null;
@@ -920,6 +935,8 @@ export type AnkiPushItem = {
   tags: string[];
   has_sentence: boolean;
   has_gloss: boolean;
+  /** Where the sentence came from; null when the note has none. */
+  sentence_source: "textbook" | "generated" | null;
   can_add: boolean;
   reason: string;
   /** A card with the same spelling but a different reading already exists. */
@@ -931,6 +948,8 @@ export type AnkiPushPreview = {
   deck_exists: boolean;
   will_create_deck: boolean;
   note_type: string;
+  /** Card audio from the Mac voice: the setting, whether `say` and the voice exist, the voice. */
+  audio?: { enabled: boolean; available: boolean; voice: string };
   counts: {
     candidates: number;
     will_add: number;
@@ -939,6 +958,9 @@ export type AnkiPushPreview = {
     with_sentence: number;
     with_gloss: number;
     headword_match: number;
+    /** Will-add rows with no sentence, and their item ids. */
+    needs_example: number;
+    needs_example_ids: string[];
   };
   items: AnkiPushItem[];
 };
@@ -951,6 +973,7 @@ export type AnkiPushResult = {
   deck_created: boolean;
   sync_ok: boolean;
   sync_error: string | null;
+  audio?: { enabled: boolean; attached: number; failed: number };
 };
 
 /** Request body shared by the preview and the send. */
@@ -972,8 +995,43 @@ export async function sendAnkiPush(
   docId: string,
   chapterId: string,
   limit: number,
+  audio?: boolean,
 ): Promise<AnkiPushResult> {
-  return jpost("/api/anki/push", { ...ankiPushBody(docId, chapterId, limit), confirm: true });
+  return jpost("/api/anki/push", {
+    ...ankiPushBody(docId, chapterId, limit),
+    confirm: true,
+    ...(audio === undefined ? {} : { audio }),
+  });
+}
+
+export async function getTtsStatus(): Promise<{ available: boolean; voice: string }> {
+  return jget("/api/tts/status");
+}
+
+/** URL of the clip for a vocab item's word or sentence as it would go on the card. */
+export function vocabAudioUrl(itemId: string, part: "word" | "sentence"): string {
+  return `/api/vocab/${itemId}/audio?part=${part}`;
+}
+
+export type ExampleResult = {
+  id: string;
+  status: "generated" | "kept" | "failed";
+  example?: VocabExample;
+  reason?: string;
+};
+
+export type ExamplesResponse = {
+  items: ExampleResult[];
+  usage: { calls: number; input_tokens: number; output_tokens: number; estimated_cost_usd: number };
+};
+
+/** Generate (and store) example sentences; 1 to 40 ids. `force` regenerates stored ones. */
+export async function generateExamples(itemIds: string[], force = false): Promise<ExamplesResponse> {
+  return jpost("/api/vocab/examples", { item_ids: itemIds, force });
+}
+
+export async function deleteVocabExample(itemId: string): Promise<void> {
+  return jdelete(`/api/vocab/${itemId}/example`);
 }
 
 export async function getVocabWanikani(itemId: string): Promise<WkDrilldown> {

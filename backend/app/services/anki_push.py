@@ -12,14 +12,17 @@ set of pure functions (``build_note`` and friends).
 """
 from __future__ import annotations
 
+import base64
 import html
 import logging
 import re
 import threading
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 
 from ..config import get_settings
-from . import anki, blanks, storage, store
+from . import anki, blanks, examples, storage, store, tts
 
 log = logging.getLogger("studious.anki")
 
@@ -61,9 +64,17 @@ FILLED_FIELDS = (
 )
 
 MAX_SENTENCE_CHARS = 120
+# Flashcard sentences should be short: a longer textbook sentence is passed over.
+MAX_TEXTBOOK_SENTENCE_CHARS = 60
+
+# The card's Word Meaning: dictionary glosses are cut to this many, and to
+# this many characters (the first gloss is always kept).
+MAX_CARD_GLOSSES = 3
+MAX_CARD_MEANING_CHARS = 40
+MAX_CONTEXT_MEANING_CHARS = 60
+AUDIO_WORKERS = 4
 
 _push_lock = threading.Lock()
-
 
 class AnkiPushError(Exception):
     """A push/preview failure with the HTTP status the API should answer."""
@@ -219,6 +230,47 @@ def furigana(headword: str, reading: str) -> str:
         return f"{headword}[{reading}]" if reading else (headword or "")
 
 
+def split_glosses(meaning: str) -> list[str]:
+    """Glosses separated by ';' (also ；), ignoring separators inside parentheses."""
+    out: list[str] = []
+    depth = 0
+    cur: list[str] = []
+    for ch in meaning or "":
+        if ch in "(（":
+            depth += 1
+        elif ch in ")）":
+            depth = max(0, depth - 1)
+        if ch in ";；" and depth == 0:
+            out.append("".join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    out.append("".join(cur))
+    return [g.strip() for g in out if g.strip()]
+
+
+def card_meaning(meaning: str) -> str:
+    """A short meaning for the card: the first three glosses, stopping early
+    when the next would take the result past 40 characters. The first gloss
+    is always kept, however long."""
+    kept: list[str] = []
+    for gloss in split_glosses(meaning):
+        if len(kept) >= MAX_CARD_GLOSSES:
+            break
+        if kept and len(", ".join([*kept, gloss])) > MAX_CARD_MEANING_CHARS:
+            break
+        kept.append(gloss)
+    return ", ".join(kept)
+
+
+_TRAILING_GROUP_RE = re.compile(r"\s*[(（][^()（）]*[)）]\s*$")
+
+
+def speech_word(headword: str) -> str:
+    """The Word as spoken: as written, a trailing bracket group removed."""
+    return _TRAILING_GROUP_RE.sub("", headword or "").strip()
+
+
 # ---------- Sentence ----------
 
 _FURI_RE = re.compile(r"([㐀-䶿一-鿿豈-﫿々〆ヵヶ]+)[(（][ぁ-ゖー]+[)）]")
@@ -339,14 +391,14 @@ def choose_sentence(
     """(sighting, plain text) of the best usable breakdown sentence, or None.
     Vocab-list sightings are list rows, not sentences, so they never count.
     Ranked: reading_passage regions first, then the given chapter, then the
-    shorter sentence."""
+    shorter sentence. Sentences over MAX_TEXTBOOK_SENTENCE_CHARS never count."""
     cache = {} if cache is None else cache
     ranked: list[tuple[tuple, dict[str, Any], str]] = []
     for s in item.get("sightings") or []:
         if s.get("source") != "breakdown":
             continue
         text = usable_sentence(s.get("sentence_text") or "")
-        if text is None:
+        if text is None or len(text) > MAX_TEXTBOOK_SENTENCE_CHARS:
             continue
         key = (
             0 if _region_tag(s, cache) == "reading_passage" else 1,
@@ -385,21 +437,55 @@ def sentence_gloss(sighting: dict[str, Any]) -> str:
 # ---------- Note ----------
 
 
+def stored_example(item: dict[str, Any]) -> dict[str, Any] | None:
+    """The item's stored example when it has the fields a note needs."""
+    ex = item.get("example")
+    if isinstance(ex, dict) and ex.get("sentence") and ex.get("furigana"):
+        return ex
+    return None
+
+
+def word_meaning(item: dict[str, Any]) -> str:
+    """The card meaning. The textbook-context meaning (``meaning_context``)
+    when the item has one, with ';' written as ', ' and shortened like a
+    dictionary gloss if it is over 60 characters. Otherwise the stored
+    meaning, shortened only when it came from the dictionary
+    (``meaning_source`` "jmdict"); an owner's ("user") or the model's ("llm")
+    meaning goes on the card as it is."""
+    ctx = (item.get("meaning_context") or "").strip()
+    if ctx:
+        joined = ", ".join(split_glosses(ctx))
+        return card_meaning(ctx) if len(joined) > MAX_CONTEXT_MEANING_CHARS else joined
+    meaning = item.get("meaning") or ""
+    return card_meaning(meaning) if item.get("meaning_source") == "jmdict" else meaning
+
+
 def build_note(
     item: dict[str, Any],
     doc_id: str | None = None,
     chapter_id: str | None = None,
     cache: dict[tuple, str | None] | None = None,
 ) -> dict[str, Any]:
-    """{"fields", "tags", "has_sentence", "has_gloss"} for one store item."""
+    """{"fields", "tags", "has_sentence", "has_gloss", "sentence_source"} for one
+    store item. The sentence is a short textbook sighting, else the item's
+    stored generated example (with real furigana), else empty."""
     headword = strip_suffix_group(item.get("headword") or "")
     reading = pick_reading(headword, strip_suffix_group(item.get("reading") or ""))
     chosen = choose_sentence(item, chapter_id, cache)
-    sentence = meaning = ""
+    sentence = meaning = sentence_furigana = spoken = ""
+    source: str | None = None
     if chosen:
         sighting, text = chosen
-        sentence = sentence_html(text, sighting.get("surface") or "", headword)
+        sentence = sentence_furigana = sentence_html(text, sighting.get("surface") or "", headword)
         meaning = html.escape(sentence_gloss(sighting), quote=False)
+        source = "textbook"
+        spoken = text
+    elif (ex := stored_example(item)) is not None:
+        sentence = sentence_html(ex["sentence"], ex.get("surface") or "", headword)
+        sentence_furigana = examples.wrap_surface(ex["furigana"], ex.get("surface") or "")
+        meaning = html.escape(ex.get("gloss") or "", quote=False)
+        source = "generated"
+        spoken = ex["sentence"]
     own = (item.get("notes") or "").strip()
     notes = html.escape(own, quote=False).replace("\n", "<br>") if own else ""
     rank = (item.get("classifications") or {}).get("freq_rank")
@@ -408,11 +494,11 @@ def build_note(
         {
             "Word": html.escape(headword, quote=False),
             "Word Reading": html.escape(reading, quote=False),
-            "Word Meaning": html.escape(item.get("meaning") or "", quote=False),
+            "Word Meaning": html.escape(word_meaning(item), quote=False),
             "Word Furigana": html.escape(furigana(headword, reading), quote=False),
             "Sentence": sentence,
             "Sentence Meaning": meaning,
-            "Sentence Furigana": sentence,
+            "Sentence Furigana": sentence_furigana,
             "Notes": notes,
             "Frequency": str(int(rank)) if isinstance(rank, (int, float)) and rank > 0 else "",
         }
@@ -420,7 +506,11 @@ def build_note(
     tags = ["studious"]
     if doc_id and chapter_id:
         tags.append(f"studious::{doc_id}::{chapter_id}")
-    return {"fields": fields, "tags": tags, "has_sentence": bool(sentence), "has_gloss": bool(meaning)}
+    return {"fields": fields, "tags": tags, "has_sentence": bool(sentence), "has_gloss": bool(meaning),
+        "sentence_source": source,
+        "word_text": speech_word(headword),
+        "sentence_text": spoken,
+    }
 
 
 # ---------- Preview / push ----------
@@ -461,6 +551,80 @@ def _can_add(notes: list[dict[str, Any]]) -> list[tuple[bool, str]]:
     return [(bool(f), "" if f else "Already in Anki (or cannot be added)") for f in flags]
 
 
+def _stem_key(headword: str) -> str:
+    """Spelling that a word and its する / な form share (管理, 管理する)."""
+    word = strip_suffix_group(headword)
+    parts = store.stem_parts(word)
+    return parts[0] if parts else word
+
+
+def _check_with_variants(
+    items: list[dict[str, Any]], payload: list[dict[str, Any]], check_deck: str
+) -> list[tuple[bool, str]]:
+    """can-add verdicts where a note also counts as a duplicate when its stem
+    variant (管理 <-> 管理する, 重要 <-> 重要な) exists. The variants ride in the
+    same read-only canAddNotesWithErrorDetail call as extra notes."""
+    notes = [{**n, "deckName": check_deck} for n in payload]
+    extra: list[tuple[int, str]] = []
+    for i, (item, n) in enumerate(zip(items, payload, strict=True)):
+        word = strip_suffix_group(item.get("headword") or "")
+        reading = strip_suffix_group(item.get("reading") or "")
+        for variant, _ in store.stem_variants(word, reading):
+            extra.append((i, variant))
+            notes.append(
+                {**notes[i], "fields": {**n["fields"], "Word": html.escape(variant, quote=False)}}
+            )
+    verdicts = _can_add(notes)
+    own = verdicts[: len(payload)]
+    for (i, variant), (can, _reason) in zip(extra, verdicts[len(payload) :], strict=True):
+        if not can and own[i][0]:
+            own[i] = (False, f"{variant} (same word with or without する/な) is already in Anki")
+    return own
+
+
+def audio_status() -> dict[str, Any]:
+    return {
+        "enabled": get_settings().anki_push_audio,
+        "available": tts.is_available(),
+        "voice": tts.voice(),
+    }
+
+
+def attach_audio(note: dict[str, Any], clips: list[tuple[str, Path]]) -> dict[str, Any]:
+    """The note with AnkiConnect per-note media for ``clips`` ((field, file)).
+    AnkiConnect stores each file and appends [sound:<filename>] to the field.
+    This payload shape is NOT verified against a real Anki; it is the only
+    place that knows it. Never used for the can-add check."""
+    if not clips:
+        return note
+    return {
+        **note,
+        "audio": [
+            {
+                "filename": f"studious_{path.stem}.m4a",
+                "data": base64.b64encode(path.read_bytes()).decode("ascii"),
+                "fields": [field],
+            }
+            for field, path in clips
+        ],
+    }
+
+
+def _note_with_audio(row: dict[str, Any]) -> tuple[dict[str, Any], int, int]:
+    """(note, clips attached, clips failed). A failed clip is left out."""
+    clips: list[tuple[str, Path]] = []
+    failed = 0
+    for field, text in row["_audio_texts"]:
+        if not text:
+            continue
+        try:
+            clips.append((field, tts.synthesize(text)))
+        except tts.TtsError as exc:
+            failed += 1
+            log.warning("anki_push_audio_failed", extra={"word": row["headword"], "field": field, "error": str(exc)})
+    return attach_audio(row["_note"], clips), len(clips), failed
+
+
 def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
     settings = get_settings()
     deck, model = settings.anki_push_deck, settings.anki_push_note_type
@@ -491,21 +655,21 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
         # A deck that does not exist yet makes AnkiConnect refuse every note
         # ("deck was not found"). Duplicates are checked across the whole
         # collection, so ask with a deck that exists; push creates the real one.
+        check_deck = deck
         if not deck_exists and deck_names:
             check_deck = "Default" if "Default" in deck_names else deck_names[0]
-            verdicts = _can_add([{**n, "deckName": check_deck} for n in payload])
-        else:
-            verdicts = _can_add(payload)
+        verdicts = _check_with_variants(items, payload, check_deck)
     except anki.AnkiUnavailable as exc:
         raise AnkiPushError(503, str(exc)) from exc
 
-    seen: set[str] = set()
+    seen: dict[str, str] = {}
     rows: list[dict[str, Any]] = []
     for item, b, note, (ok, reason) in zip(items, built, payload, verdicts, strict=True):
         word = b["fields"]["Word"]
-        if ok and word in seen:
-            ok, reason = False, "Another word in this batch has the same spelling"
-        seen.add(word)
+        key = _stem_key(item.get("headword") or "")
+        if ok and key in seen:
+            ok, reason = False, f"Same word as {seen[key]} earlier in this batch (with or without する/な)"
+        seen.setdefault(key, word)
         rows.append(
             {
                 "id": item["id"],
@@ -515,10 +679,12 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
                 "tags": b["tags"],
                 "has_sentence": b["has_sentence"],
                 "has_gloss": b["has_gloss"],
+                "sentence_source": b["sentence_source"],
                 "can_add": ok,
                 "reason": reason,
                 "headword_match": (item.get("anki") or {}).get("match") == "headword",
                 "_note": note,
+                "_audio_texts": [("Word Audio", b["word_text"]), ("Sentence Audio", b["sentence_text"])],
             }
         )
     return {"deck": deck, "deck_exists": deck_exists, "note_type": model, "rows": rows}
@@ -527,28 +693,34 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
 def preview(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
     """What a send would do. Read actions only."""
     prepared = _prepare(doc_id, chapter_id, limit)
-    rows = [{k: v for k, v in r.items() if k != "_note"} for r in prepared["rows"]]
+    rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in prepared["rows"]]
     addable = [r for r in rows if r["can_add"]]
+    needs = [r for r in addable if not r["has_sentence"]]
     return {
         "deck": prepared["deck"],
         "deck_exists": prepared["deck_exists"],
         "will_create_deck": not prepared["deck_exists"],
         "note_type": prepared["note_type"],
+        "audio": audio_status(),
         "counts": {
             "candidates": len(rows),
             "will_add": len(addable),
             "skipped": len(rows) - len(addable),
             "with_sentence": sum(1 for r in addable if r["has_sentence"]),
             "with_gloss": sum(1 for r in addable if r["has_gloss"]),
-            "without_sentence": sum(1 for r in addable if not r["has_sentence"]),
+            "without_sentence": len(needs),
+            "needs_example": len(needs),
+            "needs_example_ids": [r["id"] for r in needs],
             "headword_match": sum(1 for r in addable if r["headword_match"]),
         },
         "items": rows,
     }
 
 
-def push(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
-    """Create the notes in Anki. 409 if another send is running."""
+def push(doc_id: str, chapter_id: str, limit: int, audio: bool | None = None) -> dict[str, Any]:
+    """Create the notes in Anki. 409 if another send is running. ``audio``
+    (default: the ANKI_PUSH_AUDIO setting) attaches Mac-voice clips when the
+    voice is available; a failed clip leaves that note without it."""
     if not _push_lock.acquire(blocking=False):
         raise AnkiPushError(409, "A send to Anki is already running.")
     try:
@@ -558,13 +730,22 @@ def push(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
         todo = [r for r in rows if r["can_add"]]
         skipped = [{"id": r["id"], "headword": r["headword"], "reason": r["reason"]} for r in rows if not r["can_add"]]
         failed: list[dict[str, Any]] = []
+        want_audio = get_settings().anki_push_audio if audio is None else audio
+        use_audio = bool(want_audio) and tts.is_available()
+        audio_stats = {"attached": 0, "failed": 0}
+        notes = [r["_note"] for r in todo]
+        if use_audio and todo:
+            with ThreadPoolExecutor(max_workers=AUDIO_WORKERS) as pool:
+                done = list(pool.map(_note_with_audio, todo))
+            notes = [d[0] for d in done]
+            audio_stats = {"attached": sum(d[1] for d in done), "failed": sum(d[2] for d in done)}
         created = 0
         deck_created = False
         if todo:
             try:
                 _write("createDeck", {"deck": prepared["deck"]})
                 deck_created = not prepared["deck_exists"]
-                results = _write("addNotes", {"notes": [r["_note"] for r in todo]}, timeout=ADD_TIMEOUT)
+                results = _write("addNotes", {"notes": notes}, timeout=ADD_TIMEOUT)
             except anki.AnkiUnavailable as exc:
                 raise AnkiPushError(503, str(exc)) from exc
             if not isinstance(results, list) or len(results) != len(todo):
@@ -602,6 +783,7 @@ def push(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
             "deck_created": deck_created,
             "sync_ok": sync_error is None,
             "sync_error": sync_error,
+            "audio": {"enabled": use_audio, **audio_stats},
         }
     finally:
         _push_lock.release()

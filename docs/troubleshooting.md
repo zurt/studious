@@ -341,14 +341,90 @@ skipped. A word reported as failed was accepted by the preview but refused by
 `addNotes`; it stays in the inbox and can be retried.
 
 ### Cards sent to Anki have no example sentence
-Only a breakdown sighting is used, because a vocab-list sighting is a list
-row, not a sentence. A word gets no sentence when it was never in a
-breakdown, or every sentence is exercise debris: over 120 characters, a
+First choice is a breakdown sighting of at most 60 characters (a vocab-list
+sighting is a list row, not a sentence); second is a generated sentence
+stored on the item (see "Generate sentences fails" below). A word gets
+neither when it was never in a breakdown, or every sentence is exercise
+debris or too long: over 60 characters, a
 table, a word bank (`□`), a blank or empty brackets, or no sentence-ending
 mark. Sentences from `reading_passage` regions are preferred. Run the breakdown for the chapter's reading passages and send again
 (already-sent words are skipped as duplicates, so fix the note in Anki by
 hand). The translation is empty when the breakdown was re-run since the word
 was harvested and the sentence moved.
+
+### Generate sentences fails
+The dialog or the row button shows the backend's message. 503 with
+"ANTHROPIC_API_KEY is not set" means the provider is not configured: put the
+key in `.env` and restart the backend. 502 "Example sentence generation
+failed" means every model call errored (rate limit, overload, bad model
+name); the error is in the `llm_audit` log with `job_type`
+`example_sentences` and in `studious.examples` as `example_batch_failed`.
+Retry later; sentences already stored are kept.
+
+### Some words still have no sentence after generating
+The model's answer is checked before it is stored (6 to 40 characters,
+ends with 。, the word's stem in the surface form, readings on every kanji
+and only there, no Japanese in the translation) and retried once with the
+reason. Words that fail twice are left without one. The reasons are logged
+as `example_validation_dropped` under `studious.examples` (and listed per
+word as `reason` in the `POST /api/vocab/examples` response). Open the row's
+detail and press Generate example to try again; a new call often passes.
+
+### A generated sentence uses the noun, not the verb
+A する headword must be used as a verb (した, します, している…) and a な
+headword as an adjective; sentences that do not are rejected and retried
+with that reason. Sentences stored before this rule are not regenerated:
+press Regenerate on the row.
+
+### A generated sentence is wrong
+Open the vocab row's detail: **Regenerate** asks the model for a new one,
+**Remove** deletes it (the card then goes out without a sentence). Cards
+already sent to Anki are not updated; fix the note in Anki by hand. The
+stored `example` records the model that wrote it.
+
+### A word shows a wrong meaning / wrong dictionary entry
+Symptom: 成功する linked to 性交, 管理する to 官吏, 買える to 帰る, with
+that entry's gloss, JLPT level and Anki entry match. Cause: until
+`ENRICH_VERSION` 3 the dictionary lookup fell back to the reading alone and
+took the lowest-numbered homophone. Now the surface is tried first, then
+without a list marker (①, ＊, `a.`), without a pattern tilde and particle
+(〜に及ぶ), without する/な, and a reading-only hit is accepted only for a
+kana-only headword or when every kanji of the headword occurs in one of the
+entry's written forms. Restarting the backend after this update re-links
+every vocab item once (in the background, `startup_enrich_*` under
+`studious.main`); the summary is one `enrich_done` line under
+`studious.enrich` with `relinked`, `unlinked`, `unchanged`. A word whose
+link is dropped gets its textbook meaning back (`meaning_context`). Cards
+use `meaning_context` when present, so they are right even before the
+re-link finishes. To re-run it by hand: `POST /api/store/enrich?force=true`.
+Not fixed by this: an inflected form such as 受けて can still resolve to a
+homophone whose kanji include its own (受け手); edit the item's reading or
+headword, or its meaning (an edited meaning is never overwritten).
+
+### Cards have no audio
+The send result says how many clips were added. None means: not macOS or
+no `say` on PATH; the voice is not installed (`say -v '?'` lists them;
+`GET /api/tts/status` shows `available` and the voice, default `Kyoko`,
+change with `STUDIOUS_TTS_VOICE`); the dialog's "Add audio" box was off or
+`ANKI_PUSH_AUDIO=false`. "N failed" means `say` errored for some clips (log
+`anki_push_audio_failed` under `studious.tts` / `studious.anki`); those
+notes were still sent. If clips are generated but the field stays empty, the
+per-note `audio` media shape may differ in your AnkiConnect version (it is
+not verified against a real Anki; see `anki_push.attach_audio`). Cached
+clips are in `backend/data/audio/`; delete one to regenerate it.
+
+### The audio reads a word wrongly
+The built-in voice picks the reading from the kanji itself and can choose a
+different one than the card shows (the card's reading field is not given to
+it). Try another voice in `STUDIOUS_TTS_VOICE`, or fix the clip in Anki.
+
+### A word I expected was skipped as a duplicate
+Words that differ only by a trailing する or な (管理 / 管理する, 重要 /
+重要な) are treated as the same word: in the shortlist an existing card hides
+the other form (badge "matched the same word with or without する/な"), and
+in the send only the first of the pair goes; the skip reason names the other
+word. Hiragana-only words are not affected. Anki's own duplicate check
+(exact Word field) is also asked about the other spelling.
 
 ### New cards do not appear on my phone
 Studious adds the notes to Anki desktop only. Sync Anki desktop with

@@ -132,8 +132,12 @@ class TestChooseSentence:
         item["sightings"] = item["sightings"][:3]
         assert anki_push.choose_sentence(item, CH) is None
 
-    def test_exactly_120_allowed(self):
-        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 119 + "。")]}, CH) is not None
+    def test_exactly_60_allowed_61_dropped(self):
+        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 59 + "。")]}, CH) is not None
+        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 60 + "。")]}, CH) is None
+
+    def test_usable_sentence_still_allows_120(self):
+        assert anki_push.usable_sentence("あ" * 119 + "。") is not None
 
     def test_no_sightings(self):
         assert anki_push.choose_sentence({}, CH) is None
@@ -347,7 +351,8 @@ class TestPreview:
         assert d["deck"] == "Studious" and d["note_type"] == "Kaishi 1.5k"
         assert d["deck_exists"] is False and d["will_create_deck"] is True
         assert d["counts"] == {"candidates": 3, "will_add": 3, "skipped": 0, "without_sentence": 3,
-                               "headword_match": 0, "with_sentence": 0, "with_gloss": 0}
+                               "headword_match": 0, "with_sentence": 0, "with_gloss": 0,
+                               "needs_example": 3, "needs_example_ids": [i["id"] for i in d["items"]]}
         assert [i["headword"] for i in d["items"]] == ["犬", "猫", "鳥"]
         first = d["items"][0]
         assert set(first) >= {"id", "headword", "reading", "fields", "has_sentence", "can_add", "reason",
@@ -828,3 +833,117 @@ def test_gloss_example_marker_stripped(textbook):
                   "e.g. It got out to my family."):
         _breakdown(doc, ch, [{"text": text, "gloss": gloss}])
         assert anki_push.sentence_gloss(_sighting(text, doc=doc, chapter=ch)) == "It got out to my family."
+
+
+# ---------- sentence selection: textbook vs generated ----------
+
+KAISHI = {
+    "sentence": "彼に会えて嬉しかった。",
+    "surface": "嬉しかった",
+    "furigana": "彼[かれ]に 会[あ]えて 嬉[うれ]しかった。",
+    "gloss": "I was glad to be able to meet him <b>.",
+    "source": "generated",
+    "model": "m",
+    "created_at": "2026-01-01T00:00:00+00:00",
+}
+
+
+def _happy(sightings=(), example=None):
+    return {"headword": "嬉しい", "reading": "うれしい", "meaning": "glad", "sightings": list(sightings),
+            "example": example}
+
+
+class TestSentenceSelection:
+    def test_short_textbook_sentence_wins_over_example(self, textbook):
+        doc, ch = textbook
+        text = "嬉しかった。"
+        _breakdown(doc, ch, [{"text": text, "gloss": "Glad."}])
+        note = anki_push.build_note(_happy([_sighting(text, doc=doc, chapter=ch)], KAISHI), doc, ch)
+        assert note["sentence_source"] == "textbook"
+        assert note["fields"]["Sentence"] == "<b>嬉しかった</b>。"
+        assert note["fields"]["Sentence Meaning"] == "Glad."
+
+    def test_long_textbook_sentence_loses_to_example(self, textbook):
+        doc, ch = textbook
+        long_text = "あ" * 40 + "嬉しかった" + "あ" * 20 + "。"
+        assert len(long_text) > anki_push.MAX_TEXTBOOK_SENTENCE_CHARS
+        note = anki_push.build_note(_happy([_sighting(long_text, doc=doc, chapter=ch)], KAISHI), doc, ch)
+        assert note["sentence_source"] == "generated"
+
+    def test_sixty_chars_still_a_textbook_sentence(self):
+        text = "あ" * 59 + "。"
+        item = _happy([_sighting(text)], KAISHI)
+        assert anki_push.build_note(item)["sentence_source"] == "textbook"
+
+    def test_nothing_gives_empty(self):
+        note = anki_push.build_note(_happy())
+        assert note["sentence_source"] is None
+        assert note["has_sentence"] is False
+        assert note["fields"]["Sentence"] == note["fields"]["Sentence Furigana"] == ""
+        assert note["fields"]["Sentence Meaning"] == ""
+
+    def test_generated_example_fields(self):
+        note = anki_push.build_note(_happy(example=KAISHI))
+        f = note["fields"]
+        assert f["Sentence"] == "彼に会えて<b>嬉しかった</b>。"
+        assert f["Sentence Furigana"] == "彼[かれ]に 会[あ]えて<b>嬉[うれ]しかった</b>。"
+        assert f["Sentence Meaning"] == "I was glad to be able to meet him &lt;b&gt;."
+        assert note["has_sentence"] and note["has_gloss"]
+
+    def test_generated_example_html_escaped(self):
+        ex = {**KAISHI, "sentence": "A&B嬉しい。", "surface": "嬉しい", "furigana": "A&B 嬉[うれ]しい。"}
+        f = anki_push.build_note(_happy(example=ex))["fields"]
+        assert f["Sentence"] == "A&amp;B<b>嬉しい</b>。"
+        assert f["Sentence Furigana"] == "A&amp;B<b>嬉[うれ]しい</b>。"
+
+    def test_incomplete_example_ignored(self):
+        assert anki_push.build_note(_happy(example={"sentence": "x。"}))["sentence_source"] is None
+
+
+class TestPreviewNeedsExample:
+    def test_counts_sources_and_ids(self, isolated_data_dir, monkeypatch):
+        ids = _seed(("犬", "猫", "鳥"))
+        store.update_item("vocab", ids[1], example=KAISHI)
+        _use(monkeypatch)
+        d = client.post("/api/anki/push/preview", json=BODY).json()
+        by_id = {i["id"]: i for i in d["items"]}
+        assert by_id[ids[0]]["sentence_source"] is None
+        assert by_id[ids[1]]["sentence_source"] == "generated"
+        assert d["counts"]["needs_example"] == 2
+        assert sorted(d["counts"]["needs_example_ids"]) == sorted([ids[0], ids[2]])
+        assert d["counts"]["with_sentence"] == 1
+
+    def test_skipped_rows_do_not_need_examples(self, isolated_data_dir, monkeypatch):
+        ids = _seed(("犬", "猫"))
+        fake = _use(monkeypatch)
+        orig = fake.__call__
+
+        def dup_first(action, params=None, *, timeout=0):
+            out = orig(action, params, timeout=timeout)
+            if action == "canAddNotesWithErrorDetail":
+                out[0] = {"canAdd": False, "error": "duplicate"}
+            return out
+
+        monkeypatch.setattr(anki, "_post", dup_first)
+        d = client.post("/api/anki/push/preview", json=BODY).json()
+        assert d["counts"]["needs_example"] == 1
+        assert d["counts"]["needs_example_ids"] == [ids[1]]
+
+    def test_textbook_source_reported(self, isolated_data_dir, monkeypatch):
+        _seed(("犬",), with_sentence=True)
+        _use(monkeypatch)
+        d = client.post("/api/anki/push/preview", json=BODY).json()
+        assert d["items"][0]["sentence_source"] == "textbook"
+        assert d["counts"]["needs_example"] == 0
+
+    def test_push_uses_stored_example_without_llm(self, isolated_data_dir, monkeypatch):
+        ids = _seed(("犬",))
+        store.update_item("vocab", ids[0], example=KAISHI)
+        fake = _use(monkeypatch)
+        from app.providers import registry
+
+        monkeypatch.setattr(registry, "get_vlm", lambda name: (_ for _ in ()).throw(AssertionError("LLM called")))
+        r = client.post("/api/anki/push", json={**BODY, "confirm": True})
+        assert r.status_code == 200
+        notes = next(p for a, p in fake.calls if a == "addNotes")["notes"]
+        assert notes[0]["fields"]["Sentence"] == "彼に会えて<b>嬉しかった</b>。"

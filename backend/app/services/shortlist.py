@@ -49,7 +49,7 @@ def assess(
         return "status_known"
     if status == "ignored":
         return "status_ignored"
-    if anki and anki.get("match") in ("exact", "entry"):
+    if anki and anki.get("match") in ("exact", "stem", "entry"):
         return "in_anki"
     if _grammar_like(item):
         return "grammar_like"

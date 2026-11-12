@@ -140,11 +140,15 @@ class TestLookup:
         assert hit is not None
         assert hit["seq"] == 2028980
 
-    def test_reading_fallback_when_kanji_unknown(self, built_db: Path):
-        # Kanji variant not in the fixture; the reading still resolves it.
-        hit = jmdict.lookup("拘わる", "かかわる")
-        assert hit is not None
-        assert hit["seq"] == 1589880
+    def test_reading_fallback_rejects_an_unrelated_kanji(self, built_db: Path):
+        # Was: the reading alone resolved 拘わる to 関わる. A kanji that is not
+        # in any of the entry's written forms no longer counts (see
+        # tests/test_relink.py for the accepted variants).
+        assert jmdict.lookup("拘わる", "かかわる") is None
+
+    def test_reading_fallback_for_kana_only_headword(self, built_db: Path):
+        hit = jmdict.lookup("かかわりる", "かかわる")
+        assert hit is not None and hit["seq"] == 1589880 and hit["match"] == "reading"
 
     def test_miss_returns_none(self, built_db: Path):
         assert jmdict.lookup("存在しない語") is None

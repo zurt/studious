@@ -20,6 +20,7 @@ class PushPreview(BaseModel):
 
 class PushSend(PushPreview):
     confirm: Any = None
+    audio: bool | None = None  # default: the ANKI_PUSH_AUDIO setting
 
 
 async def _run(fn, *args):
@@ -38,4 +39,4 @@ async def push_preview(body: PushPreview):
 async def push(body: PushSend):
     if body.confirm is not True:
         raise HTTPException(400, "confirm must be true to send words to Anki")
-    return await _run(anki_push.push, body.doc_id, body.chapter_id, body.limit)
+    return await _run(anki_push.push, body.doc_id, body.chapter_id, body.limit, body.audio)

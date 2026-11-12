@@ -336,7 +336,55 @@ decisions:
   `POST /api/anki/push` (`confirm: true`; the only writes to Anki, limited to
   `createDeck` and `addNotes`) send a chapter's first `limit` shortlist
   candidates into the `ANKI_PUSH_DECK` deck as `ANKI_PUSH_NOTE_TYPE` notes
-  (`services/anki_push.py`).
+  (`services/anki_push.py`). A note's sentence is a textbook breakdown
+  sentence of at most 60 characters, else the item's stored `example`, else
+  empty; the preview reports `sentence_source` per row and
+  `counts.needs_example` / `needs_example_ids`.
+- **Dictionary links and `meaning_context`**: `jmdict.lookup` tries the
+  surface, then without list markers (`store.strip_list_marker`), without a
+  pattern tilde + particle, without する/な (`store.stem_parts`), and only
+  then the reading, accepted for kana-only headwords or when every kanji
+  (digits equal kanji numerals) of the headword is in one of the entry's
+  kanji forms; the hit carries `match` (surface | marker | pattern | stem |
+  reading). `enrich.ENRICH_VERSION` (stamped as `enrich_version`) re-links
+  every item once when bumped, clears `jmdict_seq`/`pos`/JLPT/common when a
+  link is dropped, skips no-op writes and logs `enrich_done` with relinked /
+  unlinked / unchanged. Vocab items carry `meaning_context`: the textbook's
+  own meaning (source llm or user), set at creation and on PATCH, backfilled
+  once from `store.meaning_history()` (latest llm/user record per item), never
+  replaced by enrichment, restored into `meaning` when a link is dropped.
+  The card meaning and the example-sentence prompt prefer it. Harvest does
+  not strip list markers from headwords (only the vocab-list parser strips
+  numeric indices and `-*•` bullets); existing headwords are not rewritten.
+- **Card quality** (`services/anki_push.py`): `Word Meaning` is shortened
+  (`card_meaning`: first 3 glosses, 40 chars) only when
+  `meaning_source == "jmdict"` (values: `llm` default, `jmdict`, `user`).
+  `store.stem_parts` / `store.stem_variants` are the one する/な stem rule
+  (`freq._stem` delegates); `anki.lookup` has a `stem` tier between `exact`
+  and `entry`, treated like them by the shortlist, badge and push (in-batch
+  duplicates compare stems; variants are checked in the same
+  `canAddNotesWithErrorDetail` call). Audio: `services/tts.py` (`say -v
+  <voice> --file-format=m4af --data-format=aac -o tmp -f textfile`, cached
+  `data/audio/<hash>.m4a`), settings `tts_voice` / `anki_push_audio`; the
+  push attaches per-note `audio` media (`anki_push.attach_audio`, the only
+  place that knows the shape; unverified against a real Anki), never in the
+  can-add notes; preview reports `audio {enabled, available, voice}`, the
+  result `audio {enabled, attached, failed}`; `GET /api/tts/status`,
+  `GET /api/vocab/{id}/audio?part=word|sentence`.
+- **Example sentences**: a vocab item may carry `example` =
+  `{sentence, surface, furigana, gloss, source: "generated", model,
+  created_at}` (plain text; furigana in Anki `漢字[よみ]` syntax; the `<b>`
+  is added when a note is built). Written with `store.update_item`; Swift
+  readers keep unknown item keys (raw `[String: JSONValue]`).
+  `services/examples.py` generates them in batches of 20 through the VLM
+  provider's `call_tool` (tool `record_examples`, `EXAMPLE_SENTENCES_PROMPT`
+  and `EXAMPLE_SENTENCES_TOOL_SCHEMA` in `config.py`, instructions cached,
+  effort `vlm_effort_examples`, the active model), validates every entry,
+  retries failures once with the reason, and audits each call as
+  `job_type: "example_sentences"`. `POST /api/vocab/examples`
+  `{item_ids (1..40), force}` returns per item `generated | kept | failed`
+  plus token/cost totals (503 without an API key, 502 when every call
+  failed); `DELETE /api/vocab/{id}/example` clears it.
 - **Anki import (read-only)**: AnkiConnect on `127.0.0.1:8765`
   (`ANKI_CONNECT_URL`), snapshot at `data/refs/anki/snapshot.json`
   (`GET /api/refs/anki/status`, `POST /api/refs/anki/sync`). Card state is

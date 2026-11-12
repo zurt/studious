@@ -13,7 +13,11 @@ import {
   syncAnki,
   getVocabWanikani,
   previewAnkiPush,
+  generateExamples,
+  deleteVocabExample,
   sendAnkiPush,
+  getTtsStatus,
+  vocabAudioUrl,
   type Chapter,
   type DocMeta,
   type GrammarItem,
@@ -29,6 +33,7 @@ import {
 } from "../api";
 import { chooseDialog, confirmDialog } from "../modules/confirm";
 import { ankiPushDialog, pushResultMessage } from "../modules/anki-push-dialog";
+import { ankiFuriganaHtml } from "../modules/furigana";
 import { emit, STORE_STATUS_CHANGED, type StoreStatusChange } from "../modules/events";
 import { toastError, toastInfo } from "../modules/toast";
 import { info, error as logError } from "../logger";
@@ -114,7 +119,9 @@ export function ankiBadge(item: StoreItem): string {
   const note =
     a.match === "headword"
       ? "matched on spelling only, reading differs"
-      : a.match === "entry"
+      : a.match === "stem"
+        ? `matched the same word with or without する/な · ${a.deck}`
+        : a.match === "entry"
         ? `matched by dictionary entry (different spelling) · ${a.deck}`
         : `${a.deck}`;
   const mark = a.match === "exact" ? "" : "~";
@@ -432,11 +439,22 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     btn.disabled = true;
     try {
       const first = await previewAnkiPush(docId, chapterId, SHORTLIST_BUDGET);
-      const limit = await ankiPushDialog(first, state.total, SHORTLIST_BUDGET, (n) =>
-        previewAnkiPush(docId, chapterId, n),
+      const choice = await ankiPushDialog(
+        first,
+        state.total,
+        SHORTLIST_BUDGET,
+        (n) => previewAnkiPush(docId, chapterId, n),
+        async (ids) => {
+          try {
+            return await generateExamples(ids);
+          } catch (e: any) {
+            logError("StudyDash", "examples_failed", { error: e.message });
+            throw new Error(ankiErrorDetail(e.message));
+          }
+        },
       );
-      if (limit === null) return;
-      const result = await sendAnkiPush(docId, chapterId, limit);
+      if (choice === null) return;
+      const result = await sendAnkiPush(docId, chapterId, choice.limit, choice.audio);
       info("StudyDash", "anki_push_done", { created: result.created, failed: result.failed.length });
       (result.failed.length || !result.sync_ok ? toastError : toastInfo)(pushResultMessage(result));
       await reload();
@@ -809,10 +827,16 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         <div class="grow"></div>
         <button class="study-edit-btn" title="Edit fields and notes">Edit</button>
       </div>
+      ${isVocab(item) && item.meaning_context && item.meaning_context !== item.meaning ? `<div class="study-context">In the textbook: <span lang="en">${escapeHtml(item.meaning_context)}</span></div>` : ""}
       ${item.notes ? `<div class="study-notes">${escapeHtml(item.notes)}</div>` : ""}
+      ${isVocab(item) ? `<div class="study-example"></div><div class="study-audio" hidden></div>` : ""}
       ${sightings || `<p class="empty">No sightings.</p>`}
       <div class="study-wk" hidden></div>
     `;
+    const exampleEl = detail.querySelector<HTMLElement>(".study-example");
+    if (exampleEl && isVocab(item)) renderExample(item, exampleEl);
+    const audioEl = detail.querySelector<HTMLElement>(".study-audio");
+    if (audioEl && isVocab(item)) void renderAudio(item, audioEl);
     detail.querySelector<HTMLButtonElement>(".study-edit-btn")!.addEventListener("click", () => {
       state.editing.add(item.id);
       renderEditForm(item, detail);
@@ -826,6 +850,87 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     if (state.kind === "vocab" && wkHasData) {
       void loadWkDrilldown(item.id, detail.querySelector<HTMLElement>(".study-wk")!);
     }
+  }
+
+  let ttsStatus: Promise<{ available: boolean; voice: string }> | null = null;
+
+  /** "Play word" / "Play sentence" buttons, only when the Mac voice is available. */
+  async function renderAudio(item: VocabItem, el: HTMLElement) {
+    ttsStatus ??= getTtsStatus().catch(() => ({ available: false, voice: "" }));
+    const status = await ttsStatus;
+    if (!status.available || !el.isConnected) return;
+    el.hidden = false;
+    el.innerHTML = `
+      <button class="study-audio-btn" data-part="word" title="Speak the word with the Mac voice (${escapeHtml(status.voice)})">Play word</button>
+      <button class="study-audio-btn" data-part="sentence" title="Speak the example sentence with the Mac voice">Play sentence</button>`;
+    el.querySelectorAll<HTMLButtonElement>(".study-audio-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const part = btn.dataset.part as "word" | "sentence";
+        btn.disabled = true;
+        try {
+          const r = await fetch(vocabAudioUrl(item.id, part));
+          if (!r.ok) throw new Error(ankiErrorDetail(`${r.status} ${await r.text()}`));
+          const url = URL.createObjectURL(await r.blob());
+          const audio = new Audio(url);
+          audio.addEventListener("ended", () => URL.revokeObjectURL(url));
+          await audio.play();
+        } catch (e: any) {
+          logError("StudyDash", "audio_failed", { item_id: item.id, error: e.message });
+          toastError(`Play ${part} failed: ` + e.message);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  /** The stored example sentence (bold word, ruby readings) with Generate / Regenerate / Remove. */
+  function renderExample(item: VocabItem, el: HTMLElement) {
+    const ex = item.example;
+    el.innerHTML = `
+      ${
+        ex
+          ? `<div class="study-example-text" lang="ja">${ankiFuriganaHtml(ex.furigana, ex.surface) || escapeHtml(ex.sentence)}</div>
+             <div class="study-example-gloss">${escapeHtml(ex.gloss)}</div>`
+          : ""
+      }
+      <div class="row study-example-actions">
+        <button class="study-example-gen" title="${ex ? "Write a new example sentence with the model" : "Write an example sentence with the model (uses API tokens)"}">${ex ? "Regenerate" : "Generate example"}</button>
+        ${ex ? `<button class="study-example-remove" title="Remove the stored example sentence">Remove</button>` : ""}
+      </div>
+    `;
+    const gen = el.querySelector<HTMLButtonElement>(".study-example-gen")!;
+    const remove = el.querySelector<HTMLButtonElement>(".study-example-remove");
+    gen.addEventListener("click", async () => {
+      gen.disabled = true;
+      if (remove) remove.disabled = true;
+      gen.textContent = "Generating\u2026";
+      try {
+        const res = await generateExamples([item.id], !!ex);
+        const r = res.items[0];
+        if (r?.example) {
+          item.example = r.example;
+        } else {
+          toastError("No example generated: " + (r?.reason ?? "unknown reason"));
+        }
+      } catch (e: any) {
+        logError("StudyDash", "example_failed", { item_id: item.id, error: e.message });
+        toastError("Generate example failed: " + ankiErrorDetail(e.message));
+      }
+      renderExample(item, el);
+    });
+    remove?.addEventListener("click", async () => {
+      gen.disabled = true;
+      remove.disabled = true;
+      try {
+        await deleteVocabExample(item.id);
+        item.example = null;
+      } catch (e: any) {
+        logError("StudyDash", "example_remove_failed", { item_id: item.id, error: e.message });
+        toastError("Remove failed: " + e.message);
+      }
+      renderExample(item, el);
+    });
   }
 
   function renderEditForm(item: StoreItem, detail: HTMLElement) {

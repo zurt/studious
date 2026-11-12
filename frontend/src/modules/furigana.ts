@@ -182,3 +182,48 @@ export function initFurigana(): void {
     if (el) el.classList.toggle("is-revealed");
   });
 }
+
+// ---------- Anki bracket syntax ----------
+
+// Stored example sentences carry readings as 漢字[よみ] (Anki's syntax), with a
+// space before a kanji run that follows kana. Same <ruby> output as above.
+const ANKI_UNIT = new RegExp(`([${KANJI}]+)\\[([^\\[\\]]*)\\]`, "g");
+
+/**
+ * Escaped HTML for an Anki-syntax furigana string as <ruby>, with the first
+ * occurrence of `surface` (matched against the sentence the string reduces to)
+ * in <b>. Whole kanji-run units are bolded; a surface that is not found
+ * leaves the sentence unbolded. Separator spaces are dropped.
+ */
+export function ankiFuriganaHtml(furi: string | null | undefined, surface = ""): string {
+  if (!furi) return "";
+  type Tok = { text: string; reading?: string };
+  const toks: Tok[] = [];
+  let i = 0;
+  for (const m of furi.matchAll(ANKI_UNIT)) {
+    const start = m.index ?? 0;
+    for (const ch of furi.slice(i, start)) if (ch !== " ") toks.push({ text: ch });
+    toks.push({ text: m[1], reading: m[2] });
+    i = start + m[0].length;
+  }
+  for (const ch of furi.slice(i)) if (ch !== " ") toks.push({ text: ch });
+  const plain = toks.map((t) => t.text).join("");
+  const from = surface ? plain.indexOf(surface) : -1;
+  const to = from + surface.length;
+  let out = "";
+  let bold = false;
+  let off = 0;
+  for (const t of toks) {
+    const end = off + t.text.length;
+    const inside = from >= 0 && off < to && end > from;
+    if (inside !== bold) {
+      out += inside ? "<b>" : "</b>";
+      bold = inside;
+    }
+    out += t.reading === undefined
+      ? esc(t.text)
+      : `<ruby class="furi">${esc(t.text)}<rp>(</rp><rt>${esc(t.reading)}</rt><rp>)</rp></ruby>`;
+    off = end;
+  }
+  return out + (bold ? "</b>" : "");
+}
