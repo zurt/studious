@@ -196,15 +196,45 @@ def stats(kind: str) -> dict[str, int]:
 
 
 def _append_lines(kind: str, records: list[dict[str, Any]]) -> None:
+    """Append records. Every store write goes through here, under ``_lock``.
+
+    Keeps the read cache warm instead of forcing a full re-parse per append
+    (which made bulk updates quadratic). The fast path applies only when the
+    cache matched the file immediately before our append and the file grew by
+    exactly the bytes we wrote; anything else (another process appended,
+    file missing, cache cold) drops the entry so the next read reloads.
+    """
     if not records:
         return
     path = store_path(kind)
-    payload = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records)
+    key = str(path)
+    lines = [json.dumps(r, ensure_ascii=False) + "\n" for r in records]
+    payload = "".join(lines).encode("utf-8")
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as fh:
+    try:
+        before = path.stat()
+        before_sig: tuple[int, int] | None = (before.st_mtime_ns, before.st_size)
+    except FileNotFoundError:
+        before_sig = None
+    cached = _cache.get(key)
+    with open(path, "ab") as fh:
         fh.write(payload)
         fh.flush()
         os.fsync(fh.fileno())
+    after = path.stat()
+    if cached is None:
+        return
+    if before_sig is None or cached[0] != before_sig or after.st_size != before_sig[1] + len(payload):
+        _cache.pop(key, None)
+        return
+    items = cached[1]
+    for line in lines:
+        # Same treatment as the loader: round-trip the serialized form and
+        # keep only dict records with an id.
+        obj = json.loads(line)
+        if isinstance(obj, dict) and obj.get("id"):
+            items[obj["id"]] = obj
+    _cache[key] = ((after.st_mtime_ns, after.st_size), items)
 
 
 def _new_vocab_item(

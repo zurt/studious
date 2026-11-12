@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -38,10 +39,17 @@ logging.basicConfig(
 
 
 async def _enrich_in_background() -> None:
+    log = logging.getLogger("studious.main")
+    start = time.monotonic()
+    log.info("startup_enrich_start")
     try:
-        await asyncio.to_thread(enrich.enrich_pending)
+        result = await asyncio.to_thread(enrich.enrich_pending)
+        log.info(
+            "startup_enrich_done",
+            extra={**result, "seconds": round(time.monotonic() - start, 2)},
+        )
     except Exception:  # noqa: BLE001 - enrichment is best-effort at startup
-        logging.getLogger("studious.main").exception("startup_enrich_failed")
+        log.exception("startup_enrich_failed")
 
 
 @asynccontextmanager

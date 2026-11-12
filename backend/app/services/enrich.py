@@ -130,6 +130,14 @@ def vocab_changes(item: dict[str, Any]) -> dict[str, Any]:
     return changes
 
 
+def _is_noop(item: dict[str, Any], changes: dict[str, Any]) -> bool:
+    """True when a re-enrichment would only restamp ``enriched_at`` on an item
+    that already carries the current ``freq_checked`` — not worth an append."""
+    if not changes.get("freq_checked") or item.get("freq_checked") != changes["freq_checked"]:
+        return False
+    return all(item.get(k) == v for k, v in changes.items() if k != "enriched_at")
+
+
 def enrich_pending(*, force: bool = False) -> dict[str, Any]:
     """Enrich vocab items that haven't been attempted yet (or all, with
     force). No-op until at least one source (JMdict index, WaniKani
@@ -147,7 +155,8 @@ def enrich_pending(*, force: bool = False) -> dict[str, Any]:
         ):
             continue
         changes = vocab_changes(item)
-        store.update_item("vocab", item["id"], **changes)
+        if not _is_noop(item, changes):
+            store.update_item("vocab", item["id"], **changes)
         attempted += 1
         if changes.get("jmdict_seq"):
             linked += 1

@@ -334,3 +334,96 @@ class TestMerge:
         merged = store.merge_items("grammar", items[1]["id"], items[0]["id"])
         assert len(merged["sightings"]) == 2
         assert len(store.list_items("grammar")) == 1
+
+
+class TestAppendKeepsCacheWarm:
+    @staticmethod
+    def _fresh(kind="vocab"):
+        """What a cold reload of the file would produce."""
+        return {o["id"]: o for o in store._iter_lines(store.store_path(kind))}
+
+    @staticmethod
+    def _count_parses(monkeypatch):
+        calls = []
+        real = store._iter_lines
+
+        def counting(path):
+            calls.append(path)
+            return real(path)
+
+        monkeypatch.setattr(store, "_iter_lines", counting)
+        return calls
+
+    def test_update_loop_parses_file_once(self, isolated_data_dir: Path, monkeypatch):
+        ids = [store.create_item("vocab", headword=f"語{i}", reading="ご", meaning="m")["id"] for i in range(30)]
+        store.list_items("vocab")  # warm
+        calls = self._count_parses(monkeypatch)
+        for item_id in ids:
+            assert store.update_item("vocab", item_id, notes="n") is not None
+        assert len(store.list_items("vocab")) == 30
+        assert len(calls) == 0
+        store._cache.clear()
+        assert store.get_item("vocab", ids[0])["notes"] == "n"
+        assert len(calls) == 1
+
+    def test_cache_matches_reload_after_mixed_operations(self, isolated_data_dir: Path):
+        a = store.create_item("vocab", headword="犬", reading="いぬ", meaning="m")
+        b = store.create_item("vocab", headword="いぬ", reading="いぬ", meaning="m")
+        c = store.create_item("vocab", headword="猫", reading="ねこ", meaning="m")
+        store.list_items("vocab")
+        store.update_item("vocab", a["id"], meaning="dog")
+        store.delete_item("vocab", c["id"])
+        store.merge_items("vocab", a["id"], b["id"])
+        _ingest([_sighting_entry()])
+        store.create_item("vocab", headword="鳥", reading="とり", meaning="m")
+        cached = store.list_items("vocab", include_deleted=True)
+        assert {i["id"]: i for i in cached} == self._fresh()
+        store._cache.clear()
+        assert {i["id"]: i for i in store.list_items("vocab", include_deleted=True)} == self._fresh()
+
+    def test_returned_record_is_not_aliased_to_cache(self, isolated_data_dir: Path):
+        item = store.create_item("vocab", headword="犬", reading="いぬ", meaning="m")
+        store.list_items("vocab")
+        updated = store.update_item("vocab", item["id"], meaning="dog")
+        updated["meaning"] = "mutated"
+        assert store.get_item("vocab", item["id"])["meaning"] == "dog"
+
+    def test_external_append_between_operations_is_picked_up(self, isolated_data_dir: Path):
+        a = store.create_item("vocab", headword="犬", reading="いぬ", meaning="m")
+        store.list_items("vocab")
+        with open(store.store_path("vocab"), "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({**a, "meaning": "external"}, ensure_ascii=False) + "\n")
+            fh.write(json.dumps({"id": "ext1", "headword": "鳥"}) + "\n")
+        assert store.get_item("vocab", a["id"])["meaning"] == "external"
+        assert store.get_item("vocab", "ext1") is not None
+        # Our next append layers on top of it.
+        store.update_item("vocab", a["id"], notes="mine")
+        got = store.get_item("vocab", a["id"])
+        assert got["meaning"] == "external" and got["notes"] == "mine"
+        assert {i["id"]: i for i in store.list_items("vocab", include_deleted=True)} == self._fresh()
+
+    def test_external_append_during_our_append_drops_cache(self, isolated_data_dir: Path, monkeypatch):
+        a = store.create_item("vocab", headword="犬", reading="いぬ", meaning="m")
+        store.list_items("vocab")
+        path = store.store_path("vocab")
+        real_fsync = store.os.fsync
+
+        def racing_fsync(fd):
+            # Another process appends after our write, before our stat.
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps({"id": "ext2", "headword": "鳥"}) + "\n")
+            real_fsync(fd)
+
+        monkeypatch.setattr(store.os, "fsync", racing_fsync)
+        store.update_item("vocab", a["id"], notes="mine")
+        monkeypatch.setattr(store.os, "fsync", real_fsync)
+        assert str(path) not in store._cache
+        assert store.get_item("vocab", "ext2") is not None
+        assert store.get_item("vocab", a["id"])["notes"] == "mine"
+
+    def test_unloadable_records_are_treated_like_the_loader(self, isolated_data_dir: Path):
+        store.create_item("vocab", headword="犬", reading="いぬ", meaning="m")
+        store.list_items("vocab")
+        store._append_lines("vocab", [{"headword": "no id"}, {"id": "", "x": 1}, {"id": "ok", "headword": "x"}])
+        assert {i["id"]: i for i in store.list_items("vocab", include_deleted=True)} == self._fresh()
+        assert store.get_item("vocab", "ok") is not None

@@ -188,6 +188,19 @@ class TestEnrich:
         assert enrich.enrich_pending()["attempted"] == 0
         freq.close()
 
+    def test_forced_reenrichment_of_unchanged_item_writes_nothing(self, built_db, freq_db):  # noqa: F811
+        _seed_vocab("市場", "しじょう")
+        enrich.enrich_pending()
+        path = store.store_path("vocab")
+        size = path.stat().st_size
+        assert enrich.enrich_pending(force=True)["attempted"] == 1
+        assert path.stat().st_size == size
+        # A real change (user-visible field differs) is still written.
+        item = store.list_items("vocab")[0]
+        store.update_item("vocab", item["id"], pos=["x"])
+        enrich.enrich_pending(force=True)
+        assert store.list_items("vocab")[0]["pos"] != ["x"]
+
     def test_unranked_item_is_checked_once(self, built_db, freq_db):  # noqa: F811
         _seed_vocab("存在しない語", "そんざいしないご")
         assert enrich.enrich_pending()["attempted"] == 1
