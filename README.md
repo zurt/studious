@@ -288,6 +288,30 @@ time. The word and reading fields are picked per note type by name
 (`GET /api/refs/anki/status` shows which). Pushing chosen items into Anki is
 planned, not built.
 
+## Chapter shortlist
+
+The **Shortlist** toggle on the vocab dashboard proposes what to put in Anki
+for a chapter (pick a textbook and chapter first) so you only strike words
+out. It shows candidates in study order (frequency rank, words from a vocab
+list counted twice as important) and hides, with the reason:
+
+- **in Anki** — a card already exists (exact or same dictionary entry, any
+  state, including new and suspended; a spelling-only match does not hide)
+- **basic** — JLPT N5 or N4
+- **grammar-like** — a `〜`/`～`/`~`/`…` pattern, or a kana-only particle,
+  conjunction, set phrase, suffix, prefix or auxiliary
+- **not in dictionary** — no JMdict entry (headings, phrases, names)
+- **known** / **ignored** — your own status
+
+The summary line (`142 candidates · hidden: 310 in Anki · …`) is clickable:
+each count lists those hidden words (known and ignored ones have a
+**Restore** button), and **Back to shortlist** returns. A divider after the
+125th row marks the chapter's budget. **Know it** and **Skip** on each
+candidate mark it known or ignored in one tap. Words burned in WaniKani get a
+`WK burned` badge everywhere but are not hidden. The shortlist is computed at
+read time (`GET /api/vocab?shortlist=true`, `?excluded=<reason>`) and never
+stored.
+
 ## Security
 
 Both package managers enforce a 7-day cooldown on new package versions to
