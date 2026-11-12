@@ -2,9 +2,11 @@ import pytest
 
 from app.config import (
     BLANK_TRANSCRIBE_RULES,
+    CALLOUT_TRANSCRIBE_RULES,
     DEFAULT_VLM_PROMPT,
     REGION_TRANSCRIBE_PROMPT,
     SENTENCE_BREAKDOWN_PROMPT,
+    VOCAB_LIST_TRANSCRIBE_PROMPT,
 )
 from app.services.blanks import BLANK, normalize_blanks
 
@@ -57,6 +59,15 @@ def test_transcription_prompts_carry_blank_rules():
     for prompt in (DEFAULT_VLM_PROMPT, REGION_TRANSCRIBE_PROMPT):
         assert BLANK_TRANSCRIBE_RULES in prompt
     assert BLANK in BLANK_TRANSCRIBE_RULES
+
+
+def test_region_prompt_carries_callout_rules_before_output_format():
+    assert "{{CALLOUT_RULES}}" not in REGION_TRANSCRIBE_PROMPT
+    assert CALLOUT_TRANSCRIBE_RULES in REGION_TRANSCRIBE_PROMPT
+    assert REGION_TRANSCRIBE_PROMPT.index(
+        CALLOUT_TRANSCRIBE_RULES
+    ) < REGION_TRANSCRIBE_PROMPT.index("<output_format>")
+    assert CALLOUT_TRANSCRIBE_RULES not in VOCAB_LIST_TRANSCRIBE_PROMPT
 
 
 def test_breakdown_prompt_lists_blank_styles():

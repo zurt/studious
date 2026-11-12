@@ -41,6 +41,49 @@ Examples (printed → transcription):
 """
 
 
+CALLOUT_TRANSCRIBE_RULES = """\
+<callouts>
+Some passages and dialogues are annotated with callouts: boxed labels
+in the margin (often numbered ①②③…) joined to the text by a leader
+line or a speech-bubble tail. A callout is a note about the line it
+points to. It is not part of the running text.
+- Transcribe the main text in its normal reading order. Never splice a
+  callout's words into a sentence or dialogue turn, even when the box
+  sits level with that line.
+- Attach each callout to the line its leader line or tail actually
+  touches. Follow the line to its end; do not go by which line the box
+  sits beside. Boxes are often shifted up or down to make room, so a
+  box can sit beside one turn while pointing at an earlier one.
+- Write each callout as a Markdown blockquote (`> ` + the callout text
+  exactly as printed, number and furigana included) directly after the
+  dialogue turn or sentence it points to, with a blank line before and
+  after it. When one turn carries several callouts, list them in the
+  order of the lines they point to.
+- If a callout's tail points into the middle of a turn that runs over
+  several sentences, still place it after the whole turn.
+
+Example. Printed: three dialogue turns; a box 「①声をかける」 beside the
+second turn whose leader line runs up to the first turn; a box
+「②用件を言う」 beside the third turn pointing at it.
+A：すみません。
+
+B：はい。
+
+A：駅はどこですか。
+→
+A：すみません。
+
+> ①声をかける
+
+B：はい。
+
+A：駅はどこですか。
+
+> ②用件を言う
+</callouts>
+"""
+
+
 DEFAULT_VLM_PROMPT = """\
 You are an expert OCR transcriber specializing in Japanese textbooks
 for English speakers. The image is a single page that mixes Japanese
@@ -121,11 +164,14 @@ if the region has no title.
 </rules>
 
 {{BLANK_RULES}}
+{{CALLOUT_RULES}}
 <output_format>
 Return only the Markdown transcription, with no preamble or closing
 remarks.
 </output_format>
-""".replace("{{BLANK_RULES}}", BLANK_TRANSCRIBE_RULES)
+""".replace("{{BLANK_RULES}}", BLANK_TRANSCRIBE_RULES).replace(
+    "{{CALLOUT_RULES}}", CALLOUT_TRANSCRIBE_RULES
+)
 
 
 VOCAB_LIST_TRANSCRIBE_PROMPT = """\
