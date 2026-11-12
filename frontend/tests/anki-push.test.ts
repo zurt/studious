@@ -17,7 +17,8 @@ import {
   clampCount,
   generateButtonLabel,
   generationSummary,
-  needsExampleLine,
+  needIds,
+  needsLine,
   offerVisible,
   progressText,
   pushDialogLines,
@@ -39,7 +40,7 @@ function preview(over: Partial<AnkiPushPreview> = {}, n = 12): AnkiPushPreview {
     note_type: "Kaishi 1.5k",
     counts: {
       candidates: n, will_add: n, skipped: 0, without_sentence: 0, with_sentence: n, with_gloss: 0,
-      headword_match: 0, needs_example: 0, needs_example_ids: [],
+      headword_match: 0, needs_example: 0, needs_example_ids: [], needs_readings: 0, needs_readings_ids: [],
     },
     items: Array.from({ length: n }, (_, i) => ({
       id: `i${i}`, headword: `語${i}`, reading: "", fields: {}, tags: [], has_sentence: true, has_gloss: false,
@@ -86,7 +87,7 @@ describe("push dialog text", () => {
     const p = preview({ will_create_deck: true, deck_exists: false }, 3);
     p.counts = {
       candidates: 5, will_add: 3, skipped: 2, without_sentence: 1, with_sentence: 2, with_gloss: 1,
-      headword_match: 1, needs_example: 1, needs_example_ids: ["x"],
+      headword_match: 1, needs_example: 1, needs_example_ids: ["x"], needs_readings: 0, needs_readings_ids: [],
     };
     const text = pushDialogLines(p).join("\n");
     expect(text).toContain("This deck will be created.");
@@ -145,6 +146,10 @@ describe("example generation requests", () => {
     await generateExamples(["a"], true);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/vocab/examples");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ item_ids: ["a", "b"], force: false });
+    await generateExamples(["a"], false, { docId: "d", chapterId: "c" });
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({
+      item_ids: ["a"], force: false, doc_id: "d", chapter_id: "c",
+    });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ item_ids: ["a"], force: true });
   });
 
@@ -168,10 +173,12 @@ describe("example generation text and chunking", () => {
   });
 
   it("offer line and button label", () => {
-    expect(needsExampleLine(103)).toBe("103 words have no example sentence.");
-    expect(needsExampleLine(1)).toBe("1 word has no example sentence.");
-    expect(generateButtonLabel(103)).toBe("Generate 103 sentences");
-    expect(generateButtonLabel(1)).toBe("Generate 1 sentence");
+    expect(needsLine(88, 37)).toBe("88 words need a sentence and 37 textbook sentences need readings.");
+    expect(needsLine(1, 0)).toBe("1 word needs a sentence.");
+    expect(needsLine(0, 1)).toBe("1 textbook sentence needs readings.");
+    expect(generateButtonLabel()).toBe("Generate");
+    expect(needIds({ needs_example_ids: ["a", "b"], needs_readings_ids: ["b", "c"] })).toEqual(["a", "b", "c"]);
+    expect(needIds({})).toEqual([]);
   });
 
   it("progress text", () => {
@@ -185,13 +192,16 @@ describe("example generation text and chunking", () => {
         { id: "b", status: "generated" },
         { id: "c", status: "failed", reason: "x" },
         { id: "d", status: "kept" },
+        { id: "e", status: "readings" },
       ],
       usage: { calls: 1, input_tokens: 0, output_tokens: 0, estimated_cost_usd: 0 },
     };
     const t = tallyResults(res);
-    expect(t).toEqual({ generated: 2, kept: 1, failed: 1 });
-    expect(generationSummary(t, 1, null)).toBe("Generated 2 sentences, 1 failed. 1 word stays without a sentence.");
-    expect(generationSummary({ generated: 1, kept: 0, failed: 0 }, 0, null)).toBe("Generated 1 sentence.");
+    expect(t).toEqual({ generated: 2, readings: 1, kept: 1, failed: 1 });
+    expect(generationSummary(t, 1, null)).toBe(
+      "Generated 2 sentences, added readings to 1 textbook sentence, 1 failed. 1 word stays without a sentence or readings.",
+    );
+    expect(generationSummary({ generated: 1, readings: 0, kept: 0, failed: 0 }, 0, null)).toBe("Generated 1 sentence.");
     expect(generationSummary(t, 40, "cancelled")).toContain("Stopped.");
   });
 

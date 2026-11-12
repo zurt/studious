@@ -662,9 +662,11 @@ export type VocabExample = {
   /** Anki furigana syntax: 漢字[よみ], a space before a kanji run that follows kana. */
   furigana: string;
   gloss: string;
+  /** "generated" (a model-written sentence) or "textbook" (a textbook sentence with model readings). */
   source: string;
   model: string;
   created_at: string;
+  sighting?: { region_id: string; sentence_index: number };
 };
 
 export type VocabItem = {
@@ -961,6 +963,9 @@ export type AnkiPushPreview = {
     /** Will-add rows with no sentence, and their item ids. */
     needs_example: number;
     needs_example_ids: string[];
+    /** Will-add rows using a textbook sentence that has no stored readings. */
+    needs_readings: number;
+    needs_readings_ids: string[];
   };
   items: AnkiPushItem[];
 };
@@ -1015,7 +1020,7 @@ export function vocabAudioUrl(itemId: string, part: "word" | "sentence"): string
 
 export type ExampleResult = {
   id: string;
-  status: "generated" | "kept" | "failed";
+  status: "generated" | "readings" | "kept" | "failed";
   example?: VocabExample;
   reason?: string;
 };
@@ -1026,8 +1031,17 @@ export type ExamplesResponse = {
 };
 
 /** Generate (and store) example sentences; 1 to 40 ids. `force` regenerates stored ones. */
-export async function generateExamples(itemIds: string[], force = false): Promise<ExamplesResponse> {
-  return jpost("/api/vocab/examples", { item_ids: itemIds, force });
+export async function generateExamples(
+  itemIds: string[],
+  force = false,
+  context?: { docId?: string; chapterId?: string },
+): Promise<ExamplesResponse> {
+  return jpost("/api/vocab/examples", {
+    item_ids: itemIds,
+    force,
+    ...(context?.docId ? { doc_id: context.docId } : {}),
+    ...(context?.chapterId ? { chapter_id: context.chapterId } : {}),
+  });
 }
 
 export async function deleteVocabExample(itemId: string): Promise<void> {

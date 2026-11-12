@@ -446,7 +446,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         (n) => previewAnkiPush(docId, chapterId, n),
         async (ids) => {
           try {
-            return await generateExamples(ids);
+            return await generateExamples(ids, false, { docId, chapterId });
           } catch (e: any) {
             logError("StudyDash", "examples_failed", { error: e.message });
             throw new Error(ankiErrorDetail(e.message));
@@ -890,7 +890,8 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     el.innerHTML = `
       ${
         ex
-          ? `<div class="study-example-text" lang="ja">${ankiFuriganaHtml(ex.furigana, ex.surface) || escapeHtml(ex.sentence)}</div>
+          ? `<div class="study-example-label">${ex.source === "textbook" ? "Textbook sentence" : "Generated sentence"}</div>
+             <div class="study-example-text" lang="ja">${ankiFuriganaHtml(ex.furigana, ex.surface) || escapeHtml(ex.sentence)}</div>
              <div class="study-example-gloss">${escapeHtml(ex.gloss)}</div>`
           : ""
       }
@@ -906,7 +907,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
       if (remove) remove.disabled = true;
       gen.textContent = "Generating\u2026";
       try {
-        const res = await generateExamples([item.id], !!ex);
+        const res = await generateExamples([item.id], !!ex, { docId: state.docId, chapterId: state.chapterId });
         const r = res.items[0];
         if (r?.example) {
           item.example = r.example;

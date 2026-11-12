@@ -352,7 +352,8 @@ class TestPreview:
         assert d["deck_exists"] is False and d["will_create_deck"] is True
         assert d["counts"] == {"candidates": 3, "will_add": 3, "skipped": 0, "without_sentence": 3,
                                "headword_match": 0, "with_sentence": 0, "with_gloss": 0,
-                               "needs_example": 3, "needs_example_ids": [i["id"] for i in d["items"]]}
+                               "needs_example": 3, "needs_example_ids": [i["id"] for i in d["items"]],
+                               "needs_readings": 0, "needs_readings_ids": []}
         assert [i["headword"] for i in d["items"]] == ["犬", "猫", "鳥"]
         first = d["items"][0]
         assert set(first) >= {"id", "headword", "reading", "fields", "has_sentence", "can_add", "reason",

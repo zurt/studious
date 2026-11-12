@@ -438,11 +438,43 @@ def sentence_gloss(sighting: dict[str, Any]) -> str:
 
 
 def stored_example(item: dict[str, Any]) -> dict[str, Any] | None:
-    """The item's stored example when it has the fields a note needs."""
+    """The item's stored generated example when it has the fields a note needs.
+    A ``source: "textbook"`` example describes a textbook sentence and is only
+    used through ``stored_textbook_example``."""
     ex = item.get("example")
-    if isinstance(ex, dict) and ex.get("sentence") and ex.get("furigana"):
+    if (
+        isinstance(ex, dict)
+        and ex.get("source") != "textbook"
+        and ex.get("sentence")
+        and ex.get("furigana")
+    ):
         return ex
     return None
+
+
+def stored_textbook_example(item: dict[str, Any], text: str) -> dict[str, Any] | None:
+    """The stored readings for the textbook sentence ``text``, or None. A stored
+    textbook example whose sentence is not the one chosen now (the breakdown
+    changed) is stale: ignored, not deleted."""
+    ex = item.get("example")
+    if (
+        isinstance(ex, dict)
+        and ex.get("source") == "textbook"
+        and ex.get("sentence") == text
+        and ex.get("furigana")
+    ):
+        return ex
+    return None
+
+
+def _wrap_first(furi: str, *needles: str) -> str:
+    """wrap_surface with the first needle that is found in the sentence."""
+    for needle in needles:
+        if needle:
+            out = examples.wrap_surface(furi, needle)
+            if "<b>" in out:
+                return out
+    return html.escape(furi, quote=False)
 
 
 def word_meaning(item: dict[str, Any]) -> str:
@@ -472,20 +504,31 @@ def build_note(
     headword = strip_suffix_group(item.get("headword") or "")
     reading = pick_reading(headword, strip_suffix_group(item.get("reading") or ""))
     chosen = choose_sentence(item, chapter_id, cache)
-    sentence = meaning = sentence_furigana = spoken = ""
+    sentence = meaning = sentence_furigana = spoken = spoken_reading = ""
     source: str | None = None
+    needs_readings = False
     if chosen:
         sighting, text = chosen
-        sentence = sentence_furigana = sentence_html(text, sighting.get("surface") or "", headword)
-        meaning = html.escape(sentence_gloss(sighting), quote=False)
+        surface = sighting.get("surface") or ""
+        sentence = sentence_furigana = sentence_html(text, surface, headword)
+        stored = stored_textbook_example(item, text)
+        # The breakdown's own translation wins over a stored (model) one.
+        gloss = sentence_gloss(sighting) or ((stored or {}).get("gloss") or "")
+        meaning = html.escape(gloss, quote=False)
         source = "textbook"
         spoken = text
+        if stored:
+            sentence_furigana = _wrap_first(stored["furigana"], stored.get("surface") or surface, surface, headword)
+            spoken_reading = examples.furigana_reading(stored["furigana"])
+        else:
+            needs_readings = True
     elif (ex := stored_example(item)) is not None:
         sentence = sentence_html(ex["sentence"], ex.get("surface") or "", headword)
         sentence_furigana = examples.wrap_surface(ex["furigana"], ex.get("surface") or "")
         meaning = html.escape(ex.get("gloss") or "", quote=False)
         source = "generated"
         spoken = ex["sentence"]
+        spoken_reading = examples.furigana_reading(ex["furigana"])
     own = (item.get("notes") or "").strip()
     notes = html.escape(own, quote=False).replace("\n", "<br>") if own else ""
     rank = (item.get("classifications") or {}).get("freq_rank")
@@ -509,7 +552,10 @@ def build_note(
     return {"fields": fields, "tags": tags, "has_sentence": bool(sentence), "has_gloss": bool(meaning),
         "sentence_source": source,
         "word_text": speech_word(headword),
+        "word_reading": reading,
         "sentence_text": spoken,
+        "sentence_reading": spoken_reading,
+        "needs_readings": needs_readings,
     }
 
 
@@ -680,6 +726,7 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
                 "has_sentence": b["has_sentence"],
                 "has_gloss": b["has_gloss"],
                 "sentence_source": b["sentence_source"],
+                "needs_readings": b["needs_readings"],
                 "can_add": ok,
                 "reason": reason,
                 "headword_match": (item.get("anki") or {}).get("match") == "headword",
@@ -696,6 +743,7 @@ def preview(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
     rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in prepared["rows"]]
     addable = [r for r in rows if r["can_add"]]
     needs = [r for r in addable if not r["has_sentence"]]
+    needs_read = [r for r in addable if r["needs_readings"]]
     return {
         "deck": prepared["deck"],
         "deck_exists": prepared["deck_exists"],
@@ -709,6 +757,8 @@ def preview(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
             "with_sentence": sum(1 for r in addable if r["has_sentence"]),
             "with_gloss": sum(1 for r in addable if r["has_gloss"]),
             "without_sentence": len(needs),
+            "needs_readings": len(needs_read),
+            "needs_readings_ids": [r["id"] for r in needs_read],
             "needs_example": len(needs),
             "needs_example_ids": [r["id"] for r in needs],
             "headword_match": sum(1 for r in addable if r["headword_match"]),

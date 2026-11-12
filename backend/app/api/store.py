@@ -54,6 +54,8 @@ class UpdateVocab(BaseModel):
 class ExamplesBody(BaseModel):
     item_ids: list[str] = Field(min_length=1, max_length=40)
     force: bool = False
+    doc_id: str | None = None  # context, so the same textbook sentence is chosen as in the preview
+    chapter_id: str | None = None
 
 
 class MergeBody(BaseModel):
@@ -323,7 +325,9 @@ def generate_vocab_examples(body: ExamplesBody):
     """Generate (and store) an example sentence for each item, in the Kaishi
     style. Items that already have one are reported as `kept` unless `force`."""
     try:
-        return examples.generate_examples(body.item_ids, force=body.force)
+        return examples.generate_examples(
+            body.item_ids, force=body.force, doc_id=body.doc_id, chapter_id=body.chapter_id
+        )
     except examples.ExamplesError as exc:
         raise HTTPException(exc.status, exc.message) from exc
 

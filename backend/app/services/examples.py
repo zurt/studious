@@ -29,6 +29,8 @@ from typing import Any
 from ..config import (
     EXAMPLE_SENTENCES_PROMPT,
     EXAMPLE_SENTENCES_TOOL_SCHEMA,
+    SENTENCE_READINGS_PROMPT,
+    SENTENCE_READINGS_TOOL_SCHEMA,
     get_settings,
 )
 from ..middleware import correlation_id_var
@@ -40,6 +42,8 @@ log = logging.getLogger("studious.examples")
 BATCH_SIZE = 20
 JOB_TYPE = "example_sentences"
 TOOL_NAME = "record_examples"
+READINGS_JOB_TYPE = "sentence_readings"
+READINGS_TOOL_NAME = "record_sentence_readings"
 PROVIDER = "anthropic"
 MAX_TOKENS = 8192
 MIN_SENTENCE_CHARS = 6
@@ -126,7 +130,7 @@ def validate_furigana(sentence: str, furi: str) -> str | None:
         return "a reading is attached to something that is not a kanji run"
     if _KANJI_RE.search(_UNIT_RE.sub("", furi)):
         return "a kanji run has no reading"
-    if rest.replace(" ", "") != sentence:
+    if rest.replace(" ", "") != sentence.replace(" ", ""):
         return "furigana does not reduce to the sentence when readings and spaces are removed"
     return None
 
@@ -165,6 +169,13 @@ def validate_entry(entry: Any, headword: str) -> str | None:
     reason = validate_furigana(sentence, furi)
     if reason:
         return reason
+    return validate_gloss(gloss)
+
+
+def validate_gloss(gloss: Any) -> str | None:
+    """Reason an English gloss is unusable, or None."""
+    if not isinstance(gloss, str):
+        return "gloss must be a string"
     gloss = gloss.strip()
     if not gloss:
         return "gloss is empty"
@@ -173,6 +184,56 @@ def validate_entry(entry: Any, headword: str) -> str | None:
     if _JAPANESE_RE.search(gloss):
         return "gloss contains Japanese characters"
     return None
+
+
+def validate_reading_entry(entry: Any, sentence: str) -> str | None:
+    """Reason a readings entry for a textbook ``sentence`` is unusable, or None.
+    Only the furigana and gloss checks apply: the sentence is the textbook's, so
+    the generated-sentence rules (length, brackets such as 「」, digits, Latin
+    letters, ending) do not."""
+    if not isinstance(entry, dict):
+        return "entry is not an object"
+    furi = entry.get("furigana")
+    if not isinstance(furi, str):
+        return "furigana must be a string"
+    reason = validate_furigana(sentence, furi)
+    return reason or validate_gloss(entry.get("gloss"))
+
+
+def validate_readings(
+    entries: Any, sentences: dict[str, str]
+) -> tuple[dict[str, dict[str, str]], dict[str, str]]:
+    """Like ``validate_entries`` for readings: ({id: {furigana, gloss}}, {id: reason})."""
+    ok: dict[str, dict[str, str]] = {}
+    bad: dict[str, str] = {}
+    entries = entries if isinstance(entries, list) else []
+    counts: dict[str, int] = {}
+    for e in entries:
+        eid = e.get("id") if isinstance(e, dict) else None
+        if isinstance(eid, str):
+            counts[eid] = counts.get(eid, 0) + 1
+    for e in entries:
+        eid = e.get("id") if isinstance(e, dict) else None
+        if not isinstance(eid, str) or eid not in sentences:
+            continue
+        if counts[eid] > 1:
+            bad[eid] = "id returned more than once"
+            continue
+        reason = validate_reading_entry(e, sentences[eid])
+        if reason:
+            bad[eid] = reason
+        else:
+            ok[eid] = {"furigana": e["furigana"], "gloss": e["gloss"].strip()}
+    for eid in sentences:
+        if eid not in ok and eid not in bad:
+            bad[eid] = "no entry was returned for this sentence"
+    return ok, bad
+
+
+def furigana_reading(furi: str) -> str:
+    """The sentence as spoken: each kanji run replaced by its bracket reading,
+    spaces removed. 彼[かれ]に 会[あ]えて -> かれにあえて."""
+    return _UNIT_RE.sub(lambda m: m.group(2), furi).replace(" ", "")
 
 
 def validate_entries(
@@ -267,10 +328,12 @@ def _word_payload(item: dict[str, Any], problem: str | None = None) -> dict[str,
     return word
 
 
-def _prompt(words: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _prompt(
+    words: list[dict[str, Any]], instructions: str = EXAMPLE_SENTENCES_PROMPT, tag: str = "words"
+) -> list[dict[str, Any]]:
     return [
-        {"text": f"{EXAMPLE_SENTENCES_PROMPT}\n\n", "cache": True},
-        {"text": f"<words>\n{json.dumps(words, ensure_ascii=False, indent=1)}\n</words>"},
+        {"text": f"{instructions}\n\n", "cache": True},
+        {"text": f"<{tag}>\n{json.dumps(words, ensure_ascii=False, indent=1)}\n</{tag}>"},
     ]
 
 
@@ -291,18 +354,31 @@ class _Totals:
         }
 
 
-def _call(provider: Any, words: list[dict[str, Any]], config: dict[str, Any], totals: _Totals) -> Any:
-    """One audited call_tool. Returns the response's `examples`; raises on failure."""
+def _call(
+    provider: Any,
+    words: list[dict[str, Any]],
+    config: dict[str, Any],
+    totals: _Totals,
+    *,
+    readings: bool = False,
+) -> Any:
+    """One audited call_tool. Returns the response's `examples` (or `readings`);
+    raises on failure."""
+    job_type = READINGS_JOB_TYPE if readings else JOB_TYPE
     t0 = time.monotonic()
     totals.calls += 1
     try:
-        result = provider.call_tool(_prompt(words), TOOL_NAME, EXAMPLE_SENTENCES_TOOL_SCHEMA, config)
+        if readings:
+            prompt = _prompt(words, SENTENCE_READINGS_PROMPT, "sentences")
+            result = provider.call_tool(prompt, READINGS_TOOL_NAME, SENTENCE_READINGS_TOOL_SCHEMA, config)
+        else:
+            result = provider.call_tool(_prompt(words), TOOL_NAME, EXAMPLE_SENTENCES_TOOL_SCHEMA, config)
     except Exception as exc:
         totals.errors += 1
         llm_audit.record(
             provider=PROVIDER,
             model=str(config.get("model")),
-            job_type=JOB_TYPE,
+            job_type=job_type,
             status="error",
             duration_ms=int((time.monotonic() - t0) * 1000),
             error=str(exc),
@@ -312,7 +388,7 @@ def _call(provider: Any, words: list[dict[str, Any]], config: dict[str, Any], to
     entry = llm_audit.record(
         provider=PROVIDER,
         model=result.meta.get("model") or config.get("model"),
-        job_type=JOB_TYPE,
+        job_type=job_type,
         status="success",
         duration_ms=int((time.monotonic() - t0) * 1000),
         correlation_id=correlation_id_var.get(""),
@@ -322,7 +398,7 @@ def _call(provider: Any, words: list[dict[str, Any]], config: dict[str, Any], to
     totals.input_tokens += entry.get("input_tokens") or 0
     totals.output_tokens += entry.get("output_tokens") or 0
     totals.cost_usd += costs.estimate_cost(entry) or 0.0
-    return result.tool_input.get("examples")
+    return result.tool_input.get("readings" if readings else "examples")
 
 
 def _store_example(item_id: str, entry: dict[str, str], model: str) -> dict[str, Any] | None:
@@ -335,26 +411,48 @@ def _store_example(item_id: str, entry: dict[str, str], model: str) -> dict[str,
     return example if store.update_item("vocab", item_id, example=example) else None
 
 
-def generate_examples(item_ids: list[str], *, force: bool = False) -> dict[str, Any]:
-    """Generate and store an example sentence for each vocab item.
+def generate_examples(
+    item_ids: list[str],
+    *,
+    force: bool = False,
+    doc_id: str | None = None,
+    chapter_id: str | None = None,
+) -> dict[str, Any]:
+    """Make each vocab item ready for an Anki card's example sentence.
 
-    Returns ``{"items": [{"id", "status", "example"?, "reason"?}], "usage": {...}}``
-    with status ``generated``, ``kept`` (already has one and not ``force``) or
-    ``failed``. Raises ``ExamplesError`` (503) when the provider is not
-    configured and (502) when every LLM call failed."""
+    An item with a usable textbook sentence (the one ``anki_push.choose_sentence``
+    picks for ``chapter_id``, so it matches the preview) gets readings and a
+    translation for it (``source: "textbook"``); any other item gets a generated
+    sentence. Returns ``{"items": [{"id", "status", "example"?, "reason"?}],
+    "usage": {...}}`` with status ``generated``, ``readings``, ``kept`` (already
+    done and not ``force``) or ``failed``. Raises ``ExamplesError`` (503) when
+    the provider is not configured and (502) when every LLM call failed."""
+    from . import anki_push  # local: anki_push imports this module
+
     results: dict[str, dict[str, Any]] = {}
     todo: list[dict[str, Any]] = []
+    readings_todo: list[dict[str, Any]] = []  # item + the chosen sighting and text
+    cache: dict[tuple, str | None] = {}
     for item_id in dict.fromkeys(item_ids):
         item = store.get_item("vocab", item_id)
         if item is None or item.get("deleted"):
             results[item_id] = {"id": item_id, "status": "failed", "reason": "vocab item not found"}
-        elif item.get("example") and not force:
+            continue
+        chosen = anki_push.choose_sentence(item, chapter_id, cache)
+        if chosen:
+            sighting, text = chosen
+            stored = anki_push.stored_textbook_example(item, text)
+            if stored and not force:
+                results[item_id] = {"id": item_id, "status": "kept", "example": stored}
+            else:
+                readings_todo.append({**item, "_sighting": sighting, "_text": text})
+        elif (item.get("example") or {}).get("source", "generated") == "generated" and item.get("example") and not force:
             results[item_id] = {"id": item_id, "status": "kept", "example": item["example"]}
         else:
             todo.append(item)
 
     totals = _Totals()
-    if todo:
+    if todo or readings_todo:
         try:
             provider = registry.get_vlm(PROVIDER)
         except Exception as exc:
@@ -365,12 +463,16 @@ def generate_examples(item_ids: list[str], *, force: bool = False) -> dict[str, 
             "max_tokens": MAX_TOKENS,
             "effort": get_settings().vlm_effort_examples,
         }
-        batches = [todo[i : i + BATCH_SIZE] for i in range(0, len(todo), BATCH_SIZE)]
+        jobs = [(todo[i : i + BATCH_SIZE], _run_batch) for i in range(0, len(todo), BATCH_SIZE)]
+        jobs += [
+            (readings_todo[i : i + BATCH_SIZE], _run_readings_batch)
+            for i in range(0, len(readings_todo), BATCH_SIZE)
+        ]
         last_error: Exception | None = None
         failed_batches = 0
-        for batch in batches:
+        for batch, runner in jobs:
             try:
-                _run_batch(provider, batch, config, totals, results)
+                runner(provider, batch, config, totals, results)
             except Exception as exc:  # noqa: BLE001 - reported per item below
                 last_error = exc
                 failed_batches += 1
@@ -381,7 +483,7 @@ def generate_examples(item_ids: list[str], *, force: bool = False) -> dict[str, 
                         "status": "failed",
                         "reason": f"LLM call failed: {exc}",
                     }
-        if failed_batches == len(batches) and last_error is not None:
+        if failed_batches == len(jobs) and last_error is not None:
             raise ExamplesError(502, f"Example sentence generation failed: {last_error}") from last_error
 
     ordered = [results[i] for i in dict.fromkeys(item_ids)]
@@ -389,12 +491,78 @@ def generate_examples(item_ids: list[str], *, force: bool = False) -> dict[str, 
         "examples_generated",
         extra={
             "generated": sum(1 for r in ordered if r["status"] == "generated"),
+            "readings": sum(1 for r in ordered if r["status"] == "readings"),
             "failed": sum(1 for r in ordered if r["status"] == "failed"),
             "kept": sum(1 for r in ordered if r["status"] == "kept"),
             **totals.as_dict(),
         },
     )
     return {"items": ordered, "usage": totals.as_dict()}
+
+
+def _run_readings_batch(
+    provider: Any,
+    batch: list[dict[str, Any]],
+    config: dict[str, Any],
+    totals: _Totals,
+    results: dict[str, dict[str, Any]],
+) -> None:
+    """Readings and a translation for the textbook sentence of each item."""
+    from . import anki_push
+
+    by_id = {i["id"]: i for i in batch}
+    sentences = {i["id"]: i["_text"] for i in batch}
+
+    def payload(item: dict[str, Any], problem: str | None = None) -> dict[str, Any]:
+        out = {
+            "id": item["id"],
+            "sentence": item["_text"],
+            "surface": item["_sighting"].get("surface") or item.get("headword") or "",
+        }
+        if problem:
+            out["problem"] = problem
+        return out
+
+    ok, bad = validate_readings(
+        _call(provider, [payload(i) for i in batch], config, totals, readings=True), sentences
+    )
+    if bad:
+        log.info("readings_validation_retry", extra={"failures": bad})
+        retry = [payload(by_id[i], reason) for i, reason in bad.items()]
+        try:
+            ok2, bad2 = validate_readings(
+                _call(provider, retry, config, totals, readings=True), {i: sentences[i] for i in bad}
+            )
+        except Exception as exc:  # noqa: BLE001 - keep the first pass's successes
+            log.error("readings_retry_failed", extra={"error": str(exc)})
+            ok2, bad2 = {}, {i: f"{reason} (retry call failed)" for i, reason in bad.items()}
+        ok.update(ok2)
+        bad = bad2
+        if bad:
+            log.warning("readings_validation_dropped", extra={"failures": bad})
+    for item_id, entry in ok.items():
+        item = by_id[item_id]
+        sighting = item["_sighting"]
+        example = {
+            "source": "textbook",
+            "sentence": item["_text"],
+            "surface": sighting.get("surface") or item.get("headword") or "",
+            "furigana": entry["furigana"],
+            # The breakdown's own translation is preferred; the model's fills in.
+            "gloss": anki_push.sentence_gloss(sighting) or entry["gloss"],
+            "model": str(config["model"]),
+            "created_at": datetime.now(UTC).isoformat(),
+            "sighting": {
+                "region_id": sighting.get("region_id"),
+                "sentence_index": sighting.get("sentence_index"),
+            },
+        }
+        if store.update_item("vocab", item_id, example=example) is None:
+            results[item_id] = {"id": item_id, "status": "failed", "reason": "vocab item not found"}
+        else:
+            results[item_id] = {"id": item_id, "status": "readings", "example": example}
+    for item_id, reason in bad.items():
+        results[item_id] = {"id": item_id, "status": "failed", "reason": reason}
 
 
 def _run_batch(
