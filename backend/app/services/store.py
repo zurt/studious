@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import threading
 import unicodedata
 import uuid
@@ -89,6 +90,53 @@ def normalize_reading(reading: str | None, headword: str) -> str:
 def vocab_key(headword: str, reading: str | None) -> tuple[str, str]:
     hw = unicodedata.normalize("NFKC", (headword or "").strip())
     return (hw, normalize_reading(reading, hw))
+
+
+# Textbook vocab lists write 企画する, 料理(する), 重要な; the same word shows up
+# with and without the suffix. This is the one place that reduces a headword
+# to its stem (freq ranks and the Anki match use it). Runs on NFKC text, so
+# full-width brackets are already half-width.
+_STEM_SUFFIX_RE = re.compile(r"^(.+?)(?:\(する\)|する|\(な\)|な)$")
+_STEM_KANJI_RE = re.compile("[㐀-䶿一-鿿豈-﫿々]")
+_STEM_KATAKANA_RE = re.compile("^[ァ-ヺー]{2,}$")
+_BARE_RE = re.compile("^[㐀-䶿一-鿿豈-﫿々ァ-ヺー]+$")  # kanji / katakana only
+
+
+def stem_parts(word: str, reading: str | None = "") -> tuple[str, str] | None:
+    """(stem, stem reading) for a する/な-suffixed headword, else None. One
+    trailing (する), する, (な) or な is removed. Hiragana-only stems are never
+    produced (する, きれいな, ような stay as written)."""
+    word = unicodedata.normalize("NFKC", (word or "").strip())
+    reading = unicodedata.normalize("NFKC", (reading or "").strip())
+    m = _STEM_SUFFIX_RE.match(word)
+    if not m:
+        return None
+    stem = m.group(1)
+    if not (_STEM_KANJI_RE.search(stem) or _STEM_KATAKANA_RE.match(stem)):
+        return None
+    rm = _STEM_SUFFIX_RE.match(reading) if reading else None
+    return stem, (rm.group(1) if rm else reading)
+
+
+def stem_variants(word: str, reading: str | None = "") -> list[tuple[str, str]]:
+    """Other spellings of the same word, as (word, reading): the stem and the
+    stem + する / な, minus the word itself. Empty when the headword is neither
+    suffixed nor a bare kanji/katakana word (食べる, ひらがな have none)."""
+    own = unicodedata.normalize("NFKC", (word or "").strip())
+    parts = stem_parts(own, reading)
+    if parts:
+        base, base_reading = parts
+    else:
+        base = own
+        base_reading = unicodedata.normalize("NFKC", (reading or "").strip())
+        if not _BARE_RE.match(base) or not (
+            _STEM_KANJI_RE.search(base) or _STEM_KATAKANA_RE.match(base)
+        ):
+            return []
+    out = [(base, base_reading)]
+    for suffix in ("する", "な"):
+        out.append((base + suffix, base_reading + suffix if base_reading else ""))
+    return [v for v in out if v[0] != own]
 
 
 _TILDE_CHARS = "〜～~…・"

@@ -370,11 +370,42 @@ as `example_validation_dropped` under `studious.examples` (and listed per
 word as `reason` in the `POST /api/vocab/examples` response). Open the row's
 detail and press Generate example to try again; a new call often passes.
 
+### A generated sentence uses the noun, not the verb
+A する headword must be used as a verb (した, します, している…) and a な
+headword as an adjective; sentences that do not are rejected and retried
+with that reason. Sentences stored before this rule are not regenerated:
+press Regenerate on the row.
+
 ### A generated sentence is wrong
 Open the vocab row's detail: **Regenerate** asks the model for a new one,
 **Remove** deletes it (the card then goes out without a sentence). Cards
 already sent to Anki are not updated; fix the note in Anki by hand. The
 stored `example` records the model that wrote it.
+
+### Cards have no audio
+The send result says how many clips were added. None means: not macOS or
+no `say` on PATH; the voice is not installed (`say -v '?'` lists them;
+`GET /api/tts/status` shows `available` and the voice, default `Kyoko`,
+change with `STUDIOUS_TTS_VOICE`); the dialog's "Add audio" box was off or
+`ANKI_PUSH_AUDIO=false`. "N failed" means `say` errored for some clips (log
+`anki_push_audio_failed` under `studious.tts` / `studious.anki`); those
+notes were still sent. If clips are generated but the field stays empty, the
+per-note `audio` media shape may differ in your AnkiConnect version (it is
+not verified against a real Anki; see `anki_push.attach_audio`). Cached
+clips are in `backend/data/audio/`; delete one to regenerate it.
+
+### The audio reads a word wrongly
+The built-in voice picks the reading from the kanji itself and can choose a
+different one than the card shows (the card's reading field is not given to
+it). Try another voice in `STUDIOUS_TTS_VOICE`, or fix the clip in Anki.
+
+### A word I expected was skipped as a duplicate
+Words that differ only by a trailing する or な (管理 / 管理する, 重要 /
+重要な) are treated as the same word: in the shortlist an existing card hides
+the other form (badge "matched the same word with or without する/な"), and
+in the send only the first of the pair goes; the skip reason names the other
+word. Hiragana-only words are not affected. Anki's own duplicate check
+(exact Word field) is also asked about the other spelling.
 
 ### New cards do not appear on my phone
 Studious adds the notes to Anki desktop only. Sync Anki desktop with

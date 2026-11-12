@@ -4,12 +4,15 @@ import {
   generateExamples,
   previewAnkiPush,
   sendAnkiPush,
+  vocabAudioUrl,
   type AnkiPushPreview,
   type AnkiPushResult,
   type ExamplesResponse,
 } from "../src/api";
 import {
   GENERATE_CHUNK,
+  audioLabel,
+  audioUnavailableLine,
   chunkIds,
   clampCount,
   generateButtonLabel,
@@ -22,7 +25,7 @@ import {
   sendButtonLabel,
   tallyResults,
 } from "../src/modules/anki-push-dialog";
-import { sendToAnkiTitle } from "../src/pages/study-dashboard";
+import { ankiBadge, sendToAnkiTitle } from "../src/pages/study-dashboard";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -197,5 +200,46 @@ describe("example generation text and chunking", () => {
     expect(offerVisible(0, false, false)).toBe(false);
     expect(offerVisible(5, true, false)).toBe(false);
     expect(offerVisible(5, false, true)).toBe(false);
+  });
+});
+
+describe("audio option", () => {
+  it("labels", () => {
+    expect(audioLabel("Kyoko")).toBe("Add audio (Mac voice: Kyoko)");
+    expect(audioUnavailableLine("Kyoko")).toContain("Kyoko");
+  });
+
+  it("result message reports clips and failures", () => {
+    const base: AnkiPushResult = {
+      created: 2, skipped: [], failed: [], deck: "Studious", deck_created: false, sync_ok: true, sync_error: null,
+    };
+    expect(pushResultMessage(base)).not.toContain("audio");
+    expect(pushResultMessage({ ...base, audio: { enabled: false, attached: 0, failed: 0 } })).not.toContain("audio");
+    expect(pushResultMessage({ ...base, audio: { enabled: true, attached: 3, failed: 0 } })).toContain("3 audio clips added.");
+    expect(pushResultMessage({ ...base, audio: { enabled: true, attached: 1, failed: 2 } })).toContain(
+      "1 audio clip added, 2 failed.",
+    );
+  });
+
+  it("send body carries audio only when given", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ created: 0 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await sendAnkiPush("d", "c", 5);
+    await sendAnkiPush("d", "c", 5, false);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty("audio");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).audio).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it("clip url", () => {
+    expect(vocabAudioUrl("v1", "sentence")).toBe("/api/vocab/v1/audio?part=sentence");
+  });
+});
+
+describe("anki badge for a stem match", () => {
+  it("explains the する/な match", () => {
+    const html = ankiBadge({ anki: { state: "new", deck: "D", interval: 0, match: "stem" } } as any);
+    expect(html).toContain("matched the same word with or without する/な");
+    expect(html).toContain("Anki · new~");
   });
 });

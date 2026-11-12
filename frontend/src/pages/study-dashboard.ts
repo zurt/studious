@@ -16,6 +16,8 @@ import {
   generateExamples,
   deleteVocabExample,
   sendAnkiPush,
+  getTtsStatus,
+  vocabAudioUrl,
   type Chapter,
   type DocMeta,
   type GrammarItem,
@@ -117,7 +119,9 @@ export function ankiBadge(item: StoreItem): string {
   const note =
     a.match === "headword"
       ? "matched on spelling only, reading differs"
-      : a.match === "entry"
+      : a.match === "stem"
+        ? `matched the same word with or without する/な · ${a.deck}`
+        : a.match === "entry"
         ? `matched by dictionary entry (different spelling) · ${a.deck}`
         : `${a.deck}`;
   const mark = a.match === "exact" ? "" : "~";
@@ -435,7 +439,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     btn.disabled = true;
     try {
       const first = await previewAnkiPush(docId, chapterId, SHORTLIST_BUDGET);
-      const limit = await ankiPushDialog(
+      const choice = await ankiPushDialog(
         first,
         state.total,
         SHORTLIST_BUDGET,
@@ -449,8 +453,8 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
           }
         },
       );
-      if (limit === null) return;
-      const result = await sendAnkiPush(docId, chapterId, limit);
+      if (choice === null) return;
+      const result = await sendAnkiPush(docId, chapterId, choice.limit, choice.audio);
       info("StudyDash", "anki_push_done", { created: result.created, failed: result.failed.length });
       (result.failed.length || !result.sync_ok ? toastError : toastInfo)(pushResultMessage(result));
       await reload();
@@ -824,12 +828,14 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         <button class="study-edit-btn" title="Edit fields and notes">Edit</button>
       </div>
       ${item.notes ? `<div class="study-notes">${escapeHtml(item.notes)}</div>` : ""}
-      ${isVocab(item) ? `<div class="study-example"></div>` : ""}
+      ${isVocab(item) ? `<div class="study-example"></div><div class="study-audio" hidden></div>` : ""}
       ${sightings || `<p class="empty">No sightings.</p>`}
       <div class="study-wk" hidden></div>
     `;
     const exampleEl = detail.querySelector<HTMLElement>(".study-example");
     if (exampleEl && isVocab(item)) renderExample(item, exampleEl);
+    const audioEl = detail.querySelector<HTMLElement>(".study-audio");
+    if (audioEl && isVocab(item)) void renderAudio(item, audioEl);
     detail.querySelector<HTMLButtonElement>(".study-edit-btn")!.addEventListener("click", () => {
       state.editing.add(item.id);
       renderEditForm(item, detail);
@@ -843,6 +849,38 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     if (state.kind === "vocab" && wkHasData) {
       void loadWkDrilldown(item.id, detail.querySelector<HTMLElement>(".study-wk")!);
     }
+  }
+
+  let ttsStatus: Promise<{ available: boolean; voice: string }> | null = null;
+
+  /** "Play word" / "Play sentence" buttons, only when the Mac voice is available. */
+  async function renderAudio(item: VocabItem, el: HTMLElement) {
+    ttsStatus ??= getTtsStatus().catch(() => ({ available: false, voice: "" }));
+    const status = await ttsStatus;
+    if (!status.available || !el.isConnected) return;
+    el.hidden = false;
+    el.innerHTML = `
+      <button class="study-audio-btn" data-part="word" title="Speak the word with the Mac voice (${escapeHtml(status.voice)})">Play word</button>
+      <button class="study-audio-btn" data-part="sentence" title="Speak the example sentence with the Mac voice">Play sentence</button>`;
+    el.querySelectorAll<HTMLButtonElement>(".study-audio-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const part = btn.dataset.part as "word" | "sentence";
+        btn.disabled = true;
+        try {
+          const r = await fetch(vocabAudioUrl(item.id, part));
+          if (!r.ok) throw new Error(ankiErrorDetail(`${r.status} ${await r.text()}`));
+          const url = URL.createObjectURL(await r.blob());
+          const audio = new Audio(url);
+          audio.addEventListener("ended", () => URL.revokeObjectURL(url));
+          await audio.play();
+        } catch (e: any) {
+          logError("StudyDash", "audio_failed", { item_id: item.id, error: e.message });
+          toastError(`Play ${part} failed: ` + e.message);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
   }
 
   /** The stored example sentence (bold word, ruby readings) with Generate / Regenerate / Remove. */

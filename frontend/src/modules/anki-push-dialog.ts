@@ -26,6 +26,18 @@ export function pushDialogLines(p: AnkiPushPreview): string[] {
   return lines;
 }
 
+/** Checkbox label for the audio option. */
+export function audioLabel(voice: string): string {
+  return `Add audio (Mac voice: ${voice})`;
+}
+
+/** Muted line shown instead of the checkbox when the voice cannot be used. */
+export function audioUnavailableLine(voice: string): string {
+  return `No audio: needs macOS with the "${voice}" voice installed (see STUDIOUS_TTS_VOICE).`;
+}
+
+export type SendChoice = { limit: number; audio: boolean };
+
 export function sendButtonLabel(n: number): string {
   return `Send ${n} ${n === 1 ? "word" : "words"}`;
 }
@@ -35,6 +47,10 @@ export function pushResultMessage(r: AnkiPushResult): string {
   let msg = `Sent ${r.created} ${r.created === 1 ? "word" : "words"} to Anki (${r.deck}).`;
   if (r.skipped.length) msg += ` ${r.skipped.length} skipped.`;
   if (r.failed.length) msg += ` ${r.failed.length} failed.`;
+  if (r.audio?.enabled) {
+    msg += ` ${r.audio.attached} audio ${r.audio.attached === 1 ? "clip" : "clips"} added`;
+    msg += r.audio.failed ? `, ${r.audio.failed} failed.` : ".";
+  }
   if (!r.sync_ok) msg += " The Anki sync afterwards failed; press Sync Anki.";
   return msg;
 }
@@ -103,7 +119,7 @@ export function ankiPushDialog(
   initialLimit: number,
   load: (limit: number) => Promise<AnkiPushPreview>,
   generate: (ids: string[]) => Promise<ExamplesResponse>,
-): Promise<number | null> {
+): Promise<SendChoice | null> {
   return new Promise((resolve) => {
     let preview = initial;
     let limit = initialLimit;
@@ -128,6 +144,8 @@ export function ankiPushDialog(
         <label class="row anki-push-count">Words to send
           <input type="number" min="1" step="1" style="width: 6em" />
         </label>
+        <label class="anki-push-audio" hidden><input type="checkbox" checked /> <span></span></label>
+        <p class="confirm-message anki-push-audio-note" hidden style="color: var(--muted)"></p>
         <p class="confirm-message anki-push-error" hidden></p>
         <div class="row">
           <div class="grow"></div>
@@ -146,6 +164,17 @@ export function ankiPushDialog(
     const progressEl = bg.querySelector<HTMLElement>(".anki-push-progress")!;
     const progressTextEl = bg.querySelector<HTMLElement>(".anki-push-progress-text")!;
     const summaryEl = bg.querySelector<HTMLElement>(".anki-push-summary")!;
+    const audioRow = bg.querySelector<HTMLElement>(".anki-push-audio")!;
+    const audioBox = audioRow.querySelector<HTMLInputElement>("input")!;
+    const audioNote = bg.querySelector<HTMLElement>(".anki-push-audio-note")!;
+    const au = initial.audio;
+    if (au?.enabled && au.available) {
+      audioRow.hidden = false;
+      audioRow.querySelector("span")!.textContent = audioLabel(au.voice);
+    } else if (au?.enabled) {
+      audioNote.hidden = false;
+      audioNote.textContent = audioUnavailableLine(au.voice);
+    }
     let generating = false;
     let runComplete = false; // a run finished: stop offering, even if some words failed
     let stopRequested = false;
@@ -243,7 +272,7 @@ export function ankiPushDialog(
       render();
     }
 
-    function close(result: number | null) {
+    function close(result: SendChoice | null) {
       closed = true;
       stopRequested = true;
       document.removeEventListener("keydown", onKey);
@@ -254,9 +283,10 @@ export function ankiPushDialog(
       if (e.key === "Escape") close(null);
     }
     bg.querySelector("#anki-push-cancel")!.addEventListener("click", () => close(null));
-    okBtn.addEventListener("click", () => close(limit));
+    const choice = (): SendChoice => ({ limit, audio: !audioRow.hidden && audioBox.checked });
+    okBtn.addEventListener("click", () => close(choice()));
     genBtn.addEventListener("click", () => void runGeneration());
-    bg.querySelector("#anki-push-without")!.addEventListener("click", () => close(limit));
+    bg.querySelector("#anki-push-without")!.addEventListener("click", () => close(choice()));
     bg.querySelector("#anki-push-stop")!.addEventListener("click", () => {
       stopRequested = true;
       progressTextEl.textContent += " (stopping after this batch)";

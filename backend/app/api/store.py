@@ -11,10 +11,20 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from ..services import anki as anki_service
-from ..services import enrich, examples, harvest, jmdict, store, wanikani
+from ..services import (
+    anki_push,
+    enrich,
+    examples,
+    harvest,
+    jmdict,
+    store,
+    tts,
+    wanikani,
+)
 from ..services import shortlist as shortlist_service
 
 log = logging.getLogger("studious.api.store")
@@ -322,6 +332,32 @@ def delete_vocab_example(item_id: str):
     if not examples.remove_example(item_id):
         raise HTTPException(404, "vocab item not found")
     return {"ok": True}
+
+
+@router.get("/tts/status")
+def tts_status():
+    return {"available": tts.is_available(), "voice": tts.voice()}
+
+
+@router.get("/vocab/{item_id}/audio")
+def vocab_audio(item_id: str, part: str = "word"):
+    """The clip for the item's word or sentence, as it would go on the card."""
+    if part not in ("word", "sentence"):
+        raise HTTPException(400, "part must be 'word' or 'sentence'")
+    item = store.get_item("vocab", item_id)
+    if item is None or item.get("deleted"):
+        raise HTTPException(404, "vocab item not found")
+    note = anki_push.build_note(item)
+    text = note["word_text"] if part == "word" else note["sentence_text"]
+    if not text:
+        raise HTTPException(404, f"this item has no {part} to speak")
+    if not tts.is_available():
+        raise HTTPException(503, f"The {tts.voice()!r} voice is not available (needs macOS with `say`)")
+    try:
+        path = tts.synthesize(text)
+    except tts.TtsError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return FileResponse(path, media_type="audio/mp4")
 
 
 @router.post("/vocab/{item_id}/merge")

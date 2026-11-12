@@ -498,6 +498,11 @@ Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
       send; a vocab row's detail has Generate / Regenerate / Remove.
       Textbook sentences over 60 characters are no longer used
       (`POST /api/vocab/examples`, `DELETE /api/vocab/{id}/example`)
+- [x] Anki card quality: short dictionary meanings on the card; a word
+      and its する/な form are one word (Anki lookup `stem` match, in-batch and
+      in-Anki duplicate checks); generated sentences use する words as verbs
+      and な words as adjectives; Mac-voice audio (`say`, cached AAC) for
+      `Word Audio` and `Sentence Audio`, with Play buttons on vocab rows
 - [x] Frequency rank: `make refs` also builds `data/refs/freq/jpdb-freq.sqlite`
       from the pinned JPDB frequency list (local download, not committed);
       enrichment writes `classifications.freq_rank` (and `freq_checked`, so

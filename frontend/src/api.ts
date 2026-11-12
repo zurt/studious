@@ -637,8 +637,8 @@ export type AnkiMatch = {
   state: AnkiState;
   deck: string;
   interval: number;
-  /** exact word+reading, same JMdict entry (variant spelling), or word alone. */
-  match: "exact" | "entry" | "headword";
+  /** exact word+reading, same word with or without する/な, same JMdict entry (variant spelling), or word alone. */
+  match: "exact" | "stem" | "entry" | "headword";
 };
 
 export type ShortlistReason =
@@ -946,6 +946,8 @@ export type AnkiPushPreview = {
   deck_exists: boolean;
   will_create_deck: boolean;
   note_type: string;
+  /** Card audio from the Mac voice: the setting, whether `say` and the voice exist, the voice. */
+  audio?: { enabled: boolean; available: boolean; voice: string };
   counts: {
     candidates: number;
     will_add: number;
@@ -969,6 +971,7 @@ export type AnkiPushResult = {
   deck_created: boolean;
   sync_ok: boolean;
   sync_error: string | null;
+  audio?: { enabled: boolean; attached: number; failed: number };
 };
 
 /** Request body shared by the preview and the send. */
@@ -990,8 +993,22 @@ export async function sendAnkiPush(
   docId: string,
   chapterId: string,
   limit: number,
+  audio?: boolean,
 ): Promise<AnkiPushResult> {
-  return jpost("/api/anki/push", { ...ankiPushBody(docId, chapterId, limit), confirm: true });
+  return jpost("/api/anki/push", {
+    ...ankiPushBody(docId, chapterId, limit),
+    confirm: true,
+    ...(audio === undefined ? {} : { audio }),
+  });
+}
+
+export async function getTtsStatus(): Promise<{ available: boolean; voice: string }> {
+  return jget("/api/tts/status");
+}
+
+/** URL of the clip for a vocab item's word or sentence as it would go on the card. */
+export function vocabAudioUrl(itemId: string, part: "word" | "sentence"): string {
+  return `/api/vocab/${itemId}/audio?part=${part}`;
 }
 
 export type ExampleResult = {

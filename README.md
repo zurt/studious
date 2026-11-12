@@ -154,6 +154,8 @@ Environment variables (read at startup, `.env` supported):
   export it in `~/.zshrc` the same way. Never put it in `.env`.
 - `ANKI_CONNECT_URL` — AnkiConnect endpoint for the Anki import (default
   `http://127.0.0.1:8765`).
+- `STUDIOUS_TTS_VOICE` — macOS `say` voice for card audio (default
+  `Kyoko`); `ANKI_PUSH_AUDIO` — attach audio on send (default true).
 - `ANKI_PUSH_DECK` / `ANKI_PUSH_NOTE_TYPE` — where "Send to Anki" puts new
   cards (defaults `Studious` and `Kaishi 1.5k`).
 - `STUDIOUS_DATA_DIR` — data root (default `./data`).
@@ -310,6 +312,34 @@ picture stay empty. Cards are tagged `studious` and
 order Anki introduces new cards. Words that were sent become `active` in the
 store, and the Anki snapshot is re-synced so they leave the shortlist.
 
+#### Card quality
+
+- **Short meanings.** A meaning that came from the dictionary
+  (`meaning_source: "jmdict"`) goes on the card as its first three glosses,
+  cut earlier if the next would pass 40 characters (`to obtain, to get, to
+  procure`). A meaning you edited (`user`) or the model wrote for the
+  textbook context (`llm`) is sent as is. The store keeps the full meaning.
+- **A word and its する / な form are one word.** 管理 and 管理する (or 重要
+  and 重要な) count as the same word: a card for either one in Anki hides the
+  other from the shortlist (badge `Anki · … ~`, "matched the same word with
+  or without する/な"), the preview also asks Anki about the other spelling,
+  and of two such words in one send only the first is sent. Hiragana-only
+  words (する, きれいな) are never stemmed.
+- **Audio.** On a Mac the send attaches two clips from the built-in voice
+  (`STUDIOUS_TTS_VOICE`, default `Kyoko`): the word (as written on the card)
+  to `Word Audio` and the example sentence to `Sentence Audio`. Clips are
+  made with `say` as real AAC .m4a files, cached under `data/audio/`
+  (named by a hash of voice and text) and sent inside `addNotes`, so no new
+  AnkiConnect action is used. The dialog shows an "Add audio" checkbox when
+  the voice is available; `ANKI_PUSH_AUDIO=false` turns it off by default.
+  A clip that fails to generate is left off and counted in the result. In a
+  vocab row's detail, **Play word** / **Play sentence** play the same clips.
+  Better voices can be downloaded in macOS System Settings > Accessibility >
+  Spoken Content > System Voice > Manage Voices; set `STUDIOUS_TTS_VOICE` to
+  the voice's name and restart. The per-note `audio` shape follows
+  AnkiConnect's documented `addNote` media format but has not been checked
+  against a real Anki yet.
+
 #### Example sentences
 
 Each card gets one example sentence, chosen in this order:
@@ -317,7 +347,8 @@ Each card gets one example sentence, chosen in this order:
 1. A short sentence (60 characters or fewer) from a breakdown of a reading
    passage where the word was seen, with its translation. Textbook
    sentences keep their text as printed, with no readings added.
-2. Otherwise a generated sentence stored on the vocab item: one natural
+2. Otherwise a generated sentence stored on the vocab item (a する word
+   gets a sentence that uses it as a verb, a な word as an adjective): one natural
    sentence in the style of the Kaishi 1.5k deck, using the word in its
    meaning with everything else at about N5-N4 level, plus real furigana
    and an English translation.

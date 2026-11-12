@@ -323,13 +323,20 @@ def lookup(
 ) -> dict[str, Any] | None:
     """Anki state for one store item.
 
-    Tiers: ``exact`` (word + reading), ``entry`` (same JMdict entry, so a
+    Tiers: ``exact`` (word + reading), ``stem`` (the same word with or
+    without する / な: 管理 / 管理する), ``entry`` (same JMdict entry, so a
     variant spelling like うれしい / 嬉しい matches), ``headword`` (word
     alone, reading differs).
     """
     exact, by_seq, by_headword = index or get_index()
     key = store.vocab_key(headword, reading)
     card, match = exact.get(key), "exact"
+    if card is None:
+        for variant in store.stem_variants(headword, reading):
+            card = exact.get(store.vocab_key(*variant))
+            if card is not None:
+                match = "stem"
+                break
     if card is None and jmdict_seq is not None:
         card, match = by_seq.get(jmdict_seq), "entry"
     if card is None:

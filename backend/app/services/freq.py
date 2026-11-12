@@ -19,13 +19,12 @@ local download, never committed.
 from __future__ import annotations
 
 import logging
-import re
 import sqlite3
 import threading
 import unicodedata
 
 from . import refs_build
-from .store import kata_to_hira
+from .store import kata_to_hira, stem_parts
 
 log = logging.getLogger("studious.freq")
 
@@ -43,9 +42,6 @@ LOOKUP_VERSION = 2
 # stem. Runs on NFKC text, so full-width brackets are already half-width.
 # (No existing helper handles this: jmdict.lookup and the Anki matching only
 # normalise NFKC and edge characters.)
-_SUFFIX_RE = re.compile(r"^(.+?)(?:\(する\)|する|\(な\)|な)$")
-_KANJI_RE = re.compile("[㐀-䶿一-鿿豈-﫿々]")
-_KATAKANA_RE = re.compile("^[ァ-ヺー]{2,}$")
 
 
 def _get_conn() -> sqlite3.Connection | None:
@@ -98,16 +94,8 @@ def revision() -> str | None:
 
 
 def _stem(word: str, reading: str) -> tuple[str, str] | None:
-    """(stem, stem reading) for a する/な-suffixed headword, else None. Hiragana-only
-    headwords are never stemmed (する, きれいな, ような stay as written)."""
-    m = _SUFFIX_RE.match(word)
-    if not m:
-        return None
-    stem = m.group(1)
-    if not (_KANJI_RE.search(stem) or _KATAKANA_RE.match(stem)):
-        return None
-    rm = _SUFFIX_RE.match(reading) if reading else None
-    return stem, (rm.group(1) if rm else reading)
+    """The shared stem rule (store.stem_parts); kept as a name for the callers here."""
+    return stem_parts(word, reading)
 
 
 def _rank(con: sqlite3.Connection, word: str, reading: str) -> int | None:

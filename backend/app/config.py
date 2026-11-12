@@ -733,6 +733,11 @@ exactly one sentence for each word.
 - Headwords written like 企画する, 重要な or 料理(する) name a word that
   takes する or な in a sentence: use the natural form, e.g. 企画した,
   重要な問題, 料理している.
+- A headword given in a する form (操作する, 企画する, 料理(する)) must be
+  used as a verb, inflected: した, します, して, している, される, できる.
+  Never use only the noun (not 操作が簡単だ). A headword given with な
+  (重要な) must be used as an adjective: 重要な before a noun, or 重要だ /
+  重要です at the end.
 - No names of real people, nothing that needs outside context, no
   quotation of textbooks, no brackets, no blanks, no Latin letters
   (unless the headword itself contains them).
@@ -828,6 +833,9 @@ class Settings(BaseModel):
     wanikani_api_token: str | None = None
     anki_connect_url: str = "http://127.0.0.1:8765"
     anki_push_deck: str = "Studious"
+    # macOS `say` voice for card audio, and whether a send attaches it.
+    tts_voice: str = "Kyoko"
+    anki_push_audio: bool = True
     anki_push_note_type: str = "Kaishi 1.5k"
     tesseract_cmd: str | None
     # Opus 5.5 since 2026-11: best transcriber of five in model-eval run
@@ -879,6 +887,9 @@ def get_settings() -> Settings:
         wanikani_api_token=os.environ.get("WANIKANI_API_TOKEN") or None,
         anki_connect_url=os.environ.get("ANKI_CONNECT_URL") or "http://127.0.0.1:8765",
         anki_push_deck=os.environ.get("ANKI_PUSH_DECK") or "Studious",
+        tts_voice=os.environ.get("STUDIOUS_TTS_VOICE") or "Kyoko",
+        anki_push_audio=(os.environ.get("ANKI_PUSH_AUDIO") or "true").strip().lower()
+        not in ("0", "false", "no", "off"),
         anki_push_note_type=os.environ.get("ANKI_PUSH_NOTE_TYPE") or "Kaishi 1.5k",
         tesseract_cmd=os.environ.get("TESSERACT_CMD") or None,
         **overrides,

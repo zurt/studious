@@ -22,6 +22,7 @@ import json
 import logging
 import re
 import time
+import unicodedata
 from datetime import UTC, datetime
 from typing import Any
 
@@ -83,6 +84,36 @@ def headword_stem(headword: str) -> str:
     return word[:2]
 
 
+_SURU_STARTS = ("す", "し", "さ", "せ", "でき")
+_NA_STARTS = ("な", "だ", "で", "に")
+
+
+def _form_reason(headword: str, surface: str, sentence: str) -> str | None:
+    """A する headword must be used as a verb, a な headword as an adjective.
+    Only headwords with a kanji or katakana stem are checked (store.stem_parts)."""
+    norm = unicodedata.normalize("NFKC", (headword or "").strip())
+    parts = store.stem_parts(norm)
+    if not parts:
+        return None
+    stem = parts[0]
+    occurrences = [m.start() for m in re.finditer(re.escape(stem), surface)]
+    if norm.endswith(("する", "(する)")):
+        if any(surface[i + len(stem) :].startswith(_SURU_STARTS) for i in occurrences):
+            return None
+        return (
+            f"{headword} is a する verb: use it as a verb (e.g. {stem}した, {stem}します, {stem}している), "
+            f"not as the noun {stem}; the surface must continue past {stem} with a する form"
+        )
+    at = sentence.find(surface)
+    after = sentence[at + len(surface) :] if at >= 0 else ""
+    if any((surface[i + len(stem) :] or after).startswith(_NA_STARTS) for i in occurrences):
+        return None
+    return (
+        f"{headword} is a な-adjective: use {stem}な before a noun or {stem}だ/{stem}です, "
+        f"not the bare {stem}"
+    )
+
+
 def validate_furigana(sentence: str, furi: str) -> str | None:
     """Reason the Anki-syntax furigana is wrong for ``sentence``, or None."""
     if not furi:
@@ -128,6 +159,9 @@ def validate_entry(entry: Any, headword: str) -> str | None:
     stem = headword_stem(headword)
     if stem and stem not in surface:
         return f"surface does not contain the headword's stem {stem!r}"
+    reason = _form_reason(headword, surface, sentence)
+    if reason:
+        return reason
     reason = validate_furigana(sentence, furi)
     if reason:
         return reason
