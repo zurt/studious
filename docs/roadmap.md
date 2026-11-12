@@ -490,6 +490,14 @@ Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
       `active`, and an example sentence (with its translation when the
       breakdown has it) is attached when a breakdown sighting is usable.
       Deck options (new cards per day) stay the owner's to set in Anki
+- [x] Generated example sentences for Anki cards: words with no short
+      textbook sentence get a Kaishi-style sentence (with furigana and an
+      English translation) from the configured model, stored on the vocab
+      item as `example` so it is generated once. The Send to Anki dialog
+      offers "Generate N sentences" (batches of 20, cancellable) before the
+      send; a vocab row's detail has Generate / Regenerate / Remove.
+      Textbook sentences over 60 characters are no longer used
+      (`POST /api/vocab/examples`, `DELETE /api/vocab/{id}/example`)
 - [x] Frequency rank: `make refs` also builds `data/refs/freq/jpdb-freq.sqlite`
       from the pinned JPDB frequency list (local download, not committed);
       enrichment writes `classifications.freq_rank` (and `freq_checked`, so

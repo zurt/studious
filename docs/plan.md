@@ -336,7 +336,24 @@ decisions:
   `POST /api/anki/push` (`confirm: true`; the only writes to Anki, limited to
   `createDeck` and `addNotes`) send a chapter's first `limit` shortlist
   candidates into the `ANKI_PUSH_DECK` deck as `ANKI_PUSH_NOTE_TYPE` notes
-  (`services/anki_push.py`).
+  (`services/anki_push.py`). A note's sentence is a textbook breakdown
+  sentence of at most 60 characters, else the item's stored `example`, else
+  empty; the preview reports `sentence_source` per row and
+  `counts.needs_example` / `needs_example_ids`.
+- **Example sentences**: a vocab item may carry `example` =
+  `{sentence, surface, furigana, gloss, source: "generated", model,
+  created_at}` (plain text; furigana in Anki `漢字[よみ]` syntax; the `<b>`
+  is added when a note is built). Written with `store.update_item`; Swift
+  readers keep unknown item keys (raw `[String: JSONValue]`).
+  `services/examples.py` generates them in batches of 20 through the VLM
+  provider's `call_tool` (tool `record_examples`, `EXAMPLE_SENTENCES_PROMPT`
+  and `EXAMPLE_SENTENCES_TOOL_SCHEMA` in `config.py`, instructions cached,
+  effort `vlm_effort_examples`, the active model), validates every entry,
+  retries failures once with the reason, and audits each call as
+  `job_type: "example_sentences"`. `POST /api/vocab/examples`
+  `{item_ids (1..40), force}` returns per item `generated | kept | failed`
+  plus token/cost totals (503 without an API key, 502 when every call
+  failed); `DELETE /api/vocab/{id}/example` clears it.
 - **Anki import (read-only)**: AnkiConnect on `127.0.0.1:8765`
   (`ANKI_CONNECT_URL`), snapshot at `data/refs/anki/snapshot.json`
   (`GET /api/refs/anki/status`, `POST /api/refs/anki/sync`). Card state is

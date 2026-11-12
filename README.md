@@ -303,13 +303,39 @@ Cards go into a separate deck (`ANKI_PUSH_DECK`, default `Studious`, created
 if missing) using your existing note type (`ANKI_PUSH_NOTE_TYPE`, default
 `Kaishi 1.5k`) so they look like your other cards. Word, reading, meaning,
 furigana and frequency are filled in (`Notes` holds only your own note on
-the word; the source is in the tags); the example sentence and its translation come from a
-breakdown of a reading passage where the word was seen (left empty when none
-fits, because Anki needs no sentence to make a card); audio, pitch accent and
+the word; the source is in the tags); the example sentence and its translation are chosen as
+described below; audio, pitch accent and
 picture stay empty. Cards are tagged `studious` and
 `studious::<doc>::<chapter>`, and added in shortlist order, which is the
 order Anki introduces new cards. Words that were sent become `active` in the
 store, and the Anki snapshot is re-synced so they leave the shortlist.
+
+#### Example sentences
+
+Each card gets one example sentence, chosen in this order:
+
+1. A short sentence (60 characters or fewer) from a breakdown of a reading
+   passage where the word was seen, with its translation. Textbook
+   sentences keep their text as printed, with no readings added.
+2. Otherwise a generated sentence stored on the vocab item: one natural
+   sentence in the style of the Kaishi 1.5k deck, using the word in its
+   meaning with everything else at about N5-N4 level, plus real furigana
+   and an English translation.
+3. Otherwise the sentence fields stay empty.
+
+When some of the words about to be sent have no sentence, the dialog says
+so and offers **Generate N sentences**. This asks the configured model
+(Settings > model) for the sentences in batches of 20, shows progress, and
+can be cancelled between batches; **Send without** skips it. It costs API
+tokens, audited under the `example_sentences` job type in the cost summary.
+Every generated sentence is checked (length, ending, the word and its
+readings are really in it, no Japanese in the translation) and retried once
+if it fails; words that still fail are left without a sentence. Generated
+sentences are stored on the item (`example`) and reused, so a word is
+generated once and the send itself never calls the model. In the expanded
+detail of a vocab row you can **Generate example**, **Regenerate** or
+**Remove** one. Endpoints: `POST /api/vocab/examples` (1 to 40 ids,
+`force` to regenerate) and `DELETE /api/vocab/{id}/example`.
 
 Studious writes to Anki with exactly two AnkiConnect actions, `createDeck`
 and `addNotes` (enforced in `backend/app/services/anki_push.py`); it never

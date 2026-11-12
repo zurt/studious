@@ -341,14 +341,40 @@ skipped. A word reported as failed was accepted by the preview but refused by
 `addNotes`; it stays in the inbox and can be retried.
 
 ### Cards sent to Anki have no example sentence
-Only a breakdown sighting is used, because a vocab-list sighting is a list
-row, not a sentence. A word gets no sentence when it was never in a
-breakdown, or every sentence is exercise debris: over 120 characters, a
+First choice is a breakdown sighting of at most 60 characters (a vocab-list
+sighting is a list row, not a sentence); second is a generated sentence
+stored on the item (see "Generate sentences fails" below). A word gets
+neither when it was never in a breakdown, or every sentence is exercise
+debris or too long: over 60 characters, a
 table, a word bank (`□`), a blank or empty brackets, or no sentence-ending
 mark. Sentences from `reading_passage` regions are preferred. Run the breakdown for the chapter's reading passages and send again
 (already-sent words are skipped as duplicates, so fix the note in Anki by
 hand). The translation is empty when the breakdown was re-run since the word
 was harvested and the sentence moved.
+
+### Generate sentences fails
+The dialog or the row button shows the backend's message. 503 with
+"ANTHROPIC_API_KEY is not set" means the provider is not configured: put the
+key in `.env` and restart the backend. 502 "Example sentence generation
+failed" means every model call errored (rate limit, overload, bad model
+name); the error is in the `llm_audit` log with `job_type`
+`example_sentences` and in `studious.examples` as `example_batch_failed`.
+Retry later; sentences already stored are kept.
+
+### Some words still have no sentence after generating
+The model's answer is checked before it is stored (6 to 40 characters,
+ends with 。, the word's stem in the surface form, readings on every kanji
+and only there, no Japanese in the translation) and retried once with the
+reason. Words that fail twice are left without one. The reasons are logged
+as `example_validation_dropped` under `studious.examples` (and listed per
+word as `reason` in the `POST /api/vocab/examples` response). Open the row's
+detail and press Generate example to try again; a new call often passes.
+
+### A generated sentence is wrong
+Open the vocab row's detail: **Regenerate** asks the model for a new one,
+**Remove** deletes it (the card then goes out without a sentence). Cards
+already sent to Anki are not updated; fix the note in Anki by hand. The
+stored `example` records the model that wrote it.
 
 ### New cards do not appear on my phone
 Studious adds the notes to Anki desktop only. Sync Anki desktop with
