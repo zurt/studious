@@ -19,7 +19,7 @@ import threading
 from typing import Any
 
 from ..config import get_settings
-from . import anki, blanks, storage, store
+from . import anki, blanks, examples, storage, store
 
 log = logging.getLogger("studious.anki")
 
@@ -61,6 +61,8 @@ FILLED_FIELDS = (
 )
 
 MAX_SENTENCE_CHARS = 120
+# Flashcard sentences should be short: a longer textbook sentence is passed over.
+MAX_TEXTBOOK_SENTENCE_CHARS = 60
 
 _push_lock = threading.Lock()
 
@@ -339,14 +341,14 @@ def choose_sentence(
     """(sighting, plain text) of the best usable breakdown sentence, or None.
     Vocab-list sightings are list rows, not sentences, so they never count.
     Ranked: reading_passage regions first, then the given chapter, then the
-    shorter sentence."""
+    shorter sentence. Sentences over MAX_TEXTBOOK_SENTENCE_CHARS never count."""
     cache = {} if cache is None else cache
     ranked: list[tuple[tuple, dict[str, Any], str]] = []
     for s in item.get("sightings") or []:
         if s.get("source") != "breakdown":
             continue
         text = usable_sentence(s.get("sentence_text") or "")
-        if text is None:
+        if text is None or len(text) > MAX_TEXTBOOK_SENTENCE_CHARS:
             continue
         key = (
             0 if _region_tag(s, cache) == "reading_passage" else 1,
@@ -385,21 +387,38 @@ def sentence_gloss(sighting: dict[str, Any]) -> str:
 # ---------- Note ----------
 
 
+def stored_example(item: dict[str, Any]) -> dict[str, Any] | None:
+    """The item's stored example when it has the fields a note needs."""
+    ex = item.get("example")
+    if isinstance(ex, dict) and ex.get("sentence") and ex.get("furigana"):
+        return ex
+    return None
+
+
 def build_note(
     item: dict[str, Any],
     doc_id: str | None = None,
     chapter_id: str | None = None,
     cache: dict[tuple, str | None] | None = None,
 ) -> dict[str, Any]:
-    """{"fields", "tags", "has_sentence", "has_gloss"} for one store item."""
+    """{"fields", "tags", "has_sentence", "has_gloss", "sentence_source"} for one
+    store item. The sentence is a short textbook sighting, else the item's
+    stored generated example (with real furigana), else empty."""
     headword = strip_suffix_group(item.get("headword") or "")
     reading = pick_reading(headword, strip_suffix_group(item.get("reading") or ""))
     chosen = choose_sentence(item, chapter_id, cache)
-    sentence = meaning = ""
+    sentence = meaning = sentence_furigana = ""
+    source: str | None = None
     if chosen:
         sighting, text = chosen
-        sentence = sentence_html(text, sighting.get("surface") or "", headword)
+        sentence = sentence_furigana = sentence_html(text, sighting.get("surface") or "", headword)
         meaning = html.escape(sentence_gloss(sighting), quote=False)
+        source = "textbook"
+    elif (ex := stored_example(item)) is not None:
+        sentence = sentence_html(ex["sentence"], ex.get("surface") or "", headword)
+        sentence_furigana = examples.wrap_surface(ex["furigana"], ex.get("surface") or "")
+        meaning = html.escape(ex.get("gloss") or "", quote=False)
+        source = "generated"
     own = (item.get("notes") or "").strip()
     notes = html.escape(own, quote=False).replace("\n", "<br>") if own else ""
     rank = (item.get("classifications") or {}).get("freq_rank")
@@ -412,7 +431,7 @@ def build_note(
             "Word Furigana": html.escape(furigana(headword, reading), quote=False),
             "Sentence": sentence,
             "Sentence Meaning": meaning,
-            "Sentence Furigana": sentence,
+            "Sentence Furigana": sentence_furigana,
             "Notes": notes,
             "Frequency": str(int(rank)) if isinstance(rank, (int, float)) and rank > 0 else "",
         }
@@ -420,7 +439,9 @@ def build_note(
     tags = ["studious"]
     if doc_id and chapter_id:
         tags.append(f"studious::{doc_id}::{chapter_id}")
-    return {"fields": fields, "tags": tags, "has_sentence": bool(sentence), "has_gloss": bool(meaning)}
+    return {"fields": fields, "tags": tags, "has_sentence": bool(sentence), "has_gloss": bool(meaning),
+        "sentence_source": source,
+    }
 
 
 # ---------- Preview / push ----------
@@ -515,6 +536,7 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
                 "tags": b["tags"],
                 "has_sentence": b["has_sentence"],
                 "has_gloss": b["has_gloss"],
+                "sentence_source": b["sentence_source"],
                 "can_add": ok,
                 "reason": reason,
                 "headword_match": (item.get("anki") or {}).get("match") == "headword",
@@ -529,6 +551,7 @@ def preview(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
     prepared = _prepare(doc_id, chapter_id, limit)
     rows = [{k: v for k, v in r.items() if k != "_note"} for r in prepared["rows"]]
     addable = [r for r in rows if r["can_add"]]
+    needs = [r for r in addable if not r["has_sentence"]]
     return {
         "deck": prepared["deck"],
         "deck_exists": prepared["deck_exists"],
@@ -540,7 +563,9 @@ def preview(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
             "skipped": len(rows) - len(addable),
             "with_sentence": sum(1 for r in addable if r["has_sentence"]),
             "with_gloss": sum(1 for r in addable if r["has_gloss"]),
-            "without_sentence": sum(1 for r in addable if not r["has_sentence"]),
+            "without_sentence": len(needs),
+            "needs_example": len(needs),
+            "needs_example_ids": [r["id"] for r in needs],
             "headword_match": sum(1 for r in addable if r["headword_match"]),
         },
         "items": rows,

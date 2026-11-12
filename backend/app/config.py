@@ -715,6 +715,84 @@ BREAKDOWN_TOOL_SCHEMA: dict = {
 }
 
 
+EXAMPLE_SENTENCES_PROMPT = """\
+You write example sentences for Japanese flashcards, in the style of the
+Kaishi 1.5k Anki deck. The input is a `<words>` JSON list; each entry has
+`id`, `headword`, `reading`, `meaning` and `pos` (part of speech). Write
+exactly one sentence for each word.
+
+<sentence_rules>
+- Natural Japanese a native speaker would really say, 8 to 25 characters,
+  one clause or two short ones, ending with 。 (or ！ / ？ when natural).
+- Everything except the target word must be vocabulary and grammar at
+  about JLPT N5-N4 level, so the target word is the only hard part.
+- Use the word in the given `meaning`; some words have several senses.
+- The word may be inflected naturally (past, negative, て-form, polite).
+  Return the exact surface form you used in `surface`; it must appear in
+  `sentence` exactly as written there.
+- Headwords written like 企画する, 重要な or 料理(する) name a word that
+  takes する or な in a sentence: use the natural form, e.g. 企画した,
+  重要な問題, 料理している.
+- No names of real people, nothing that needs outside context, no
+  quotation of textbooks, no brackets, no blanks, no Latin letters
+  (unless the headword itself contains them).
+</sentence_rules>
+
+<fields>
+- `id`: copy the entry's id.
+- `sentence`: plain Japanese text only, no markup.
+- `surface`: the target word as it appears in `sentence`.
+- `furigana`: the whole sentence in Anki furigana syntax: 漢字[よみ]. Put a
+  reading on every run of kanji, including the target word; leave kana
+  bare (never put a reading on kana). Put a single ASCII space before a
+  kanji run that directly follows kana or other text; no space at the
+  start of the sentence. Removing every [...] group and every space must
+  give back `sentence` exactly. Choose the reading that fits the context.
+- `gloss`: the sentence in plain natural English, no Japanese characters.
+</fields>
+
+<examples>
+Input: {"id": "a1", "headword": "嬉しい", "reading": "うれしい", "meaning": "glad; happy", "pos": ["adj-i"]}
+Output: {"id": "a1", "sentence": "彼に会えて嬉しかった。", "surface": "嬉しかった", "furigana": "彼[かれ]に 会[あ]えて 嬉[うれ]しかった。", "gloss": "I was glad to be able to meet him."}
+
+Input: {"id": "a2", "headword": "企画する", "reading": "きかくする", "meaning": "to plan; to organize", "pos": ["vs"]}
+Output: {"id": "a2", "sentence": "友達と旅行を企画した。", "surface": "企画した", "furigana": "友達[ともだち]と 旅行[りょこう]を 企画[きかく]した。", "gloss": "I planned a trip with my friends."}
+
+Input: {"id": "a3", "headword": "ゆっくり", "reading": "ゆっくり", "meaning": "slowly; leisurely", "pos": ["adv"]}
+Output: {"id": "a3", "sentence": "もう少しゆっくり話してください。", "surface": "ゆっくり", "furigana": "もう 少[すこ]しゆっくり 話[はな]してください。", "gloss": "Please speak a little more slowly."}
+</examples>
+
+<rules>
+- Return an entry for every input word, with the same `id`. A word may
+  carry a `problem` field: the previous attempt was rejected for that
+  reason, so fix it.
+- Do not return prose; return only the tool call.
+</rules>
+"""
+
+
+EXAMPLE_SENTENCES_TOOL_SCHEMA: dict = {
+    "type": "object",
+    "required": ["examples"],
+    "properties": {
+        "examples": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["id", "sentence", "surface", "furigana", "gloss"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "sentence": {"type": "string"},
+                    "surface": {"type": "string"},
+                    "furigana": {"type": "string"},
+                    "gloss": {"type": "string"},
+                },
+            },
+        }
+    },
+}
+
+
 # Per-model pricing in USD per 1M tokens. Keep in sync with Anthropic's
 # published pricing. Image tokens are billed as input tokens by Anthropic
 # and are already included in `usage.input_tokens`, so no separate rate.
@@ -770,6 +848,8 @@ class Settings(BaseModel):
     vlm_max_edge: int = 1568
     vlm_effort_transcription: str = "high"
     vlm_effort_breakdown: str = "xhigh"
+    # Short single-sentence generation: no need for the breakdown effort.
+    vlm_effort_examples: str = "medium"
     pdf_render_dpi: int = 300
     log_level: str = "INFO"
 

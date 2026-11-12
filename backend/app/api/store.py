@@ -11,10 +11,10 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..services import anki as anki_service
-from ..services import enrich, harvest, jmdict, store, wanikani
+from ..services import enrich, examples, harvest, jmdict, store, wanikani
 from ..services import shortlist as shortlist_service
 
 log = logging.getLogger("studious.api.store")
@@ -39,6 +39,11 @@ class UpdateVocab(BaseModel):
     meaning: str | None = None
     notes: str | None = None
     status: str | None = None
+
+
+class ExamplesBody(BaseModel):
+    item_ids: list[str] = Field(min_length=1, max_length=40)
+    force: bool = False
 
 
 class MergeBody(BaseModel):
@@ -300,6 +305,23 @@ def update_vocab(item_id: str, body: UpdateVocab):
 @router.delete("/vocab/{item_id}")
 def delete_vocab(item_id: str):
     return _delete_item("vocab", item_id)
+
+
+@router.post("/vocab/examples")
+def generate_vocab_examples(body: ExamplesBody):
+    """Generate (and store) an example sentence for each item, in the Kaishi
+    style. Items that already have one are reported as `kept` unless `force`."""
+    try:
+        return examples.generate_examples(body.item_ids, force=body.force)
+    except examples.ExamplesError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
+
+
+@router.delete("/vocab/{item_id}/example")
+def delete_vocab_example(item_id: str):
+    if not examples.remove_example(item_id):
+        raise HTTPException(404, "vocab item not found")
+    return {"ok": True}
 
 
 @router.post("/vocab/{item_id}/merge")
