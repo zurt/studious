@@ -20,6 +20,7 @@ import json
 import logging
 import re
 import threading
+import unicodedata
 import urllib.error
 import urllib.request
 from datetime import UTC, datetime
@@ -27,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import get_settings
-from . import store
+from . import jmdict, refs_build, store
 
 log = logging.getLogger("studious.anki")
 
@@ -56,7 +57,9 @@ _TAG_RE = re.compile(r"<[^>]*>")
 _SPACE_RE = re.compile(r"\s+")
 
 _lock = threading.Lock()
-_index_cache: dict[str, tuple[int, tuple[dict, dict]]] = {}
+# (exact index, JMdict-seq index, headword index)
+Index = tuple[dict[tuple[str, str], dict[str, Any]], dict[int, dict[str, Any]], dict[str, dict[str, Any]]]
+_index_cache: dict[str, tuple[tuple[int, int], Index]] = {}
 
 
 class AnkiUnavailable(RuntimeError):
@@ -244,36 +247,90 @@ def _better(new: dict[str, Any], old: dict[str, Any] | None) -> bool:
     return old is None or _RANK[new["state"]] > _RANK[old["state"]]
 
 
-def get_index() -> tuple[dict[tuple[str, str], dict[str, Any]], dict[str, dict[str, Any]]]:
-    """(exact-key index, headword-only index), cached on the snapshot mtime."""
-    path = snapshot_path()
+def _card_seq(card: dict[str, Any]) -> int | None:
+    """JMdict entry for an Anki card, or None when we can't be sure.
+
+    Deliberately conservative: the card needs a reading, the card's spelling
+    must be one of the entry's written forms, and the entry must carry that
+    reading. ``jmdict.lookup`` also falls back to reading-only or
+    surface-only hits, which would make 漢字 and 感じ (both かんじ) collide.
+    """
+    reading = store.kata_to_hira(unicodedata.normalize("NFKC", card.get("reading") or ""))
+    word = unicodedata.normalize("NFKC", card.get("word") or "")
+    if not reading or not word:
+        return None
+    hit = jmdict.lookup(word, reading)
+    if hit is None:
+        return None
+    forms = {unicodedata.normalize("NFKC", f) for f in (*hit["kanji"], *hit["kana"])}
+    kana = {store.kata_to_hira(unicodedata.normalize("NFKC", k)) for k in hit["kana"]}
+    if word not in forms or reading not in kana:
+        return None
+    return hit["seq"]
+
+
+def _cache_stamp(path: Path) -> tuple[int, int] | None:
+    """(snapshot mtime, JMdict db mtime); the seq tier depends on both."""
     try:
-        mtime = path.stat().st_mtime_ns
+        snap = path.stat().st_mtime_ns
     except FileNotFoundError:
+        return None
+    try:
+        jm = refs_build.jmdict_db_path().stat().st_mtime_ns
+    except FileNotFoundError:
+        jm = 0
+    return snap, jm
+
+
+def get_index() -> Index:
+    """(exact index, JMdict-seq index, headword index), cached on the
+    snapshot and JMdict db mtimes. Without a JMdict index the seq tier is
+    empty and lookup falls through to the headword tier."""
+    path = snapshot_path()
+    stamp = _cache_stamp(path)
+    if stamp is None:
         _index_cache.pop(str(path), None)
-        return {}, {}
+        return {}, {}, {}
     cached = _index_cache.get(str(path))
-    if cached and cached[0] == mtime:
+    if cached and cached[0] == stamp:
         return cached[1]
+    cards = (_load_snapshot() or {}).get("cards", [])
+    resolve = jmdict.is_available()
     exact: dict[tuple[str, str], dict[str, Any]] = {}
+    by_seq: dict[int, dict[str, Any]] = {}
     by_headword: dict[str, dict[str, Any]] = {}
-    for card in (_load_snapshot() or {}).get("cards", []):
+    for card in cards:
         key = store.vocab_key(card["word"], card.get("reading"))
         if _better(card, exact.get(key)):
             exact[key] = card
         if _better(card, by_headword.get(key[0])):
             by_headword[key[0]] = card
-    _index_cache[str(path)] = (mtime, (exact, by_headword))
-    return exact, by_headword
+        if resolve:
+            seq = _card_seq(card)
+            if seq is not None and _better(card, by_seq.get(seq)):
+                by_seq[seq] = card
+    index = (exact, by_seq, by_headword)
+    _index_cache[str(path)] = (stamp, index)
+    return index
 
 
 def lookup(
-    headword: str, reading: str | None, index: tuple[dict, dict] | None = None
+    headword: str,
+    reading: str | None,
+    jmdict_seq: int | None = None,
+    index: Index | None = None,
 ) -> dict[str, Any] | None:
-    """Anki state for one store item: exact key first, then headword alone."""
-    exact, by_headword = index or get_index()
+    """Anki state for one store item.
+
+    Tiers: ``exact`` (word + reading), ``entry`` (same JMdict entry, so a
+    variant spelling like うれしい / 嬉しい matches), ``headword`` (word
+    alone, reading differs).
+    """
+    exact, by_seq, by_headword = index or get_index()
     key = store.vocab_key(headword, reading)
     card, match = exact.get(key), "exact"
+    if card is None and jmdict_seq is not None:
+        card, match = by_seq.get(jmdict_seq), "entry"
     if card is None:
         card, match = by_headword.get(key[0]), "headword"
     if card is None:

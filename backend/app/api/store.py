@@ -145,7 +145,10 @@ def _list_items(
         # Anki state is joined at read time from the snapshot (never stored).
         # Filter before paging so `total` matches what the filter returns.
         index = anki_service.get_index()
-        items = [{**i, "anki": anki_service.lookup(i.get("headword", ""), i.get("reading"), index)} for i in items]
+        items = [
+            {**i, "anki": anki_service.lookup(i.get("headword", ""), i.get("reading"), i.get("jmdict_seq"), index)}
+            for i in items
+        ]
         if anki_filter == "any":
             items = [i for i in items if i["anki"]]
         elif anki_filter == "none":
@@ -397,7 +400,9 @@ async def anki_sync():
         raise HTTPException(503, str(exc)) from exc
     index = anki_service.get_index()
     matched = sum(
-        1 for i in store.list_items("vocab") if anki_service.lookup(i.get("headword", ""), i.get("reading"), index)
+        1
+        for i in store.list_items("vocab")
+        if anki_service.lookup(i.get("headword", ""), i.get("reading"), i.get("jmdict_seq"), index)
     )
     return {**result, "matched": matched}
 

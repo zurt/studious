@@ -10,7 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import anki, store
+from app.services import anki, jmdict, refs_build, store
+from tests.test_jmdict import _sense, _word
 
 client = TestClient(app)
 # Captured at import, before conftest's autouse guard replaces anki._post.
@@ -189,6 +190,71 @@ class TestLookup:
         assert anki.lookup("犬", "いぬ")["state"] == "mature"
 
 
+ENTRY_WORDS = [
+    _word("1", [{"common": True, "text": "嬉しい", "tags": []}],
+          [{"common": True, "text": "うれしい", "tags": []}], [_sense(["adj-i"], ["happy"])]),
+    _word("2", [{"common": True, "text": "漢字", "tags": []}],
+          [{"common": True, "text": "かんじ", "tags": []}], [_sense(["n"], ["kanji"])]),
+    _word("3", [{"common": True, "text": "感じ", "tags": []}],
+          [{"common": True, "text": "かんじ", "tags": []}], [_sense(["n"], ["feeling"])]),
+    _word("4", [{"common": True, "text": "ご飯", "tags": []}],
+          [{"common": True, "text": "ごはん", "tags": []}], [_sense(["n"], ["rice"])]),
+]
+
+
+def _build_jmdict(tmp_path):
+    src = tmp_path / "jm.json"
+    src.write_text(json.dumps({"version": "t", "dictDate": "d", "words": ENTRY_WORDS}), encoding="utf-8")
+    refs_build.build_sqlite(src, {}, refs_build.jmdict_db_path(), version="t")
+    jmdict.close()
+
+
+class TestEntryTier:
+    def test_variant_spelling_matches_by_entry(self, isolated_data_dir, tmp_path, monkeypatch):
+        _build_jmdict(tmp_path)
+        _sync(monkeypatch, [_card(1, 1, "嬉しい", "うれしい"), _card(2, 2, "ご飯", "ごはん")])
+        r = anki.lookup("うれしい", "うれしい", 1)
+        assert r["match"] == "entry" and r["state"] == "mature"
+        assert anki.lookup("ごはん", "ごはん", 4)["match"] == "entry"
+
+    def test_same_reading_other_word_does_not_match(self, isolated_data_dir, tmp_path, monkeypatch):
+        _build_jmdict(tmp_path)
+        _sync(monkeypatch, [_card(1, 1, "感じ", "かんじ")])
+        assert anki.lookup("漢字", "かんじ", 2) is None
+        assert anki.lookup("感じ", "かんじ", 3)["match"] == "exact"
+
+    def test_card_without_reading_or_unconfirmed_reading_is_not_resolved(
+        self, isolated_data_dir, tmp_path, monkeypatch
+    ):
+        _build_jmdict(tmp_path)
+        _sync(monkeypatch, [_card(1, 1, "嬉しい"), _card(2, 2, "漢字", "ちがう")])
+        assert anki.lookup("うれしい", "うれしい", 1) is None
+        assert anki.lookup("かんじ", "かんじ", 2) is None
+
+    def test_unavailable_jmdict_skips_tier(self, isolated_data_dir, monkeypatch):
+        jmdict.close()
+        _sync(monkeypatch, [_card(1, 1, "嬉しい", "うれしい")])
+        assert anki.lookup("うれしい", "うれしい", 1) is None
+        assert anki.get_index()[1] == {}
+
+    def test_tier_order_exact_then_entry_then_headword(self, isolated_data_dir, tmp_path, monkeypatch):
+        _build_jmdict(tmp_path)
+        _sync(monkeypatch, [
+            _card(1, 1, "嬉しい", "うれしい", interval=5),
+            _card(2, 2, "うれしい", "うれしい", interval=50),
+        ])
+        assert anki.lookup("うれしい", "うれしい", 1)["match"] == "exact"
+        assert anki.lookup("嬉しい", "ちがう", 1)["match"] == "entry"
+        assert anki.lookup("嬉しい", "ちがう", None)["match"] == "headword"
+
+    def test_index_picks_up_jmdict_built_later(self, isolated_data_dir, tmp_path, monkeypatch):
+        jmdict.close()
+        _sync(monkeypatch, [_card(1, 1, "嬉しい", "うれしい")])
+        assert anki.lookup("うれしい", "うれしい", 1) is None
+        _build_jmdict(tmp_path)
+        assert anki.lookup("うれしい", "うれしい", 1)["match"] == "entry"
+
+
 class TestApi:
     def _vocab(self, headword, reading):
         store.replace_region_sightings(
@@ -238,6 +304,15 @@ class TestApi:
         assert heads("suspended") == (0, set())
         paged = client.get("/api/vocab?anki=any&limit=2&offset=2").json()
         assert paged["total"] == 3 and len(paged["items"]) == 1
+
+    def test_sync_matched_counts_entry_matches(self, isolated_data_dir, tmp_path, monkeypatch):
+        _build_jmdict(tmp_path)
+        self._vocab("うれしい", "うれしい")
+        store.update_item("vocab", store.list_items("vocab")[0]["id"], jmdict_seq=1)
+        monkeypatch.setattr(anki, "_post", FakeAnki([_card(1, 1, "嬉しい", "うれしい")]))
+        assert client.post("/api/refs/anki/sync").json()["matched"] == 1
+        item = client.get("/api/vocab?anki=any").json()["items"][0]
+        assert item["anki"]["match"] == "entry"
 
     def test_invalid_filter(self, isolated_data_dir):
         assert client.get("/api/vocab?anki=bogus").status_code == 400
