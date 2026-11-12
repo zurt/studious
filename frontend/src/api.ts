@@ -627,6 +627,8 @@ export type StoreClassifications = {
   jlpt?: string;
   jmdict_common?: boolean;
   wanikani_level?: number;
+  /** JPDB corpus frequency rank, 1 = most frequent. Vocab only. */
+  freq_rank?: number;
 } & Record<string, unknown>;
 
 export type AnkiState = "mature" | "young" | "learning" | "new" | "suspended";
@@ -635,7 +637,8 @@ export type AnkiMatch = {
   state: AnkiState;
   deck: string;
   interval: number;
-  match: "exact" | "headword";
+  /** exact word+reading, same JMdict entry (variant spelling), or word alone. */
+  match: "exact" | "entry" | "headword";
 };
 
 export type VocabItem = {
@@ -686,7 +689,7 @@ export type StoreListParams = {
   source?: string;
   /** Vocab only: "any" | "none" | an AnkiState. */
   anki?: string;
-  sort?: "recent" | "updated" | "alpha" | "priority";
+  sort?: "recent" | "updated" | "alpha" | "priority" | "frequency";
   limit?: number;
   offset?: number;
 };

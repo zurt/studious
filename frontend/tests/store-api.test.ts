@@ -126,6 +126,43 @@ describe("store api", () => {
     expect(ankiErrorDetail("network down")).toBe("network down");
   });
 
+  it("listStoreItems sends chapter_id and the frequency sort", async () => {
+    fetchMock.mockImplementation(async () => jsonResponse({ items: [], total: 0 }));
+    await listStoreItems("grammar", { doc_id: "d1", chapter_id: "c9" });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/grammar?doc_id=d1&chapter_id=c9");
+    await listStoreItems("vocab", { sort: "frequency", anki: "none" });
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/vocab?sort=frequency&anki=none");
+  });
+
+  it("dashboard helpers: count text, chapter options, frequency badge, match hints", async () => {
+    const { countLabel, chapterOptions, formatFreqRank, freqBadge, ankiBadge } = await import(
+      "../src/pages/study-dashboard"
+    );
+    expect(countLabel(0)).toBe("0 items");
+    expect(countLabel(1)).toBe("1 item");
+    expect(countLabel(3204)).toBe("3204 items");
+
+    const opts = chapterOptions([
+      { id: "b", title: "第2課", order: 1 },
+      { id: "a", title: "第1課 <x>", order: 0 },
+    ] as any);
+    expect(opts.indexOf("All chapters")).toBeLessThan(opts.indexOf("第1課"));
+    expect(opts.indexOf("第1課")).toBeLessThan(opts.indexOf("第2課"));
+    expect(opts).toContain("第1課 &lt;x&gt;");
+
+    expect([1, 999, 1000, 1234, 9999, 25000].map(formatFreqRank)).toEqual([
+      "#1", "#999", "#1k", "#1.2k", "#10k", "#25k",
+    ]);
+    expect(freqBadge({ classifications: {} } as any)).toBe("");
+    expect(freqBadge({ classifications: { freq_rank: 1234 } } as any)).toContain("#1.2k");
+
+    const card = (match: string) => ({ anki: { state: "new", deck: "K", interval: 0, match } }) as any;
+    expect(ankiBadge(card("exact"))).not.toContain("~");
+    expect(ankiBadge(card("entry"))).toContain("Anki · new~");
+    expect(ankiBadge(card("entry"))).toContain("matched by dictionary entry");
+    expect(ankiBadge(card("headword"))).toContain("matched on spelling only, reading differs");
+  });
+
   it("mergeStoreItems posts the source id to the merge route", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ id: "keep" }));
     await mergeStoreItems("vocab", "keep", "dup");
