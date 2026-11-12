@@ -7,10 +7,12 @@ import {
   getStoreStats,
   runStoreBackfill,
   listDocuments,
+  listChapters,
   getWanikaniStatus,
   syncWanikani,
   syncAnki,
   getVocabWanikani,
+  type Chapter,
   type DocMeta,
   type GrammarItem,
   type StoreItem,
@@ -45,7 +47,7 @@ type State = {
   chapterId: string;
   source: string;
   anki: string;
-  sort: "recent" | "updated" | "alpha" | "priority";
+  sort: "recent" | "updated" | "alpha" | "priority" | "frequency";
   items: StoreItem[];
   total: number;
   expanded: Set<string>;
@@ -92,8 +94,41 @@ export function ankiErrorDetail(message: string): string {
 export function ankiBadge(item: StoreItem): string {
   const a = (item as VocabItem).anki;
   if (!a) return "";
-  const note = a.match === "headword" ? "matched by word only, reading differs" : `${a.deck}`;
-  return `<span class="study-badge study-badge-anki study-badge-anki-${a.state}" title="${escapeHtml(note)}">Anki · ${a.state}</span>`;
+  const note =
+    a.match === "headword"
+      ? "matched on spelling only, reading differs"
+      : a.match === "entry"
+        ? `matched by dictionary entry (different spelling) · ${a.deck}`
+        : `${a.deck}`;
+  const mark = a.match === "exact" ? "" : "~";
+  return `<span class="study-badge study-badge-anki study-badge-anki-${a.state}" title="${escapeHtml(note)}">Anki · ${a.state}${mark}</span>`;
+}
+
+/** "1 item" / "N items" for the list header. */
+export function countLabel(total: number): string {
+  return `${total} ${total === 1 ? "item" : "items"}`;
+}
+
+/** Compact frequency rank: 1 -> "#1", 1234 -> "#1.2k", 25000 -> "#25k". */
+export function formatFreqRank(rank: number): string {
+  if (rank < 1000) return `#${rank}`;
+  const k = rank / 1000;
+  return `#${k < 10 ? k.toFixed(1).replace(/\.0$/, "") : Math.round(k)}k`;
+}
+
+export function freqBadge(item: StoreItem): string {
+  const rank = item.classifications?.freq_rank;
+  if (typeof rank !== "number" || rank < 1) return "";
+  return `<span class="study-badge study-badge-freq" title="Frequency rank ${rank} (JPDB corpus)">${formatFreqRank(rank)}</span>`;
+}
+
+/** <option> list for the chapter filter: chapters in their defined order. */
+export function chapterOptions(chapters: Chapter[]): string {
+  const sorted = [...chapters].sort((a, b) => a.order - b.order);
+  return (
+    `<option value="">All chapters</option>` +
+    sorted.map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.title)}</option>`).join("")
+  );
 }
 
 function wkSrsChip(subject: WkSubjectView): string {
@@ -176,6 +211,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
       <div class="row study-filters">
         <input id="study-search" type="search" placeholder="Search ${kind === "vocab" ? "word, reading, meaning" : "pattern, explanation"}…" value="${escapeHtml(state.q)}" />
         <select id="study-doc-filter"><option value="">All textbooks</option></select>
+        <select id="study-chapter-filter" title="Pick a textbook first" disabled><option value="">All chapters</option></select>
         <select id="study-source-filter">
           <option value="">All sources</option>
           <option value="vocab_list">Vocab lists</option>
@@ -200,9 +236,9 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
           <option value="recent">Newest</option>
           <option value="updated">Recently updated</option>
           <option value="alpha">${kind === "vocab" ? "By reading" : "By pattern"}</option>
-          ${kind === "vocab" ? `<option value="priority">By study priority</option>` : ""}
+          ${kind === "vocab" ? `<option value="priority">By study priority</option><option value="frequency">By frequency</option>` : ""}
         </select>
-        ${state.chapterId ? `<button id="study-chapter-clear" title="Showing only items sighted in one chapter — click to clear">Chapter filter ✕</button>` : ""}
+        <span id="study-count" class="study-bulk-label" aria-live="polite"></span>
       </div>
       <div id="study-bulk-bar" class="row study-bulk-bar" hidden></div>
       <div id="study-list" class="study-list"></div>
@@ -218,6 +254,8 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
   const moreBtn = container.querySelector<HTMLButtonElement>("#study-more-btn")!;
   const searchInput = container.querySelector<HTMLInputElement>("#study-search")!;
   const docFilter = container.querySelector<HTMLSelectElement>("#study-doc-filter")!;
+  const chapterFilter = container.querySelector<HTMLSelectElement>("#study-chapter-filter")!;
+  const countEl = container.querySelector<HTMLElement>("#study-count")!;
   const sourceFilter = container.querySelector<HTMLSelectElement>("#study-source-filter")!;
   const sortSelect = container.querySelector<HTMLSelectElement>("#study-sort")!;
   const addBtn = container.querySelector<HTMLButtonElement>("#study-add-btn")!;
@@ -297,6 +335,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
   }
 
   function render() {
+    countEl.textContent = countLabel(state.total);
     moreBtn.hidden = state.items.length >= state.total;
     renderBulkBar();
     if (state.items.length === 0) {
@@ -440,6 +479,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         <span class="study-gloss">${escapeHtml(gloss)}</span>
         <div class="grow"></div>
         ${classChips}
+        ${freqBadge(item)}
         ${ankiBadge(item)}
         ${sources.map((s) => `<span class="study-badge study-badge-${s}">${s.replace("_", " ")}</span>`).join("")}
         <button class="study-sightings-btn" title="Details, sightings, kanji breakdown">${sightingCount ? `${sightingCount}×` : "…"}</button>
@@ -759,14 +799,42 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     }, 250);
   });
 
+  // Chapter select: disabled until a textbook is chosen; a textbook change
+  // resets it. A ?chapter= deep link (coverage view) has no textbook, so it
+  // shows as a single "Linked chapter" option until the user changes it.
+  let chapterReq = 0;
+  async function loadChapters(docId: string) {
+    const req = ++chapterReq;
+    state.chapterId = "";
+    chapterFilter.disabled = true;
+    chapterFilter.innerHTML = `<option value="">All chapters</option>`;
+    chapterFilter.title = "Pick a textbook first";
+    if (!docId) return;
+    try {
+      const chapters = await listChapters(docId);
+      if (req !== chapterReq) return;
+      chapterFilter.innerHTML = chapterOptions(chapters);
+      chapterFilter.disabled = false;
+      chapterFilter.title = "Filter by chapter";
+    } catch (e: any) {
+      logError("StudyDash", "chapters_failed", { error: e.message });
+    }
+  }
+  if (state.chapterId) {
+    chapterFilter.innerHTML = `<option value="">All chapters</option><option value="${escapeHtml(state.chapterId)}" selected>Linked chapter</option>`;
+    chapterFilter.value = state.chapterId;
+    chapterFilter.disabled = false;
+    chapterFilter.title = "Showing only items sighted in one chapter";
+  }
   docFilter.addEventListener("change", () => {
     state.docId = docFilter.value;
+    if (state.chapterId) replaceQuery({ chapter: null });
+    void loadChapters(state.docId);
     void reload();
   });
-  container.querySelector<HTMLButtonElement>("#study-chapter-clear")?.addEventListener("click", (e) => {
-    state.chapterId = "";
-    replaceQuery({ chapter: null });
-    (e.currentTarget as HTMLButtonElement).remove();
+  chapterFilter.addEventListener("change", () => {
+    state.chapterId = chapterFilter.value;
+    replaceQuery({ chapter: state.chapterId || null });
     void reload();
   });
   ankiFilter?.addEventListener("change", () => {

@@ -245,6 +245,18 @@ levels. Everything is pinned by exact URL + SHA-256 in
 `backend/refs.lock.json`; downloads that don't match are rejected. The app
 runs fine without the index — enrichment is simply skipped until it exists.
 
+`make refs` also fetches a **word-frequency list** (the JPDB-derived Yomitan
+frequency dictionary from the releases of
+[MarvNC/jpdb-freq-list](https://github.com/MarvNC/jpdb-freq-list), ~6 MB zip)
+into the git-ignored `data/refs/downloads/` and builds
+`data/refs/freq/jpdb-freq.sqlite` from it. It gives vocab items a
+`freq_rank` (1 = most frequent), shown as a `#1.2k` badge and sortable with
+"By frequency" on the vocab dashboard. It is a local download only: the
+repository has no licence file and the data derives from jpdb.io, so it is
+never committed or redistributed. After `make refs`, the backend gives
+existing items their rank on its next start or harvest, or immediately via
+`POST /api/store/enrich`.
+
 Attribution:
 
 - **JMdict** (via [jmdict-simplified](https://github.com/scriptin/jmdict-simplified))
