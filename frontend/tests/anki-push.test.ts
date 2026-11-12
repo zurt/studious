@@ -18,9 +18,12 @@ function preview(over: Partial<AnkiPushPreview> = {}, n = 12): AnkiPushPreview {
     deck_exists: true,
     will_create_deck: false,
     note_type: "Kaishi 1.5k",
-    counts: { candidates: n, will_add: n, skipped: 0, without_sentence: 0, headword_match: 0 },
+    counts: {
+      candidates: n, will_add: n, skipped: 0, without_sentence: 0, with_sentence: n, with_gloss: 0,
+      headword_match: 0,
+    },
     items: Array.from({ length: n }, (_, i) => ({
-      id: `i${i}`, headword: `語${i}`, reading: "", fields: {}, has_sentence: true,
+      id: `i${i}`, headword: `語${i}`, reading: "", fields: {}, tags: [], has_sentence: true, has_gloss: false,
       can_add: true, reason: "", headword_match: false,
     })),
     ...over,
@@ -62,11 +65,14 @@ describe("push dialog text", () => {
 
   it("mentions deck creation, skips, missing sentences and spelling matches", () => {
     const p = preview({ will_create_deck: true, deck_exists: false }, 3);
-    p.counts = { candidates: 5, will_add: 3, skipped: 2, without_sentence: 3, headword_match: 1 };
+    p.counts = {
+      candidates: 5, will_add: 3, skipped: 2, without_sentence: 1, with_sentence: 2, with_gloss: 1,
+      headword_match: 1,
+    };
     const text = pushDialogLines(p).join("\n");
     expect(text).toContain("This deck will be created.");
     expect(text).toContain("2 skipped, already in Anki.");
-    expect(text).toContain("3 have no example sentence.");
+    expect(text).toContain("2 with an example sentence (1 with a translation), 1 without.");
     expect(text).toContain("1 match an existing card by spelling only");
   });
 

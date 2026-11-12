@@ -12,8 +12,10 @@ export function pushDialogLines(p: AnkiPushPreview): string[] {
     lines.push(`First ${first.length}: ${first.join("、")}${n > first.length ? " …" : ""}`);
   }
   if (p.counts.skipped > 0) lines.push(`${p.counts.skipped} skipped, already in Anki.`);
-  if (p.counts.without_sentence > 0) {
-    lines.push(`${p.counts.without_sentence} have no example sentence.`);
+  if (n > 0) {
+    lines.push(
+      `${p.counts.with_sentence} with an example sentence (${p.counts.with_gloss} with a translation), ${p.counts.without_sentence} without.`,
+    );
   }
   if (p.counts.headword_match > 0) {
     lines.push(`${p.counts.headword_match} match an existing card by spelling only (different reading).`);

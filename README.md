@@ -302,8 +302,8 @@ then **Send N words**. Nothing is written until you press that button.
 Cards go into a separate deck (`ANKI_PUSH_DECK`, default `Studious`, created
 if missing) using your existing note type (`ANKI_PUSH_NOTE_TYPE`, default
 `Kaishi 1.5k`) so they look like your other cards. Word, reading, meaning,
-furigana, frequency and a provenance note (`Studious · textbook · chapter`)
-are filled in; the example sentence and its translation come from a
+furigana and frequency are filled in (`Notes` holds only your own note on
+the word; the source is in the tags); the example sentence and its translation come from a
 breakdown of a reading passage where the word was seen (left empty when none
 fits, because Anki needs no sentence to make a card); audio, pitch accent and
 picture stay empty. Cards are tagged `studious` and

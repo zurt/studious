@@ -343,8 +343,9 @@ skipped. A word reported as failed was accepted by the preview but refused by
 ### Cards sent to Anki have no example sentence
 Only a breakdown sighting is used, because a vocab-list sighting is a list
 row, not a sentence. A word gets no sentence when it was never in a
-breakdown, or its sentences are over 120 characters or contain blanks to
-fill in. Run the breakdown for the chapter's reading passages and send again
+breakdown, or every sentence is exercise debris: over 120 characters, a
+table, a word bank (`□`), a blank or empty brackets, or no sentence-ending
+mark. Sentences from `reading_passage` regions are preferred. Run the breakdown for the chapter's reading passages and send again
 (already-sent words are skipped as duplicates, so fix the note in Anki by
 hand). The translation is empty when the breakdown was re-run since the word
 was harvested and the sentence moved.

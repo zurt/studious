@@ -44,10 +44,10 @@ class TestFurigana:
         assert anki_push.furigana("", "あ") == ""
 
     def test_reading_shorter_than_kana_falls_back(self):
-        assert anki_push.furigana("嬉しい", "うれ") == "嬉しい[うれ]"
+        assert anki_push.furigana("嬉しい", "うれ") == "嬉[うれ]しい"
 
     def test_kana_mismatch_falls_back(self):
-        assert anki_push.furigana("嬉しい", "うれしく") == "嬉しい[うれしく]"
+        assert anki_push.furigana("嬉しい", "うれしく") == "嬉[うれしく]しい"
 
     def test_ambiguous_alignment_falls_back(self):
         # The middle に can sit at several places, so there is no single alignment.
@@ -122,7 +122,7 @@ class TestChooseSentence:
     def test_long_and_blank_sentences_dropped(self):
         item = {
             "sightings": [
-                _sighting("あ" * 121),
+                _sighting("あ" * 120 + "。"),
                 _sighting("これは＿＿＿です。"),
                 _sighting("これは_____です。"),
                 _sighting("短い。"),
@@ -133,7 +133,7 @@ class TestChooseSentence:
         assert anki_push.choose_sentence(item, CH) is None
 
     def test_exactly_120_allowed(self):
-        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 120)]}, CH) is not None
+        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 119 + "。")]}, CH) is not None
 
     def test_no_sightings(self):
         assert anki_push.choose_sentence({}, CH) is None
@@ -194,7 +194,7 @@ class TestBuildNote:
         assert f["Sentence"] == "彼に会えて<b>嬉しかった</b>。"
         assert f["Sentence Furigana"] == f["Sentence"]
         assert f["Sentence Meaning"] == "I was glad to meet him."
-        assert f["Notes"] == "Studious · Genki &lt;I&gt; · 第14課<br>line1<br>line2"
+        assert f["Notes"] == "line1<br>line2"
         assert f["Frequency"] == "355"
         for empty in ("Word Audio", "Sentence Audio", "Pitch Accent", "Pitch Accent Notes", "Picture"):
             assert f[empty] == ""
@@ -220,7 +220,7 @@ class TestBuildNote:
         note = anki_push.build_note({"headword": "犬", "reading": "いぬ", "meaning": "dog"}, doc, ch)
         f = note["fields"]
         assert (f["Sentence"], f["Sentence Furigana"], f["Sentence Meaning"]) == ("", "", "")
-        assert f["Notes"] == "Studious · Genki &lt;I&gt; · 第14課"
+        assert f["Notes"] == ""
         assert f["Frequency"] == ""
         assert note["has_sentence"] is False
 
@@ -240,7 +240,7 @@ class TestBuildNote:
 
     def test_unknown_document_still_builds(self, isolated_data_dir):
         f = anki_push.build_note({"headword": "犬", "reading": "いぬ"}, "nodoc", "noch")["fields"]
-        assert f["Notes"] == "Studious"
+        assert f["Notes"] == ""
 
     def test_no_context_means_no_chapter_tag(self, isolated_data_dir):
         assert anki_push.build_note({"headword": "犬", "reading": "いぬ"})["tags"] == ["studious"]
@@ -279,14 +279,18 @@ class FakePush:
         if action == "canAddNotesWithErrorDetail":
             if not self.detail:
                 raise anki.AnkiUnavailable("AnkiConnect error on canAddNotesWithErrorDetail: unsupported action")
-            return [
-                {"canAdd": False, "error": "cannot create note because it is a duplicate"}
-                if n["fields"]["Word"] in self.duplicates
-                else {"canAdd": True}
-                for n in params["notes"]
-            ]
+            out = []
+            for n in params["notes"]:
+                if n["deckName"] not in self.decks:
+                    out.append({"canAdd": False, "error": f"deck was not found: {n['deckName']}"})
+                elif n["fields"]["Word"] in self.duplicates:
+                    out.append({"canAdd": False, "error": "cannot create note because it is a duplicate"})
+                else:
+                    out.append({"canAdd": True})
+            return out
         if action == "canAddNotes":
-            return [n["fields"]["Word"] not in self.duplicates for n in params["notes"]]
+            return [n["deckName"] in self.decks and n["fields"]["Word"] not in self.duplicates
+                    for n in params["notes"]]
         if action == "createDeck":
             if params["deck"] not in self.decks:
                 self.decks.append(params["deck"])
@@ -343,14 +347,15 @@ class TestPreview:
         assert d["deck"] == "Studious" and d["note_type"] == "Kaishi 1.5k"
         assert d["deck_exists"] is False and d["will_create_deck"] is True
         assert d["counts"] == {"candidates": 3, "will_add": 3, "skipped": 0, "without_sentence": 3,
-                               "headword_match": 0}
+                               "headword_match": 0, "with_sentence": 0, "with_gloss": 0}
         assert [i["headword"] for i in d["items"]] == ["犬", "猫", "鳥"]
         first = d["items"][0]
         assert set(first) >= {"id", "headword", "reading", "fields", "has_sentence", "can_add", "reason",
                               "headword_match"}
         detail_call = next(p for a, p in fake.calls if a == "canAddNotesWithErrorDetail")
         assert detail_call["notes"][0]["options"] == {"allowDuplicate": False, "duplicateScope": "collection"}
-        assert detail_call["notes"][0]["deckName"] == "Studious"
+        # the deck does not exist yet, so the check uses one that does
+        assert detail_call["notes"][0]["deckName"] == "Default"
 
     def test_deck_exists(self, isolated_data_dir, monkeypatch):
         _seed()
@@ -608,3 +613,194 @@ class TestSettings:
 
         s = config.get_settings()
         assert (s.anki_push_deck, s.anki_push_note_type) == ("Studious", "Kaishi 1.5k")
+
+
+# ---------- review follow-ups ----------
+
+
+class TestMissingDeck:
+    def test_preview_checks_with_an_existing_deck(self, isolated_data_dir, monkeypatch):
+        _seed()
+        fake = _use(monkeypatch, decks=("Default", "Other"))
+        d = client.post("/api/anki/push/preview", json=BODY).json()
+        assert d["will_create_deck"] is True and d["counts"]["will_add"] == 3
+        checked = next(p for a, p in fake.calls if a == "canAddNotesWithErrorDetail")
+        assert {n["deckName"] for n in checked["notes"]} == {"Default"}
+
+    def test_first_existing_deck_when_no_default(self, isolated_data_dir, monkeypatch):
+        _seed(("犬",))
+        fake = _use(monkeypatch, decks=("Kaishi 1.5k",))
+        assert client.post("/api/anki/push/preview", json=BODY).json()["counts"]["will_add"] == 1
+        checked = next(p for a, p in fake.calls if a == "canAddNotesWithErrorDetail")
+        assert checked["notes"][0]["deckName"] == "Kaishi 1.5k"
+
+    def test_fallback_path_also_substitutes(self, isolated_data_dir, monkeypatch):
+        _seed()
+        _use(monkeypatch, detail=False)
+        assert client.post("/api/anki/push/preview", json=BODY).json()["counts"]["will_add"] == 3
+
+    def test_fake_reproduces_the_real_error_for_the_target_deck(self, isolated_data_dir, monkeypatch):
+        fake = _use(monkeypatch)
+        note = {"deckName": "Studious", "fields": {"Word": "x"}}
+        assert fake("canAddNotesWithErrorDetail", {"notes": [note]}) == [
+            {"canAdd": False, "error": "deck was not found: Studious"}
+        ]
+
+    def test_first_push_works_and_real_notes_use_target_deck(self, isolated_data_dir, monkeypatch):
+        _seed()
+        fake = _use(monkeypatch)
+        d = client.post("/api/anki/push", json={**BODY, "confirm": True}).json()
+        assert d["created"] == 3 and d["deck_created"] is True
+        add = next(p for a, p in fake.calls if a == "addNotes")
+        assert {n["deckName"] for n in add["notes"]} == {"Studious"}
+
+
+class TestUsableSentence:
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "| | | |---|---| | 手に入れる | 耐える |。",
+            "□たまたまあくまで要はどんどんやっぱり例えば□",
+            "⑥彼女は就職活動をして、世の中はまだまだ男性社会であること（　　）実感した。",
+            "彼女は（）実感した。",
+            "彼女は( )実感した。",
+            "彼女は［　］実感した。",
+            "これは＿＿＿です。",
+            "これは______です。",
+            "これは\\_\\_\\_です。",
+            "これは__です。",
+            "これは本です",
+            "犬と猫",
+            "あ" * 120 + "。",
+            "",
+        ],
+    )
+    def test_rejected(self, raw):
+        assert anki_push.usable_sentence(raw) is None
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("3 次の図は、グラフです。", "次の図は、グラフです。"),
+            ("⑨休暇は大切です。", "休暇は大切です。"),
+            ("1. 本を読む。", "本を読む。"),
+            ("１．本を読む。", "本を読む。"),
+            ("(2) 本を読む。", "本を読む。"),
+            ("- 本を読む。", "本を読む。"),
+            ("「行こう！」", "「行こう！」"),
+            ("本当ですか？", "本当ですか？"),
+            ("彼(かれ)は行く。", "彼は行く。"),
+        ],
+    )
+    def test_accepted_and_cleaned(self, raw, expected):
+        assert anki_push.usable_sentence(raw) == expected
+
+    def test_split_marker_numbers(self):
+        assert anki_push.split_marker("⑥あ") == ("あ", 6)
+        assert anki_push.split_marker("12) あ") == ("あ", 12)
+        assert anki_push.split_marker("あ") == ("あ", None)
+
+
+class TestRanking:
+    def test_reading_passage_region_wins(self, textbook):
+        doc, ch = textbook
+        passage = storage.create_region(doc, ch, page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
+        other = storage.create_region(doc, ch, page=1, bbox=[0, 0, 1, 1], tag="exercises")
+        item = {"sightings": [
+            _sighting("短い。", doc=doc, chapter=ch, region=other["id"]),
+            _sighting("これは長めの文章です。", doc=doc, chapter=ch, region=passage["id"]),
+        ]}
+        assert anki_push.choose_sentence(item, ch)[1] == "これは長めの文章です。"
+
+    def test_chapter_then_shorter(self, textbook):
+        item = {"sightings": [
+            _sighting("別章の短文。", chapter="x"),
+            _sighting("この章の少し長い文です。"),
+            _sighting("この章の文。"),
+        ]}
+        assert anki_push.choose_sentence(item, CH)[1] == "この章の文。"
+
+    def test_unusable_sentences_give_none(self):
+        item = {"sightings": [_sighting("| a | b |"), _sighting("□あ□")]}
+        assert anki_push.choose_sentence(item, CH) is None
+
+    def test_region_lookups_cached_per_request(self, textbook, monkeypatch):
+        doc, ch = textbook
+        calls = []
+        real = storage.load_region
+        monkeypatch.setattr(storage, "load_region", lambda *a: calls.append(a) or real(*a))
+        cache: dict = {}
+        item = {"sightings": [_sighting("文一。", doc=doc, chapter=ch), _sighting("文二。", doc=doc, chapter=ch)]}
+        anki_push.choose_sentence(item, ch, cache)
+        anki_push.choose_sentence(item, ch, cache)
+        assert len(calls) == 1
+
+    def test_gloss_number_stripped_when_matching(self, textbook):
+        doc, ch = textbook
+        _breakdown(doc, ch, [{"text": "3 次の図は、グラフです。", "gloss": "3 The next figure is a graph."}])
+        s = _sighting("3 次の図は、グラフです。", doc=doc, chapter=ch)
+        assert anki_push.sentence_gloss(s) == "The next figure is a graph."
+        _breakdown(doc, ch, [{"text": "3 次の図は、グラフです。", "gloss": "4 students came."}])
+        assert anki_push.sentence_gloss(s) == "4 students came."
+
+
+class TestReadings:
+    def test_first_alternative(self):
+        assert anki_push.pick_reading("やめる", "やめる / とめる") == "やめる"
+        assert anki_push.pick_reading("犬", "いぬ、ケン") == "いぬ"
+
+    def test_prefers_alternative_that_aligns(self):
+        assert anki_push.pick_reading("その他", "ほか・そのた") == "そのた"
+        assert anki_push.furigana("その他", "そのた") == "その 他[た]"
+
+    def test_no_alignment_uses_first(self):
+        assert anki_push.pick_reading("他", "ほか・そのた") == "ほか"
+
+    def test_katakana_headword_is_its_own_reading(self):
+        assert anki_push.pick_reading("スキル", "すきる") == "スキル"
+        assert anki_push.pick_reading("ア・ラ・カルト", "あらかると") == "ア・ラ・カルト"
+        assert anki_push.pick_reading("コーヒー", "") == "コーヒー"
+
+    def test_note_uses_picked_reading(self, textbook):
+        doc, ch = textbook
+        f = anki_push.build_note({"headword": "その他", "reading": "ほか・そのた"}, doc, ch)["fields"]
+        assert f["Word Reading"] == "そのた" and f["Word Furigana"] == "その 他[た]"
+        f = anki_push.build_note({"headword": "スキル", "reading": "すきる"}, doc, ch)["fields"]
+        assert f["Word Reading"] == "スキル" and f["Word Furigana"] == "スキル"
+
+
+class TestOmittedKana:
+    def test_leading_kana_omitted_from_reading(self):
+        assert anki_push.furigana("お笑い", "わらい") == "お 笑[わら]い"
+
+    def test_honorific_prefix(self):
+        assert anki_push.furigana("ご褒美", "ほうび") == "ご 褒美[ほうび]"
+        assert anki_push.furigana("ご褒美", "ごほうび") == "ご 褒美[ほうび]"
+
+    def test_trailing_kana_omitted(self):
+        assert anki_push.furigana("笑い", "わら") == "笑[わら]い"
+
+    def test_both_omitted(self):
+        assert anki_push.furigana("お笑いさん", "わら") == "お 笑[わら]いさん"
+
+
+class TestNotesAndCounts:
+    def test_preview_rows_have_tags_and_counts(self, textbook, monkeypatch):
+        doc, ch = textbook
+        _breakdown(doc, ch, [{"text": "犬がいる。", "gloss": "There is a dog."},
+                             {"text": "猫がいる。", "gloss": ""}], region="r")
+        for i, hw in enumerate(("犬", "猫", "鳥")):
+            it = store.create_item("vocab", headword=hw, reading=hw, meaning="m")
+            if i < 2:
+                sight = [{"doc_id": doc, "chapter_id": ch, "region_id": "r", "sentence_index": i,
+                          "surface": hw, "sentence_text": f"{hw}がいる。", "source": "breakdown"}]
+            else:
+                sight = [{"doc_id": doc, "chapter_id": ch, "source": "vocab_list"}]
+            store.update_item("vocab", it["id"], jmdict_seq=i + 1, pos=["n"], sightings=sight,
+                              classifications={"freq_rank": i + 1})
+        _use(monkeypatch)
+        d = client.post("/api/anki/push/preview", json={"doc_id": doc, "chapter_id": ch}).json()
+        assert d["counts"]["with_sentence"] == 2 and d["counts"]["with_gloss"] == 1
+        assert d["counts"]["without_sentence"] == 1
+        assert d["items"][0]["tags"] == ["studious", f"studious::{doc}::{ch}"]
+        assert [i["has_gloss"] for i in d["items"]] == [True, False, False]

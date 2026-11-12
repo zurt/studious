@@ -917,7 +917,9 @@ export type AnkiPushItem = {
   headword: string;
   reading: string;
   fields: Record<string, string>;
+  tags: string[];
   has_sentence: boolean;
+  has_gloss: boolean;
   can_add: boolean;
   reason: string;
   /** A card with the same spelling but a different reading already exists. */
@@ -934,6 +936,8 @@ export type AnkiPushPreview = {
     will_add: number;
     skipped: number;
     without_sentence: number;
+    with_sentence: number;
+    with_gloss: number;
     headword_match: number;
   };
   items: AnkiPushItem[];
