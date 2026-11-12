@@ -641,6 +641,20 @@ export type AnkiMatch = {
   match: "exact" | "entry" | "headword";
 };
 
+export type ShortlistReason =
+  | "status_known"
+  | "status_ignored"
+  | "in_anki"
+  | "grammar_like"
+  | "not_dictionary"
+  | "basic";
+
+export type ShortlistSummary = {
+  excluded: Record<ShortlistReason, number>;
+  /** Burned-in-WaniKani count among the candidates. */
+  wk_burned: number;
+};
+
 export type VocabItem = {
   id: string;
   headword: string;
@@ -656,6 +670,10 @@ export type VocabItem = {
   priority_group: number | null;
   /** Joined at read time from the Anki snapshot; null when no card matches. */
   anki?: AnkiMatch | null;
+  /** Joined at read time: the headword's WaniKani vocabulary subject is burned. */
+  wk_burned?: boolean;
+  /** Joined at read time: why the shortlist hides this item, or null for a candidate. */
+  shortlist_excluded?: ShortlistReason | null;
   sightings: StoreSighting[];
   links: Record<string, string>;
   notes: string;
@@ -679,7 +697,12 @@ export type GrammarItem = {
 
 export type StoreItem = VocabItem | GrammarItem;
 
-export type StoreListResponse<T> = { items: T[]; total: number };
+export type StoreListResponse<T> = {
+  items: T[];
+  total: number;
+  /** Present when the request set shortlist=true. */
+  shortlist?: ShortlistSummary;
+};
 
 export type StoreListParams = {
   status?: StoreStatus;
@@ -689,6 +712,10 @@ export type StoreListParams = {
   source?: string;
   /** Vocab only: "any" | "none" | an AnkiState. */
   anki?: string;
+  /** Vocab only: chapter shortlist (candidates only, in shortlist order; ignores sort). */
+  shortlist?: boolean;
+  /** Vocab only: list just the items hidden for this reason. Not with shortlist. */
+  excluded?: ShortlistReason;
   sort?: "recent" | "updated" | "alpha" | "priority" | "frequency";
   limit?: number;
   offset?: number;

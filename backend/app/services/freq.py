@@ -19,6 +19,7 @@ local download, never committed.
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 import threading
 import unicodedata
@@ -33,6 +34,18 @@ _conn_key: tuple[str, int] | None = None
 _lock = threading.Lock()
 
 _EDGE_CHARS = "〜～~…・ 　"
+
+# Bump when lookup logic changes so already-enriched items are re-checked once
+# (it is folded into revision(), which enrichment stamps as ``freq_checked``).
+LOOKUP_VERSION = 2
+
+# Textbook vocab lists write 企画する, 料理(する), 重要な; the list ranks the
+# stem. Runs on NFKC text, so full-width brackets are already half-width.
+# (No existing helper handles this: jmdict.lookup and the Anki matching only
+# normalise NFKC and edge characters.)
+_SUFFIX_RE = re.compile(r"^(.+?)(?:\(する\)|する|\(な\)|な)$")
+_KANJI_RE = re.compile("[㐀-䶿一-鿿豈-﫿々]")
+_KATAKANA_RE = re.compile("^[ァ-ヺー]{2,}$")
 
 
 def _get_conn() -> sqlite3.Connection | None:
@@ -80,11 +93,37 @@ def meta() -> dict[str, str]:
 def revision() -> str | None:
     """Identifier of the built list; stamped on items so a different list
     triggers re-enrichment."""
-    return meta().get("revision") or None
+    rev = meta().get("revision")
+    return f"{rev}+l{LOOKUP_VERSION}" if rev else None
+
+
+def _stem(word: str, reading: str) -> tuple[str, str] | None:
+    """(stem, stem reading) for a する/な-suffixed headword, else None. Hiragana-only
+    headwords are never stemmed (する, きれいな, ような stay as written)."""
+    m = _SUFFIX_RE.match(word)
+    if not m:
+        return None
+    stem = m.group(1)
+    if not (_KANJI_RE.search(stem) or _KATAKANA_RE.match(stem)):
+        return None
+    rm = _SUFFIX_RE.match(reading) if reading else None
+    return stem, (rm.group(1) if rm else reading)
+
+
+def _rank(con: sqlite3.Connection, word: str, reading: str) -> int | None:
+    if reading:
+        row = con.execute(
+            "SELECT MIN(rank) FROM freq WHERE term = ? AND reading = ?", (word, reading)
+        ).fetchone()
+        if row and row[0] is not None:
+            return int(row[0])
+    row = con.execute("SELECT MIN(rank) FROM freq WHERE term = ?", (word,)).fetchone()
+    return int(row[0]) if row and row[0] is not None else None
 
 
 def lookup(word: str, reading: str | None = None) -> int | None:
-    """Frequency rank (1 = most frequent) or None when unranked."""
+    """Frequency rank (1 = most frequent) or None when unranked. A headword
+    with no row of its own is retried without a trailing する / な."""
     word_n = unicodedata.normalize("NFKC", (word or "").strip()).strip(_EDGE_CHARS)
     if not word_n:
         return None
@@ -93,11 +132,7 @@ def lookup(word: str, reading: str | None = None) -> int | None:
         con = _get_conn()
         if con is None:
             return None
-        if reading_n:
-            row = con.execute(
-                "SELECT MIN(rank) FROM freq WHERE term = ? AND reading = ?", (word_n, reading_n)
-            ).fetchone()
-            if row and row[0] is not None:
-                return int(row[0])
-        row = con.execute("SELECT MIN(rank) FROM freq WHERE term = ?", (word_n,)).fetchone()
-        return int(row[0]) if row and row[0] is not None else None
+        rank = _rank(con, word_n, reading_n)
+        if rank is None and (stem := _stem(word_n, reading_n)):
+            rank = _rank(con, *stem)
+        return rank

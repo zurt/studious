@@ -491,6 +491,13 @@ Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
       "By frequency" sort. `priority_group` is unchanged
 - [x] Dashboard shortlist aids: "N items" count and a chapter filter beside
       the textbook filter (vocab and grammar)
+- [x] Chapter shortlist: `GET /api/vocab?shortlist=true` returns only
+      candidates in shortlist order (frequency rank, halved for vocab-list
+      sightings) and hides words already in Anki, N5/N4, grammar-like,
+      without a JMdict entry, known or ignored (`?excluded=<reason>` lists the
+      hidden ones); items also carry `wk_burned`. Dashboard: Shortlist toggle,
+      clickable hidden counts, 125-word budget divider, Know it / Skip /
+      Restore, `WK burned` badge. Read-time only, nothing stored
 - [x] Derived priority grouping (pure function of jlpt/common/WK-level
       signals, 1–5) + "By study priority" sort on the vocab dashboard
 

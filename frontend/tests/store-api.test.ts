@@ -163,6 +163,76 @@ describe("store api", () => {
     expect(ankiBadge(card("headword"))).toContain("matched on spelling only, reading differs");
   });
 
+  it("shortlist params reach the query string", async () => {
+    fetchMock.mockImplementation(async () => jsonResponse({ items: [], total: 0 }));
+    await listStoreItems("vocab", { shortlist: true, chapter_id: "c1" });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/vocab?shortlist=true&chapter_id=c1");
+    await listStoreItems("vocab", { excluded: "in_anki", sort: "alpha" });
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/vocab?excluded=in_anki&sort=alpha");
+  });
+
+  it("dashboard shortlist helpers: params, summary text, budget divider, badge", async () => {
+    const {
+      storeListParams,
+      shortlistSummaryHtml,
+      excludedLineHtml,
+      rowsWithBudgetDivider,
+      wkBurnedBadge,
+      SHORTLIST_BUDGET,
+    } = await import("../src/pages/study-dashboard");
+    const base = {
+      kind: "vocab", status: "", q: "", docId: "", chapterId: "c1", source: "", anki: "",
+      sort: "alpha", shortlist: false, excluded: "",
+    } as const;
+
+    expect(storeListParams(base)).toMatchObject({ sort: "alpha", shortlist: undefined, excluded: undefined });
+    const on = storeListParams({ ...base, shortlist: true }, 100);
+    expect(on).toMatchObject({ shortlist: true, sort: undefined, chapter_id: "c1", offset: 100 });
+    const review = storeListParams({ ...base, shortlist: true, excluded: "basic" });
+    expect(review).toMatchObject({ excluded: "basic", shortlist: undefined, sort: "alpha" });
+    // Grammar never sends shortlist params.
+    expect(storeListParams({ ...base, kind: "grammar", shortlist: true })).toMatchObject({
+      shortlist: undefined, excluded: undefined, sort: "alpha",
+    });
+
+    const el = document.createElement("div");
+    el.innerHTML = shortlistSummaryHtml(142, {
+      excluded: {
+        in_anki: 310, basic: 96, grammar_like: 41, not_dictionary: 60,
+        status_known: 5, status_ignored: 0,
+      },
+      wk_burned: 3,
+    });
+    expect(el.textContent).toBe(
+      "142 candidates · hidden: 310 in Anki · 96 basic · 41 grammar-like · 60 not in dictionary · 5 known",
+    );
+    expect(el.querySelectorAll("button[data-excluded]")).toHaveLength(5);
+    expect(el.querySelector("button[data-excluded=basic]")!.textContent).toBe("96 basic");
+    el.innerHTML = shortlistSummaryHtml(1, {
+      excluded: { in_anki: 0, basic: 0, grammar_like: 0, not_dictionary: 0, status_known: 0, status_ignored: 0 },
+      wk_burned: 0,
+    });
+    expect(el.textContent).toBe("1 candidate");
+    el.innerHTML = excludedLineHtml(7, "status_known");
+    expect(el.textContent).toContain("Hidden, known: 7");
+    expect(el.querySelector("[data-back-to-shortlist]")).not.toBeNull();
+
+    const rows = (n: number) => Array.from({ length: n }, (_, i) => i);
+    expect(SHORTLIST_BUDGET).toBe(125);
+    expect(rowsWithBudgetDivider(rows(125), true)).not.toContain("divider");
+    const split = rowsWithBudgetDivider(rows(130), true);
+    expect(split).toHaveLength(131);
+    expect(split.indexOf("divider")).toBe(125);
+    expect(split.filter((x) => x === "divider")).toHaveLength(1);
+    expect(rowsWithBudgetDivider(rows(200), false)).not.toContain("divider");
+
+    expect(wkBurnedBadge({ wk_burned: false } as any)).toBe("");
+    expect(wkBurnedBadge({} as any)).toBe("");
+    const badge = wkBurnedBadge({ wk_burned: true } as any);
+    expect(badge).toContain("WK burned");
+    expect(badge).toContain("study-badge");
+  });
+
   it("mergeStoreItems posts the source id to the merge route", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ id: "keep" }));
     await mergeStoreItems("vocab", "keep", "dup");

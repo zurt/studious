@@ -65,7 +65,7 @@ class TestBuild:
     def test_rows_and_meta(self, freq_db):
         meta = freq.meta()
         assert meta["version"] == "v1" and meta["revision"] == "rev-A"
-        assert freq.revision() == "rev-A"
+        assert freq.revision() == "rev-A+l2"
         # 嬉しい(355), うれしい(1668), 市場 x2, なる(min): no rows for the
         # placeholder, kana-form or malformed entries.
         assert meta["rows"] == "5"
@@ -104,7 +104,7 @@ class TestLookup:
             version="v2",
         )
         assert freq.lookup("なる", "なる") == 7
-        assert freq.revision() == "rev-B"
+        assert freq.revision() == "rev-B+l2"
 
 
 class TestZipGuards:
@@ -161,13 +161,85 @@ class TestZipGuards:
             refs_build.build_freq_sqlite(bad, tmp_path / "o.sqlite")
 
 
+STEM_BANK = [
+    _kanji("企画", "きかく", 700),
+    _kanji("決定", "けってい", 100),
+    _kanji("決定", "きめさだ", 50),  # a different reading must not win for 決定する
+    _kanji("重要", "じゅうよう", 300),
+    _kanji("綺麗", "きれい", 5000),
+    _kanji("料理", "りょうり", 200),
+    _kanji("完成", "かんせい", 400),
+    _kanji("完成する", "かんせいする", 10),  # own row: never stemmed
+    _kana("する", 12),
+    _kana("きれい", 777),
+    _kana("ダウン", 2000),
+]
+
+
+@pytest.fixture
+def stem_db(isolated_data_dir, tmp_path):
+    freq.close()
+    refs_build.build_freq_sqlite(make_zip(tmp_path / "s.zip", bank=STEM_BANK), refs_build.freq_db_path(), version="v1")
+    yield
+    freq.close()
+
+
+class TestStem:
+    @pytest.mark.parametrize(
+        "word,reading,rank",
+        [
+            ("企画する", "きかくする", 700),
+            ("決定的な", "けっていてきな", None),  # 決定的 has no row: only する/な is stripped
+            ("重要な", "じゅうような", 300),
+            ("綺麗な", "きれいな", 5000),
+            ("料理(する)", "りょうり", 200),
+            ("料理（する）", "りょうり", 200),
+            ("完成(な)", "かんせい", 400),
+            ("完成（な）", "かんせい", 400),
+            ("ダウンする", "だうんする", 2000),
+            ("企画する", None, 700),
+        ],
+    )
+    def test_stem_cases(self, stem_db, word, reading, rank):
+        assert freq.lookup(word, reading) == rank
+
+    def test_reading_specific_row_preferred_for_stem(self, stem_db):
+        assert freq.lookup("決定する", "けっていする") == 100
+        assert freq.lookup("決定する", "ちがう") == 50  # no reading match: best rank for the stem
+
+    def test_suru_itself_and_kana_only_not_stemmed(self, stem_db):
+        assert freq.lookup("する", "する") == 12
+        assert freq.lookup("きれいな", "きれいな") is None
+        assert freq.lookup("ような", "ような") is None
+        assert freq.lookup("な", "な") is None
+
+    def test_own_row_is_not_stemmed(self, stem_db):
+        assert freq.lookup("完成する", "かんせいする") == 10
+
+
 class TestEnrich:
+    def test_lookup_version_bump_rechecks_once(self, built_db, freq_db, monkeypatch):  # noqa: F811
+        _seed_vocab("市場", "しじょう")
+        enrich.enrich_pending()
+        assert enrich.enrich_pending()["attempted"] == 0
+        item = store.list_items("vocab")[0]
+        # An item stamped by the pre-version logic is revisited once...
+        store.update_item("vocab", item["id"], freq_checked="rev-A")
+        assert enrich.enrich_pending()["attempted"] == 1
+        assert store.list_items("vocab")[0]["freq_checked"] == "rev-A+l2"
+        assert enrich.enrich_pending()["attempted"] == 0
+        # ...and so is every item after the next LOOKUP_VERSION bump.
+        monkeypatch.setattr(freq, "LOOKUP_VERSION", 3)
+        assert enrich.enrich_pending()["attempted"] == 1
+        assert store.list_items("vocab")[0]["freq_checked"] == "rev-A+l3"
+        assert enrich.enrich_pending()["attempted"] == 0
+
     def test_writes_freq_rank(self, built_db, freq_db):  # noqa: F811
         _seed_vocab("市場", "しじょう")
         enrich.enrich_pending()
         item = store.list_items("vocab")[0]
         assert item["classifications"]["freq_rank"] == 900
-        assert item["freq_checked"] == "rev-A"
+        assert item["freq_checked"] == "rev-A+l2"
         assert item["classifications"]["jmdict_common"] is True
         # compute_priority ignores the rank.
         assert item["priority_group"] == enrich.compute_priority(item)
@@ -205,7 +277,7 @@ class TestEnrich:
         _seed_vocab("存在しない語", "そんざいしないご")
         assert enrich.enrich_pending()["attempted"] == 1
         item = store.list_items("vocab")[0]
-        assert "freq_rank" not in item["classifications"] and item["freq_checked"] == "rev-A"
+        assert "freq_rank" not in item["classifications"] and item["freq_checked"] == "rev-A+l2"
         assert enrich.enrich_pending()["attempted"] == 0
 
     def test_new_list_revision_triggers_reenrichment(self, built_db, freq_db, tmp_path):  # noqa: F811

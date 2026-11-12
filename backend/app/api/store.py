@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from ..services import anki as anki_service
 from ..services import enrich, harvest, jmdict, store, wanikani
+from ..services import shortlist as shortlist_service
 
 log = logging.getLogger("studious.api.store")
 
@@ -97,8 +98,14 @@ def _list_items(
     limit: int,
     offset: int,
     anki_filter: str | None = None,
+    shortlist: bool = False,
+    excluded: str | None = None,
 ) -> dict[str, Any]:
     _check_status(status)
+    if excluded is not None and excluded not in shortlist_service.REASONS:
+        raise HTTPException(400, f"invalid excluded reason: {excluded!r}")
+    if excluded is not None and shortlist:
+        raise HTTPException(400, "excluded and shortlist cannot be combined")
     if anki_filter is not None and anki_filter not in _ANKI_FILTERS:
         raise HTTPException(400, f"invalid anki filter: {anki_filter!r}")
     if sort not in _SORTS:
@@ -161,6 +168,29 @@ def _list_items(
             items = [i for i in items if not i["anki"]]
         elif anki_filter:
             items = [i for i in items if i["anki"] and i["anki"]["state"] == anki_filter]
+
+        # Shortlist assessment and the WaniKani burned flag are read-time joins too.
+        burned = wanikani.burned_index()
+        for i in items:
+            i["wk_burned"] = burned.get(i.get("headword", ""), False)
+            i["shortlist_excluded"] = shortlist_service.assess(i, i["anki"], i["wk_burned"])
+        if excluded:
+            items = [i for i in items if i["shortlist_excluded"] == excluded]
+        elif shortlist:
+            counts = dict.fromkeys(shortlist_service.REASONS, 0)
+            for i in items:
+                if i["shortlist_excluded"]:
+                    counts[i["shortlist_excluded"]] += 1
+            items = [i for i in items if not i["shortlist_excluded"]]
+            items.sort(key=lambda i: shortlist_service.order_key(i, chapter_id))
+            return {
+                "items": items[offset : offset + limit],
+                "total": len(items),
+                "shortlist": {
+                    "excluded": counts,
+                    "wk_burned": sum(1 for i in items if i["wk_burned"]),
+                },
+            }
 
     total = len(items)
     return {"items": items[offset : offset + limit], "total": total}
@@ -238,10 +268,14 @@ def list_vocab(
     limit: int = 100,
     offset: int = 0,
     anki: str | None = None,
+    shortlist: bool = False,
+    excluded: str | None = None,
 ):
     return _list_items(
         "vocab",
         anki_filter=anki,
+        shortlist=shortlist,
+        excluded=excluded,
         status=status,
         q=q,
         doc_id=doc_id,

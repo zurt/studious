@@ -342,6 +342,12 @@ decisions:
   `data/refs/freq/jpdb-freq.sqlite` (git-ignored local download; kanji
   spelling and kana spelling are ranked separately, the item's own spelling
   wins). It does not feed `priority_group`.
+- **Chapter shortlist.** `GET /api/vocab` takes `shortlist=true` (candidates
+  only, own ordering, adds a `shortlist` summary of hidden counts) or
+  `excluded=<reason>` (the hidden items; reasons `status_known`,
+  `status_ignored`, `in_anki`, `grammar_like`, `not_dictionary`, `basic`);
+  the two are mutually exclusive. Items carry `shortlist_excluded` and
+  `wk_burned`, joined at read time like `anki`, never stored.
 - **Multiple classification signals, derived priority.** JLPT level
   (community lists), frequency rank, JMdict common flags, WK level, and
   textbook order are stored independently; a derived `priority_group`

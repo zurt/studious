@@ -81,6 +81,9 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   padding: 10px 16px; border-bottom: 1px solid var(--border);
   min-width: 0;
 }
+/* The fixed floating controls (help/settings/fullscreen) sit over the app
+   topbar's right edge: reserve their width and let the nav wrap instead. */
+#app-topbar { flex-wrap: wrap; row-gap: 6px; padding-right: 120px; }
 .topbar h1 { font-size: 16px; margin: 0; }
 .topbar .spacer { flex: 1; }
 .topbar .page-input {
@@ -248,6 +251,8 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
 }
 .chapter-thumb { overflow: hidden; border-radius: 6px; }
 .row .grow { flex: 1; }
+/* Author display rules (.row, .study-row-detail, ...) otherwise beat the UA [hidden] rule. */
+[hidden] { display: none !important; }
 
 .badge {
   display: inline-block; font-size: 11px; padding: 2px 6px; border-radius: 4px;
@@ -892,8 +897,8 @@ html[data-furigana="hidden"] .furi-reveal:not(.is-revealed) { filter: blur(4px);
 /* ---------- Vocab/Grammar study dashboard ---------- */
 .study-dash { padding: 16px; max-width: 1100px; margin: 0 auto; width: 100%; box-sizing: border-box; overflow-y: auto; }
 .study-dash-header { margin-bottom: 12px; flex-wrap: wrap; }
-.topbar-nav { display: flex; gap: 6px; margin-left: 12px; }
-.study-stats { display: flex; gap: 6px; flex-wrap: wrap; }
+.topbar-nav { display: flex; gap: 6px; margin-left: 12px; flex-wrap: wrap; }
+.study-stats { display: flex; gap: 6px; flex-wrap: wrap; flex: 0 1 auto; min-width: 0; }
 .study-stat-chip {
   font-size: 12px; padding: 3px 10px; border-radius: 999px;
   border: 1px solid var(--border); background: var(--bg); cursor: pointer;
@@ -903,6 +908,7 @@ html[data-furigana="hidden"] .furi-reveal:not(.is-revealed) { filter: blur(4px);
 .study-stat-count { opacity: 0.75; font-variant-numeric: tabular-nums; }
 .study-filters { margin-bottom: 12px; flex-wrap: wrap; }
 .study-filters input[type="search"] { flex: 1; min-width: 180px; }
+.study-filters select { flex: 0 1 auto; min-width: 0; max-width: 220px; text-overflow: ellipsis; }
 .study-add-form { margin-bottom: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-soft); }
 .study-add-form input { flex: 1; min-width: 120px; }
 .study-bulk-bar {
@@ -936,6 +942,19 @@ html[data-furigana="hidden"] .furi-reveal:not(.is-revealed) { filter: blur(4px);
 .study-status-toggle .study-status-btn + .study-status-btn { border-left: 1px solid var(--border); }
 .study-status-toggle .study-status-btn:hover { background: var(--bg-soft); color: var(--fg); }
 .study-status-toggle .study-status-btn.active { background: var(--accent); color: #fff; }
+.study-shortlist-line { margin-bottom: 8px; line-height: 2; }
+.study-shortlist-line .study-stat-chip { margin: 0 2px; }
+.study-review-actions { display: inline-flex; gap: 6px; }
+.study-review-btn { font-size: 12px; padding: 4px 12px; }
+@media (max-width: 640px) {
+  .study-review-btn, .study-shortlist-line .study-stat-chip, #study-shortlist-toggle { min-height: 44px; padding: 8px 14px; font-size: 14px; }
+  .study-review-actions { width: 100%; }
+  .study-review-btn { flex: 1; }
+}
+.study-budget-divider {
+  text-align: center; font-size: 12px; color: var(--muted); padding: 6px 0;
+  border-top: 2px dashed var(--accent-soft); border-bottom: 1px dashed var(--border);
+}
 .study-delete-btn { font-size: 11px; color: var(--muted); padding: 3px 7px; }
 .study-delete-btn:hover { color: #d33; border-color: #d33; }
 .study-row-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 6px; }

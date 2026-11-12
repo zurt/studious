@@ -342,15 +342,40 @@ tiers (exact, entry, headword) hit: the headword itself differs (okurigana,
 `POST /api/store/enrich`). Re-run Sync Anki after changing cards; state is
 read from the snapshot.
 
+### A word I expected is missing from the shortlist
+The shortlist hides a word for exactly one reason (first match wins):
+known, ignored, already in Anki (exact or same-entry match, any state,
+including new and suspended), grammar-like (a `〜`/`～`/`~`/`…` headword, or a
+kana-only particle/conjunction/expression/suffix/auxiliary), no JMdict entry,
+or JLPT N5/N4. The summary line lists the non-zero counts; click one to see
+those words (`GET /api/vocab?excluded=<reason>` does the same, and each item
+carries `shortlist_excluded`). Wrongly hidden: a missing `jmdict_seq` means
+the word was never enriched (`POST /api/store/enrich`); a wrong "in Anki" is
+usually a stale snapshot (Sync Anki again); known/ignored words have a
+Restore button. Also check the textbook/chapter, search, source, status and
+Anki filters: the shortlist composes with them.
+
+### A word I know keeps appearing in the shortlist
+Nothing marks a word known automatically, not even WaniKani burned ones
+(they only get a `WK burned` badge). Tap **Know it** on the row (or Skip to
+ignore it); it moves to the hidden "known" group and stays out of every
+future shortlist. Words you study in Anki disappear once Sync Anki has
+imported their cards.
+
 ### No frequency ranks (`#1.2k` badges) shown, or "By frequency" does nothing
 Ranks need the frequency index: `ls backend/data/refs/freq/jpdb-freq.sqlite`
 (built by `make refs`; `sqlite3 ... "SELECT * FROM meta"` shows the list
 revision and row count). If it exists but items have no rank, they have not
 been re-enriched yet: restart the backend (it runs a pending-enrichment pass
 at startup) or `POST /api/store/enrich`; items are re-checked once per list
-revision (`freq_checked`), no `force` needed. Items stay unranked when the
-list does not contain their spelling (terms jpdb never saw are dropped by
-design); those sort last. If `make refs` fails on the frequency step, a
+revision and lookup-logic version (`freq_checked`, e.g. `rev-A+l2`; bump
+`LOOKUP_VERSION` in `freq.py` when the matching changes), no `force` needed.
+Items stay unranked when the list does not contain their spelling (terms
+jpdb never saw are dropped by design); those sort last. A headword with no
+row of its own is retried without one trailing `する` / `(する)` / `な` /
+`(な)` (企画する uses 企画's rank); hiragana-only words are never stemmed,
+and a stem that is itself missing (決定的な needs a 決定的 row) stays
+unranked. If `make refs` fails on the frequency step, a
 checksum mismatch means the pinned release changed (re-pin
 `backend/refs.lock.json` deliberately), and "unsafe zip member" / "too
 large" / "unexpected frequency list format" mean the archive was rejected by
