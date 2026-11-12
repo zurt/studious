@@ -341,16 +341,13 @@ skipped. A word reported as failed was accepted by the preview but refused by
 `addNotes`; it stays in the inbox and can be retried.
 
 ### Cards sent to Anki have no example sentence
-First choice is a breakdown sighting of at most 60 characters (a vocab-list
-sighting is a list row, not a sentence); second is a generated sentence
-stored on the item (see "Generate sentences fails" below). A word gets
-neither when it was never in a breakdown, or every sentence is exercise
-debris or too long: over 60 characters, a
-table, a word bank (`□`), a blank or empty brackets, or no sentence-ending
-mark. Sentences from `reading_passage` regions are preferred. Run the breakdown for the chapter's reading passages and send again
-(already-sent words are skipped as duplicates, so fix the note in Anki by
-hand). The translation is empty when the breakdown was re-run since the word
-was harvested and the sentence moved.
+Cards always use a generated sentence (stored on the item as `example`);
+textbook sentences are never put on a card because they are above the
+learner's level. A word has none until you press **Generate** in the Send to
+Anki dialog (or **Generate example** on its row), or when generation failed
+for it (see "Some words still have no sentence after generating" below).
+Words already sent are skipped as duplicates, so fix an existing note in
+Anki by hand.
 
 ### Generate sentences fails
 The dialog or the row button shows the backend's message. 503 with
@@ -404,14 +401,42 @@ headword, or its meaning (an edited meaning is never overwritten).
 ### Cards have no audio
 The send result says how many clips were added. None means: not macOS or
 no `say` on PATH; the voice is not installed (`say -v '?'` lists them;
-`GET /api/tts/status` shows `available` and the voice, default `Kyoko`,
-change with `STUDIOUS_TTS_VOICE`); the dialog's "Add audio" box was off or
+`GET /api/tts/status` shows `available`, the `voices` in use and a `reason`;
+the default `auto` needs an installed Japanese voice, set another with
+`STUDIOUS_TTS_VOICE` or Settings > Speech); the dialog's "Add audio" box was off or
 `ANKI_PUSH_AUDIO=false`. "N failed" means `say` errored for some clips (log
 `anki_push_audio_failed` under `studious.tts` / `studious.anki`); those
-notes were still sent. If clips are generated but the field stays empty, the
-per-note `audio` media shape may differ in your AnkiConnect version (it is
-not verified against a real Anki; see `anki_push.attach_audio`). Cached
+notes were still sent. With the VOICEVOX engine, `GET /api/tts/status` gives
+the `reason` (engine app not running, wrong URL, no speaker chosen). Cached
 clips are in `backend/data/audio/`; delete one to regenerate it.
+
+### No speakers listed (Settings > Speech)
+The picker is filled from the engine's `GET /speakers`. "No speakers listed"
+means the engine app (VOICEVOX or AivisSpeech) is not running or the URL is
+wrong: VOICEVOX listens on `http://127.0.0.1:50021`, AivisSpeech on
+`http://127.0.0.1:10101`. Start the app, check the URL in Settings, and
+open `<url>/version` in a browser. The app must also be running whenever you
+send words to Anki or play a clip.
+
+### The audio sounds the same after changing the voice
+Cards already in Anki keep their old clips: Studious never edits existing
+notes. Only words sent afterwards get clips from the new voice (clips are
+cached per engine, speaker and text, so old ones are not reused). Row Play
+buttons use the current voice at once.
+
+### All cards use the same voice
+The `say` engine rotates among the voices in its pool. Only one voice in the
+pool means only one is used: either just one Enhanced/Premium Japanese voice
+is installed (or none, so plain Kyoko is used), or Settings > Speech > Voice
+list names a single voice. `GET /api/tts/status` shows `voices`. Install
+more in System Settings > Accessibility > Spoken Content > Manage Voices, or
+clear the voice list.
+
+### The voice changed after installing a new voice
+The automatic pool is every installed Enhanced/Premium Japanese voice, so a
+new one changes the pool and cards sent from now on may pick a different
+voice (the choice is a stable hash of the card's Word over the pool). Cards
+already in Anki are never edited; set an explicit voice list to pin it.
 
 ### The audio reads a word wrongly
 The built-in voice picks the reading from the kanji itself and can choose a

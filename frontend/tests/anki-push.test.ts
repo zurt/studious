@@ -12,6 +12,7 @@ import {
 import {
   GENERATE_CHUNK,
   audioLabel,
+  betterVoicesHint,
   audioUnavailableLine,
   chunkIds,
   clampCount,
@@ -43,7 +44,7 @@ function preview(over: Partial<AnkiPushPreview> = {}, n = 12): AnkiPushPreview {
     },
     items: Array.from({ length: n }, (_, i) => ({
       id: `i${i}`, headword: `語${i}`, reading: "", fields: {}, tags: [], has_sentence: true, has_gloss: false,
-      can_add: true, reason: "", headword_match: false, sentence_source: "textbook",
+      can_add: true, reason: "", headword_match: false, sentence_source: "generated",
     })),
     ...over,
   };
@@ -145,6 +146,8 @@ describe("example generation requests", () => {
     await generateExamples(["a"], true);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/vocab/examples");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ item_ids: ["a", "b"], force: false });
+    await generateExamples(["a"], true);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ item_ids: ["a"], force: true });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ item_ids: ["a"], force: true });
   });
 
@@ -168,10 +171,9 @@ describe("example generation text and chunking", () => {
   });
 
   it("offer line and button label", () => {
-    expect(needsExampleLine(103)).toBe("103 words have no example sentence.");
-    expect(needsExampleLine(1)).toBe("1 word has no example sentence.");
-    expect(generateButtonLabel(103)).toBe("Generate 103 sentences");
-    expect(generateButtonLabel(1)).toBe("Generate 1 sentence");
+    expect(needsExampleLine(103)).toBe("103 words need an example sentence.");
+    expect(needsExampleLine(1)).toBe("1 word needs an example sentence.");
+    expect(generateButtonLabel()).toBe("Generate");
   });
 
   it("progress text", () => {
@@ -190,7 +192,9 @@ describe("example generation text and chunking", () => {
     };
     const t = tallyResults(res);
     expect(t).toEqual({ generated: 2, kept: 1, failed: 1 });
-    expect(generationSummary(t, 1, null)).toBe("Generated 2 sentences, 1 failed. 1 word stays without a sentence.");
+    expect(generationSummary(t, 1, null)).toBe(
+      "Generated 2 sentences, 1 failed. 1 word stays without a sentence.",
+    );
     expect(generationSummary({ generated: 1, kept: 0, failed: 0 }, 0, null)).toBe("Generated 1 sentence.");
     expect(generationSummary(t, 40, "cancelled")).toContain("Stopped.");
   });
@@ -207,6 +211,18 @@ describe("audio option", () => {
   it("labels", () => {
     expect(audioLabel("Kyoko")).toBe("Add audio (Mac voice: Kyoko)");
     expect(audioUnavailableLine("Kyoko")).toContain("Kyoko");
+    expect(audioLabel("ずんだもん — ノーマル", "voicevox")).toBe("Add audio (ずんだもん — ノーマル)");
+    expect(audioLabel("Kyoko, O-Ren, Otoya (Enhanced)", "say", ["a", "b", "c"])).toBe(
+      "Add audio (Mac voices: Kyoko, O-Ren, Otoya \u2014 Enhanced)",
+    );
+    expect(audioLabel("Kyoko", "say", ["Kyoko"])).toBe("Add audio (Mac voice: Kyoko)");
+    expect(betterVoicesHint("say", ["Kyoko"])).toContain("Spoken Content");
+    expect(betterVoicesHint("say", ["Kyoko (Enhanced)"])).toBe("");
+    expect(betterVoicesHint("say", ["a (Enhanced)", "b (Enhanced)"])).toBe("");
+    expect(betterVoicesHint("voicevox", ["Kyoko"])).toBe("");
+    expect(audioUnavailableLine("", "The speech engine is not reachable")).toBe(
+      "No audio: The speech engine is not reachable",
+    );
   });
 
   it("result message reports clips and failures", () => {
@@ -216,6 +232,9 @@ describe("audio option", () => {
     expect(pushResultMessage(base)).not.toContain("audio");
     expect(pushResultMessage({ ...base, audio: { enabled: false, attached: 0, failed: 0 } })).not.toContain("audio");
     expect(pushResultMessage({ ...base, audio: { enabled: true, attached: 3, failed: 0 } })).toContain("3 audio clips added.");
+    expect(pushResultMessage({ ...base, audio: { enabled: true, attached: 3, failed: 0, reading_corrected: 2 } })).toContain(
+      "2 readings corrected.",
+    );
     expect(pushResultMessage({ ...base, audio: { enabled: true, attached: 1, failed: 2 } })).toContain(
       "1 audio clip added, 2 failed.",
     );

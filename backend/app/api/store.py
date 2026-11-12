@@ -23,6 +23,7 @@ from ..services import (
     jmdict,
     store,
     tts,
+    voicevox,
     wanikani,
 )
 from ..services import shortlist as shortlist_service
@@ -337,7 +338,39 @@ def delete_vocab_example(item_id: str):
 
 @router.get("/tts/status")
 def tts_status():
-    return {"available": tts.is_available(), "voice": tts.voice()}
+    return tts.status()
+
+
+@router.get("/tts/speakers")
+def tts_speakers():
+    """Speakers of the VOICEVOX-compatible engine at the configured URL."""
+    if tts.engine() != "voicevox":
+        raise HTTPException(400, "Speakers are listed for the VOICEVOX engine only.")
+    try:
+        return {"url": tts.url(), "speaker": tts.speaker(), "speakers": voicevox.speakers(tts.url())}
+    except voicevox.EngineError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+class TtsTestBody(BaseModel):
+    voice: str | None = None  # a `say` voice; must be an installed ja_JP voice
+
+
+@router.post("/tts/test")
+def tts_test(body: TtsTestBody | None = None):
+    """A fixed sentence through the selected engine and speaker (or, for `say`,
+    one named installed Japanese voice)."""
+    voice = body.voice if body and body.voice else None
+    if voice is not None:
+        if tts.engine() != "say" or not tts.is_available():
+            raise HTTPException(400, "A voice can only be chosen for the Mac voice engine.")
+        if voice not in tts.status()["installed"]:
+            raise HTTPException(400, f"{voice!r} is not an installed Japanese voice")
+    try:
+        path = tts.synthesize(tts.TEST_SENTENCE, voice=voice)
+    except tts.TtsError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return FileResponse(path, media_type=tts.media_type(path))
 
 
 @router.get("/vocab/{item_id}/audio")
@@ -353,12 +386,13 @@ def vocab_audio(item_id: str, part: str = "word"):
     if not text:
         raise HTTPException(404, f"this item has no {part} to speak")
     if not tts.is_available():
-        raise HTTPException(503, f"The {tts.voice()!r} voice is not available (needs macOS with `say`)")
+        raise HTTPException(503, tts.unavailable_reason())
+    reading = note["word_reading"] if part == "word" else note["sentence_reading"]
     try:
-        path = tts.synthesize(text)
+        path = tts.synthesize(text, anki_push.expected_reading(reading), seed=note["fields"]["Word"])
     except tts.TtsError as exc:
         raise HTTPException(503, str(exc)) from exc
-    return FileResponse(path, media_type="audio/mp4")
+    return FileResponse(path, media_type=tts.media_type(path))
 
 
 @router.post("/vocab/{item_id}/merge")

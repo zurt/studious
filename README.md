@@ -154,8 +154,11 @@ Environment variables (read at startup, `.env` supported):
   export it in `~/.zshrc` the same way. Never put it in `.env`.
 - `ANKI_CONNECT_URL` — AnkiConnect endpoint for the Anki import (default
   `http://127.0.0.1:8765`).
-- `STUDIOUS_TTS_VOICE` — macOS `say` voice for card audio (default
-  `Kyoko`); `ANKI_PUSH_AUDIO` — attach audio on send (default true).
+- `STUDIOUS_TTS_VOICE` — macOS `say` voices for card audio: `auto`
+  (default) or a comma-separated list of voice names; `ANKI_PUSH_AUDIO` — attach audio on send (default true);
+  `STUDIOUS_TTS_ENGINE` (`say` or `voicevox`), `STUDIOUS_TTS_URL` (default
+  `http://127.0.0.1:50021`), `STUDIOUS_TTS_SPEAKER` (a VOICEVOX style id, no
+  default) — defaults for the speech engine, overridden by Settings > Speech.
 - `ANKI_PUSH_DECK` / `ANKI_PUSH_NOTE_TYPE` — where "Send to Anki" puts new
   cards (defaults `Studious` and `Kaishi 1.5k`).
 - `STUDIOUS_DATA_DIR` — data root (default `./data`).
@@ -332,8 +335,8 @@ store, and the Anki snapshot is re-synced so they leave the shortlist.
   or without する/な"), the preview also asks Anki about the other spelling,
   and of two such words in one send only the first is sent. Hiragana-only
   words (する, きれいな) are never stemmed.
-- **Audio.** On a Mac the send attaches two clips from the built-in voice
-  (`STUDIOUS_TTS_VOICE`, default `Kyoko`): the word (as written on the card)
+- **Audio.** On a Mac the send attaches two clips from the built-in voices
+  (`STUDIOUS_TTS_VOICE`, default `auto`): the word (as written on the card)
   to `Word Audio` and the example sentence to `Sentence Audio`. Clips are
   made with `say` as real AAC .m4a files, cached under `data/audio/`
   (named by a hash of voice and text) and sent inside `addNotes`, so no new
@@ -341,28 +344,48 @@ store, and the Anki snapshot is re-synced so they leave the shortlist.
   the voice is available; `ANKI_PUSH_AUDIO=false` turns it off by default.
   A clip that fails to generate is left off and counted in the result. In a
   vocab row's detail, **Play word** / **Play sentence** play the same clips.
-  Better voices can be downloaded in macOS System Settings > Accessibility >
-  Spoken Content > System Voice > Manage Voices; set `STUDIOUS_TTS_VOICE` to
-  the voice's name and restart. The per-note `audio` shape follows
-  AnkiConnect's documented `addNote` media format but has not been checked
-  against a real Anki yet.
+  `auto` means every installed Japanese voice whose name ends with
+  `(Enhanced)` or `(Premium)` (sorted by name); if there are none, the plain
+  Kyoko; novelty voices (Eddy, Flo, …) are never chosen automatically. With
+  several voices each card gets one of them, picked by a stable hash of its
+  Word, so a card's word and sentence clips share a voice, different cards
+  vary, and re-sending or replaying gives the same voice. If `say` fails with
+  a voice the next one, then the plain Kyoko, is tried. Settings > Speech
+  shows the voices in use, takes an explicit comma-separated list (e.g.
+  `Otoya (Enhanced), O-Ren (Enhanced)`; names not installed are dropped) and
+  its **Test voice** button plays each voice in turn. Enhanced voices can be
+  downloaded in macOS System Settings > Accessibility > Spoken Content >
+  System Voice > Manage Voices; `say -v '?'` lists the names.
+- **Another engine (VOICEVOX / AivisSpeech), optional and not yet tested
+  against a real engine.** Both are free local apps that
+  speak Japanese through the same HTTP API. Install one, start it, then in
+  Settings > Speech pick the engine "VOICEVOX / AivisSpeech", check the URL
+  (VOICEVOX `http://127.0.0.1:50021`, AivisSpeech `http://127.0.0.1:10101`),
+  choose a speaker (listed as "Character — Style") and press **Test voice**.
+  The app must be running whenever you send words to Anki or play a clip.
+  VOICEVOX voices carry their own terms of use (credit requirements and
+  limits differ per voice): read them for the voice you pick. Clips are
+  converted to AAC .m4a with `afconvert` (part of macOS), else kept as .wav.
+  The engine's reading of a word or sentence is compared with the card's
+  reading and, when they differ, the clip is made from the card's reading
+  instead (the send result counts these). The choice is stored in
+  `data/preferences.json`; changing the voice does not touch cards already in
+  Anki, and new clips never reuse old ones.
 
 #### Example sentences
 
-Each card gets one example sentence, chosen in this order:
+Every card's example sentence is a generated one, never a textbook
+sentence: authentic passage sentences are above an N4 learner's level and
+would leave several unknown words on the card front. A generated sentence is
+one natural sentence in the style of the Kaishi 1.5k deck, using the word in
+its meaning with everything else at about N5-N4 level (a する word gets a
+sentence that uses it as a verb, a な word as an adjective), plus real
+furigana and an English translation. A word without a stored generated
+sentence goes out with the sentence fields empty. (The textbook sentences
+where a word was seen are still listed in the row detail.)
 
-1. A short sentence (60 characters or fewer) from a breakdown of a reading
-   passage where the word was seen, with its translation. Textbook
-   sentences keep their text as printed, with no readings added.
-2. Otherwise a generated sentence stored on the vocab item (a する word
-   gets a sentence that uses it as a verb, a な word as an adjective): one natural
-   sentence in the style of the Kaishi 1.5k deck, using the word in its
-   meaning with everything else at about N5-N4 level, plus real furigana
-   and an English translation.
-3. Otherwise the sentence fields stay empty.
-
-When some of the words about to be sent have no sentence, the dialog says
-so and offers **Generate N sentences**. This asks the configured model
+When some of the words about to be sent have no generated sentence, the
+dialog says so ("88 words need an example sentence.") and offers **Generate**. This asks the configured model
 (Settings > model) for the sentences in batches of 20, shows progress, and
 can be cancelled between batches; **Send without** skips it. It costs API
 tokens, audited under the `example_sentences` job type in the cost summary.

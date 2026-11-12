@@ -454,3 +454,22 @@ class TestApi:
         assert client.delete("/api/vocab/nope/example").status_code == 404
         # the item itself is still there
         assert client.get("/api/vocab").json()["total"] == 1
+
+
+class TestTextbookExamplesAreNotExamples:
+    def test_stored_textbook_example_is_regenerated_not_kept(self, fake):
+        (item_id,) = _items(1)
+        store.update_item("vocab", item_id, example={**KAISHI, "source": "textbook"})
+        out = examples.generate_examples([item_id])
+        assert out["items"][0]["status"] == "generated"
+        assert store.get_item("vocab", item_id)["example"]["source"] == "generated"
+
+    def test_furigana_check_is_strict_about_spaces(self):
+        assert examples.validate_furigana("犬 です。", "犬[いぬ] です。") is not None
+        assert examples.validate_furigana("犬です。", "犬[いぬ] です。") is None
+
+    def test_no_readings_job_left(self):
+        from app import config
+
+        assert not hasattr(config, "SENTENCE_READINGS_PROMPT")
+        assert not hasattr(examples, "validate_readings")

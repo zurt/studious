@@ -165,6 +165,13 @@ def validate_entry(entry: Any, headword: str) -> str | None:
     reason = validate_furigana(sentence, furi)
     if reason:
         return reason
+    return validate_gloss(gloss)
+
+
+def validate_gloss(gloss: Any) -> str | None:
+    """Reason an English gloss is unusable, or None."""
+    if not isinstance(gloss, str):
+        return "gloss must be a string"
     gloss = gloss.strip()
     if not gloss:
         return "gloss is empty"
@@ -173,6 +180,12 @@ def validate_entry(entry: Any, headword: str) -> str | None:
     if _JAPANESE_RE.search(gloss):
         return "gloss contains Japanese characters"
     return None
+
+
+def furigana_reading(furi: str) -> str:
+    """The sentence as spoken: each kanji run replaced by its bracket reading,
+    spaces removed. 彼[かれ]に 会[あ]えて -> かれにあえて."""
+    return _UNIT_RE.sub(lambda m: m.group(2), furi).replace(" ", "")
 
 
 def validate_entries(
@@ -339,17 +352,18 @@ def generate_examples(item_ids: list[str], *, force: bool = False) -> dict[str, 
     """Generate and store an example sentence for each vocab item.
 
     Returns ``{"items": [{"id", "status", "example"?, "reason"?}], "usage": {...}}``
-    with status ``generated``, ``kept`` (already has one and not ``force``) or
-    ``failed``. Raises ``ExamplesError`` (503) when the provider is not
-    configured and (502) when every LLM call failed."""
+    with status ``generated``, ``kept`` (already has a generated one and not
+    ``force``) or ``failed``. A stored example of any other source counts as
+    none. Raises ``ExamplesError`` (503) when the provider is not configured
+    and (502) when every LLM call failed."""
     results: dict[str, dict[str, Any]] = {}
     todo: list[dict[str, Any]] = []
     for item_id in dict.fromkeys(item_ids):
         item = store.get_item("vocab", item_id)
         if item is None or item.get("deleted"):
             results[item_id] = {"id": item_id, "status": "failed", "reason": "vocab item not found"}
-        elif item.get("example") and not force:
-            results[item_id] = {"id": item_id, "status": "kept", "example": item["example"]}
+        elif (ex := item.get("example")) and ex.get("source", "generated") == "generated" and not force:
+            results[item_id] = {"id": item_id, "status": "kept", "example": ex}
         else:
             todo.append(item)
 

@@ -27,13 +27,25 @@ export function pushDialogLines(p: AnkiPushPreview): string[] {
 }
 
 /** Checkbox label for the audio option. */
-export function audioLabel(voice: string): string {
+export function audioLabel(voice: string, engine = "say", voices: string[] = []): string {
+  if (engine === "voicevox") return `Add audio (${voice})`;
+  if (voices.length > 1) {
+    return `Add audio (Mac voices: ${voice.replace(/ \((Enhanced|Premium)\)$/, " \u2014 $1")})`;
+  }
   return `Add audio (Mac voice: ${voice})`;
 }
 
+/** Hint under the checkbox when only the plain Mac voice is in use. */
+export function betterVoicesHint(engine: string, voices: string[]): string {
+  const plain = voices.length === 1 && !/\((Enhanced|Premium)\)$/.test(voices[0]);
+  return engine === "say" && plain
+    ? "Better voices can be downloaded in System Settings \u2192 Accessibility \u2192 Spoken Content."
+    : "";
+}
+
 /** Muted line shown instead of the checkbox when the voice cannot be used. */
-export function audioUnavailableLine(voice: string): string {
-  return `No audio: needs macOS with the "${voice}" voice installed (see STUDIOUS_TTS_VOICE).`;
+export function audioUnavailableLine(voice: string, reason = ""): string {
+  return reason ? `No audio: ${reason}` : `No audio: needs macOS with the "${voice}" voice installed (see STUDIOUS_TTS_VOICE).`;
 }
 
 export type SendChoice = { limit: number; audio: boolean };
@@ -50,6 +62,9 @@ export function pushResultMessage(r: AnkiPushResult): string {
   if (r.audio?.enabled) {
     msg += ` ${r.audio.attached} audio ${r.audio.attached === 1 ? "clip" : "clips"} added`;
     msg += r.audio.failed ? `, ${r.audio.failed} failed.` : ".";
+    if (r.audio.reading_corrected) {
+      msg += ` ${r.audio.reading_corrected} ${r.audio.reading_corrected === 1 ? "reading" : "readings"} corrected.`;
+    }
   }
   if (!r.sync_ok) msg += " The Anki sync afterwards failed; press Sync Anki.";
   return msg;
@@ -68,13 +83,15 @@ export function chunkIds(ids: string[], size = GENERATE_CHUNK): string[][] {
   return out;
 }
 
+/** "88 words need an example sentence." */
 export function needsExampleLine(n: number): string {
-  return `${n} ${n === 1 ? "word has" : "words have"} no example sentence.`;
+  return `${n} ${n === 1 ? "word needs" : "words need"} an example sentence.`;
 }
 
-export function generateButtonLabel(n: number): string {
-  return `Generate ${n} ${n === 1 ? "sentence" : "sentences"}`;
+export function generateButtonLabel(): string {
+  return "Generate";
 }
+
 
 export function progressText(done: number, total: number): string {
   return `Generating… ${done} of ${total}`;
@@ -170,10 +187,15 @@ export function ankiPushDialog(
     const au = initial.audio;
     if (au?.enabled && au.available) {
       audioRow.hidden = false;
-      audioRow.querySelector("span")!.textContent = audioLabel(au.voice);
+      audioRow.querySelector("span")!.textContent = audioLabel(au.voice, au.engine, au.voices);
+      const hint = betterVoicesHint(au.engine ?? "say", au.voices ?? []);
+      if (hint) {
+        audioNote.hidden = false;
+        audioNote.textContent = hint;
+      }
     } else if (au?.enabled) {
       audioNote.hidden = false;
-      audioNote.textContent = audioUnavailableLine(au.voice);
+      audioNote.textContent = audioUnavailableLine(au.voice, au.reason);
     }
     let generating = false;
     let runComplete = false; // a run finished: stop offering, even if some words failed
@@ -195,7 +217,7 @@ export function ankiPushDialog(
       const offer = offerVisible(needs, generating, runComplete);
       offerEl.hidden = !offer;
       needsEl.textContent = needsExampleLine(needs);
-      genBtn.textContent = generateButtonLabel(needs);
+      genBtn.textContent = generateButtonLabel();
       progressEl.hidden = !generating;
       okBtn.textContent = sendButtonLabel(preview.counts.will_add);
       okBtn.disabled = preview.counts.will_add === 0;

@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import get_settings
-from . import anki, blanks, examples, storage, store, tts
+from . import anki, examples, store, tts
 
 log = logging.getLogger("studious.anki")
 
@@ -62,10 +62,6 @@ FILLED_FIELDS = (
     "Notes",
     "Frequency",
 )
-
-MAX_SENTENCE_CHARS = 120
-# Flashcard sentences should be short: a longer textbook sentence is passed over.
-MAX_TEXTBOOK_SENTENCE_CHARS = 60
 
 # The card's Word Meaning: dictionary glosses are cut to this many, and to
 # this many characters (the first gloss is always kept).
@@ -271,95 +267,27 @@ def speech_word(headword: str) -> str:
     return _TRAILING_GROUP_RE.sub("", headword or "").strip()
 
 
-# ---------- Sentence ----------
-
-_FURI_RE = re.compile(r"([㐀-䶿一-鿿豈-﫿々〆ヵヶ]+)[(（][ぁ-ゖー]+[)）]")
-_LINK_RE = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
-_EMPH_RE = re.compile(r"(\*\*|\*|`|~~)")  # not "_": blanks are underscores
-_SPACE_RE = re.compile(r"\s+")
-# Whitespace between two non-ASCII characters is line-wrap noise in Japanese.
-_JA_GAP_RE = re.compile(r"(?<=[^\x00-\x7f])\s+(?=[^\x00-\x7f])")
-# Markdown block prefixes, then an exercise item marker: circled digit,
-# 1. / 1) / １． / (1), a bare number then a space, or a bullet.
-_BLOCK_RE = re.compile(r"^\s*(?:#{1,6}\s+|>\s*)")
-_MARKER_RE = re.compile(
-    r"^\s*(?:(?P<circled>[①-⑳])\s*"
-    r"|[(（](?P<paren>\d+)[)）]\s*"
-    r"|(?P<dot>\d+)\s*[.)．）]\s*"
-    r"|(?P<bare>\d+)\s+"
-    r"|例\s*[)）:：]\s*"
-    r"|[-*+•●▪・]\s+)"
-)
-# Cleaned-text exercise patterns: a numbered or lettered blank such as （①）
-# or (a), a choose-one bracket such as （機械の・人間の）, and correction marks.
-_LABEL_BLANK_RE = re.compile(
-    r"[(（\[［【]\s*(?:[\u2460-\u2473]|\d+|[\u3041-\u30ffA-Za-z\uff21-\uff3a\uff41-\uff5a])\s*[)）\]］】]"
-)
-_CHOICE_RE = re.compile(r"[(（][^()（）]*[・/／][^()（）]*[)）]")
-_CORRECTION_MARKS = "×○✕✗"
-_GLOSS_EXAMPLE_RE = re.compile(r"^\s*(?:Example\s*[):：]|e\.g\.\s*[:)]?)\s*", re.IGNORECASE)
-_EMPTY_BRACKETS_RE = re.compile(r"[(（\[［【「『]\s*[)）\]］】」』]")
-_UNDERSCORE_RUN_RE = re.compile(r"_{2,}")
-_TERMINATORS = "。！？!?"
-_CLOSERS = "」』）)”\"'’】］]"
+# ---------- Note ----------
 
 
-def split_marker(text: str) -> tuple[str, int | None]:
-    """(text without a leading item marker, the marker's number if any)."""
-    text = _BLOCK_RE.sub("", text or "")
-    m = _MARKER_RE.match(text)
-    if not m:
-        return text, None
-    num: int | None = None
-    if m.group("circled"):
-        num = ord(m.group("circled")) - 0x2460 + 1
-    else:
-        digits = m.group("paren") or m.group("dot") or m.group("bare")
-        if digits:
-            num = int(digits)
-    return text[m.end() :], num
-
-
-def plain_sentence(text: str) -> str:
-    """Markdown, item markers and 漢字(かな) annotations removed, whitespace collapsed."""
-    text, _ = split_marker(text)
-    text = _LINK_RE.sub(r"\1", text)
-    text = _FURI_RE.sub(r"\1", text)
-    text = _EMPH_RE.sub("", text)
-    return _SPACE_RE.sub(" ", _JA_GAP_RE.sub("", text)).strip()
-
-
-def _has_blank(text: str) -> bool:
-    return blanks.BLANK_CHAR in blanks.normalize_blanks(text) or bool(_UNDERSCORE_RUN_RE.search(text))
-
-
-def usable_sentence(raw: str) -> str | None:
-    """Cleaned sentence text, or None when it is exercise debris: a table, a
-    word bank, a blank in any style, empty brackets (checked before and after
-    cleaning), no sentence-ending mark, or too long."""
-    if not raw:
-        return None
-    text = plain_sentence(raw)
-    if not text or len(text) > MAX_SENTENCE_CHARS:
-        return None
-    for probe in (raw, text):
-        if "|" in probe or "□" in probe or _has_blank(probe) or _EMPTY_BRACKETS_RE.search(probe):
-            return None
-    if _LABEL_BLANK_RE.search(text) or _CHOICE_RE.search(text):
-        return None
-    if any(c in probe for probe in (raw, text) for c in _CORRECTION_MARKS):
-        return None
-    if not any(t in text for t in _TERMINATORS):
-        return None
-    if text.rstrip(_CLOSERS + " ")[-1:] not in tuple(_TERMINATORS):
-        return None
-    return text
+def stored_example(item: dict[str, Any]) -> dict[str, Any] | None:
+    """The item's stored generated example when it has the fields a note needs.
+    Anything else (no example, a ``source: "textbook"`` one from an earlier
+    build) counts as no example."""
+    ex = item.get("example")
+    if (
+        isinstance(ex, dict)
+        and ex.get("source", "generated") == "generated"
+        and ex.get("sentence")
+        and ex.get("furigana")
+    ):
+        return ex
+    return None
 
 
 def sentence_html(text: str, surface: str, headword: str = "") -> str:
     """Escaped sentence with the first occurrence of the word wrapped in <b>."""
     for needle in (surface, headword):
-        needle = plain_sentence(needle) if needle else ""
         pos = text.find(needle) if needle else -1
         if pos >= 0:
             return (
@@ -370,79 +298,6 @@ def sentence_html(text: str, surface: str, headword: str = "") -> str:
                 + html.escape(text[pos + len(needle) :], quote=False)
             )
     return html.escape(text, quote=False)
-
-
-def _region_tag(sighting: dict[str, Any], cache: dict[tuple, str | None]) -> str | None:
-    key = (sighting.get("doc_id"), sighting.get("chapter_id"), sighting.get("region_id"))
-    if key not in cache:
-        try:
-            region = storage.load_region(*key)
-        except (ValueError, OSError, TypeError):
-            region = None
-        cache[key] = (region or {}).get("tag")
-    return cache[key]
-
-
-def choose_sentence(
-    item: dict[str, Any],
-    chapter_id: str | None = None,
-    cache: dict[tuple, str | None] | None = None,
-) -> tuple[dict[str, Any], str] | None:
-    """(sighting, plain text) of the best usable breakdown sentence, or None.
-    Vocab-list sightings are list rows, not sentences, so they never count.
-    Ranked: reading_passage regions first, then the given chapter, then the
-    shorter sentence. Sentences over MAX_TEXTBOOK_SENTENCE_CHARS never count."""
-    cache = {} if cache is None else cache
-    ranked: list[tuple[tuple, dict[str, Any], str]] = []
-    for s in item.get("sightings") or []:
-        if s.get("source") != "breakdown":
-            continue
-        text = usable_sentence(s.get("sentence_text") or "")
-        if text is None or len(text) > MAX_TEXTBOOK_SENTENCE_CHARS:
-            continue
-        key = (
-            0 if _region_tag(s, cache) == "reading_passage" else 1,
-            0 if chapter_id and s.get("chapter_id") == chapter_id else 1,
-            len(text),
-        )
-        ranked.append((key, s, text))
-    if not ranked:
-        return None
-    best = min(ranked, key=lambda r: r[0])
-    return best[1], best[2]
-
-
-def sentence_gloss(sighting: dict[str, Any]) -> str:
-    """The breakdown's English gloss for the sighting's sentence. Found by
-    region and sentence index, and accepted only when that sentence's text is
-    the one the sighting recorded (a re-run breakdown may have shifted it).
-    A leading item number matching the sentence's own is removed."""
-    try:
-        breakdown = storage.load_breakdown(sighting["doc_id"], sighting["chapter_id"], sighting["region_id"])
-        sentence = ((breakdown or {}).get("sentences") or [])[sighting["sentence_index"]]
-        if (sentence.get("text") or "") != (sighting.get("sentence_text") or ""):
-            return ""
-        gloss = (sentence.get("gloss") or "").strip()
-    except (KeyError, IndexError, TypeError, ValueError, OSError, AttributeError):
-        return ""
-    gloss = _GLOSS_EXAMPLE_RE.sub("", gloss)
-    _, number = split_marker(sighting.get("sentence_text") or "")
-    if number is not None:
-        rest, gloss_number = split_marker(gloss)
-        if gloss_number == number:
-            gloss = rest.strip()
-    return gloss
-
-
-# ---------- Note ----------
-
-
-def stored_example(item: dict[str, Any]) -> dict[str, Any] | None:
-    """The item's stored example when it has the fields a note needs."""
-    ex = item.get("example")
-    if isinstance(ex, dict) and ex.get("sentence") and ex.get("furigana"):
-        return ex
-    return None
 
 
 def word_meaning(item: dict[str, Any]) -> str:
@@ -464,28 +319,22 @@ def build_note(
     item: dict[str, Any],
     doc_id: str | None = None,
     chapter_id: str | None = None,
-    cache: dict[tuple, str | None] | None = None,
 ) -> dict[str, Any]:
     """{"fields", "tags", "has_sentence", "has_gloss", "sentence_source"} for one
-    store item. The sentence is a short textbook sighting, else the item's
-    stored generated example (with real furigana), else empty."""
+    store item. The sentence is always the item's stored generated example
+    (with real furigana), else empty: textbook sentences are above the
+    learner's level, so they never go on a card."""
     headword = strip_suffix_group(item.get("headword") or "")
     reading = pick_reading(headword, strip_suffix_group(item.get("reading") or ""))
-    chosen = choose_sentence(item, chapter_id, cache)
-    sentence = meaning = sentence_furigana = spoken = ""
+    sentence = meaning = sentence_furigana = spoken = spoken_reading = ""
     source: str | None = None
-    if chosen:
-        sighting, text = chosen
-        sentence = sentence_furigana = sentence_html(text, sighting.get("surface") or "", headword)
-        meaning = html.escape(sentence_gloss(sighting), quote=False)
-        source = "textbook"
-        spoken = text
-    elif (ex := stored_example(item)) is not None:
+    if (ex := stored_example(item)) is not None:
         sentence = sentence_html(ex["sentence"], ex.get("surface") or "", headword)
         sentence_furigana = examples.wrap_surface(ex["furigana"], ex.get("surface") or "")
         meaning = html.escape(ex.get("gloss") or "", quote=False)
         source = "generated"
         spoken = ex["sentence"]
+        spoken_reading = examples.furigana_reading(ex["furigana"])
     own = (item.get("notes") or "").strip()
     notes = html.escape(own, quote=False).replace("\n", "<br>") if own else ""
     rank = (item.get("classifications") or {}).get("freq_rank")
@@ -509,7 +358,9 @@ def build_note(
     return {"fields": fields, "tags": tags, "has_sentence": bool(sentence), "has_gloss": bool(meaning),
         "sentence_source": source,
         "word_text": speech_word(headword),
+        "word_reading": reading,
         "sentence_text": spoken,
+        "sentence_reading": spoken_reading,
     }
 
 
@@ -583,11 +434,25 @@ def _check_with_variants(
 
 
 def audio_status() -> dict[str, Any]:
+    st = tts.status()
     return {
         "enabled": get_settings().anki_push_audio,
-        "available": tts.is_available(),
-        "voice": tts.voice(),
+        "available": st["available"],
+        "voice": st["voice"],
+        "voices": st["voices"],
+        "engine": st["engine"],
+        "reason": st["reason"],
     }
+
+
+_UNSPEAKABLE_RE = re.compile(r"[0-9A-Za-z０-９Ａ-Ｚａ-ｚ]")
+
+
+def expected_reading(reading: str) -> str | None:
+    """A reading worth checking the engine against: not empty, and without
+    digits or Latin letters (which the engine reads in its own way)."""
+    reading = (reading or "").strip()
+    return None if not reading or _UNSPEAKABLE_RE.search(reading) else reading
 
 
 def attach_audio(note: dict[str, Any], clips: list[tuple[str, Path]]) -> dict[str, Any]:
@@ -601,7 +466,7 @@ def attach_audio(note: dict[str, Any], clips: list[tuple[str, Path]]) -> dict[st
         **note,
         "audio": [
             {
-                "filename": f"studious_{path.stem}.m4a",
+                "filename": f"studious_{path.stem}{path.suffix}",
                 "data": base64.b64encode(path.read_bytes()).decode("ascii"),
                 "fields": [field],
             }
@@ -610,19 +475,22 @@ def attach_audio(note: dict[str, Any], clips: list[tuple[str, Path]]) -> dict[st
     }
 
 
-def _note_with_audio(row: dict[str, Any]) -> tuple[dict[str, Any], int, int]:
-    """(note, clips attached, clips failed). A failed clip is left out."""
+def _note_with_audio(row: dict[str, Any]) -> tuple[dict[str, Any], int, int, int]:
+    """(note, clips attached, clips failed, readings corrected). A failed clip
+    is left out."""
     clips: list[tuple[str, Path]] = []
-    failed = 0
-    for field, text in row["_audio_texts"]:
+    failed = corrected = 0
+    for field, text, reading in row["_audio_texts"]:
         if not text:
             continue
+        report: dict[str, Any] = {}
         try:
-            clips.append((field, tts.synthesize(text)))
+            clips.append((field, tts.synthesize(text, reading, report=report, seed=row["_note"]["fields"]["Word"])))
+            corrected += bool(report.get("corrected"))
         except tts.TtsError as exc:
             failed += 1
             log.warning("anki_push_audio_failed", extra={"word": row["headword"], "field": field, "error": str(exc)})
-    return attach_audio(row["_note"], clips), len(clips), failed
+    return attach_audio(row["_note"], clips), len(clips), failed, corrected
 
 
 def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
@@ -640,8 +508,7 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
             raise AnkiPushError(409, f"Note type {model!r} is missing field(s): {', '.join(missing)}.")
         deck_names = _read("deckNames") or []
         deck_exists = deck in deck_names
-        cache: dict[tuple, str | None] = {}
-        built = [build_note(i, doc_id, chapter_id, cache) for i in items]
+        built = [build_note(i, doc_id, chapter_id) for i in items]
         payload = [
             {
                 "deckName": deck,
@@ -684,7 +551,10 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
                 "reason": reason,
                 "headword_match": (item.get("anki") or {}).get("match") == "headword",
                 "_note": note,
-                "_audio_texts": [("Word Audio", b["word_text"]), ("Sentence Audio", b["sentence_text"])],
+                "_audio_texts": [
+                    ("Word Audio", b["word_text"], expected_reading(b["word_reading"])),
+                    ("Sentence Audio", b["sentence_text"], expected_reading(b["sentence_reading"])),
+                ],
             }
         )
     return {"deck": deck, "deck_exists": deck_exists, "note_type": model, "rows": rows}
@@ -732,13 +602,17 @@ def push(doc_id: str, chapter_id: str, limit: int, audio: bool | None = None) ->
         failed: list[dict[str, Any]] = []
         want_audio = get_settings().anki_push_audio if audio is None else audio
         use_audio = bool(want_audio) and tts.is_available()
-        audio_stats = {"attached": 0, "failed": 0}
+        audio_stats = {"attached": 0, "failed": 0, "reading_corrected": 0}
         notes = [r["_note"] for r in todo]
         if use_audio and todo:
             with ThreadPoolExecutor(max_workers=AUDIO_WORKERS) as pool:
                 done = list(pool.map(_note_with_audio, todo))
             notes = [d[0] for d in done]
-            audio_stats = {"attached": sum(d[1] for d in done), "failed": sum(d[2] for d in done)}
+            audio_stats = {
+                "attached": sum(d[1] for d in done),
+                "failed": sum(d[2] for d in done),
+                "reading_corrected": sum(d[3] for d in done),
+            }
         created = 0
         deck_created = False
         if todo:

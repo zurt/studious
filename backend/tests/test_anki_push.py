@@ -83,64 +83,7 @@ class TestSuffixGroup:
         assert anki_push.strip_suffix_group(text) == expected
 
 
-# ---------- sentences ----------
-
-
-def _sighting(text, *, source="breakdown", chapter=CH, surface="嬉しかった", region="r1", index=0, doc=DOC):
-    return {
-        "doc_id": doc,
-        "chapter_id": chapter,
-        "region_id": region,
-        "sentence_index": index,
-        "surface": surface,
-        "sentence_text": text,
-        "source": source,
-    }
-
-
-class TestPlainSentence:
-    def test_strips_markdown_and_furigana(self):
-        assert anki_push.plain_sentence("- **彼(かれ)**に 会(あ)えて`嬉しかった`。") == "彼に会えて嬉しかった。"
-
-    def test_collapses_whitespace_and_links(self):
-        assert anki_push.plain_sentence("# 見て  [ここ](http://x)\n  ください") == "見てここください"
-
-    def test_katakana_parens_are_not_furigana(self):
-        assert anki_push.plain_sentence("文(ア)です") == "文(ア)です"
-
-
-class TestChooseSentence:
-    def test_prefers_chapter_then_any_breakdown(self):
-        item = {"sightings": [_sighting("別の章。", chapter="other"), _sighting("この章。")]}
-        assert anki_push.choose_sentence(item, CH)[1] == "この章。"
-        assert anki_push.choose_sentence(item, "zzz")[1] == "別の章。"
-
-    def test_vocab_list_sighting_never_used(self):
-        item = {"sightings": [_sighting("嬉しい（うれしい）glad", source="vocab_list")]}
-        assert anki_push.choose_sentence(item, CH) is None
-
-    def test_long_and_blank_sentences_dropped(self):
-        item = {
-            "sightings": [
-                _sighting("あ" * 120 + "。"),
-                _sighting("これは＿＿＿です。"),
-                _sighting("これは_____です。"),
-                _sighting("短い。"),
-            ]
-        }
-        assert anki_push.choose_sentence(item, CH)[1] == "短い。"
-        item["sightings"] = item["sightings"][:3]
-        assert anki_push.choose_sentence(item, CH) is None
-
-    def test_exactly_60_allowed_61_dropped(self):
-        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 59 + "。")]}, CH) is not None
-        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 60 + "。")]}, CH) is None
-
-    def test_usable_sentence_still_allows_120(self):
-        assert anki_push.usable_sentence("あ" * 119 + "。") is not None
-
-    def test_no_sightings(self):
-        assert anki_push.choose_sentence({}, CH) is None
+# ---------- sentence html ----------
 
 
 class TestSentenceHtml:
@@ -172,22 +115,22 @@ def textbook(isolated_data_dir: Path):
     return doc["id"], chapter["id"]
 
 
-def _breakdown(doc, ch, sentences, region="r1"):
-    storage.save_breakdown(doc, ch, region, {"sentences": sentences})
-
-
 class TestBuildNote:
     def test_field_completeness_and_values(self, textbook):
         doc, ch = textbook
-        text = "彼に会えて嬉しかった。"
-        _breakdown(doc, ch, [{"text": text, "gloss": "I was glad to meet him."}])
         item = {
             "headword": "嬉しい",
             "reading": "うれしい",
             "meaning": "happy, glad",
             "notes": "line1\nline2",
             "classifications": {"freq_rank": 355},
-            "sightings": [_sighting(text, doc=doc, chapter=ch)],
+            "example": {
+                "source": "generated",
+                "sentence": "彼に会えて嬉しかった。",
+                "surface": "嬉しかった",
+                "furigana": "彼[かれ]に 会[あ]えて 嬉[うれ]しかった。",
+                "gloss": "I was glad to meet him.",
+            },
         }
         note = anki_push.build_note(item, doc, ch)
         f = note["fields"]
@@ -196,7 +139,7 @@ class TestBuildNote:
         assert f["Word Meaning"] == "happy, glad"
         assert f["Word Furigana"] == "嬉[うれ]しい"
         assert f["Sentence"] == "彼に会えて<b>嬉しかった</b>。"
-        assert f["Sentence Furigana"] == f["Sentence"]
+        assert f["Sentence Furigana"] == "彼[かれ]に 会[あ]えて<b>嬉[うれ]しかった</b>。"
         assert f["Sentence Meaning"] == "I was glad to meet him."
         assert f["Notes"] == "line1<br>line2"
         assert f["Frequency"] == "355"
@@ -205,19 +148,7 @@ class TestBuildNote:
         assert note["tags"] == ["studious", f"studious::{doc}::{ch}"]
         assert note["has_sentence"] is True
 
-    def test_gloss_rejected_when_sentence_shifted(self, textbook):
-        doc, ch = textbook
-        _breakdown(doc, ch, [{"text": "別の文。", "gloss": "Other."}])
-        item = {"headword": "嬉しい", "reading": "うれしい", "sightings": [_sighting("彼は嬉しかった。", doc=doc, chapter=ch)]}
-        assert anki_push.build_note(item, doc, ch)["fields"]["Sentence Meaning"] == ""
 
-    def test_gloss_missing_breakdown_or_index(self, textbook):
-        doc, ch = textbook
-        s = _sighting("彼は嬉しかった。", doc=doc, chapter=ch, index=5)
-        assert anki_push.sentence_gloss(s) == ""
-        _breakdown(doc, ch, [{"text": "彼は嬉しかった。", "gloss": "g"}])
-        assert anki_push.sentence_gloss(s) == ""
-        assert anki_push.sentence_gloss({}) == ""
 
     def test_no_sentence(self, textbook):
         doc, ch = textbook
@@ -319,10 +250,13 @@ def _seed(headwords=("犬", "猫", "鳥"), *, with_sentence=False):
     for rank, hw in enumerate(headwords, start=1):
         item = store.create_item("vocab", headword=hw, reading=hw, meaning=f"m-{hw}")
         sightings = [{"doc_id": DOC, "chapter_id": CH, "region_id": "r", "sentence_index": 0,
-                      "surface": hw, "sentence_text": f"{hw}がいる。",
-                      "source": "breakdown" if with_sentence else "vocab_list"}]
+                      "surface": hw, "sentence_text": f"{hw}がいる。", "source": "breakdown"}]
+        extra = {}
+        if with_sentence:  # a stored generated example
+            extra["example"] = {"source": "generated", "sentence": f"{hw}がいる。", "surface": hw,
+                                "furigana": f"{hw}がいる。", "gloss": "There is one."}
         store.update_item("vocab", item["id"], jmdict_seq=rank, pos=["n"], sightings=sightings,
-                          classifications={"freq_rank": rank * 100})
+                          classifications={"freq_rank": rank * 100}, **extra)
         ids.append(item["id"])
     return ids
 
@@ -660,110 +594,6 @@ class TestMissingDeck:
         assert {n["deckName"] for n in add["notes"]} == {"Studious"}
 
 
-class TestUsableSentence:
-    @pytest.mark.parametrize(
-        "raw",
-        [
-            "| | | |---|---| | 手に入れる | 耐える |。",
-            "□たまたまあくまで要はどんどんやっぱり例えば□",
-            "⑥彼女は就職活動をして、世の中はまだまだ男性社会であること（　　）実感した。",
-            "彼女は（）実感した。",
-            "彼女は( )実感した。",
-            "彼女は［　］実感した。",
-            "これは＿＿＿です。",
-            "これは______です。",
-            "これは\\_\\_\\_です。",
-            "これは__です。",
-            "(④ )心理的要素をぬきに、プラセボ効果を説明できるだろうか?",
-            "この漫画の（①）は21歳の女性で、…という（②）だ。",
-            "工場の生産ラインでは、（機械の・人間の）代わりに、機械が働く。",
-            "泊まる人は（プライバシーが守られる・ルールを守らなければならない）。",
-            "泊まる人は（A／B）。",
-            "黒澤、小津×といったふうに監督は世界でも有名だ。",
-            "黒澤、小津○といったふうに監督は世界でも有名だ。",
-            "これは✕です。",
-            "これは✗です。",
-            "これは本です",
-            "犬と猫",
-            "あ" * 120 + "。",
-            "",
-        ],
-    )
-    def test_rejected(self, raw):
-        assert anki_push.usable_sentence(raw) is None
-
-    @pytest.mark.parametrize(
-        "raw,expected",
-        [
-            ("3 次の図は、グラフです。", "次の図は、グラフです。"),
-            ("⑨休暇は大切です。", "休暇は大切です。"),
-            ("1. 本を読む。", "本を読む。"),
-            ("１．本を読む。", "本を読む。"),
-            ("(2) 本を読む。", "本を読む。"),
-            ("- 本を読む。", "本を読む。"),
-            ("「行こう！」", "「行こう！」"),
-            ("本当ですか？", "本当ですか？"),
-            ("彼(かれ)は行く。", "彼は行く。"),
-            ("例）家族、友人、さらには上司にまで知られてしまった。", "家族、友人、さらには上司にまで知られてしまった。"),
-            ("例: 本を読む。", "本を読む。"),
-            ("例：本を読む。", "本を読む。"),
-            ("例) 本を読む。", "本を読む。"),
-            ("日(ひ)が出る。", "日が出る。"),
-            ("A(子供):お母さーん。B(母親):しょうがないわねえ。", "A(子供):お母さーん。B(母親):しょうがないわねえ。"),
-        ],
-    )
-    def test_accepted_and_cleaned(self, raw, expected):
-        assert anki_push.usable_sentence(raw) == expected
-
-    def test_split_marker_numbers(self):
-        assert anki_push.split_marker("⑥あ") == ("あ", 6)
-        assert anki_push.split_marker("12) あ") == ("あ", 12)
-        assert anki_push.split_marker("あ") == ("あ", None)
-
-
-class TestRanking:
-    def test_reading_passage_region_wins(self, textbook):
-        doc, ch = textbook
-        passage = storage.create_region(doc, ch, page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
-        other = storage.create_region(doc, ch, page=1, bbox=[0, 0, 1, 1], tag="exercises")
-        item = {"sightings": [
-            _sighting("短い。", doc=doc, chapter=ch, region=other["id"]),
-            _sighting("これは長めの文章です。", doc=doc, chapter=ch, region=passage["id"]),
-        ]}
-        assert anki_push.choose_sentence(item, ch)[1] == "これは長めの文章です。"
-
-    def test_chapter_then_shorter(self, textbook):
-        item = {"sightings": [
-            _sighting("別章の短文。", chapter="x"),
-            _sighting("この章の少し長い文です。"),
-            _sighting("この章の文。"),
-        ]}
-        assert anki_push.choose_sentence(item, CH)[1] == "この章の文。"
-
-    def test_unusable_sentences_give_none(self):
-        item = {"sightings": [_sighting("| a | b |"), _sighting("□あ□")]}
-        assert anki_push.choose_sentence(item, CH) is None
-
-    def test_region_lookups_cached_per_request(self, textbook, monkeypatch):
-        doc, ch = textbook
-        calls = []
-        real = storage.load_region
-        monkeypatch.setattr(storage, "load_region", lambda *a: calls.append(a) or real(*a))
-        cache: dict = {}
-        item = {"sightings": [_sighting("文一。", doc=doc, chapter=ch), _sighting("文二。", doc=doc, chapter=ch)]}
-        anki_push.choose_sentence(item, ch, cache)
-        anki_push.choose_sentence(item, ch, cache)
-        assert len(calls) == 1
-
-    def test_gloss_number_stripped_when_matching(self, textbook):
-        doc, ch = textbook
-        _breakdown(doc, ch, [{"text": "3 次の図は、グラフです。", "gloss": "3 The next figure is a graph."}])
-        s = _sighting("3 次の図は、グラフです。", doc=doc, chapter=ch)
-        assert anki_push.sentence_gloss(s) == "The next figure is a graph."
-        _breakdown(doc, ch, [{"text": "3 次の図は、グラフです。", "gloss": "4 students came."}])
-        assert anki_push.sentence_gloss(s) == "4 students came."
-
-
 class TestReadings:
     def test_first_alternative(self):
         assert anki_push.pick_reading("やめる", "やめる / とめる") == "やめる"
@@ -805,37 +635,21 @@ class TestOmittedKana:
 
 
 class TestNotesAndCounts:
-    def test_preview_rows_have_tags_and_counts(self, textbook, monkeypatch):
-        doc, ch = textbook
-        _breakdown(doc, ch, [{"text": "犬がいる。", "gloss": "There is a dog."},
-                             {"text": "猫がいる。", "gloss": ""}], region="r")
-        for i, hw in enumerate(("犬", "猫", "鳥")):
-            it = store.create_item("vocab", headword=hw, reading=hw, meaning="m")
-            if i < 2:
-                sight = [{"doc_id": doc, "chapter_id": ch, "region_id": "r", "sentence_index": i,
-                          "surface": hw, "sentence_text": f"{hw}がいる。", "source": "breakdown"}]
-            else:
-                sight = [{"doc_id": doc, "chapter_id": ch, "source": "vocab_list"}]
-            store.update_item("vocab", it["id"], jmdict_seq=i + 1, pos=["n"], sightings=sight,
-                              classifications={"freq_rank": i + 1})
+    def test_preview_rows_have_tags_and_counts(self, isolated_data_dir, monkeypatch):
+        ids = _seed(("犬", "猫", "鳥"))
+        for i, hw in enumerate(("犬", "猫")):
+            store.update_item("vocab", ids[i], example={
+                "source": "generated", "sentence": f"{hw}がいる。", "surface": hw,
+                "furigana": f"{hw}がいる。", "gloss": "There is one." if i == 0 else ""})
         _use(monkeypatch)
-        d = client.post("/api/anki/push/preview", json={"doc_id": doc, "chapter_id": ch}).json()
+        d = client.post("/api/anki/push/preview", json=BODY).json()
         assert d["counts"]["with_sentence"] == 2 and d["counts"]["with_gloss"] == 1
         assert d["counts"]["without_sentence"] == 1
-        assert d["items"][0]["tags"] == ["studious", f"studious::{doc}::{ch}"]
+        assert d["items"][0]["tags"] == ["studious", f"studious::{DOC}::{CH}"]
         assert [i["has_gloss"] for i in d["items"]] == [True, False, False]
 
 
-def test_gloss_example_marker_stripped(textbook):
-    doc, ch = textbook
-    text = "例）家族に知られてしまった。"
-    for gloss in ("Example) It got out to my family.", "Example: It got out to my family.",
-                  "e.g. It got out to my family."):
-        _breakdown(doc, ch, [{"text": text, "gloss": gloss}])
-        assert anki_push.sentence_gloss(_sighting(text, doc=doc, chapter=ch)) == "It got out to my family."
-
-
-# ---------- sentence selection: textbook vs generated ----------
+# ---------- sentence selection: the stored generated example ----------
 
 KAISHI = {
     "sentence": "彼に会えて嬉しかった。",
@@ -854,26 +668,8 @@ def _happy(sightings=(), example=None):
 
 
 class TestSentenceSelection:
-    def test_short_textbook_sentence_wins_over_example(self, textbook):
-        doc, ch = textbook
-        text = "嬉しかった。"
-        _breakdown(doc, ch, [{"text": text, "gloss": "Glad."}])
-        note = anki_push.build_note(_happy([_sighting(text, doc=doc, chapter=ch)], KAISHI), doc, ch)
-        assert note["sentence_source"] == "textbook"
-        assert note["fields"]["Sentence"] == "<b>嬉しかった</b>。"
-        assert note["fields"]["Sentence Meaning"] == "Glad."
 
-    def test_long_textbook_sentence_loses_to_example(self, textbook):
-        doc, ch = textbook
-        long_text = "あ" * 40 + "嬉しかった" + "あ" * 20 + "。"
-        assert len(long_text) > anki_push.MAX_TEXTBOOK_SENTENCE_CHARS
-        note = anki_push.build_note(_happy([_sighting(long_text, doc=doc, chapter=ch)], KAISHI), doc, ch)
-        assert note["sentence_source"] == "generated"
 
-    def test_sixty_chars_still_a_textbook_sentence(self):
-        text = "あ" * 59 + "。"
-        item = _happy([_sighting(text)], KAISHI)
-        assert anki_push.build_note(item)["sentence_source"] == "textbook"
 
     def test_nothing_gives_empty(self):
         note = anki_push.build_note(_happy())
@@ -929,12 +725,6 @@ class TestPreviewNeedsExample:
         assert d["counts"]["needs_example"] == 1
         assert d["counts"]["needs_example_ids"] == [ids[1]]
 
-    def test_textbook_source_reported(self, isolated_data_dir, monkeypatch):
-        _seed(("犬",), with_sentence=True)
-        _use(monkeypatch)
-        d = client.post("/api/anki/push/preview", json=BODY).json()
-        assert d["items"][0]["sentence_source"] == "textbook"
-        assert d["counts"]["needs_example"] == 0
 
     def test_push_uses_stored_example_without_llm(self, isolated_data_dir, monkeypatch):
         ids = _seed(("犬",))
@@ -947,3 +737,40 @@ class TestPreviewNeedsExample:
         assert r.status_code == 200
         notes = next(p for a, p in fake.calls if a == "addNotes")["notes"]
         assert notes[0]["fields"]["Sentence"] == "彼に会えて<b>嬉しかった</b>。"
+
+
+class TestTextbookSentencesNeverUsed:
+    def _sighted(self, **extra):
+        return {
+            "headword": "嬉しい", "reading": "うれしい", "meaning": "glad",
+            "sightings": [{"doc_id": DOC, "chapter_id": CH, "region_id": "r1", "sentence_index": 0,
+                           "surface": "嬉しかった", "sentence_text": "彼に会えて嬉しかった。", "source": "breakdown"}],
+            **extra,
+        }
+
+    def test_a_breakdown_sighting_gives_no_sentence(self):
+        note = anki_push.build_note(self._sighted())
+        assert note["sentence_source"] is None and note["has_sentence"] is False
+        f = note["fields"]
+        assert f["Sentence"] == f["Sentence Furigana"] == f["Sentence Meaning"] == ""
+
+    def test_generated_example_wins_whatever_the_sightings(self):
+        note = anki_push.build_note(self._sighted(example=KAISHI))
+        assert note["sentence_source"] == "generated"
+        assert note["fields"]["Sentence"] == "彼に会えて<b>嬉しかった</b>。"
+
+    def test_a_stored_textbook_example_counts_as_no_example(self):
+        old = {**KAISHI, "source": "textbook", "sighting": {"region_id": "r1", "sentence_index": 0}}
+        note = anki_push.build_note(self._sighted(example=old))
+        assert note["sentence_source"] is None and note["fields"]["Sentence"] == ""
+
+    def test_preview_needs_example_for_every_row_without_a_generated_one(self, isolated_data_dir, monkeypatch):
+        ids = _seed(("犬", "猫", "鳥"))  # all have breakdown sightings
+        store.update_item("vocab", ids[0], example=KAISHI)
+        store.update_item("vocab", ids[1], example={**KAISHI, "source": "textbook"})
+        _use(monkeypatch)
+        d = client.post("/api/anki/push/preview", json=BODY).json()
+        assert [i["sentence_source"] for i in d["items"]] == ["generated", None, None]
+        assert d["counts"]["needs_example"] == 2
+        assert sorted(d["counts"]["needs_example_ids"]) == sorted(ids[1:])
+        assert "needs_readings" not in d["counts"]
