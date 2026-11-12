@@ -556,3 +556,15 @@ breakdown/completion prompts. Pre-existing data: run
 `uv run python scripts/normalize_blanks.py` (dry run) then `--apply`
 with the dev server stopped. Legacy blanks transcribed as full-width
 spaces can't be recovered without re-transcribing the region.
+
+### Callout labels (boxed ①②… joined to a dialogue line by a leader line) come out as a list after the dialogue, or attached to the wrong line
+Textbook dialogues sometimes carry boxed margin labels (e.g. ①はじめの挨拶)
+joined to one line by a leader line or speech-bubble tail. Region
+transcriptions made before the `<callouts>` rule existed dump them as a
+bullet list after the dialogue, losing which line each one labels. Fix:
+re-transcribe the region. The `<callouts>` block
+(`CALLOUT_TRANSCRIBE_RULES` in `backend/app/config.py`) is part of
+`REGION_TRANSCRIBE_PROMPT` and places each callout as a `> ` blockquote
+right after the turn its leader line touches. The page-level prompt
+(`DEFAULT_VLM_PROMPT`) does not have the rule yet, so use regions for such
+pages.
