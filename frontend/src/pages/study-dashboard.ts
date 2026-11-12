@@ -347,7 +347,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
           <option value="recent">Newest</option>
           <option value="updated">Recently updated</option>
           <option value="alpha">${kind === "vocab" ? "By reading" : "By pattern"}</option>
-          ${kind === "vocab" ? `<option value="priority">By study priority</option><option value="frequency">By frequency</option>` : ""}
+          ${kind === "vocab" ? `<option value="priority">By study priority</option><option value="frequency">By frequency</option><option value="shortlist" hidden>Shortlist order</option>` : ""}
         </select>
         <span id="study-count" class="study-bulk-label" aria-live="polite"></span>
       </div>
@@ -394,8 +394,11 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     const on = state.kind === "vocab" && state.shortlist;
     shortlistToggle?.classList.toggle("active", on);
     shortlistToggle?.setAttribute("aria-pressed", String(on));
+    // The shortlist has its own order: say so in the control instead of
+    // leaving a dead select that still reads "Newest".
     sortSelect.disabled = inShortlist();
-    sortSelect.title = inShortlist() ? "The shortlist has its own order" : "";
+    sortSelect.value = inShortlist() ? "shortlist" : state.sort;
+    sortSelect.title = inShortlist() ? "The shortlist is ordered by frequency, with the chapter's vocab-list words first. Turn Shortlist off to sort." : "";
     shortlistLine.hidden = !on;
     if (!on) return;
     if (state.excluded) {
@@ -1068,6 +1071,12 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     void reload();
   });
   sortSelect.addEventListener("change", () => {
+    // "shortlist" is a label for the disabled state, not a real sort; some
+    // browsers still list a hidden <option>.
+    if (sortSelect.value === "shortlist") {
+      sortSelect.value = state.sort;
+      return;
+    }
     state.sort = sortSelect.value as State["sort"];
     void reload();
   });

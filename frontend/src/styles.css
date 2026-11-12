@@ -47,7 +47,7 @@ button {
   cursor: pointer;
 }
 button:hover { border-color: var(--accent); }
-button:disabled { opacity: 0.55; cursor: not-allowed; }
+button:disabled, select:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
 
 a.topbar-link-btn {
   font: inherit;
