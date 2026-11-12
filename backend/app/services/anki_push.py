@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import get_settings
-from . import anki, blanks, examples, storage, store, tts
+from . import anki, examples, store, tts
 
 log = logging.getLogger("studious.anki")
 
@@ -62,14 +62,6 @@ FILLED_FIELDS = (
     "Notes",
     "Frequency",
 )
-
-MAX_SENTENCE_CHARS = 120
-# Flashcard sentences should be short: a longer textbook sentence is passed over.
-MAX_TEXTBOOK_SENTENCE_CHARS = 50
-# Only sentences from these region tags (or introduced by an example marker
-# such as 例）) may supply a card sentence; exercises, instructions, grammar
-# points and the like are not example sentences.
-TEXTBOOK_SENTENCE_TAGS = ("reading_passage",)
 
 # The card's Word Meaning: dictionary glosses are cut to this many, and to
 # this many characters (the first gloss is always kept).
@@ -275,127 +267,27 @@ def speech_word(headword: str) -> str:
     return _TRAILING_GROUP_RE.sub("", headword or "").strip()
 
 
-# ---------- Sentence ----------
-
-_FURI_RE = re.compile(r"([㐀-䶿一-鿿豈-﫿々〆ヵヶ]+)[(（][ぁ-ゖー]+[)）]")
-_LINK_RE = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
-_EMPH_RE = re.compile(r"(\*\*|\*|`|~~)")  # not "_": blanks are underscores
-_SPACE_RE = re.compile(r"\s+")
-# Whitespace between two non-ASCII characters is line-wrap noise in Japanese.
-_JA_GAP_RE = re.compile(r"(?<=[^\x00-\x7f])\s+(?=[^\x00-\x7f])")
-# Markdown block prefixes, then an exercise item marker: circled digit,
-# 1. / 1) / １． / (1), a bare number then a space, or a bullet.
-_BLOCK_RE = re.compile(r"^\s*(?:#{1,6}\s+|>\s*)")
-_MARKER_RE = re.compile(
-    r"^\s*(?:(?P<circled>[①-⑳])\s*"
-    r"|[(（](?P<paren>\d+)[)）]\s*"
-    r"|(?P<dot>\d+)\s*[.)．）]\s*"
-    r"|(?P<bare>\d+)\s+"
-    r"|例\s*[)）:：]\s*"
-    r"|[-*+•●▪・]\s+)"
-)
-# Cleaned-text exercise patterns: a numbered or lettered blank such as （①）
-# or (a), a choose-one bracket such as （機械の・人間の）, and correction marks.
-_LABEL_BLANK_RE = re.compile(
-    r"[(（\[［【]\s*(?:[\u2460-\u2473]|\d+|[\u3041-\u30ffA-Za-z\uff21-\uff3a\uff41-\uff5a])\s*[)）\]］】]"
-)
-_CHOICE_RE = re.compile(r"[(（][^()（）]*[・/／][^()（）]*[)）]")
-# Item markers other than ①-⑳ / (1) / 1. (which _MARKER_RE handles): negative
-# circled digits ❶-❿ ⓫-⓴, parenthesised ⑴-⒇, dotted ⒈-⒛, circled ㉑-㉟.
-_OTHER_ITEM_MARKER_RE = re.compile(r"^\s*[❶-❿⓫-⓴⑴-⒛㉑-㉟]")
-_EXAMPLE_MARKER_RE = re.compile(r"^\s*例\s*[)）:：]")
-_RAW_BLANK_SPACE_RE = re.compile(r"　|(?<=[^\x00-\x7f])[ \t]{2,}(?=[^\x00-\x7f])")
-_PARTICLE_PAIRS = ("はを", "がを", "にを", "をを", "はが")
-_SPEAKER_LABEL_RE = re.compile(
-    r"(?:^|[\s。！？…」』])[A-ZＡ-Ｚぁ-んァ-ヶ一-龥]{1,6}(?:[（(][^）)]{1,8}[）)])?[:：]"
-)
-_CORRECTION_MARKS = "×○✕✗"
-_GLOSS_EXAMPLE_RE = re.compile(r"^\s*(?:Example\s*[):：]|e\.g\.\s*[:)]?)\s*", re.IGNORECASE)
-_EMPTY_BRACKETS_RE = re.compile(r"[(（\[［【「『]\s*[)）\]］】」』]")
-_UNDERSCORE_RUN_RE = re.compile(r"_{2,}")
-_TERMINATORS = "。！？!?"
-_CLOSERS = "」』）)”\"'’】］]"
+# ---------- Note ----------
 
 
-def split_marker(text: str) -> tuple[str, int | None]:
-    """(text without a leading item marker, the marker's number if any)."""
-    text = _BLOCK_RE.sub("", text or "")
-    m = _MARKER_RE.match(text)
-    if not m:
-        return text, None
-    num: int | None = None
-    if m.group("circled"):
-        num = ord(m.group("circled")) - 0x2460 + 1
-    else:
-        digits = m.group("paren") or m.group("dot") or m.group("bare")
-        if digits:
-            num = int(digits)
-    return text[m.end() :], num
-
-
-def has_example_marker(raw: str) -> bool:
-    """Whether the text starts with an example marker (例）, 例:), which
-    introduces a real example sentence wherever it is printed."""
-    return bool(_EXAMPLE_MARKER_RE.match(_BLOCK_RE.sub("", raw or "")))
-
-
-def has_item_marker(raw: str) -> bool:
-    """Whether the text starts with an exercise/question item marker (①, ❽,
-    ⑴, ⒈, (1), 1., a bare number, a bullet). The 例） example marker is not one."""
-    text = _BLOCK_RE.sub("", raw or "")
-    if _EXAMPLE_MARKER_RE.match(text):
-        return False
-    return bool(_MARKER_RE.match(text) or _OTHER_ITEM_MARKER_RE.match(text))
-
-
-def plain_sentence(text: str) -> str:
-    """Markdown, item markers and 漢字(かな) annotations removed, whitespace collapsed."""
-    text, _ = split_marker(text)
-    text = _LINK_RE.sub(r"\1", text)
-    text = _FURI_RE.sub(r"\1", text)
-    text = _EMPH_RE.sub("", text)
-    return _SPACE_RE.sub(" ", _JA_GAP_RE.sub("", text)).strip()
-
-
-def _has_blank(text: str) -> bool:
-    return blanks.BLANK_CHAR in blanks.normalize_blanks(text) or bool(_UNDERSCORE_RUN_RE.search(text))
-
-
-def usable_sentence(raw: str) -> str | None:
-    """Cleaned sentence text, or None when it is exercise debris: a table, a
-    word bank, a blank in any style, empty brackets (checked before and after
-    cleaning), no sentence-ending mark, or too long."""
-    if not raw:
-        return None
-    # An item marker means an exercise or question, not an example sentence;
-    # a blank written as spaces vanishes in cleaning and leaves a broken one.
-    if has_item_marker(raw) or _RAW_BLANK_SPACE_RE.search(raw):
-        return None
-    text = plain_sentence(raw)
-    if not text or len(text) > MAX_SENTENCE_CHARS:
-        return None
-    if "※" in text or any(p in text for p in _PARTICLE_PAIRS):
-        return None
-    if len(_SPEAKER_LABEL_RE.findall(text)) >= 2:
-        return None
-    for probe in (raw, text):
-        if "|" in probe or "□" in probe or _has_blank(probe) or _EMPTY_BRACKETS_RE.search(probe):
-            return None
-    if _LABEL_BLANK_RE.search(text) or _CHOICE_RE.search(text):
-        return None
-    if any(c in probe for probe in (raw, text) for c in _CORRECTION_MARKS):
-        return None
-    if not any(t in text for t in _TERMINATORS):
-        return None
-    if text.rstrip(_CLOSERS + " ")[-1:] not in tuple(_TERMINATORS):
-        return None
-    return text
+def stored_example(item: dict[str, Any]) -> dict[str, Any] | None:
+    """The item's stored generated example when it has the fields a note needs.
+    Anything else (no example, a ``source: "textbook"`` one from an earlier
+    build) counts as no example."""
+    ex = item.get("example")
+    if (
+        isinstance(ex, dict)
+        and ex.get("source", "generated") == "generated"
+        and ex.get("sentence")
+        and ex.get("furigana")
+    ):
+        return ex
+    return None
 
 
 def sentence_html(text: str, surface: str, headword: str = "") -> str:
     """Escaped sentence with the first occurrence of the word wrapped in <b>."""
     for needle in (surface, headword):
-        needle = plain_sentence(needle) if needle else ""
         pos = text.find(needle) if needle else -1
         if pos >= 0:
             return (
@@ -406,117 +298,6 @@ def sentence_html(text: str, surface: str, headword: str = "") -> str:
                 + html.escape(text[pos + len(needle) :], quote=False)
             )
     return html.escape(text, quote=False)
-
-
-def _region_tag(sighting: dict[str, Any], cache: dict[tuple, str | None]) -> str | None:
-    key = (sighting.get("doc_id"), sighting.get("chapter_id"), sighting.get("region_id"))
-    if key not in cache:
-        try:
-            region = storage.load_region(*key)
-        except (ValueError, OSError, TypeError):
-            region = None
-        cache[key] = (region or {}).get("tag")
-    return cache[key]
-
-
-def choose_sentence(
-    item: dict[str, Any],
-    chapter_id: str | None = None,
-    cache: dict[tuple, str | None] | None = None,
-) -> tuple[dict[str, Any], str] | None:
-    """(sighting, plain text) of the best usable breakdown sentence, or None.
-    Vocab-list sightings are list rows, not sentences, so they never count.
-    Only reading_passage regions (TEXTBOOK_SENTENCE_TAGS), or a sentence
-    introduced by an example marker, supply sentences. Ranked: reading_passage
-    first, then the given chapter, then the shorter sentence. Sentences over
-    MAX_TEXTBOOK_SENTENCE_CHARS never count."""
-    cache = {} if cache is None else cache
-    ranked: list[tuple[tuple, dict[str, Any], str]] = []
-    for s in item.get("sightings") or []:
-        if s.get("source") != "breakdown":
-            continue
-        raw = s.get("sentence_text") or ""
-        tag = _region_tag(s, cache)
-        if tag not in TEXTBOOK_SENTENCE_TAGS and not has_example_marker(raw):
-            continue
-        text = usable_sentence(raw)
-        if text is None or len(text) > MAX_TEXTBOOK_SENTENCE_CHARS:
-            continue
-        key = (
-            0 if _region_tag(s, cache) == "reading_passage" else 1,
-            0 if chapter_id and s.get("chapter_id") == chapter_id else 1,
-            len(text),
-        )
-        ranked.append((key, s, text))
-    if not ranked:
-        return None
-    best = min(ranked, key=lambda r: r[0])
-    return best[1], best[2]
-
-
-def sentence_gloss(sighting: dict[str, Any]) -> str:
-    """The breakdown's English gloss for the sighting's sentence. Found by
-    region and sentence index, and accepted only when that sentence's text is
-    the one the sighting recorded (a re-run breakdown may have shifted it).
-    A leading item number matching the sentence's own is removed."""
-    try:
-        breakdown = storage.load_breakdown(sighting["doc_id"], sighting["chapter_id"], sighting["region_id"])
-        sentence = ((breakdown or {}).get("sentences") or [])[sighting["sentence_index"]]
-        if (sentence.get("text") or "") != (sighting.get("sentence_text") or ""):
-            return ""
-        gloss = (sentence.get("gloss") or "").strip()
-    except (KeyError, IndexError, TypeError, ValueError, OSError, AttributeError):
-        return ""
-    gloss = _GLOSS_EXAMPLE_RE.sub("", gloss)
-    _, number = split_marker(sighting.get("sentence_text") or "")
-    if number is not None:
-        rest, gloss_number = split_marker(gloss)
-        if gloss_number == number:
-            gloss = rest.strip()
-    return gloss
-
-
-# ---------- Note ----------
-
-
-def stored_example(item: dict[str, Any]) -> dict[str, Any] | None:
-    """The item's stored generated example when it has the fields a note needs.
-    A ``source: "textbook"`` example describes a textbook sentence and is only
-    used through ``stored_textbook_example``."""
-    ex = item.get("example")
-    if (
-        isinstance(ex, dict)
-        and ex.get("source") != "textbook"
-        and ex.get("sentence")
-        and ex.get("furigana")
-    ):
-        return ex
-    return None
-
-
-def stored_textbook_example(item: dict[str, Any], text: str) -> dict[str, Any] | None:
-    """The stored readings for the textbook sentence ``text``, or None. A stored
-    textbook example whose sentence is not the one chosen now (the breakdown
-    changed) is stale: ignored, not deleted."""
-    ex = item.get("example")
-    if (
-        isinstance(ex, dict)
-        and ex.get("source") == "textbook"
-        and ex.get("sentence") == text
-        and ex.get("furigana")
-    ):
-        return ex
-    return None
-
-
-def _wrap_first(furi: str, *needles: str) -> str:
-    """wrap_surface with the first needle that is found in the sentence."""
-    for needle in needles:
-        if needle:
-            out = examples.wrap_surface(furi, needle)
-            if "<b>" in out:
-                return out
-    return html.escape(furi, quote=False)
 
 
 def word_meaning(item: dict[str, Any]) -> str:
@@ -538,33 +319,16 @@ def build_note(
     item: dict[str, Any],
     doc_id: str | None = None,
     chapter_id: str | None = None,
-    cache: dict[tuple, str | None] | None = None,
 ) -> dict[str, Any]:
     """{"fields", "tags", "has_sentence", "has_gloss", "sentence_source"} for one
-    store item. The sentence is a short textbook sighting, else the item's
-    stored generated example (with real furigana), else empty."""
+    store item. The sentence is always the item's stored generated example
+    (with real furigana), else empty: textbook sentences are above the
+    learner's level, so they never go on a card."""
     headword = strip_suffix_group(item.get("headword") or "")
     reading = pick_reading(headword, strip_suffix_group(item.get("reading") or ""))
-    chosen = choose_sentence(item, chapter_id, cache)
     sentence = meaning = sentence_furigana = spoken = spoken_reading = ""
     source: str | None = None
-    needs_readings = False
-    if chosen:
-        sighting, text = chosen
-        surface = sighting.get("surface") or ""
-        sentence = sentence_furigana = sentence_html(text, surface, headword)
-        stored = stored_textbook_example(item, text)
-        # The breakdown's own translation wins over a stored (model) one.
-        gloss = sentence_gloss(sighting) or ((stored or {}).get("gloss") or "")
-        meaning = html.escape(gloss, quote=False)
-        source = "textbook"
-        spoken = text
-        if stored:
-            sentence_furigana = _wrap_first(stored["furigana"], stored.get("surface") or surface, surface, headword)
-            spoken_reading = examples.furigana_reading(stored["furigana"])
-        else:
-            needs_readings = True
-    elif (ex := stored_example(item)) is not None:
+    if (ex := stored_example(item)) is not None:
         sentence = sentence_html(ex["sentence"], ex.get("surface") or "", headword)
         sentence_furigana = examples.wrap_surface(ex["furigana"], ex.get("surface") or "")
         meaning = html.escape(ex.get("gloss") or "", quote=False)
@@ -597,7 +361,6 @@ def build_note(
         "word_reading": reading,
         "sentence_text": spoken,
         "sentence_reading": spoken_reading,
-        "needs_readings": needs_readings,
     }
 
 
@@ -744,8 +507,7 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
             raise AnkiPushError(409, f"Note type {model!r} is missing field(s): {', '.join(missing)}.")
         deck_names = _read("deckNames") or []
         deck_exists = deck in deck_names
-        cache: dict[tuple, str | None] = {}
-        built = [build_note(i, doc_id, chapter_id, cache) for i in items]
+        built = [build_note(i, doc_id, chapter_id) for i in items]
         payload = [
             {
                 "deckName": deck,
@@ -784,7 +546,6 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
                 "has_sentence": b["has_sentence"],
                 "has_gloss": b["has_gloss"],
                 "sentence_source": b["sentence_source"],
-                "needs_readings": b["needs_readings"],
                 "can_add": ok,
                 "reason": reason,
                 "headword_match": (item.get("anki") or {}).get("match") == "headword",
@@ -804,7 +565,6 @@ def preview(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
     rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in prepared["rows"]]
     addable = [r for r in rows if r["can_add"]]
     needs = [r for r in addable if not r["has_sentence"]]
-    needs_read = [r for r in addable if r["needs_readings"]]
     return {
         "deck": prepared["deck"],
         "deck_exists": prepared["deck_exists"],
@@ -818,8 +578,6 @@ def preview(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
             "with_sentence": sum(1 for r in addable if r["has_sentence"]),
             "with_gloss": sum(1 for r in addable if r["has_gloss"]),
             "without_sentence": len(needs),
-            "needs_readings": len(needs_read),
-            "needs_readings_ids": [r["id"] for r in needs_read],
             "needs_example": len(needs),
             "needs_example_ids": [r["id"] for r in needs],
             "headword_match": sum(1 for r in addable if r["headword_match"]),

@@ -487,20 +487,18 @@ Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
       (`POST /api/anki/push/preview`, `POST /api/anki/push`). The bridge now
       goes both ways; writes are limited to `createDeck` and `addNotes`,
       duplicates anywhere in the collection are skipped, sent items become
-      `active`, and an example sentence (with its translation when the
-      breakdown has it) is attached when a breakdown sighting is usable.
+      `active`, and a generated example sentence is attached (see below).
       Deck options (new cards per day) stay the owner's to set in Anki
-- [x] Generated example sentences for Anki cards: words with no short
-      textbook sentence get a Kaishi-style sentence (with furigana and an
+- [x] Generated example sentences for Anki cards: every card gets a
+      Kaishi-style sentence (with furigana and an
       English translation) from the configured model, stored on the vocab
       item as `example` so it is generated once. The Send to Anki dialog
       offers "Generate N sentences" (batches of 20, cancellable) before the
       send; a vocab row's detail has Generate / Regenerate / Remove.
-      Textbook sentences over 60 characters are no longer used
-      (`POST /api/vocab/examples`, `DELETE /api/vocab/{id}/example`)
-- [x] Textbook example sentences carry furigana and a translation (model,
-      same Generate step); a second speech engine (VOICEVOX / AivisSpeech)
-      chosen in Settings > Speech, with a reading check against the card
+      Textbook sentences are never used on cards (they are above the
+      learner's level) (`POST /api/vocab/examples`, `DELETE /api/vocab/{id}/example`)
+- [x] A second speech engine (VOICEVOX / AivisSpeech) chosen in Settings >
+      Speech, with a reading check against the card
 - [x] Anki card quality: short dictionary meanings on the card; a word
       and its する/な form are one word (Anki lookup `stem` match, in-batch and
       in-Anki duplicate checks); generated sentences use する words as verbs

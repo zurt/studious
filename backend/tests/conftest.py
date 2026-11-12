@@ -4,10 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from app.services import anki_push
-
-REAL_REGION_TAG = anki_push._region_tag  # before the autouse fixture below replaces it
-
 
 @pytest.fixture
 def isolated_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
@@ -44,10 +40,3 @@ def _no_real_say(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(tts.shutil, "which", lambda name: None)  # no `say`, no `afconvert`
     monkeypatch.setattr(voicevox, "_open", refuse)
 
-
-@pytest.fixture(autouse=True)
-def _breakdown_sightings_are_reading_passages(monkeypatch: pytest.MonkeyPatch):
-    """Card sentences only come from reading_passage regions. Most tests use
-    bare sightings without a stored region, so treat them as reading passages;
-    tests of the region rule override `_region_tag` themselves."""
-    monkeypatch.setattr(anki_push, "_region_tag", lambda sighting, cache: "reading_passage")

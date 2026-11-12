@@ -999,7 +999,6 @@ html[data-furigana="hidden"] .furi-reveal:not(.is-revealed) { filter: blur(4px);
 .study-edit-btn { font-size: 12px; padding: 3px 10px; }
 .study-example { margin: 6px 0 8px; }
 .study-context { font-size: 13px; color: var(--muted); margin: 4px 0; }
-.study-example-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .study-example-text { font-size: 15px; line-height: 2; }
 .study-example-gloss { font-size: 13px; color: var(--muted); }
 .study-example-actions { gap: 6px; margin-top: 4px; }

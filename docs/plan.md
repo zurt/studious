@@ -336,23 +336,12 @@ decisions:
   `POST /api/anki/push` (`confirm: true`; the only writes to Anki, limited to
   `createDeck` and `addNotes`) send a chapter's first `limit` shortlist
   candidates into the `ANKI_PUSH_DECK` deck as `ANKI_PUSH_NOTE_TYPE` notes
-  (`services/anki_push.py`). A note's sentence is a textbook breakdown
-  sentence of at most 50 characters from a `reading_passage` region (or after
-  an example marker; `anki_push.TEXTBOOK_SENTENCE_TAGS`), else the item's stored `example`, else
-  empty; the preview reports `sentence_source` per row and
-  `counts.needs_example` / `needs_example_ids`.
-- **Textbook sentence readings**: a stored `example` may have
-  `source: "textbook"` (`sentence` = the cleaned sentence `choose_sentence`
-  picks, `surface`, `furigana`, `gloss`, `model`, `created_at`,
-  `sighting {region_id, sentence_index}`); it is used only while its
-  `sentence` equals the one chosen now (else ignored, not deleted).
-  `examples.generate_examples(ids, doc_id, chapter_id)` gives each item
-  readings for its textbook sentence (tool `record_sentence_readings`,
-  `SENTENCE_READINGS_PROMPT`, audit `sentence_readings`, batches of 20,
-  furigana checks without the generated-sentence rules, one retry) or, with
-  none, a generated sentence; statuses `generated | readings | kept | failed`.
-  The breakdown gloss beats a stored one. Preview adds `needs_readings` /
-  `needs_readings_ids`.
+  (`services/anki_push.py`). A note's sentence is always the item's stored
+  generated `example` (`source: "generated"`), else empty: authentic textbook
+  sentences are above the learner's level and are never put on a card. The
+  preview reports `sentence_source` (`generated` or null) per row and
+  `counts.needs_example` / `needs_example_ids` (every will-add row without a
+  stored generated example).
 - **Speech engines** (`services/tts.py`, `services/voicevox.py`): `say`
   (default) or a VOICEVOX-compatible engine (`GET /version`, `GET /speakers`,
   `POST /audio_query`, `POST /synthesis`; all assumptions in `voicevox.py`).

@@ -364,29 +364,18 @@ store, and the Anki snapshot is re-synced so they leave the shortlist.
 
 #### Example sentences
 
-Each card gets one example sentence, chosen in this order:
+Every card's example sentence is a generated one, never a textbook
+sentence: authentic passage sentences are above an N4 learner's level and
+would leave several unknown words on the card front. A generated sentence is
+one natural sentence in the style of the Kaishi 1.5k deck, using the word in
+its meaning with everything else at about N5-N4 level (a する word gets a
+sentence that uses it as a verb, a な word as an adjective), plus real
+furigana and an English translation. A word without a stored generated
+sentence goes out with the sentence fields empty. (The textbook sentences
+where a word was seen are still listed in the row detail.)
 
-1. A short sentence (50 characters or fewer) from a breakdown of a
-   `reading_passage` region where the word was seen (or a sentence in any
-   region introduced by an example marker such as `例）`), with the
-   breakdown's translation. Exercises, instructions, grammar points and vocab
-   lists never supply one, and neither do items that start with a number or
-   marker (①, ❽, 1.), sentences with a blank written as spaces, a `※`
-   footnote mark or two speakers, so those words get a generated sentence. The
-   sentence keeps its text as printed; its readings (furigana) and, when the
-   breakdown has no translation, an English translation come from the model
-   (stored on the item as an `example` with `source: "textbook"`). Until
-   you generate them the card has the sentence without readings.
-2. Otherwise a generated sentence stored on the vocab item (a する word
-   gets a sentence that uses it as a verb, a な word as an adjective): one natural
-   sentence in the style of the Kaishi 1.5k deck, using the word in its
-   meaning with everything else at about N5-N4 level, plus real furigana
-   and an English translation.
-3. Otherwise the sentence fields stay empty.
-
-When some of the words about to be sent have no sentence, or use a
-textbook sentence without readings, the dialog says so ("88 words need a
-sentence and 37 textbook sentences need readings.") and offers **Generate**. This asks the configured model
+When some of the words about to be sent have no generated sentence, the
+dialog says so ("88 words need an example sentence.") and offers **Generate**. This asks the configured model
 (Settings > model) for the sentences in batches of 20, shows progress, and
 can be cancelled between batches; **Send without** skips it. It costs API
 tokens, audited under the `example_sentences` job type in the cost summary.

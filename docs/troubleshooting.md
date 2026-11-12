@@ -341,19 +341,13 @@ skipped. A word reported as failed was accepted by the preview but refused by
 `addNotes`; it stays in the inbox and can be retried.
 
 ### Cards sent to Anki have no example sentence
-First choice is a breakdown sighting of at most 50 characters from a
-`reading_passage` region (or introduced by an example marker such as `例）`
-in any region); sentences from exercises, instructions, grammar points and
-vocab lists never count. Second is a generated sentence stored on the item
-(see "Generate sentences fails" below). A textbook sentence is also
-rejected when it starts with an item marker (①, ❽, ⑴, 1.), has a blank
-written as spaces (a full-width space, or a run of spaces) or a leftover
-particle pair (はを, にを…), contains `※`, has two speaker labels, a table,
-a word bank (`□`), a blank or empty brackets, or no sentence-ending
-mark; such words get a generated sentence. Run the breakdown for the chapter's reading passages and send again
-(already-sent words are skipped as duplicates, so fix the note in Anki by
-hand). The translation is empty when the breakdown was re-run since the word
-was harvested and the sentence moved.
+Cards always use a generated sentence (stored on the item as `example`);
+textbook sentences are never put on a card because they are above the
+learner's level. A word has none until you press **Generate** in the Send to
+Anki dialog (or **Generate example** on its row), or when generation failed
+for it (see "Some words still have no sentence after generating" below).
+Words already sent are skipped as duplicates, so fix an existing note in
+Anki by hand.
 
 ### Generate sentences fails
 The dialog or the row button shows the backend's message. 503 with
@@ -428,14 +422,6 @@ Cards already in Anki keep their old clips: Studious never edits existing
 notes. Only words sent afterwards get clips from the new voice (clips are
 cached per engine, speaker and text, so old ones are not reused). Row Play
 buttons use the current voice at once.
-
-### Textbook sentences have no readings on the card
-Readings come from the model in the Generate step of the Send to Anki dialog
-("N textbook sentences need readings"). A failed item (the model's furigana
-did not reduce to the sentence, after one retry) keeps the sentence without
-readings; see `readings_validation_dropped` under `studious.examples`. If the
-breakdown was re-run and the sentence changed, the stored readings are
-ignored and the dialog offers them again.
 
 ### The audio reads a word wrongly
 The built-in voice picks the reading from the kanji itself and can choose a

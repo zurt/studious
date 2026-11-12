@@ -71,33 +71,24 @@ export function chunkIds(ids: string[], size = GENERATE_CHUNK): string[][] {
   return out;
 }
 
-/** "88 words need a sentence and 37 textbook sentences need readings." */
-export function needsLine(needExample: number, needReadings: number): string {
-  const parts: string[] = [];
-  if (needExample > 0) parts.push(`${needExample} ${needExample === 1 ? "word needs" : "words need"} a sentence`);
-  if (needReadings > 0) {
-    parts.push(`${needReadings} textbook ${needReadings === 1 ? "sentence needs" : "sentences need"} readings`);
-  }
-  return parts.join(" and ") + ".";
+/** "88 words need an example sentence." */
+export function needsExampleLine(n: number): string {
+  return `${n} ${n === 1 ? "word needs" : "words need"} an example sentence.`;
 }
 
 export function generateButtonLabel(): string {
   return "Generate";
 }
 
-/** Ids to process: words needing a sentence, then those needing readings, each once. */
-export function needIds(c: { needs_example_ids?: string[]; needs_readings_ids?: string[] }): string[] {
-  return [...new Set([...(c.needs_example_ids ?? []), ...(c.needs_readings_ids ?? [])])];
-}
 
 export function progressText(done: number, total: number): string {
   return `Generating… ${done} of ${total}`;
 }
 
-export type GenerateTally = { generated: number; readings: number; kept: number; failed: number };
+export type GenerateTally = { generated: number; kept: number; failed: number };
 
 export function tallyResults(res: ExamplesResponse): GenerateTally {
-  const t: GenerateTally = { generated: 0, readings: 0, kept: 0, failed: 0 };
+  const t: GenerateTally = { generated: 0, kept: 0, failed: 0 };
   for (const r of res.items) t[r.status] += 1;
   return t;
 }
@@ -109,11 +100,10 @@ export function generationSummary(
   stopped: "cancelled" | "error" | null,
 ): string {
   let msg = `Generated ${t.generated} ${t.generated === 1 ? "sentence" : "sentences"}`;
-  if (t.readings > 0) msg += `, added readings to ${t.readings} textbook ${t.readings === 1 ? "sentence" : "sentences"}`;
   if (t.failed > 0) msg += `, ${t.failed} failed`;
   msg += ".";
   if (stopped === "cancelled") msg += " Stopped.";
-  if (remaining > 0) msg += ` ${remaining} ${remaining === 1 ? "word stays" : "words stay"} without a sentence or readings.`;
+  if (remaining > 0) msg += ` ${remaining} ${remaining === 1 ? "word stays" : "words stay"} without a sentence.`;
   return msg;
 }
 
@@ -206,10 +196,10 @@ export function ankiPushDialog(
           return p;
         }),
       );
-      const needs = needIds(preview.counts).length;
+      const needs = preview.counts.needs_example ?? 0;
       const offer = offerVisible(needs, generating, runComplete);
       offerEl.hidden = !offer;
-      needsEl.textContent = needsLine(preview.counts.needs_example ?? 0, preview.counts.needs_readings ?? 0);
+      needsEl.textContent = needsExampleLine(needs);
       genBtn.textContent = generateButtonLabel();
       progressEl.hidden = !generating;
       okBtn.textContent = sendButtonLabel(preview.counts.will_add);
@@ -242,9 +232,9 @@ export function ankiPushDialog(
     });
 
     async function runGeneration() {
-      const ids = needIds(preview.counts);
+      const ids = [...(preview.counts.needs_example_ids ?? [])];
       const total = ids.length;
-      const tally: GenerateTally = { generated: 0, readings: 0, kept: 0, failed: 0 };
+      const tally: GenerateTally = { generated: 0, kept: 0, failed: 0 };
       let stopped: "cancelled" | "error" | null = null;
       let done = 0;
       generating = true;
@@ -261,7 +251,6 @@ export function ankiPushDialog(
         try {
           const t = tallyResults(await generate(chunk));
           tally.generated += t.generated;
-          tally.readings += t.readings;
           tally.kept += t.kept;
           tally.failed += t.failed;
         } catch (e: any) {
@@ -283,7 +272,7 @@ export function ankiPushDialog(
       }
       generating = false;
       runComplete = stopped === null;
-      summaryEl.textContent = generationSummary(tally, needIds(preview.counts).length, stopped);
+      summaryEl.textContent = generationSummary(tally, preview.counts.needs_example ?? 0, stopped);
       summaryEl.hidden = false;
       render();
     }
