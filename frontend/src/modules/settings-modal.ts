@@ -15,6 +15,7 @@ import {
 import { error as logError } from "../logger";
 import { replaceQuery } from "../router";
 import { escapeHtml } from "./html";
+import { ttsSectionHtml, wireTts } from "./tts-settings";
 
 type Section = "general" | "usage";
 
@@ -139,6 +140,7 @@ async function renderGeneral(host: HTMLElement) {
     );
     host.innerHTML = generalHtml(providers, prefs, docs);
     wireGeneral(host);
+    wireTts(host, prefs);
   } catch (e: any) {
     logError("SettingsModal", "general_load_failed", { error: e?.message ?? String(e), stack: e?.stack });
     host.innerHTML = `<div class="error">Failed to load: ${escapeHtml(String(e))}</div>`;
@@ -212,6 +214,7 @@ function generalHtml(
         </dd>
       </dl>
     </section>
+    ${ttsSectionHtml(prefs)}
     <section class="settings-section">
       <h3>Configuration</h3>
       <dl class="settings-dl">

@@ -256,6 +256,12 @@ export type Preferences = {
   learner_level: JlptLevel | null;
   learner_note: string;
   answer_length: AnswerLength;
+  // Speech engine for card audio (Settings > Speech).
+  tts_engine: "say" | "voicevox";
+  tts_url: string;
+  tts_speaker: number | null;
+  tts_engine_override: string | null;
+  tts_default_url: string;
 };
 
 export async function getPreferences(): Promise<Preferences> {
@@ -269,6 +275,9 @@ export async function updatePreferences(
     learner_level?: JlptLevel | "";
     learner_note?: string;
     answer_length?: AnswerLength | "";
+    tts_engine?: string;
+    tts_url?: string;
+    tts_speaker?: number | "";
   }
 ): Promise<Preferences> {
   return jput("/api/preferences", patch);
@@ -951,7 +960,7 @@ export type AnkiPushPreview = {
   will_create_deck: boolean;
   note_type: string;
   /** Card audio from the Mac voice: the setting, whether `say` and the voice exist, the voice. */
-  audio?: { enabled: boolean; available: boolean; voice: string };
+  audio?: { enabled: boolean; available: boolean; voice: string; engine?: string; reason?: string };
   counts: {
     candidates: number;
     will_add: number;
@@ -978,7 +987,7 @@ export type AnkiPushResult = {
   deck_created: boolean;
   sync_ok: boolean;
   sync_error: string | null;
-  audio?: { enabled: boolean; attached: number; failed: number };
+  audio?: { enabled: boolean; attached: number; failed: number; reading_corrected?: number };
 };
 
 /** Request body shared by the preview and the send. */
@@ -1009,8 +1018,49 @@ export async function sendAnkiPush(
   });
 }
 
-export async function getTtsStatus(): Promise<{ available: boolean; voice: string }> {
+export type TtsStatus = {
+  available: boolean;
+  engine: string;
+  /** Speaker label ("Character — Style") or the Mac voice name. */
+  voice: string;
+  url: string;
+  speaker: number | null;
+  /** Why the voice is unavailable; empty when it is. */
+  reason: string;
+};
+
+export type TtsSpeaker = { id: number; character: string; style: string; label: string };
+
+export async function getTtsStatus(): Promise<TtsStatus> {
   return jget("/api/tts/status");
+}
+
+/** The error text of a failed response: the server's `detail` when it sent one. */
+async function failureText(r: Response): Promise<string> {
+  const text = await r.text();
+  try {
+    const d = JSON.parse(text).detail;
+    if (typeof d === "string") return d;
+  } catch {
+    // not JSON
+  }
+  return `${r.status} ${text}`.trim();
+}
+
+export async function getTtsSpeakers(): Promise<{ url: string; speaker: number | null; speakers: TtsSpeaker[] }> {
+  const r = await fetch("/api/tts/speakers", { headers: { "x-correlation-id": generateCorrelationId() } });
+  if (!r.ok) throw new Error(await failureText(r));
+  return r.json();
+}
+
+/** A fixed sentence through the selected engine and speaker, as audio. */
+export async function testTtsVoice(): Promise<Blob> {
+  const r = await fetch("/api/tts/test", {
+    method: "POST",
+    headers: { "x-correlation-id": generateCorrelationId() },
+  });
+  if (!r.ok) throw new Error(await failureText(r));
+  return r.blob();
 }
 
 /** URL of the clip for a vocab item's word or sentence as it would go on the card. */

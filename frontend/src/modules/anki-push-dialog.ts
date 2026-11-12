@@ -27,13 +27,13 @@ export function pushDialogLines(p: AnkiPushPreview): string[] {
 }
 
 /** Checkbox label for the audio option. */
-export function audioLabel(voice: string): string {
-  return `Add audio (Mac voice: ${voice})`;
+export function audioLabel(voice: string, engine = "say"): string {
+  return engine === "voicevox" ? `Add audio (${voice})` : `Add audio (Mac voice: ${voice})`;
 }
 
 /** Muted line shown instead of the checkbox when the voice cannot be used. */
-export function audioUnavailableLine(voice: string): string {
-  return `No audio: needs macOS with the "${voice}" voice installed (see STUDIOUS_TTS_VOICE).`;
+export function audioUnavailableLine(voice: string, reason = ""): string {
+  return reason ? `No audio: ${reason}` : `No audio: needs macOS with the "${voice}" voice installed (see STUDIOUS_TTS_VOICE).`;
 }
 
 export type SendChoice = { limit: number; audio: boolean };
@@ -50,6 +50,9 @@ export function pushResultMessage(r: AnkiPushResult): string {
   if (r.audio?.enabled) {
     msg += ` ${r.audio.attached} audio ${r.audio.attached === 1 ? "clip" : "clips"} added`;
     msg += r.audio.failed ? `, ${r.audio.failed} failed.` : ".";
+    if (r.audio.reading_corrected) {
+      msg += ` ${r.audio.reading_corrected} ${r.audio.reading_corrected === 1 ? "reading" : "readings"} corrected.`;
+    }
   }
   if (!r.sync_ok) msg += " The Anki sync afterwards failed; press Sync Anki.";
   return msg;
@@ -182,10 +185,10 @@ export function ankiPushDialog(
     const au = initial.audio;
     if (au?.enabled && au.available) {
       audioRow.hidden = false;
-      audioRow.querySelector("span")!.textContent = audioLabel(au.voice);
+      audioRow.querySelector("span")!.textContent = audioLabel(au.voice, au.engine);
     } else if (au?.enabled) {
       audioNote.hidden = false;
-      audioNote.textContent = audioUnavailableLine(au.voice);
+      audioNote.textContent = audioUnavailableLine(au.voice, au.reason);
     }
     let generating = false;
     let runComplete = false; // a run finished: stop offering, even if some words failed

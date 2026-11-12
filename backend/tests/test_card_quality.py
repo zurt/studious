@@ -449,7 +449,7 @@ class TestSynthesize:
         assert say.inputs == ["彼に会えて嬉しかった。"]
 
     def test_unavailable(self, isolated_data_dir):
-        with pytest.raises(tts.TtsError, match="not available"):
+        with pytest.raises(tts.TtsError, match="needs macOS"):
             tts.synthesize("犬")
 
 
@@ -489,7 +489,7 @@ class TestPushAudio:
         store.update_item("vocab", ids[0], example=GEN)
         fake = _use(monkeypatch)
         r = client.post("/api/anki/push", json={**BODY, "confirm": True}).json()
-        assert r["audio"] == {"enabled": True, "attached": 3, "failed": 0}  # 犬: word+sentence, 猫: word
+        assert r["audio"] == {"enabled": True, "attached": 3, "failed": 0, "reading_corrected": 0}  # 犬: word+sentence, 猫: word
         notes = _addnotes(fake)
         assert [a["fields"] for a in notes[0]["audio"]] == [["Word Audio"], ["Sentence Audio"]]
         assert [a["fields"] for a in notes[1]["audio"]] == [["Word Audio"]]
@@ -506,15 +506,15 @@ class TestPushAudio:
         _seed(("犬", "猫"))
         real = tts.synthesize
 
-        def flaky(text):
+        def flaky(text, *a, **kw):
             if text == "犬":
                 raise tts.TtsError("boom")
-            return real(text)
+            return real(text, *a, **kw)
 
         monkeypatch.setattr(tts, "synthesize", flaky)
         fake = _use(monkeypatch)
         r = client.post("/api/anki/push", json={**BODY, "confirm": True}).json()
-        assert r["created"] == 2 and r["audio"] == {"enabled": True, "attached": 1, "failed": 1}
+        assert r["created"] == 2 and r["audio"] == {"enabled": True, "attached": 1, "failed": 1, "reading_corrected": 0}
         notes = _addnotes(fake)
         assert "audio" not in notes[0] and len(notes[1]["audio"]) == 1
 
@@ -540,14 +540,14 @@ class TestPushAudio:
         _seed(("犬",))
         fake = _use(monkeypatch)
         r = client.post("/api/anki/push", json={**BODY, "confirm": True}).json()
-        assert r["created"] == 1 and r["audio"] == {"enabled": False, "attached": 0, "failed": 0}
+        assert r["created"] == 1 and r["audio"] == {"enabled": False, "attached": 0, "failed": 0, "reading_corrected": 0}
         assert "audio" not in _addnotes(fake)[0]
 
     def test_preview_reports_audio_without_synthesizing(self, isolated_data_dir, monkeypatch, say):
         _seed(("犬",))
         _use(monkeypatch)
         d = client.post("/api/anki/push/preview", json=BODY).json()
-        assert d["audio"] == {"enabled": True, "available": True, "voice": "Kyoko"}
+        assert d["audio"] == {"enabled": True, "available": True, "voice": "Kyoko", "engine": "say", "reason": ""}
         assert say.calls == []
         assert all(not k.startswith("_") for k in d["items"][0])
 
@@ -562,7 +562,8 @@ class TestAudioEndpoints:
         return store.create_item("vocab", headword="嬉しい", reading="うれしい", meaning="glad")["id"]
 
     def test_status(self, say):
-        assert client.get("/api/tts/status").json() == {"available": True, "voice": "Kyoko"}
+        st = client.get("/api/tts/status").json()
+        assert st["available"] is True and st["voice"] == "Kyoko" and st["engine"] == "say" and st["reason"] == ""
 
     def test_status_unavailable(self, isolated_data_dir):
         assert client.get("/api/tts/status").json()["available"] is False

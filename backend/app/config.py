@@ -899,6 +899,12 @@ class Settings(BaseModel):
     anki_push_deck: str = "Studious"
     # macOS `say` voice for card audio, and whether a send attaches it.
     tts_voice: str = "Kyoko"
+    # Speech engine: "say" (the Mac voice) or "voicevox" (VOICEVOX / AivisSpeech
+    # on localhost). The speaker is a style id from the engine's /speakers;
+    # there is no default, one must be chosen. Preferences override these.
+    tts_engine: str = "say"
+    tts_url: str = "http://127.0.0.1:50021"
+    tts_speaker: int | None = None
     anki_push_audio: bool = True
     anki_push_note_type: str = "Kaishi 1.5k"
     tesseract_cmd: str | None
@@ -952,6 +958,13 @@ def get_settings() -> Settings:
         anki_connect_url=os.environ.get("ANKI_CONNECT_URL") or "http://127.0.0.1:8765",
         anki_push_deck=os.environ.get("ANKI_PUSH_DECK") or "Studious",
         tts_voice=os.environ.get("STUDIOUS_TTS_VOICE") or "Kyoko",
+        tts_engine=(os.environ.get("STUDIOUS_TTS_ENGINE") or "say").strip().lower()
+        if (os.environ.get("STUDIOUS_TTS_ENGINE") or "say").strip().lower() in ("say", "voicevox")
+        else "say",
+        tts_url=os.environ.get("STUDIOUS_TTS_URL") or "http://127.0.0.1:50021",
+        tts_speaker=int(os.environ["STUDIOUS_TTS_SPEAKER"])
+        if (os.environ.get("STUDIOUS_TTS_SPEAKER") or "").strip().lstrip("-").isdigit()
+        else None,
         anki_push_audio=(os.environ.get("ANKI_PUSH_AUDIO") or "true").strip().lower()
         not in ("0", "false", "no", "off"),
         anki_push_note_type=os.environ.get("ANKI_PUSH_NOTE_TYPE") or "Kaishi 1.5k",

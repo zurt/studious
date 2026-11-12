@@ -31,7 +31,11 @@ def _no_real_anki(monkeypatch: pytest.MonkeyPatch):
 def _no_real_say(monkeypatch: pytest.MonkeyPatch):
     """Tests must never run the real `say`: audio is unavailable unless a test
     fakes the subprocess itself."""
-    from app.services import tts
+    from app.services import tts, voicevox
+
+    def refuse(req, timeout):
+        raise OSError("test: a real speech engine is blocked")
 
     tts.reset_cache()
-    monkeypatch.setattr(tts.shutil, "which", lambda name: None)
+    monkeypatch.setattr(tts.shutil, "which", lambda name: None)  # no `say`, no `afconvert`
+    monkeypatch.setattr(voicevox, "_open", refuse)

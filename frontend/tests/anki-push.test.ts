@@ -217,6 +217,10 @@ describe("audio option", () => {
   it("labels", () => {
     expect(audioLabel("Kyoko")).toBe("Add audio (Mac voice: Kyoko)");
     expect(audioUnavailableLine("Kyoko")).toContain("Kyoko");
+    expect(audioLabel("ずんだもん — ノーマル", "voicevox")).toBe("Add audio (ずんだもん — ノーマル)");
+    expect(audioUnavailableLine("", "The speech engine is not reachable")).toBe(
+      "No audio: The speech engine is not reachable",
+    );
   });
 
   it("result message reports clips and failures", () => {
@@ -226,6 +230,9 @@ describe("audio option", () => {
     expect(pushResultMessage(base)).not.toContain("audio");
     expect(pushResultMessage({ ...base, audio: { enabled: false, attached: 0, failed: 0 } })).not.toContain("audio");
     expect(pushResultMessage({ ...base, audio: { enabled: true, attached: 3, failed: 0 } })).toContain("3 audio clips added.");
+    expect(pushResultMessage({ ...base, audio: { enabled: true, attached: 3, failed: 0, reading_corrected: 2 } })).toContain(
+      "2 readings corrected.",
+    );
     expect(pushResultMessage({ ...base, audio: { enabled: true, attached: 1, failed: 2 } })).toContain(
       "1 audio clip added, 2 failed.",
     );

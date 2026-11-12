@@ -629,11 +629,24 @@ def _check_with_variants(
 
 
 def audio_status() -> dict[str, Any]:
+    st = tts.status()
     return {
         "enabled": get_settings().anki_push_audio,
-        "available": tts.is_available(),
-        "voice": tts.voice(),
+        "available": st["available"],
+        "voice": st["voice"],
+        "engine": st["engine"],
+        "reason": st["reason"],
     }
+
+
+_UNSPEAKABLE_RE = re.compile(r"[0-9A-Za-z０-９Ａ-Ｚａ-ｚ]")
+
+
+def expected_reading(reading: str) -> str | None:
+    """A reading worth checking the engine against: not empty, and without
+    digits or Latin letters (which the engine reads in its own way)."""
+    reading = (reading or "").strip()
+    return None if not reading or _UNSPEAKABLE_RE.search(reading) else reading
 
 
 def attach_audio(note: dict[str, Any], clips: list[tuple[str, Path]]) -> dict[str, Any]:
@@ -647,7 +660,7 @@ def attach_audio(note: dict[str, Any], clips: list[tuple[str, Path]]) -> dict[st
         **note,
         "audio": [
             {
-                "filename": f"studious_{path.stem}.m4a",
+                "filename": f"studious_{path.stem}{path.suffix}",
                 "data": base64.b64encode(path.read_bytes()).decode("ascii"),
                 "fields": [field],
             }
@@ -656,19 +669,22 @@ def attach_audio(note: dict[str, Any], clips: list[tuple[str, Path]]) -> dict[st
     }
 
 
-def _note_with_audio(row: dict[str, Any]) -> tuple[dict[str, Any], int, int]:
-    """(note, clips attached, clips failed). A failed clip is left out."""
+def _note_with_audio(row: dict[str, Any]) -> tuple[dict[str, Any], int, int, int]:
+    """(note, clips attached, clips failed, readings corrected). A failed clip
+    is left out."""
     clips: list[tuple[str, Path]] = []
-    failed = 0
-    for field, text in row["_audio_texts"]:
+    failed = corrected = 0
+    for field, text, reading in row["_audio_texts"]:
         if not text:
             continue
+        report: dict[str, Any] = {}
         try:
-            clips.append((field, tts.synthesize(text)))
+            clips.append((field, tts.synthesize(text, reading, report=report)))
+            corrected += bool(report.get("corrected"))
         except tts.TtsError as exc:
             failed += 1
             log.warning("anki_push_audio_failed", extra={"word": row["headword"], "field": field, "error": str(exc)})
-    return attach_audio(row["_note"], clips), len(clips), failed
+    return attach_audio(row["_note"], clips), len(clips), failed, corrected
 
 
 def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
@@ -731,7 +747,10 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
                 "reason": reason,
                 "headword_match": (item.get("anki") or {}).get("match") == "headword",
                 "_note": note,
-                "_audio_texts": [("Word Audio", b["word_text"]), ("Sentence Audio", b["sentence_text"])],
+                "_audio_texts": [
+                    ("Word Audio", b["word_text"], expected_reading(b["word_reading"])),
+                    ("Sentence Audio", b["sentence_text"], expected_reading(b["sentence_reading"])),
+                ],
             }
         )
     return {"deck": deck, "deck_exists": deck_exists, "note_type": model, "rows": rows}
@@ -782,13 +801,17 @@ def push(doc_id: str, chapter_id: str, limit: int, audio: bool | None = None) ->
         failed: list[dict[str, Any]] = []
         want_audio = get_settings().anki_push_audio if audio is None else audio
         use_audio = bool(want_audio) and tts.is_available()
-        audio_stats = {"attached": 0, "failed": 0}
+        audio_stats = {"attached": 0, "failed": 0, "reading_corrected": 0}
         notes = [r["_note"] for r in todo]
         if use_audio and todo:
             with ThreadPoolExecutor(max_workers=AUDIO_WORKERS) as pool:
                 done = list(pool.map(_note_with_audio, todo))
             notes = [d[0] for d in done]
-            audio_stats = {"attached": sum(d[1] for d in done), "failed": sum(d[2] for d in done)}
+            audio_stats = {
+                "attached": sum(d[1] for d in done),
+                "failed": sum(d[2] for d in done),
+                "reading_corrected": sum(d[3] for d in done),
+            }
         created = 0
         deck_created = False
         if todo:
