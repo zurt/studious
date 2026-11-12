@@ -957,13 +957,15 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         <div class="markdown text-size-${size}">${displayHtml}</div>
       `;
       const detailActions = regionDetail.querySelector(".region-detail-actions");
+      // Vocab lists keep their readings inline in （…）; ruby would hide them.
+      const isVocabList = region.tag === "vocab_list";
       if (detailActions) {
-        detailActions.prepend(createFuriganaToggle());
+        if (!isVocabList) detailActions.prepend(createFuriganaToggle());
         detailActions.appendChild(makeCopyButton(() => copyMd));
       }
       // Textbook furigana arrive inline as 漢字(かな); render them as ruby.
       const markdownEl = regionDetail.querySelector<HTMLElement>(".markdown");
-      if (markdownEl) applyFurigana(markdownEl);
+      if (markdownEl && !isVocabList) applyFurigana(markdownEl);
       const infoBtn = regionDetail.querySelector<HTMLButtonElement>('.pane-info-btn[data-meta-toggle="transcription"]');
       const metaEl = regionDetail.querySelector<HTMLElement>('.region-detail-meta[data-meta-target="transcription"]');
       if (infoBtn && metaEl) {
@@ -973,7 +975,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
           infoBtn.setAttribute("aria-pressed", String(!hidden));
         });
       }
-      regionDetail.querySelectorAll<HTMLButtonElement>(".text-size-btn").forEach((btn) => {
+      regionDetail.querySelectorAll<HTMLButtonElement>(".text-size-btn[data-size]").forEach((btn) => {
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           const s = Number(btn.dataset.size) as 1 | 2 | 3;
