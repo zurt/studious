@@ -637,7 +637,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
 
     row.innerHTML = `
       <div class="study-row-main">
-        <input type="checkbox" class="study-select" aria-label="Select entry" ${state.selected.has(item.id) ? "checked" : ""} />
+        <input type="checkbox" class="study-select" aria-label="Select entry" ${inShortlist() ? "hidden" : ""} ${state.selected.has(item.id) ? "checked" : ""} />
         <span class="study-term" lang="ja">${escapeHtml(term)}</span>
         ${sub && sub !== term ? `<span class="study-reading" lang="ja">${escapeHtml(sub)}</span>` : ""}
         <span class="study-gloss">${escapeHtml(gloss)}</span>
@@ -655,7 +655,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
               ? `<span class="study-review-actions"><button class="study-review-btn" data-review="unreviewed" title="Put it back in the inbox">Restore</button></span>`
               : ""
         }
-        <div class="study-status-toggle">
+        <div class="study-status-toggle" ${inShortlist() ? "hidden" : ""}>
           ${STATUSES.map(
             (s) =>
               `<button class="study-status-btn${item.status === s ? " active" : ""}" data-status="${s}" title="${STATUS_LABELS[s]}">${STATUS_LABELS[s]}</button>`,
