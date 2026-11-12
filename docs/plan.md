@@ -343,7 +343,12 @@ decisions:
   `counts.needs_example` / `needs_example_ids` (every will-add row without a
   stored generated example).
 - **Speech engines** (`services/tts.py`, `services/voicevox.py`): `say`
-  (default) or a VOICEVOX-compatible engine (`GET /version`, `GET /speakers`,
+  (default; `tts_voice` = `auto`, i.e. every installed ja_JP `(Enhanced)` /
+  `(Premium)` voice sorted by name, else plain Kyoko, or an explicit
+  comma-separated list; the voice is picked per card from the pool by a
+  sha256 of the Word, with next-voice then plain-Kyoko fallback per clip;
+  `GET /api/tts/status` returns `voices`, `setting`, `installed`;
+  `POST /api/tts/test {voice}` is limited to installed ja_JP voices) or a VOICEVOX-compatible engine (`GET /version`, `GET /speakers`,
   `POST /audio_query`, `POST /synthesis`; all assumptions in `voicevox.py`).
   Settings `tts_engine` / `tts_url` / `tts_speaker` (env `STUDIOUS_TTS_*`) are
   overridden by `preferences.json` keys of the same names (PUT

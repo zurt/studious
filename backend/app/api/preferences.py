@@ -18,6 +18,7 @@ class PreferencesUpdate(BaseModel):
     answer_length: str | None = None
     # Speech engine for card audio. Strings: None leaves unchanged, "" clears
     # back to the environment default. tts_speaker: None unchanged, "" clears.
+    tts_voice: str | None = None  # `say` voices: "auto" or a comma-separated list
     tts_engine: str | None = None
     tts_url: str | None = None
     tts_speaker: int | str | None = None
@@ -37,6 +38,7 @@ def get_preferences():
         "learner_note": profile["note"],
         "answer_length": profile["answer_length"],
         "tts_engine": tts.engine(),
+        "tts_voice": tts.voice_setting(),
         "tts_url": tts.url(),
         "tts_speaker": tts.speaker(),
         "tts_engine_override": prefs.get("tts_engine"),
@@ -80,6 +82,14 @@ def update_preferences(body: PreferencesUpdate):
             raise HTTPException(400, f"answer_length must be one of {list(learner_profile.ANSWER_LENGTHS)}")
         else:
             prefs["answer_length"] = length
+    if body.tts_voice is not None:
+        names = body.tts_voice.strip()
+        if not names:
+            prefs.pop("tts_voice", None)
+        elif len(names) > 200:
+            raise HTTPException(400, "tts_voice is limited to 200 characters")
+        else:
+            prefs["tts_voice"] = names
     if body.tts_engine is not None:
         eng = body.tts_engine.strip().lower()
         if not eng:

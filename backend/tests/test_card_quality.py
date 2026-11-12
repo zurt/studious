@@ -292,9 +292,9 @@ class TestFormRules:
 
 
 SAY_LIST = (
-    "Eddy (Japanese (Japan)) ja_JP    # こんにちは！\n"
-    "Kyoko               ja_JP    # こんにちは、私の名前はKyokoです。\n"
-    "Samantha            en_US    # Hello!\n"
+    "Eddy (Japanese (Japan)) ja_JP    # こんにちは! 私の名前はEddyです。\n"
+    "Kyoko (Japanese (Japan)) ja_JP    # こんにちは! 私の名前はKyokoです。\n"
+    "Samantha            en_US    # Hello! My name is Samantha.\n"
 )
 
 
@@ -342,12 +342,10 @@ class TestTtsAvailability:
         tts.reset_cache()
         assert tts.is_available() is False
 
-    def test_voice_missing(self, say, monkeypatch):
-        monkeypatch.setenv("STUDIOUS_TTS_VOICE", "Otoya")
-        from app import config
-
-        config.get_settings.cache_clear()
-        assert tts.voice() == "Otoya" and tts.is_available() is False
+    def test_no_japanese_voice(self, say, monkeypatch):
+        monkeypatch.setattr(tts, "_voices_output", lambda: "Samantha            en_US    # Hello!\n")
+        tts.reset_cache()
+        assert tts.is_available() is False and "No Japanese Mac voice" in tts.unavailable_reason()
 
     def test_voice_listing_parse(self):
         assert tts.voice_listed(SAY_LIST, "Kyoko")
@@ -377,7 +375,7 @@ class TestTtsAvailability:
         monkeypatch.delenv("ANKI_PUSH_AUDIO", raising=False)
         config.get_settings.cache_clear()
         s = config.get_settings()
-        assert s.tts_voice == "Kyoko" and s.anki_push_audio is True
+        assert s.tts_voice == "auto" and s.anki_push_audio is True
         monkeypatch.setenv("ANKI_PUSH_AUDIO", "false")
         config.get_settings.cache_clear()
         assert config.get_settings().anki_push_audio is False
@@ -405,7 +403,7 @@ class TestSynthesize:
 
         a = tts.synthesize("犬")
         assert tts.synthesize("猫") != a
-        monkeypatch.setenv("STUDIOUS_TTS_VOICE", "Eddy")
+        monkeypatch.setenv("STUDIOUS_TTS_VOICE", "Eddy (Japanese (Japan))")
         config.get_settings.cache_clear()
         tts.reset_cache()
         assert tts.synthesize("犬") != a
@@ -547,7 +545,8 @@ class TestPushAudio:
         _seed(("犬",))
         _use(monkeypatch)
         d = client.post("/api/anki/push/preview", json=BODY).json()
-        assert d["audio"] == {"enabled": True, "available": True, "voice": "Kyoko", "engine": "say", "reason": ""}
+        assert d["audio"] == {"enabled": True, "available": True, "voice": "Kyoko", "voices": ["Kyoko"],
+                              "engine": "say", "reason": ""}
         assert say.calls == []
         assert all(not k.startswith("_") for k in d["items"][0])
 

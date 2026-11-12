@@ -439,6 +439,7 @@ def audio_status() -> dict[str, Any]:
         "enabled": get_settings().anki_push_audio,
         "available": st["available"],
         "voice": st["voice"],
+        "voices": st["voices"],
         "engine": st["engine"],
         "reason": st["reason"],
     }
@@ -484,7 +485,7 @@ def _note_with_audio(row: dict[str, Any]) -> tuple[dict[str, Any], int, int, int
             continue
         report: dict[str, Any] = {}
         try:
-            clips.append((field, tts.synthesize(text, reading, report=report)))
+            clips.append((field, tts.synthesize(text, reading, report=report, seed=row["_note"]["fields"]["Word"])))
             corrected += bool(report.get("corrected"))
         except tts.TtsError as exc:
             failed += 1

@@ -352,11 +352,22 @@ def tts_speakers():
         raise HTTPException(503, str(exc)) from exc
 
 
+class TtsTestBody(BaseModel):
+    voice: str | None = None  # a `say` voice; must be an installed ja_JP voice
+
+
 @router.post("/tts/test")
-def tts_test():
-    """A fixed sentence through the selected engine and speaker."""
+def tts_test(body: TtsTestBody | None = None):
+    """A fixed sentence through the selected engine and speaker (or, for `say`,
+    one named installed Japanese voice)."""
+    voice = body.voice if body and body.voice else None
+    if voice is not None:
+        if tts.engine() != "say" or not tts.is_available():
+            raise HTTPException(400, "A voice can only be chosen for the Mac voice engine.")
+        if voice not in tts.status()["installed"]:
+            raise HTTPException(400, f"{voice!r} is not an installed Japanese voice")
     try:
-        path = tts.synthesize(tts.TEST_SENTENCE)
+        path = tts.synthesize(tts.TEST_SENTENCE, voice=voice)
     except tts.TtsError as exc:
         raise HTTPException(503, str(exc)) from exc
     return FileResponse(path, media_type=tts.media_type(path))
@@ -378,7 +389,7 @@ def vocab_audio(item_id: str, part: str = "word"):
         raise HTTPException(503, tts.unavailable_reason())
     reading = note["word_reading"] if part == "word" else note["sentence_reading"]
     try:
-        path = tts.synthesize(text, anki_push.expected_reading(reading))
+        path = tts.synthesize(text, anki_push.expected_reading(reading), seed=note["fields"]["Word"])
     except tts.TtsError as exc:
         raise HTTPException(503, str(exc)) from exc
     return FileResponse(path, media_type=tts.media_type(path))

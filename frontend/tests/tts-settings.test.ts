@@ -33,5 +33,8 @@ describe("tts settings helpers", () => {
       "not reachable",
     );
     expect(ttsStatusLine({ available: false, engine: "say", voice: "", reason: "" })).toContain("say");
+    expect(ttsStatusLine({ available: true, engine: "say", voice: "Kyoko", reason: "None installed; using auto." })).toBe(
+      "Ready: Kyoko. None installed; using auto.",
+    );
   });
 });

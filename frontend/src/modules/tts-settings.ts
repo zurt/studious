@@ -36,7 +36,7 @@ export function speakerOptionsHtml(speakers: TtsSpeaker[], selected: number | nu
 
 /** One-line status under the Speech settings. */
 export function ttsStatusLine(s: { available: boolean; engine: string; voice: string; reason: string }): string {
-  if (s.available) return `Ready: ${s.voice}.`;
+  if (s.available) return s.reason ? `Ready: ${s.voice}. ${s.reason}` : `Ready: ${s.voice}.`;
   return s.reason || `The ${s.engine} voice is not available.`;
 }
 
@@ -45,14 +45,24 @@ export function ttsSectionHtml(prefs: Preferences): string {
   return `
     <section class="settings-section">
       <h3>Speech</h3>
-      <p class="muted small">Voice for the audio on Anki cards and the Play buttons. The Mac voice needs nothing installed. VOICEVOX or AivisSpeech must be running (on this Mac) when you send words to Anki or play a clip. Voices carry their own terms of use.</p>
+      <p class="muted small">Voice for the audio on Anki cards and the Play buttons. The Mac voice needs nothing installed. The Mac voices rotate per card. VOICEVOX or AivisSpeech is an option that has not yet been tested against a real engine; it must be running (on this Mac) when you send words to Anki or play a clip, and its voices carry their own terms of use.</p>
       <dl class="settings-dl">
         <dt>Engine</dt><dd>
           <select id="settings-tts-engine" class="settings-select">
             <option value="say"${voicevox ? "" : " selected"}>Mac voice (say)</option>
-            <option value="voicevox"${voicevox ? " selected" : ""}>VOICEVOX / AivisSpeech</option>
+            <option value="voicevox"${voicevox ? " selected" : ""}>VOICEVOX / AivisSpeech (not yet tested against a real engine)</option>
           </select>
         </dd>
+        <div id="settings-tts-say-fields" ${voicevox ? "hidden" : ""}>
+          <dt>Voices in use</dt><dd>
+            <span id="settings-tts-voices" class="muted small">…</span>
+          </dd>
+          <dt>Voice list</dt><dd>
+            <input id="settings-tts-voice" class="settings-input" type="text" maxlength="200"
+              placeholder="auto" value="${escapeHtml(prefs.tts_voice === "auto" ? "" : prefs.tts_voice)}" />
+            <span class="muted small">auto = every installed Enhanced or Premium Japanese voice (else Kyoko). Or a comma-separated list of voice names.</span>
+          </dd>
+        </div>
         <div id="settings-tts-engine-fields" ${voicevox ? "" : "hidden"}>
           <dt>Engine URL</dt><dd>
             <input id="settings-tts-url" class="settings-input" type="text" maxlength="200"
@@ -77,6 +87,11 @@ export function wireTts(host: HTMLElement, prefs: Preferences): void {
   const url = host.querySelector<HTMLInputElement>("#settings-tts-url");
   const speaker = host.querySelector<HTMLSelectElement>("#settings-tts-speaker");
   const fields = host.querySelector<HTMLElement>("#settings-tts-engine-fields");
+  const sayFields = host.querySelector<HTMLElement>("#settings-tts-say-fields");
+  const voiceInput = host.querySelector<HTMLInputElement>("#settings-tts-voice");
+  const voicesEl = host.querySelector<HTMLElement>("#settings-tts-voices");
+  let pool: string[] = [];
+  let nextVoice = 0;
   const test = host.querySelector<HTMLButtonElement>("#settings-tts-test");
   if (!engine || !status) return;
   let chosen: number | null = prefs.tts_speaker;
@@ -109,9 +124,27 @@ export function wireTts(host: HTMLElement, prefs: Preferences): void {
     }
   };
 
+  const loadVoices = async () => {
+    try {
+      const st = await getTtsStatus();
+      pool = st.engine === "say" ? st.voices : [];
+      nextVoice = 0;
+      if (voicesEl) voicesEl.textContent = st.engine === "say" ? ttsStatusLine(st) : "";
+    } catch {
+      if (voicesEl) voicesEl.textContent = "";
+    }
+  };
+  voiceInput?.addEventListener("change", async () => {
+    if (await save({ tts_voice: voiceInput.value })) await loadVoices();
+  });
+
   engine.addEventListener("change", async () => {
     if (fields) fields.hidden = engine.value !== "voicevox";
-    if (await save({ tts_engine: engine.value })) await loadSpeakers();
+    if (sayFields) sayFields.hidden = engine.value === "voicevox";
+    if (await save({ tts_engine: engine.value })) {
+      await loadSpeakers();
+      await loadVoices();
+    }
   });
   url?.addEventListener("change", async () => {
     if (await save({ tts_url: url.value })) await loadSpeakers();
@@ -121,14 +154,17 @@ export function wireTts(host: HTMLElement, prefs: Preferences): void {
   });
   test?.addEventListener("click", async () => {
     test.disabled = true;
-    say("Playing…");
+    // The Mac engine: each press plays the next voice in the pool.
+    const voice = engine.value === "say" && pool.length ? pool[nextVoice % pool.length] : undefined;
+    if (voice) nextVoice += 1;
+    say(voice ? `Playing ${voice}…` : "Playing…");
     try {
-      const blob = await testTtsVoice();
+      const blob = await testTtsVoice(voice);
       const objectUrl = URL.createObjectURL(blob);
       const audio = new Audio(objectUrl);
       audio.addEventListener("ended", () => URL.revokeObjectURL(objectUrl));
       await audio.play();
-      say("");
+      say(voice ? `Played ${voice}.` : "");
     } catch (e: any) {
       say(String(e?.message ?? e));
       try {
@@ -141,4 +177,5 @@ export function wireTts(host: HTMLElement, prefs: Preferences): void {
     }
   });
   void loadSpeakers();
+  void loadVoices();
 }

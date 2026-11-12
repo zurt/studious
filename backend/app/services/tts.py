@@ -44,11 +44,14 @@ CONVERT_TIMEOUT = 30
 AVAILABILITY_TTL = 10  # seconds; the engine app may be started or stopped any time
 TEST_SENTENCE = "今日はいい天気ですね。"
 _TAG_RE = re.compile(r"<[^>]*>")
-_VOICE_OK_RE = re.compile(r"^[\w][\w .()\-]*$")
-_LIST_LINE_RE = re.compile(r"^(.*?)\s{2,}[A-Za-z]{2,3}[_-][A-Za-z0-9]+\b")
+# `Kyoko (Enhanced)    ja_JP    # こんにちは!`: the name is everything before the locale.
+_LIST_LINE_RE = re.compile(r"^(.*?)\s+([a-z]{2,3}_[A-Z0-9]{2,4})\s+#")
+_QUALITY_RE = re.compile(r"\((Enhanced|Premium)\)$")
+AUTO = "auto"
 
 _lock = threading.Lock()
 _available: dict[Any, tuple[float, bool, str]] = {}
+_info: dict[Any, dict[str, Any]] = {}
 
 
 class TtsError(Exception):
@@ -79,13 +82,17 @@ def speaker() -> int | None:
     return get_settings().tts_speaker
 
 
-def voice() -> str:
-    """The `say` voice name."""
-    return get_settings().tts_voice
+def voice_setting() -> str:
+    """The `say` voice setting: ``auto`` or a comma-separated list of voice names."""
+    chosen = preferences.load().get("tts_voice")
+    if isinstance(chosen, str) and chosen.strip():
+        return chosen.strip()
+    return get_settings().tts_voice.strip() or AUTO
 
 
 def reset_cache() -> None:
     _available.clear()
+    _info.clear()
 
 
 # ---------- Availability ----------
@@ -98,29 +105,121 @@ def _voices_output() -> str:
     return out.stdout
 
 
-def voice_listed(listing: str, name: str) -> bool:
-    """Whether ``say -v '?'`` output lists the voice ``name``."""
-    want = name.strip().casefold()
+def parse_voices(listing: str) -> list[tuple[str, str]]:
+    """(name, locale) for each line of ``say -v '?'``. The name is everything
+    before the locale token (ja_JP), trimmed, so it may hold spaces, hyphens and
+    nested parentheses: ``Kyoko (Japanese (Japan))``, ``O-Ren (Enhanced)``."""
+    out: list[tuple[str, str]] = []
     for line in listing.splitlines():
         m = _LIST_LINE_RE.match(line)
-        have = (m.group(1) if m else line.split("#")[0].strip()).strip().casefold()
+        if m and m.group(1).strip():
+            out.append((m.group(1).strip(), m.group(2)))
+    return out
+
+
+def voice_listed(listing: str, name: str) -> bool:
+    """Whether ``say -v '?'`` output lists the voice ``name`` (exactly, or as
+    ``name (…)``: the plain voice is addressed as ``Kyoko``)."""
+    want = name.strip().casefold()
+    for have, _loc in parse_voices(listing):
+        have = have.casefold()
         if have == want or have.startswith(want + " ("):
             return True
     return False
 
 
-def _say_state() -> tuple[bool, str]:
-    name = voice()
+def is_plain_kyoko(name: str) -> bool:
+    return name == "Kyoko" or name.startswith("Kyoko (Japanese")
+
+
+def auto_pool(listing: str) -> list[str]:
+    """Every installed ja_JP Enhanced / Premium voice, sorted by name; else the
+    plain Kyoko if installed; else none. Novelty voices are never chosen."""
+    ja = [n for n, loc in parse_voices(listing) if loc == "ja_JP"]
+    enhanced = sorted({n for n in ja if _QUALITY_RE.search(n)})
+    if enhanced:
+        return enhanced
+    return ["Kyoko"] if any(is_plain_kyoko(n) for n in ja) else []
+
+
+def resolve_pool(listing: str, setting: str) -> tuple[list[str], str]:
+    """(voices to rotate among, a note for the status reason; empty when none)."""
+    auto = auto_pool(listing)
+    if setting.strip().lower() == AUTO:
+        return auto, ""
+    wanted = [v.strip() for v in setting.split(",") if v.strip()]
+    kept = [v for v in dict.fromkeys(wanted) if voice_listed(listing, v)]
+    if kept:
+        return kept, ""
+    if wanted:
+        return auto, f"None of the voices {', '.join(wanted)} is installed; using the automatic voices instead."
+    return auto, ""
+
+
+def _say_info() -> dict[str, Any]:
+    """{ok, reason, pool, plain, ja} for the `say` engine."""
+    setting = voice_setting()
+    info: dict[str, Any] = {"ok": False, "reason": "", "pool": [], "plain": False, "ja": []}
     if sys.platform != "darwin" or not shutil.which("say"):
-        return False, "The Mac voice needs macOS with the `say` command."
-    if not _VOICE_OK_RE.match(name):
-        return False, f"{name!r} is not a usable voice name."
+        info["reason"] = "The Mac voice needs macOS with the `say` command."
+        return info
     try:
-        if voice_listed(_voices_output(), name):
-            return True, ""
+        listing = _voices_output()
     except (OSError, subprocess.SubprocessError) as exc:
         log.warning("tts_probe_failed", extra={"error": str(exc)})
-    return False, f"The {name!r} voice is not installed (see `say -v '?'`)."
+        info["reason"] = "Could not list the Mac voices (`say -v '?'`)."
+        return info
+    pool, note = resolve_pool(listing, setting)
+    info["ja"] = sorted({n for n, loc in parse_voices(listing) if loc == "ja_JP"})
+    info["plain"] = any(is_plain_kyoko(n) for n, _ in parse_voices(listing))
+    info["pool"] = pool
+    if not pool:
+        info["reason"] = (
+            "No Japanese Mac voice is installed: add one in System Settings > Accessibility > Spoken Content."
+        )
+        return info
+    info["ok"], info["reason"] = True, note
+    return info
+
+
+def _say_state() -> tuple[bool, str]:
+    info = _pool_info()
+    return info["ok"], info["reason"]
+
+
+def _pool_info() -> dict[str, Any]:
+    key = ("say-info", voice_setting())
+    hit = _info.get(key)
+    if hit is None:
+        hit = _info[key] = _say_info()
+    return hit
+
+
+def pool() -> list[str]:
+    """The voices the `say` engine rotates among (empty when unavailable)."""
+    return list(_pool_info()["pool"]) if engine() == "say" else []
+
+
+def pool_label(voices: list[str]) -> str:
+    """``Kyoko, O-Ren, Otoya (Enhanced)`` when the voices share a quality suffix."""
+    suffixes = {(_QUALITY_RE.search(v).group(1) if _QUALITY_RE.search(v) else "") for v in voices}
+    if len(suffixes) == 1 and suffixes != {""}:
+        (suffix,) = suffixes
+        bases = [_QUALITY_RE.sub("", v).strip() for v in voices]
+        return f"{', '.join(bases)} ({suffix})"
+    return ", ".join(voices)
+
+
+def pick_voices(voices: list[str], seed: str, plain: str | None = "Kyoko") -> list[str]:
+    """The voice for ``seed`` first (a stable hash, not Python's randomised
+    ``hash()``), then the rest of the pool in order, then the plain Kyoko."""
+    if not voices:
+        return [plain] if plain else []
+    start = int.from_bytes(hashlib.sha256(seed.encode("utf-8")).digest()[:8], "big") % len(voices)
+    order = voices[start:] + voices[:start]
+    if plain and plain not in order:
+        order.append(plain)
+    return order
 
 
 def _voicevox_state() -> tuple[bool, str]:
@@ -139,7 +238,7 @@ def _voicevox_state() -> tuple[bool, str]:
 
 def _state() -> tuple[bool, str]:
     eng = engine()
-    key: Any = (eng, voice()) if eng == "say" else (eng, url(), speaker())
+    key: Any = (eng, voice_setting()) if eng == "say" else (eng, url(), speaker())
     hit = _available.get(key)
     now = time.monotonic()
     if hit and (eng == "say" or now - hit[0] < AVAILABILITY_TTL):
@@ -161,7 +260,7 @@ def unavailable_reason() -> str:
 def speaker_label() -> str:
     """"Character — Style" of the chosen speaker, or the `say` voice name."""
     if engine() == "say":
-        return voice()
+        return pool_label(pool())
     sid = speaker()
     try:
         for s in voicevox.speakers(url()):
@@ -177,7 +276,10 @@ def status() -> dict[str, Any]:
     return {
         "available": ok,
         "engine": engine(),
-        "voice": speaker_label() if ok else (voice() if engine() == "say" else ""),
+        "voice": speaker_label() if ok else "",
+        "voices": pool(),
+        "setting": voice_setting(),
+        "installed": list(_pool_info()["ja"]) if engine() == "say" else [],
         "url": url(),
         "speaker": speaker(),
         "reason": reason,
@@ -238,9 +340,9 @@ def clean_text(text: str) -> str:
     return _TAG_RE.sub("", text or "").strip()
 
 
-def _key(text: str, reading: str | None) -> str:
+def _key(text: str, reading: str | None, voice_name: str = "") -> str:
     eng = engine()
-    who = voice() if eng == "say" else f"{url()}|{speaker()}"
+    who = voice_name if eng == "say" else f"{url()}|{speaker()}"
     extra = (reading or "") if eng == "voicevox" else ""
     return hashlib.sha256(f"{eng}\0{who}\0{text}\0{extra}".encode()).hexdigest()[:20]
 
@@ -257,7 +359,7 @@ def _cached(key: str) -> Path | None:
     return None
 
 
-def _say(text: str, out: Path) -> Path:
+def _say(text: str, out: Path, voice_name: str) -> Path:
     fd_in, in_name = tempfile.mkstemp(suffix=".txt", dir=out.parent)
     fd_out, tmp_out = tempfile.mkstemp(suffix=".m4a", dir=out.parent)
     os.close(fd_out)
@@ -265,7 +367,7 @@ def _say(text: str, out: Path) -> Path:
         with os.fdopen(fd_in, "w", encoding="utf-8") as fh:
             fh.write(text)
         args = [
-            "say", "-v", voice(), "--file-format=m4af", "--data-format=aac", "-o", tmp_out, "-f", in_name,
+            "say", "-v", voice_name, "--file-format=m4af", "--data-format=aac", "-o", tmp_out, "-f", in_name,
         ]
         try:
             proc = subprocess.run(args, capture_output=True, timeout=SAY_TIMEOUT, check=False)
@@ -282,6 +384,18 @@ def _say(text: str, out: Path) -> Path:
         for p in (in_name, tmp_out):
             with contextlib.suppress(FileNotFoundError):
                 os.unlink(p)
+
+
+def _say_with_fallback(text: str, out: Path, chain: list[str]) -> Path:
+    """`say` with each voice of ``chain`` in turn until one works."""
+    last: TtsError | None = None
+    for name in chain:
+        try:
+            return _say(text, out, name)
+        except TtsError as exc:
+            last = exc
+            log.warning("tts_voice_failed", extra={"voice": name, "error": str(exc)})
+    raise last or TtsError("no voice to speak with")
 
 
 def _convert_to_m4a(wav: Path, out: Path) -> bool:
@@ -341,13 +455,25 @@ def _voicevox(text: str, reading: str | None, key: str, report: dict[str, Any] |
     return wav
 
 
-def synthesize(text: str, reading: str | None = None, *, report: dict[str, Any] | None = None) -> Path:
+def synthesize(
+    text: str,
+    reading: str | None = None,
+    *,
+    report: dict[str, Any] | None = None,
+    seed: str | None = None,
+    voice: str | None = None,
+) -> Path:
     """The cached clip for ``text`` (HTML tags removed), made when missing.
 
     ``reading`` (hiragana) is the reading the caller expects; with the VOICEVOX
     engine a different reading from the engine is replaced by this one, and
     ``report["corrected"]`` is set. The file is .m4a, or .wav when VOICEVOX
-    output could not be converted (use ``media_type``)."""
+    output could not be converted (use ``media_type``).
+
+    With the `say` engine the voice is picked from the pool by a stable hash of
+    ``seed`` (default: the text), so one card keeps one voice and a replay gets
+    the same clip. ``voice`` forces one voice. If a voice fails the next in the
+    pool, then the plain Kyoko, is tried before the clip counts as failed."""
     text = clean_text(text)
     if not text:
         raise TtsError("nothing to speak")
@@ -356,7 +482,14 @@ def synthesize(text: str, reading: str | None = None, *, report: dict[str, Any] 
     ok, reason = _state()
     if not ok:
         raise TtsError(reason)
-    key = _key(text, reading)
+    chain: list[str] = []
+    if engine() == "say":
+        info = _pool_info()
+        plain = "Kyoko" if info["plain"] else None
+        chain = [voice] if voice else pick_voices(info["pool"], seed if seed is not None else text, plain)
+        if voice and plain and voice != plain:
+            chain.append(plain)
+    key = _key(text, reading, chain[0] if chain else "")
     hit = _cached(key)
     if hit:
         return hit
@@ -366,7 +499,7 @@ def synthesize(text: str, reading: str | None = None, *, report: dict[str, Any] 
         if hit:
             return hit
         if engine() == "say":
-            out = _say(text, audio_dir() / f"{key}.m4a")
+            out = _say_with_fallback(text, audio_dir() / f"{key}.m4a", chain)
         else:
             out = _voicevox(text, reading, key, report)
         log.info("tts_synthesized", extra={"engine": engine(), "chars": len(text), "bytes": out.stat().st_size})

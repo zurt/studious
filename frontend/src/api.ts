@@ -258,6 +258,8 @@ export type Preferences = {
   answer_length: AnswerLength;
   // Speech engine for card audio (Settings > Speech).
   tts_engine: "say" | "voicevox";
+  /** `say` voices: "auto" or a comma-separated list of voice names. */
+  tts_voice: string;
   tts_url: string;
   tts_speaker: number | null;
   tts_engine_override: string | null;
@@ -276,6 +278,7 @@ export async function updatePreferences(
     learner_note?: string;
     answer_length?: AnswerLength | "";
     tts_engine?: string;
+    tts_voice?: string;
     tts_url?: string;
     tts_speaker?: number | "";
   }
@@ -958,7 +961,14 @@ export type AnkiPushPreview = {
   will_create_deck: boolean;
   note_type: string;
   /** Card audio from the Mac voice: the setting, whether `say` and the voice exist, the voice. */
-  audio?: { enabled: boolean; available: boolean; voice: string; engine?: string; reason?: string };
+  audio?: {
+    enabled: boolean;
+    available: boolean;
+    voice: string;
+    voices?: string[];
+    engine?: string;
+    reason?: string;
+  };
   counts: {
     candidates: number;
     will_add: number;
@@ -1020,8 +1030,12 @@ export type TtsStatus = {
   voice: string;
   url: string;
   speaker: number | null;
-  /** Why the voice is unavailable; empty when it is. */
+  /** Why the voice is unavailable (or a note, e.g. a fallback to automatic voices). */
   reason: string;
+  /** `say` engine: the voices in rotation, the setting ("auto" or a list) and the installed Japanese voices. */
+  voices: string[];
+  setting: string;
+  installed: string[];
 };
 
 export type TtsSpeaker = { id: number; character: string; style: string; label: string };
@@ -1049,10 +1063,11 @@ export async function getTtsSpeakers(): Promise<{ url: string; speaker: number |
 }
 
 /** A fixed sentence through the selected engine and speaker, as audio. */
-export async function testTtsVoice(): Promise<Blob> {
+export async function testTtsVoice(voice?: string): Promise<Blob> {
   const r = await fetch("/api/tts/test", {
     method: "POST",
-    headers: { "x-correlation-id": generateCorrelationId() },
+    headers: { "x-correlation-id": generateCorrelationId(), "Content-Type": "application/json" },
+    body: JSON.stringify(voice ? { voice } : {}),
   });
   if (!r.ok) throw new Error(await failureText(r));
   return r.blob();

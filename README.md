@@ -154,8 +154,8 @@ Environment variables (read at startup, `.env` supported):
   export it in `~/.zshrc` the same way. Never put it in `.env`.
 - `ANKI_CONNECT_URL` — AnkiConnect endpoint for the Anki import (default
   `http://127.0.0.1:8765`).
-- `STUDIOUS_TTS_VOICE` — macOS `say` voice for card audio (default
-  `Kyoko`); `ANKI_PUSH_AUDIO` — attach audio on send (default true);
+- `STUDIOUS_TTS_VOICE` — macOS `say` voices for card audio: `auto`
+  (default) or a comma-separated list of voice names; `ANKI_PUSH_AUDIO` — attach audio on send (default true);
   `STUDIOUS_TTS_ENGINE` (`say` or `voicevox`), `STUDIOUS_TTS_URL` (default
   `http://127.0.0.1:50021`), `STUDIOUS_TTS_SPEAKER` (a VOICEVOX style id, no
   default) — defaults for the speech engine, overridden by Settings > Speech.
@@ -335,8 +335,8 @@ store, and the Anki snapshot is re-synced so they leave the shortlist.
   or without する/な"), the preview also asks Anki about the other spelling,
   and of two such words in one send only the first is sent. Hiragana-only
   words (する, きれいな) are never stemmed.
-- **Audio.** On a Mac the send attaches two clips from the built-in voice
-  (`STUDIOUS_TTS_VOICE`, default `Kyoko`): the word (as written on the card)
+- **Audio.** On a Mac the send attaches two clips from the built-in voices
+  (`STUDIOUS_TTS_VOICE`, default `auto`): the word (as written on the card)
   to `Word Audio` and the example sentence to `Sentence Audio`. Clips are
   made with `say` as real AAC .m4a files, cached under `data/audio/`
   (named by a hash of voice and text) and sent inside `addNotes`, so no new
@@ -344,10 +344,20 @@ store, and the Anki snapshot is re-synced so they leave the shortlist.
   the voice is available; `ANKI_PUSH_AUDIO=false` turns it off by default.
   A clip that fails to generate is left off and counted in the result. In a
   vocab row's detail, **Play word** / **Play sentence** play the same clips.
-  Better voices can be downloaded in macOS System Settings > Accessibility >
-  Spoken Content > System Voice > Manage Voices; set `STUDIOUS_TTS_VOICE` to
-  the voice's name and restart.
-- **A better voice (VOICEVOX / AivisSpeech).** Both are free local apps that
+  `auto` means every installed Japanese voice whose name ends with
+  `(Enhanced)` or `(Premium)` (sorted by name); if there are none, the plain
+  Kyoko; novelty voices (Eddy, Flo, …) are never chosen automatically. With
+  several voices each card gets one of them, picked by a stable hash of its
+  Word, so a card's word and sentence clips share a voice, different cards
+  vary, and re-sending or replaying gives the same voice. If `say` fails with
+  a voice the next one, then the plain Kyoko, is tried. Settings > Speech
+  shows the voices in use, takes an explicit comma-separated list (e.g.
+  `Otoya (Enhanced), O-Ren (Enhanced)`; names not installed are dropped) and
+  its **Test voice** button plays each voice in turn. Enhanced voices can be
+  downloaded in macOS System Settings > Accessibility > Spoken Content >
+  System Voice > Manage Voices; `say -v '?'` lists the names.
+- **Another engine (VOICEVOX / AivisSpeech), optional and not yet tested
+  against a real engine.** Both are free local apps that
   speak Japanese through the same HTTP API. Install one, start it, then in
   Settings > Speech pick the engine "VOICEVOX / AivisSpeech", check the URL
   (VOICEVOX `http://127.0.0.1:50021`, AivisSpeech `http://127.0.0.1:10101`),

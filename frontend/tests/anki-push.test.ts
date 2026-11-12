@@ -12,6 +12,7 @@ import {
 import {
   GENERATE_CHUNK,
   audioLabel,
+  betterVoicesHint,
   audioUnavailableLine,
   chunkIds,
   clampCount,
@@ -211,6 +212,14 @@ describe("audio option", () => {
     expect(audioLabel("Kyoko")).toBe("Add audio (Mac voice: Kyoko)");
     expect(audioUnavailableLine("Kyoko")).toContain("Kyoko");
     expect(audioLabel("ずんだもん — ノーマル", "voicevox")).toBe("Add audio (ずんだもん — ノーマル)");
+    expect(audioLabel("Kyoko, O-Ren, Otoya (Enhanced)", "say", ["a", "b", "c"])).toBe(
+      "Add audio (Mac voices: Kyoko, O-Ren, Otoya \u2014 Enhanced)",
+    );
+    expect(audioLabel("Kyoko", "say", ["Kyoko"])).toBe("Add audio (Mac voice: Kyoko)");
+    expect(betterVoicesHint("say", ["Kyoko"])).toContain("Spoken Content");
+    expect(betterVoicesHint("say", ["Kyoko (Enhanced)"])).toBe("");
+    expect(betterVoicesHint("say", ["a (Enhanced)", "b (Enhanced)"])).toBe("");
+    expect(betterVoicesHint("voicevox", ["Kyoko"])).toBe("");
     expect(audioUnavailableLine("", "The speech engine is not reachable")).toBe(
       "No audio: The speech engine is not reachable",
     );

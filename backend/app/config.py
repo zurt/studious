@@ -834,7 +834,9 @@ class Settings(BaseModel):
     anki_connect_url: str = "http://127.0.0.1:8765"
     anki_push_deck: str = "Studious"
     # macOS `say` voice for card audio, and whether a send attaches it.
-    tts_voice: str = "Kyoko"
+    # `say` voices: "auto" (every installed Enhanced/Premium ja_JP voice, else the
+    # plain Kyoko) or a comma-separated list of voice names.
+    tts_voice: str = "auto"
     # Speech engine: "say" (the Mac voice) or "voicevox" (VOICEVOX / AivisSpeech
     # on localhost). The speaker is a style id from the engine's /speakers;
     # there is no default, one must be chosen. Preferences override these.
@@ -893,7 +895,7 @@ def get_settings() -> Settings:
         wanikani_api_token=os.environ.get("WANIKANI_API_TOKEN") or None,
         anki_connect_url=os.environ.get("ANKI_CONNECT_URL") or "http://127.0.0.1:8765",
         anki_push_deck=os.environ.get("ANKI_PUSH_DECK") or "Studious",
-        tts_voice=os.environ.get("STUDIOUS_TTS_VOICE") or "Kyoko",
+        tts_voice=os.environ.get("STUDIOUS_TTS_VOICE") or "auto",
         tts_engine=(os.environ.get("STUDIOUS_TTS_ENGINE") or "say").strip().lower()
         if (os.environ.get("STUDIOUS_TTS_ENGINE") or "say").strip().lower() in ("say", "voicevox")
         else "say",

@@ -401,8 +401,9 @@ headword, or its meaning (an edited meaning is never overwritten).
 ### Cards have no audio
 The send result says how many clips were added. None means: not macOS or
 no `say` on PATH; the voice is not installed (`say -v '?'` lists them;
-`GET /api/tts/status` shows `available` and the voice, default `Kyoko`,
-change with `STUDIOUS_TTS_VOICE`); the dialog's "Add audio" box was off or
+`GET /api/tts/status` shows `available`, the `voices` in use and a `reason`;
+the default `auto` needs an installed Japanese voice, set another with
+`STUDIOUS_TTS_VOICE` or Settings > Speech); the dialog's "Add audio" box was off or
 `ANKI_PUSH_AUDIO=false`. "N failed" means `say` errored for some clips (log
 `anki_push_audio_failed` under `studious.tts` / `studious.anki`); those
 notes were still sent. With the VOICEVOX engine, `GET /api/tts/status` gives
@@ -422,6 +423,20 @@ Cards already in Anki keep their old clips: Studious never edits existing
 notes. Only words sent afterwards get clips from the new voice (clips are
 cached per engine, speaker and text, so old ones are not reused). Row Play
 buttons use the current voice at once.
+
+### All cards use the same voice
+The `say` engine rotates among the voices in its pool. Only one voice in the
+pool means only one is used: either just one Enhanced/Premium Japanese voice
+is installed (or none, so plain Kyoko is used), or Settings > Speech > Voice
+list names a single voice. `GET /api/tts/status` shows `voices`. Install
+more in System Settings > Accessibility > Spoken Content > Manage Voices, or
+clear the voice list.
+
+### The voice changed after installing a new voice
+The automatic pool is every installed Enhanced/Premium Japanese voice, so a
+new one changes the pool and cards sent from now on may pick a different
+voice (the choice is a stable hash of the card's Word over the pool). Cards
+already in Anki are never edited; set an explicit voice list to pin it.
 
 ### The audio reads a word wrongly
 The built-in voice picks the reading from the kanji itself and can choose a

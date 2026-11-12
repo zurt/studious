@@ -27,8 +27,20 @@ export function pushDialogLines(p: AnkiPushPreview): string[] {
 }
 
 /** Checkbox label for the audio option. */
-export function audioLabel(voice: string, engine = "say"): string {
-  return engine === "voicevox" ? `Add audio (${voice})` : `Add audio (Mac voice: ${voice})`;
+export function audioLabel(voice: string, engine = "say", voices: string[] = []): string {
+  if (engine === "voicevox") return `Add audio (${voice})`;
+  if (voices.length > 1) {
+    return `Add audio (Mac voices: ${voice.replace(/ \((Enhanced|Premium)\)$/, " \u2014 $1")})`;
+  }
+  return `Add audio (Mac voice: ${voice})`;
+}
+
+/** Hint under the checkbox when only the plain Mac voice is in use. */
+export function betterVoicesHint(engine: string, voices: string[]): string {
+  const plain = voices.length === 1 && !/\((Enhanced|Premium)\)$/.test(voices[0]);
+  return engine === "say" && plain
+    ? "Better voices can be downloaded in System Settings \u2192 Accessibility \u2192 Spoken Content."
+    : "";
 }
 
 /** Muted line shown instead of the checkbox when the voice cannot be used. */
@@ -175,7 +187,12 @@ export function ankiPushDialog(
     const au = initial.audio;
     if (au?.enabled && au.available) {
       audioRow.hidden = false;
-      audioRow.querySelector("span")!.textContent = audioLabel(au.voice, au.engine);
+      audioRow.querySelector("span")!.textContent = audioLabel(au.voice, au.engine, au.voices);
+      const hint = betterVoicesHint(au.engine ?? "say", au.voices ?? []);
+      if (hint) {
+        audioNote.hidden = false;
+        audioNote.textContent = hint;
+      }
     } else if (au?.enabled) {
       audioNote.hidden = false;
       audioNote.textContent = audioUnavailableLine(au.voice, au.reason);
