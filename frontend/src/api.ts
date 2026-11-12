@@ -912,6 +912,70 @@ export async function syncAnki(): Promise<AnkiStatus & { matched: number }> {
   return jpost("/api/refs/anki/sync");
 }
 
+export type AnkiPushItem = {
+  id: string;
+  headword: string;
+  reading: string;
+  fields: Record<string, string>;
+  tags: string[];
+  has_sentence: boolean;
+  has_gloss: boolean;
+  can_add: boolean;
+  reason: string;
+  /** A card with the same spelling but a different reading already exists. */
+  headword_match: boolean;
+};
+
+export type AnkiPushPreview = {
+  deck: string;
+  deck_exists: boolean;
+  will_create_deck: boolean;
+  note_type: string;
+  counts: {
+    candidates: number;
+    will_add: number;
+    skipped: number;
+    without_sentence: number;
+    with_sentence: number;
+    with_gloss: number;
+    headword_match: number;
+  };
+  items: AnkiPushItem[];
+};
+
+export type AnkiPushResult = {
+  created: number;
+  skipped: { id: string; headword: string; reason: string }[];
+  failed: { id: string; headword: string; reason: string }[];
+  deck: string;
+  deck_created: boolean;
+  sync_ok: boolean;
+  sync_error: string | null;
+};
+
+/** Request body shared by the preview and the send. */
+export function ankiPushBody(docId: string, chapterId: string, limit: number) {
+  return { doc_id: docId, chapter_id: chapterId, limit };
+}
+
+/** Read-only dry run of a send: what would be added, skipped and why. */
+export async function previewAnkiPush(
+  docId: string,
+  chapterId: string,
+  limit: number,
+): Promise<AnkiPushPreview> {
+  return jpost("/api/anki/push/preview", ankiPushBody(docId, chapterId, limit));
+}
+
+/** The only call that writes to Anki: creates the deck and adds the notes. */
+export async function sendAnkiPush(
+  docId: string,
+  chapterId: string,
+  limit: number,
+): Promise<AnkiPushResult> {
+  return jpost("/api/anki/push", { ...ankiPushBody(docId, chapterId, limit), confirm: true });
+}
+
 export async function getVocabWanikani(itemId: string): Promise<WkDrilldown> {
   return jget(`/api/vocab/${itemId}/wanikani`);
 }

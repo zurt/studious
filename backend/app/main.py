@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .api import (
+    anki,
     chapters,
     costs,
     documents,
@@ -92,6 +93,7 @@ app.include_router(providers.router)
 app.include_router(preferences.router)
 app.include_router(costs.router)
 app.include_router(store.router)
+app.include_router(anki.router)
 app.include_router(study.router)
 
 

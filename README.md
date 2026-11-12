@@ -154,6 +154,8 @@ Environment variables (read at startup, `.env` supported):
   export it in `~/.zshrc` the same way. Never put it in `.env`.
 - `ANKI_CONNECT_URL` — AnkiConnect endpoint for the Anki import (default
   `http://127.0.0.1:8765`).
+- `ANKI_PUSH_DECK` / `ANKI_PUSH_NOTE_TYPE` — where "Send to Anki" puts new
+  cards (defaults `Studious` and `Kaishi 1.5k`).
 - `STUDIOUS_DATA_DIR` — data root (default `./data`).
 - `STUDIOUS_PDF_RENDER_DPI` — page raster DPI (default `300`).
 - `STUDIOUS_LOG_LEVEL` — backend log level (default `INFO`; set `DEBUG` for
@@ -274,19 +276,48 @@ Attribution:
   use only. WK SRS history is shown as context (e.g. "burned 2022") but
   never changes an item's study status.
 
-## Anki import (read-only)
+## Anki bridge
 
 If you study flashcards in Anki, **Sync Anki** on the vocab dashboard pulls
 the state of every card (new / learning / young / mature / suspended) and
 shows an `Anki · mature` badge on matching store items, plus an Anki filter.
 It needs the Anki desktop app open with the
 [AnkiConnect](https://ankiweb.net/shared/info/2055492159) add-on installed,
-and only ever reads: nothing is written to Anki or to the vocab store. The
+and the import only ever reads: nothing is written to Anki or to the vocab
+store by Sync Anki. The
 snapshot lives in `data/refs/anki/snapshot.json` (replaced atomically; a
 failed sync keeps the previous one) and is matched to store items at read
 time. The word and reading fields are picked per note type by name
-(`GET /api/refs/anki/status` shows which). Pushing chosen items into Anki is
-planned, not built.
+(`GET /api/refs/anki/status` shows which).
+
+### Sending a chapter's words to Anki
+
+With the shortlist on and a textbook and chapter selected, **Send to Anki…**
+(next to the summary line) previews the first 125 candidates: how many will
+be added, the deck, the first ten words, how many are skipped (already in
+Anki anywhere in the collection), how many have no example sentence, and
+how many match an existing card by spelling only. You can change the count,
+then **Send N words**. Nothing is written until you press that button.
+
+Cards go into a separate deck (`ANKI_PUSH_DECK`, default `Studious`, created
+if missing) using your existing note type (`ANKI_PUSH_NOTE_TYPE`, default
+`Kaishi 1.5k`) so they look like your other cards. Word, reading, meaning,
+furigana and frequency are filled in (`Notes` holds only your own note on
+the word; the source is in the tags); the example sentence and its translation come from a
+breakdown of a reading passage where the word was seen (left empty when none
+fits, because Anki needs no sentence to make a card); audio, pitch accent and
+picture stay empty. Cards are tagged `studious` and
+`studious::<doc>::<chapter>`, and added in shortlist order, which is the
+order Anki introduces new cards. Words that were sent become `active` in the
+store, and the Anki snapshot is re-synced so they leave the shortlist.
+
+Studious writes to Anki with exactly two AnkiConnect actions, `createDeck`
+and `addNotes` (enforced in `backend/app/services/anki_push.py`); it never
+updates or deletes existing notes, cards, decks or deck options. Set the
+`Studious` deck's **new cards per day** limit in Anki's deck options
+yourself; Studious does not change deck options. Endpoints:
+`POST /api/anki/push/preview` (read-only) and `POST /api/anki/push`
+(needs `"confirm": true`).
 
 ## Chapter shortlist
 

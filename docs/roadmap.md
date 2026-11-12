@@ -3,8 +3,7 @@
 **Where things stand (2026-11):** Phases 1–3 are shipped. Exercise
 reading references (2.5) and chapter bulk operations are shipped as
 beta, pending real use. The Apple apps (Phase 5) are built and compiled
-in CI but have not been run on a device. Open work: Phase 4 (Anki
-export, exercise walkthroughs), region editing, mobile-responsive web
+in CI but have not been run on a device. Open work: Phase 4 (exercise walkthroughs), region editing, mobile-responsive web
 layout, and the hosting/auth findings in
 `docs/archive/audit-2026-07-mobile-spike.md`.
 
@@ -481,8 +480,16 @@ Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
       spellings like うれしい/嬉しい match, else headword; non-exact matches
       show a `~` on the badge) with an `anki` filter,
       and the dashboard has a "Sync Anki" button and `Anki · state`
-      badges. Never written to the store. The reverse direction (pushing
-      chosen items to Anki) is planned and not built
+      badges. Never written to the store
+- [x] Anki bridge, step two (push): the dashboard's "Send to Anki…" previews
+      then sends a chapter's shortlist candidates (default 125) into a
+      separate `Studious` deck with the `Kaishi 1.5k` note type
+      (`POST /api/anki/push/preview`, `POST /api/anki/push`). The bridge now
+      goes both ways; writes are limited to `createDeck` and `addNotes`,
+      duplicates anywhere in the collection are skipped, sent items become
+      `active`, and an example sentence (with its translation when the
+      breakdown has it) is attached when a breakdown sighting is usable.
+      Deck options (new cards per day) stay the owner's to set in Anki
 - [x] Frequency rank: `make refs` also builds `data/refs/freq/jpdb-freq.sqlite`
       from the pinned JPDB frequency list (local download, not committed);
       enrichment writes `classifications.freq_rank` (and `freq_checked`, so

@@ -322,6 +322,40 @@ text; an Anki profile may be mid-load). A failed sync leaves the previous
 snapshot (`backend/data/refs/anki/snapshot.json`) untouched; logs are
 `anki_unreachable` / `anki_sync_done` under `studious.anki`.
 
+### Send to Anki says the note type is missing
+409 `Anki has no note type named 'Kaishi 1.5k'` or `Note type ... is missing
+field(s): ...`. Studious fills the Kaishi fields (Word, Word Reading, Word
+Meaning, Word Furigana, Sentence, Sentence Meaning, Sentence Furigana, Notes,
+Frequency). Either the note type was renamed or its fields changed, or
+`ANKI_PUSH_NOTE_TYPE` points at another type; fix the name, set the
+variable and restart the backend. A 503 means Anki is closed (see "Sync Anki
+fails"). Logs: `anki_push_start` / `anki_push_done` under `studious.anki`.
+
+### Send to Anki skipped words
+The dialog and result count words Anki would not add, with the reason on
+each preview item (`POST /api/anki/push/preview`). The usual one is a
+duplicate: a note with the same Word exists anywhere in the collection, even
+in another deck or with a different reading (duplicates are never added). Two
+candidates with the same spelling in one send also collide; the second is
+skipped. A word reported as failed was accepted by the preview but refused by
+`addNotes`; it stays in the inbox and can be retried.
+
+### Cards sent to Anki have no example sentence
+Only a breakdown sighting is used, because a vocab-list sighting is a list
+row, not a sentence. A word gets no sentence when it was never in a
+breakdown, or every sentence is exercise debris: over 120 characters, a
+table, a word bank (`□`), a blank or empty brackets, or no sentence-ending
+mark. Sentences from `reading_passage` regions are preferred. Run the breakdown for the chapter's reading passages and send again
+(already-sent words are skipped as duplicates, so fix the note in Anki by
+hand). The translation is empty when the breakdown was re-run since the word
+was harvested and the sentence moved.
+
+### New cards do not appear on my phone
+Studious adds the notes to Anki desktop only. Sync Anki desktop with
+AnkiWeb, then sync the phone. Also check the `Studious` deck's new cards per
+day limit in Anki's deck options (Studious never changes deck options); a
+limit of 0 shows nothing.
+
 ### An item I study in Anki shows no Anki badge
 Matching uses the note type's word field, picked by name (Word,
 Expression, Vocabulary, Vocab, Kanji, Front, else the first field). See

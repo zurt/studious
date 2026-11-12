@@ -332,6 +332,11 @@ decisions:
   knowledge has atrophied, so "burned on WK" must never auto-mark an item
   known. A vocab→kanji→radical drill-down view surfaces WK mnemonics and
   personal notes for recall.
+- **Anki push**: `POST /api/anki/push/preview` (read-only dry run) and
+  `POST /api/anki/push` (`confirm: true`; the only writes to Anki, limited to
+  `createDeck` and `addNotes`) send a chapter's first `limit` shortlist
+  candidates into the `ANKI_PUSH_DECK` deck as `ANKI_PUSH_NOTE_TYPE` notes
+  (`services/anki_push.py`).
 - **Anki import (read-only)**: AnkiConnect on `127.0.0.1:8765`
   (`ANKI_CONNECT_URL`), snapshot at `data/refs/anki/snapshot.json`
   (`GET /api/refs/anki/status`, `POST /api/refs/anki/sync`). Card state is

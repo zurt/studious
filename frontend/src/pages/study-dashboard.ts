@@ -12,6 +12,8 @@ import {
   syncWanikani,
   syncAnki,
   getVocabWanikani,
+  previewAnkiPush,
+  sendAnkiPush,
   type Chapter,
   type DocMeta,
   type GrammarItem,
@@ -26,6 +28,7 @@ import {
   type WkSubjectView,
 } from "../api";
 import { chooseDialog, confirmDialog } from "../modules/confirm";
+import { ankiPushDialog, pushResultMessage } from "../modules/anki-push-dialog";
 import { emit, STORE_STATUS_CHANGED, type StoreStatusChange } from "../modules/events";
 import { toastError, toastInfo } from "../modules/toast";
 import { info, error as logError } from "../logger";
@@ -96,6 +99,13 @@ export function ankiErrorDetail(message: string): string {
     }
   }
   return message;
+}
+
+/** Title for the "Send to Anki…" button: why it is disabled, or what it does. */
+export function sendToAnkiTitle(docId: string, chapterId: string, candidates: number): string {
+  if (!docId || !chapterId) return "Pick a textbook and a specific chapter to send its shortlist to Anki";
+  if (candidates === 0) return "No candidates to send";
+  return "Add this chapter's shortlist words to the Studious deck in Anki";
 }
 
 export function ankiBadge(item: StoreItem): string {
@@ -337,7 +347,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
           <option value="recent">Newest</option>
           <option value="updated">Recently updated</option>
           <option value="alpha">${kind === "vocab" ? "By reading" : "By pattern"}</option>
-          ${kind === "vocab" ? `<option value="priority">By study priority</option><option value="frequency">By frequency</option>` : ""}
+          ${kind === "vocab" ? `<option value="priority">By study priority</option><option value="frequency">By frequency</option><option value="shortlist" hidden>Shortlist order</option>` : ""}
         </select>
         <span id="study-count" class="study-bulk-label" aria-live="polite"></span>
       </div>
@@ -384,8 +394,11 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     const on = state.kind === "vocab" && state.shortlist;
     shortlistToggle?.classList.toggle("active", on);
     shortlistToggle?.setAttribute("aria-pressed", String(on));
+    // The shortlist has its own order: say so in the control instead of
+    // leaving a dead select that still reads "Newest".
     sortSelect.disabled = inShortlist();
-    sortSelect.title = inShortlist() ? "The shortlist has its own order" : "";
+    sortSelect.value = inShortlist() ? "shortlist" : state.sort;
+    sortSelect.title = inShortlist() ? "The shortlist is ordered by frequency, with the chapter's vocab-list words first. Turn Shortlist off to sort." : "";
     shortlistLine.hidden = !on;
     if (!on) return;
     if (state.excluded) {
@@ -395,12 +408,44 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     } else {
       shortlistLine.textContent = "";
     }
+    if (!state.excluded) {
+      const send = document.createElement("button");
+      send.className = "study-stat-chip";
+      send.id = "study-anki-push-btn";
+      send.textContent = "Send to Anki…";
+      send.disabled = !state.docId || !state.chapterId || state.total === 0;
+      send.title = sendToAnkiTitle(state.docId, state.chapterId, state.total);
+      send.addEventListener("click", () => void sendToAnki(send));
+      shortlistLine.append(" · ", send);
+    }
     shortlistLine.querySelectorAll<HTMLButtonElement>("[data-excluded]").forEach((btn) => {
       btn.addEventListener("click", () => setShortlist(true, btn.dataset.excluded as ShortlistReason));
     });
     shortlistLine.querySelector("[data-back-to-shortlist]")?.addEventListener("click", () =>
       setShortlist(true, ""),
     );
+  }
+
+  async function sendToAnki(btn: HTMLButtonElement) {
+    const docId = state.docId;
+    const chapterId = state.chapterId;
+    btn.disabled = true;
+    try {
+      const first = await previewAnkiPush(docId, chapterId, SHORTLIST_BUDGET);
+      const limit = await ankiPushDialog(first, state.total, SHORTLIST_BUDGET, (n) =>
+        previewAnkiPush(docId, chapterId, n),
+      );
+      if (limit === null) return;
+      const result = await sendAnkiPush(docId, chapterId, limit);
+      info("StudyDash", "anki_push_done", { created: result.created, failed: result.failed.length });
+      (result.failed.length || !result.sync_ok ? toastError : toastInfo)(pushResultMessage(result));
+      await reload();
+    } catch (e: any) {
+      logError("StudyDash", "anki_push_failed", { error: e.message });
+      toastError("Send to Anki failed: " + ankiErrorDetail(e.message));
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   function setShortlist(on: boolean, excluded: ShortlistReason | "") {
@@ -1026,6 +1071,12 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     void reload();
   });
   sortSelect.addEventListener("change", () => {
+    // "shortlist" is a label for the disabled state, not a real sort; some
+    // browsers still list a hidden <option>.
+    if (sortSelect.value === "shortlist") {
+      sortSelect.value = state.sort;
+      return;
+    }
     state.sort = sortSelect.value as State["sort"];
     void reload();
   });
