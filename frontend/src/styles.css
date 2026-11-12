@@ -936,6 +936,19 @@ html[data-furigana="hidden"] .furi-reveal:not(.is-revealed) { filter: blur(4px);
 .study-status-toggle .study-status-btn + .study-status-btn { border-left: 1px solid var(--border); }
 .study-status-toggle .study-status-btn:hover { background: var(--bg-soft); color: var(--fg); }
 .study-status-toggle .study-status-btn.active { background: var(--accent); color: #fff; }
+.study-shortlist-line { margin-bottom: 8px; line-height: 2; }
+.study-shortlist-line .study-stat-chip { margin: 0 2px; }
+.study-review-actions { display: inline-flex; gap: 6px; }
+.study-review-btn { font-size: 12px; padding: 4px 12px; }
+@media (max-width: 640px) {
+  .study-review-btn, .study-shortlist-line .study-stat-chip, #study-shortlist-toggle { min-height: 44px; padding: 8px 14px; font-size: 14px; }
+  .study-review-actions { width: 100%; }
+  .study-review-btn { flex: 1; }
+}
+.study-budget-divider {
+  text-align: center; font-size: 12px; color: var(--muted); padding: 6px 0;
+  border-top: 2px dashed var(--accent-soft); border-bottom: 1px dashed var(--border);
+}
 .study-delete-btn { font-size: 11px; color: var(--muted); padding: 3px 7px; }
 .study-delete-btn:hover { color: #d33; border-color: #d33; }
 .study-row-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 6px; }

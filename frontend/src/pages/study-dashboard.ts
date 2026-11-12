@@ -15,6 +15,8 @@ import {
   type Chapter,
   type DocMeta,
   type GrammarItem,
+  type ShortlistReason,
+  type ShortlistSummary,
   type StoreItem,
   type StoreKind,
   type StoreListParams,
@@ -48,6 +50,11 @@ type State = {
   source: string;
   anki: string;
   sort: "recent" | "updated" | "alpha" | "priority" | "frequency";
+  /** Vocab only: show the proposed chapter shortlist. */
+  shortlist: boolean;
+  /** Vocab only: reviewing the items hidden for this reason (implies shortlist). */
+  excluded: ShortlistReason | "";
+  summary: ShortlistSummary | null;
   items: StoreItem[];
   total: number;
   expanded: Set<string>;
@@ -102,6 +109,87 @@ export function ankiBadge(item: StoreItem): string {
         : `${a.deck}`;
   const mark = a.match === "exact" ? "" : "~";
   return `<span class="study-badge study-badge-anki study-badge-anki-${a.state}" title="${escapeHtml(note)}">Anki · ${a.state}${mark}</span>`;
+}
+
+export function wkBurnedBadge(item: StoreItem): string {
+  if (!(item as VocabItem).wk_burned) return "";
+  return `<span class="study-badge study-badge-wk" title="Burned in WaniKani">WK burned</span>`;
+}
+
+/** Words per chapter the owner studies; rows beyond it are marked as over budget. */
+export const SHORTLIST_BUDGET = 125;
+
+export const SHORTLIST_REASONS: ShortlistReason[] = [
+  "in_anki",
+  "basic",
+  "grammar_like",
+  "not_dictionary",
+  "status_known",
+  "status_ignored",
+];
+
+export const SHORTLIST_REASON_LABELS: Record<ShortlistReason, string> = {
+  in_anki: "in Anki",
+  basic: "basic",
+  grammar_like: "grammar-like",
+  not_dictionary: "not in dictionary",
+  status_known: "known",
+  status_ignored: "ignored",
+};
+
+/** Summary line: "142 candidates · hidden: 310 in Anki · 96 basic …". Zero counts are
+ * omitted; each hidden count is a button that switches to the excluded=<reason> list. */
+export function shortlistSummaryHtml(total: number, summary: ShortlistSummary): string {
+  const hidden = SHORTLIST_REASONS.filter((r) => (summary.excluded[r] ?? 0) > 0)
+    .map(
+      (r) =>
+        `<button class="study-stat-chip" data-excluded="${r}" title="Show the ${SHORTLIST_REASON_LABELS[r]} words hidden from the shortlist">${summary.excluded[r]} ${SHORTLIST_REASON_LABELS[r]}</button>`,
+    )
+    .join(" · ");
+  const head = `${total} ${total === 1 ? "candidate" : "candidates"}`;
+  return hidden ? `${head} · hidden: ${hidden}` : head;
+}
+
+/** Line shown while reviewing one hidden group, with the way back. */
+export function excludedLineHtml(total: number, reason: ShortlistReason): string {
+  return `Hidden, ${SHORTLIST_REASON_LABELS[reason]}: ${total} · <button class="study-stat-chip" data-back-to-shortlist>Back to shortlist</button>`;
+}
+
+/** Items with the budget divider spliced in after the first `budget` rows. No divider
+ * when everything fits or the shortlist is off; rebuilt from scratch on each render, so
+ * loading more pages can never duplicate or misplace it. */
+export function rowsWithBudgetDivider<T>(
+  items: T[],
+  enabled: boolean,
+  budget = SHORTLIST_BUDGET,
+): (T | "divider")[] {
+  if (!enabled || items.length <= budget) return [...items];
+  return [...items.slice(0, budget), "divider", ...items.slice(budget)];
+}
+
+type ListParamState = Pick<
+  State,
+  "kind" | "status" | "q" | "docId" | "chapterId" | "source" | "anki" | "sort" | "shortlist" | "excluded"
+>;
+
+/** Request parameters for the current filters. The shortlist has its own order, so it
+ * sends no sort; reviewing a hidden group sends excluded= and keeps the normal sort. */
+export function storeListParams(state: ListParamState, offset = 0): StoreListParams {
+  const vocab = state.kind === "vocab";
+  const shortlistOn = vocab && state.shortlist && !state.excluded;
+  return {
+    status: (state.status || undefined) as StoreStatus | undefined,
+    q: state.q || undefined,
+    doc_id: state.docId || undefined,
+    chapter_id: state.chapterId || undefined,
+    source: state.source || undefined,
+    anki: state.anki || undefined,
+    shortlist: shortlistOn ? true : undefined,
+    excluded: vocab && state.excluded ? state.excluded : undefined,
+    sort: shortlistOn ? undefined : state.sort,
+    limit: PAGE_SIZE,
+    offset,
+  };
 }
 
 /** "1 item" / "N items" for the list header. */
@@ -187,6 +275,9 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     source: "",
     anki: "",
     sort: "recent",
+    shortlist: false,
+    excluded: "",
+    summary: null,
     items: [],
     total: 0,
     expanded: new Set(),
@@ -194,6 +285,11 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     editing: new Set(),
   };
   if (state.status && !STATUSES.includes(state.status as StoreStatus)) state.status = "";
+  if (kind === "vocab") {
+    const excludedParam = query.get("excluded") as ShortlistReason | null;
+    if (excludedParam && SHORTLIST_REASONS.includes(excludedParam)) state.excluded = excludedParam;
+    state.shortlist = query.get("shortlist") === "1" || !!state.excluded;
+  }
 
   const title = kind === "vocab" ? "Vocabulary" : "Grammar";
   container.innerHTML = `
@@ -232,6 +328,11 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         </select>`
             : ""
         }
+        ${
+          kind === "vocab"
+            ? `<button id="study-shortlist-toggle" class="study-stat-chip" aria-pressed="false" title="Propose a study shortlist: hide words already in Anki, basic, grammar-like or known">Shortlist</button>`
+            : ""
+        }
         <select id="study-sort">
           <option value="recent">Newest</option>
           <option value="updated">Recently updated</option>
@@ -240,6 +341,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         </select>
         <span id="study-count" class="study-bulk-label" aria-live="polite"></span>
       </div>
+      <div id="study-shortlist-line" class="study-bulk-label study-shortlist-line" hidden></div>
       <div id="study-bulk-bar" class="row study-bulk-bar" hidden></div>
       <div id="study-list" class="study-list"></div>
       <div class="row" style="justify-content:center;margin:12px 0">
@@ -264,23 +366,49 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
   const ankiBtn = container.querySelector<HTMLButtonElement>("#study-anki-btn")!;
   const ankiFilter = container.querySelector<HTMLSelectElement>("#study-anki-filter");
   const wkBtn = container.querySelector<HTMLButtonElement>("#study-wk-btn")!;
+  const shortlistToggle = container.querySelector<HTMLButtonElement>("#study-shortlist-toggle");
+  const shortlistLine = container.querySelector<HTMLElement>("#study-shortlist-line")!;
 
   let docs: DocMeta[] = [];
   const docNames = new Map<string, string>();
   let wkHasData = false;
 
   function params(offset = 0): StoreListParams {
-    return {
-      status: (state.status || undefined) as StoreStatus | undefined,
-      q: state.q || undefined,
-      doc_id: state.docId || undefined,
-      chapter_id: state.chapterId || undefined,
-      source: state.source || undefined,
-      anki: state.anki || undefined,
-      sort: state.sort,
-      limit: PAGE_SIZE,
-      offset,
-    };
+    return storeListParams(state, offset);
+  }
+
+  /** The shortlist's own review actions (Know it / Skip) apply to the shortlist itself. */
+  const inShortlist = () => state.kind === "vocab" && state.shortlist && !state.excluded;
+
+  function renderShortlistLine() {
+    const on = state.kind === "vocab" && state.shortlist;
+    shortlistToggle?.classList.toggle("active", on);
+    shortlistToggle?.setAttribute("aria-pressed", String(on));
+    sortSelect.disabled = inShortlist();
+    sortSelect.title = inShortlist() ? "The shortlist has its own order" : "";
+    shortlistLine.hidden = !on;
+    if (!on) return;
+    if (state.excluded) {
+      shortlistLine.innerHTML = excludedLineHtml(state.total, state.excluded);
+    } else if (state.summary) {
+      shortlistLine.innerHTML = shortlistSummaryHtml(state.total, state.summary);
+    } else {
+      shortlistLine.textContent = "";
+    }
+    shortlistLine.querySelectorAll<HTMLButtonElement>("[data-excluded]").forEach((btn) => {
+      btn.addEventListener("click", () => setShortlist(true, btn.dataset.excluded as ShortlistReason));
+    });
+    shortlistLine.querySelector("[data-back-to-shortlist]")?.addEventListener("click", () =>
+      setShortlist(true, ""),
+    );
+  }
+
+  function setShortlist(on: boolean, excluded: ShortlistReason | "") {
+    state.shortlist = on;
+    state.excluded = on ? excluded : "";
+    state.summary = null;
+    replaceQuery({ shortlist: on ? "1" : null, excluded: state.excluded || null });
+    void reload();
   }
 
   async function refreshStats() {
@@ -313,6 +441,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
       const res = await listStoreItems(state.kind, params(0));
       state.items = res.items;
       state.total = res.total;
+      state.summary = res.shortlist ?? null;
       state.selected.clear();
       state.editing.clear();
       render();
@@ -337,9 +466,11 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
   function render() {
     countEl.textContent = countLabel(state.total);
     moreBtn.hidden = state.items.length >= state.total;
+    renderShortlistLine();
     renderBulkBar();
     if (state.items.length === 0) {
-      const filtered = state.status || state.q || state.docId || state.chapterId || state.source;
+      const filtered =
+        state.status || state.q || state.docId || state.chapterId || state.source || state.shortlist;
       listEl.innerHTML = filtered
         ? `<p class="empty">No ${state.kind} items match the current filters.</p>`
         : `<p class="empty">Nothing here yet. Items are harvested automatically when you
@@ -348,7 +479,40 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
       return;
     }
     listEl.innerHTML = "";
-    for (const item of state.items) listEl.appendChild(renderRow(item));
+    for (const entry of rowsWithBudgetDivider(state.items, inShortlist())) {
+      if (entry === "divider") {
+        const divider = document.createElement("div");
+        divider.className = "study-budget-divider";
+        divider.textContent = `Budget: ${SHORTLIST_BUDGET} words. Everything below is beyond this chapter's budget.`;
+        listEl.appendChild(divider);
+      } else {
+        listEl.appendChild(renderRow(entry));
+      }
+    }
+  }
+
+  /** One-tap review from the shortlist (Know it / Skip) or from a hidden group (Restore):
+   * the row leaves the list and the summary counts follow locally, no refetch. */
+  async function reviewItem(item: StoreItem, status: StoreStatus, btn: HTMLButtonElement) {
+    btn.disabled = true;
+    try {
+      await patchStoreItem(state.kind, item.id, { status });
+      emit<StoreStatusChange>(STORE_STATUS_CHANGED, { kind: state.kind, id: item.id, status });
+      state.items = state.items.filter((i) => i.id !== item.id);
+      state.total -= 1;
+      const summary = state.summary;
+      if (summary && inShortlist()) {
+        const key: ShortlistReason = status === "known" ? "status_known" : "status_ignored";
+        summary.excluded[key] = (summary.excluded[key] ?? 0) + 1;
+        if ((item as VocabItem).wk_burned) summary.wk_burned = Math.max(0, summary.wk_burned - 1);
+      }
+      render();
+      void refreshStats();
+    } catch (e: any) {
+      btn.disabled = false;
+      logError("StudyDash", "review_failed", { item_id: item.id, error: e.message });
+      toastError("Update failed: " + e.message);
+    }
   }
 
   function renderBulkBar() {
@@ -479,10 +643,18 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         <span class="study-gloss">${escapeHtml(gloss)}</span>
         <div class="grow"></div>
         ${classChips}
+        ${wkBurnedBadge(item)}
         ${freqBadge(item)}
         ${ankiBadge(item)}
         ${sources.map((s) => `<span class="study-badge study-badge-${s}">${s.replace("_", " ")}</span>`).join("")}
         <button class="study-sightings-btn" title="Details, sightings, kanji breakdown">${sightingCount ? `${sightingCount}×` : "…"}</button>
+        ${
+          inShortlist()
+            ? `<span class="study-review-actions"><button class="study-review-btn" data-review="known" title="Mark as known; it leaves the shortlist">Know it</button><button class="study-review-btn" data-review="ignored" title="Ignore; it leaves the shortlist">Skip</button></span>`
+            : state.kind === "vocab" && (state.excluded === "status_known" || state.excluded === "status_ignored")
+              ? `<span class="study-review-actions"><button class="study-review-btn" data-review="unreviewed" title="Put it back in the inbox">Restore</button></span>`
+              : ""
+        }
         <div class="study-status-toggle">
           ${STATUSES.map(
             (s) =>
@@ -516,6 +688,11 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
       detail.hidden = false;
       renderDetail(item, detail);
     }
+
+    row.querySelectorAll<HTMLButtonElement>(".study-review-btn").forEach((btn) => {
+      btn.addEventListener("click", () =>
+        void reviewItem(item, btn.dataset.review as StoreStatus, btn));
+    });
 
     row.querySelectorAll<HTMLButtonElement>(".study-status-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -841,6 +1018,8 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     state.anki = ankiFilter.value;
     void reload();
   });
+
+  shortlistToggle?.addEventListener("click", () => setShortlist(!state.shortlist, ""));
 
   sourceFilter.addEventListener("change", () => {
     state.source = sourceFilter.value;
