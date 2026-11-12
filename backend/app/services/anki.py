@@ -1,9 +1,10 @@
-"""Read-only import of Anki card state through the AnkiConnect add-on.
+"""Import of Anki card state through the AnkiConnect add-on.
 
 The owner studies flashcards in Anki. This module pulls a snapshot of every
 card (word, reading, state) so the vocab store can show "already in Anki"
 badges. It only ever calls the read actions ``version``, ``findCards`` and
-``cardsInfo`` — it never writes to Anki.
+``cardsInfo``. Reads live here; the only writes to Anki are ``createDeck``
+and ``addNotes``, in ``anki_push.py``, on an explicit button press.
 
 Snapshot: ``data/refs/anki/snapshot.json``, replaced atomically on each
 successful sync. A failed sync leaves the previous snapshot in place. Anki

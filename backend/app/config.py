@@ -749,6 +749,8 @@ class Settings(BaseModel):
     anthropic_api_key: str | None
     wanikani_api_token: str | None = None
     anki_connect_url: str = "http://127.0.0.1:8765"
+    anki_push_deck: str = "Studious"
+    anki_push_note_type: str = "Kaishi 1.5k"
     tesseract_cmd: str | None
     # Opus 5.5 since 2026-11: best transcriber of five in model-eval run
     # 20261111-eval-v2, and the only one that doesn't invent unprinted
@@ -796,6 +798,8 @@ def get_settings() -> Settings:
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
         wanikani_api_token=os.environ.get("WANIKANI_API_TOKEN") or None,
         anki_connect_url=os.environ.get("ANKI_CONNECT_URL") or "http://127.0.0.1:8765",
+        anki_push_deck=os.environ.get("ANKI_PUSH_DECK") or "Studious",
+        anki_push_note_type=os.environ.get("ANKI_PUSH_NOTE_TYPE") or "Kaishi 1.5k",
         tesseract_cmd=os.environ.get("TESSERACT_CMD") or None,
         **overrides,
     )
