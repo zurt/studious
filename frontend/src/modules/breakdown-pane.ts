@@ -621,7 +621,7 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
 
   function onClick(e: MouseEvent) {
     const target = e.target as HTMLElement;
-    const sizeBtn = target.closest(".text-size-btn") as HTMLButtonElement | null;
+    const sizeBtn = target.closest(".text-size-btn[data-size]") as HTMLButtonElement | null;
     if (sizeBtn) {
       e.stopPropagation();
       setTextSize(Number(sizeBtn.dataset.size) as TextSize);

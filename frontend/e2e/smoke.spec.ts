@@ -101,6 +101,13 @@ test("drawing a region and transcribing it renders mock markdown", async ({ page
   const detail = page.locator("#region-detail");
   await expect(detail.locator(".markdown ruby.furi").first()).toBeVisible();
   await expect(detail.locator(".furigana-toggle")).toHaveCount(1);
+
+  // Changing the furigana mode must not reset the text size.
+  await detail.locator('.text-size-btn[data-size="2"]').click();
+  await expect(detail.locator(".markdown")).toHaveClass(/text-size-2/);
+  await detail.locator('.furigana-toggle [data-furigana-mode="shown"]').click();
+  await expect(page.locator("html")).toHaveAttribute("data-furigana", "shown");
+  await expect(detail.locator(".markdown")).toHaveClass(/text-size-2/);
 });
 
 test("generating a sentence breakdown renders cards and vocab/grammar popovers", async ({ page }) => {
