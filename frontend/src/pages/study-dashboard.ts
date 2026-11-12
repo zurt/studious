@@ -827,6 +827,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         <div class="grow"></div>
         <button class="study-edit-btn" title="Edit fields and notes">Edit</button>
       </div>
+      ${isVocab(item) && item.meaning_context && item.meaning_context !== item.meaning ? `<div class="study-context">In the textbook: <span lang="en">${escapeHtml(item.meaning_context)}</span></div>` : ""}
       ${item.notes ? `<div class="study-notes">${escapeHtml(item.notes)}</div>` : ""}
       ${isVocab(item) ? `<div class="study-example"></div><div class="study-audio" hidden></div>` : ""}
       ${sightings || `<p class="empty">No sightings.</p>`}

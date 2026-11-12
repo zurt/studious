@@ -258,7 +258,8 @@ def _word_payload(item: dict[str, Any], problem: str | None = None) -> dict[str,
         "id": item["id"],
         "headword": item.get("headword") or "",
         "reading": item.get("reading") or "",
-        "meaning": item.get("meaning") or "",
+        # The sense the textbook teaches, not a dictionary's first sense.
+        "meaning": item.get("meaning_context") or item.get("meaning") or "",
         "pos": item.get("pos") or [],
     }
     if problem:

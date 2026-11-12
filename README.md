@@ -314,7 +314,14 @@ store, and the Anki snapshot is re-synced so they leave the shortlist.
 
 #### Card quality
 
-- **Short meanings.** A meaning that came from the dictionary
+- **Textbook meaning first.** Each vocab item keeps the meaning the
+  textbook (or the model, or you) gave it as `meaning_context`, even when
+  the dictionary link later supplies its own gloss; the card uses it (first
+  glosses only if over 60 characters), and the row detail shows "In the
+  textbook: …". Dictionary links are checked so a reading shared with another
+  word (成功する vs 性交) no longer links the wrong entry; after updating,
+  restart the backend once and items are re-linked in the background.
+- **Short meanings.** Without a textbook meaning, one that came from the dictionary
   (`meaning_source: "jmdict"`) goes on the card as its first three glosses,
   cut earlier if the next would pass 40 characters (`to obtain, to get, to
   procure`). A meaning you edited (`user`) or the model wrote for the

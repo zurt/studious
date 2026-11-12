@@ -60,7 +60,7 @@ class TestCardMeaning:
 
     def test_store_meaning_untouched(self, isolated_data_dir, monkeypatch):
         ids = _seed(("犬",))
-        store.update_item("vocab", ids[0], meaning="a; b; c; d", meaning_source="jmdict")
+        store.update_item("vocab", ids[0], meaning="a; b; c; d", meaning_source="jmdict", meaning_context="")
         _use(monkeypatch)
         d = client.post("/api/anki/push/preview", json=BODY).json()
         assert d["items"][0]["fields"]["Word Meaning"] == "a, b, c"

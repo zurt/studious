@@ -340,6 +340,22 @@ decisions:
   sentence of at most 60 characters, else the item's stored `example`, else
   empty; the preview reports `sentence_source` per row and
   `counts.needs_example` / `needs_example_ids`.
+- **Dictionary links and `meaning_context`**: `jmdict.lookup` tries the
+  surface, then without list markers (`store.strip_list_marker`), without a
+  pattern tilde + particle, without する/な (`store.stem_parts`), and only
+  then the reading, accepted for kana-only headwords or when every kanji
+  (digits equal kanji numerals) of the headword is in one of the entry's
+  kanji forms; the hit carries `match` (surface | marker | pattern | stem |
+  reading). `enrich.ENRICH_VERSION` (stamped as `enrich_version`) re-links
+  every item once when bumped, clears `jmdict_seq`/`pos`/JLPT/common when a
+  link is dropped, skips no-op writes and logs `enrich_done` with relinked /
+  unlinked / unchanged. Vocab items carry `meaning_context`: the textbook's
+  own meaning (source llm or user), set at creation and on PATCH, backfilled
+  once from `store.meaning_history()` (latest llm/user record per item), never
+  replaced by enrichment, restored into `meaning` when a link is dropped.
+  The card meaning and the example-sentence prompt prefer it. Harvest does
+  not strip list markers from headwords (only the vocab-list parser strips
+  numeric indices and `-*•` bullets); existing headwords are not rewritten.
 - **Card quality** (`services/anki_push.py`): `Word Meaning` is shortened
   (`card_meaning`: first 3 glosses, 40 chars) only when
   `meaning_source == "jmdict"` (values: `llm` default, `jmdict`, `user`).

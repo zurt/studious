@@ -71,6 +71,7 @@ MAX_TEXTBOOK_SENTENCE_CHARS = 60
 # this many characters (the first gloss is always kept).
 MAX_CARD_GLOSSES = 3
 MAX_CARD_MEANING_CHARS = 40
+MAX_CONTEXT_MEANING_CHARS = 60
 AUDIO_WORKERS = 4
 
 _push_lock = threading.Lock()
@@ -445,9 +446,16 @@ def stored_example(item: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def word_meaning(item: dict[str, Any]) -> str:
-    """The stored meaning, shortened only when it came from the dictionary
-    (``meaning_source`` "jmdict"); an owner's ("user") or the model's ("llm",
-    written for the textbook context) meaning goes on the card as it is."""
+    """The card meaning. The textbook-context meaning (``meaning_context``)
+    when the item has one, with ';' written as ', ' and shortened like a
+    dictionary gloss if it is over 60 characters. Otherwise the stored
+    meaning, shortened only when it came from the dictionary
+    (``meaning_source`` "jmdict"); an owner's ("user") or the model's ("llm")
+    meaning goes on the card as it is."""
+    ctx = (item.get("meaning_context") or "").strip()
+    if ctx:
+        joined = ", ".join(split_glosses(ctx))
+        return card_meaning(ctx) if len(joined) > MAX_CONTEXT_MEANING_CHARS else joined
     meaning = item.get("meaning") or ""
     return card_meaning(meaning) if item.get("meaning_source") == "jmdict" else meaning
 

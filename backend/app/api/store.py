@@ -244,6 +244,7 @@ def _update_item(kind: str, item_id: str, body: UpdateVocab | UpdateGrammar) -> 
     if kind == "vocab" and "meaning" in changes:
         # A hand-edited meaning must survive future enrichment passes.
         changes["meaning_source"] = "user"
+        changes["meaning_context"] = (changes["meaning"] or "").strip()
     updated = store.update_item(kind, item_id, **changes)
     if updated is None:
         raise HTTPException(404, f"{kind} item not found")

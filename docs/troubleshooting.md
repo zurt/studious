@@ -382,6 +382,25 @@ Open the vocab row's detail: **Regenerate** asks the model for a new one,
 already sent to Anki are not updated; fix the note in Anki by hand. The
 stored `example` records the model that wrote it.
 
+### A word shows a wrong meaning / wrong dictionary entry
+Symptom: 成功する linked to 性交, 管理する to 官吏, 買える to 帰る, with
+that entry's gloss, JLPT level and Anki entry match. Cause: until
+`ENRICH_VERSION` 3 the dictionary lookup fell back to the reading alone and
+took the lowest-numbered homophone. Now the surface is tried first, then
+without a list marker (①, ＊, `a.`), without a pattern tilde and particle
+(〜に及ぶ), without する/な, and a reading-only hit is accepted only for a
+kana-only headword or when every kanji of the headword occurs in one of the
+entry's written forms. Restarting the backend after this update re-links
+every vocab item once (in the background, `startup_enrich_*` under
+`studious.main`); the summary is one `enrich_done` line under
+`studious.enrich` with `relinked`, `unlinked`, `unchanged`. A word whose
+link is dropped gets its textbook meaning back (`meaning_context`). Cards
+use `meaning_context` when present, so they are right even before the
+re-link finishes. To re-run it by hand: `POST /api/store/enrich?force=true`.
+Not fixed by this: an inflected form such as 受けて can still resolve to a
+homophone whose kanji include its own (受け手); edit the item's reading or
+headword, or its meaning (an edited meaning is never overwritten).
+
 ### Cards have no audio
 The send result says how many clips were added. None means: not macOS or
 no `say` on PATH; the voice is not installed (`say -v '?'` lists them;

@@ -678,6 +678,8 @@ export type VocabItem = {
   jmdict_seq: number | null;
   enriched_at?: string | null;
   example?: VocabExample | null;
+  /** The textbook-context meaning; `meaning` may be a dictionary gloss. */
+  meaning_context?: string;
   status: StoreStatus;
   classifications: StoreClassifications;
   priority_group: number | null;

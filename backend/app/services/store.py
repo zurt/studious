@@ -139,6 +139,22 @@ def stem_variants(word: str, reading: str | None = "") -> list[tuple[str, str]]:
     return [v for v in out if v[0] != own]
 
 
+_CIRCLED_MARKER_RE = re.compile(r"^\s*[\u2460-\u2473\u3251-\u325f\u32b1-\u32bf]\s*")
+_LIST_MARKER_RE = re.compile(
+    r"^\s*(?:\(?[0-9]{1,3}[.)]\s*|[0-9]{1,3}\s+|\(?[A-Za-z][.)]\s*|[*\u203b\u2022\u25cf\u25aa-]+\s*)"
+)
+
+
+def strip_list_marker(text: str) -> str:
+    """NFKC text with a leading list marker removed: circled digits (①), ＊/*/※,
+    bullets, and ``a.`` / ``1.`` / ``(1)`` style labels, plus surrounding
+    spaces. A digit directly before a word (2週間) is part of the word and stays.
+    Textbook vocab lists and breakdowns carry these markers into headwords."""
+    text = _CIRCLED_MARKER_RE.sub("", text or "")
+    text = unicodedata.normalize("NFKC", text).strip()
+    return _LIST_MARKER_RE.sub("", text).strip()
+
+
 _TILDE_CHARS = "〜～~…・"
 
 
@@ -294,6 +310,9 @@ def _new_vocab_item(
     meaning_source: str = "llm",
     notes: str = "",
 ) -> dict[str, Any]:
+    # ``meaning_context`` is the textbook-context meaning (written by the book,
+    # the model or the owner); enrichment may replace ``meaning`` with a
+    # dictionary gloss but never touches this.
     now = _now_iso()
     return {
         "id": uuid.uuid4().hex,
@@ -301,6 +320,7 @@ def _new_vocab_item(
         "reading": reading,
         "meaning": meaning,
         "meaning_source": meaning_source,
+        "meaning_context": meaning if meaning_source in CONTEXT_SOURCES and meaning else "",
         "pos": [],
         "jmdict_seq": None,
         "status": status,
@@ -337,6 +357,36 @@ def _new_grammar_item(
         "updated_at": now,
         "deleted": False,
     }
+
+
+# ---------- Textbook-context meanings ----------
+
+CONTEXT_SOURCES = ("llm", "user")
+_context_cache: dict[str, tuple[tuple[int, int], dict[str, tuple[str, str]]]] = {}
+
+
+def meaning_history(kind: str = "vocab") -> dict[str, tuple[str, str]]:
+    """{item id: (meaning, meaning_source)} from the most recent record of each
+    item whose ``meaning_source`` was llm or user and whose meaning is not
+    empty. The store is append-only, so this still has the textbook meaning
+    where enrichment later replaced ``meaning`` with a dictionary gloss. One
+    pass over the file, cached on its size and mtime like the item cache."""
+    path = store_path(kind)
+    try:
+        st = path.stat()
+    except FileNotFoundError:
+        return {}
+    sig = (st.st_mtime_ns, st.st_size)
+    cached = _context_cache.get(str(path))
+    if cached and cached[0] == sig:
+        return cached[1]
+    out: dict[str, tuple[str, str]] = {}
+    for rec in _iter_lines(path):
+        source, meaning = rec.get("meaning_source"), (rec.get("meaning") or "").strip()
+        if source in CONTEXT_SOURCES and meaning:
+            out[rec["id"]] = (meaning, source)
+    _context_cache[str(path)] = (sig, out)
+    return out
 
 
 def create_item(kind: str, **fields: Any) -> dict[str, Any]:
@@ -412,7 +462,7 @@ def merge_items(kind: str, target_id: str, source_id: str) -> dict[str, Any] | N
         ]
 
         if kind == "vocab":
-            fill_fields = ("reading", "meaning", "meaning_source", "pos", "jmdict_seq")
+            fill_fields = ("reading", "meaning", "meaning_source", "meaning_context", "pos", "jmdict_seq")
             variants = list(merged.get("surface_variants") or [])
             for variant in (source.get("headword"), *(source.get("surface_variants") or [])):
                 if variant and variant != merged.get("headword") and variant not in variants:
