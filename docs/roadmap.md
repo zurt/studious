@@ -498,6 +498,9 @@ Shipped 2026-07-01 (except frequency-rank tagging, deferred — see note).
       send; a vocab row's detail has Generate / Regenerate / Remove.
       Textbook sentences over 60 characters are no longer used
       (`POST /api/vocab/examples`, `DELETE /api/vocab/{id}/example`)
+- [x] Textbook example sentences carry furigana and a translation (model,
+      same Generate step); a second speech engine (VOICEVOX / AivisSpeech)
+      chosen in Settings > Speech, with a reading check against the card
 - [x] Anki card quality: short dictionary meanings on the card; a word
       and its する/な form are one word (Anki lookup `stem` match, in-batch and
       in-Anki duplicate checks); generated sentences use する words as verbs

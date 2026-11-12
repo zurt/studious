@@ -408,10 +408,31 @@ no `say` on PATH; the voice is not installed (`say -v '?'` lists them;
 change with `STUDIOUS_TTS_VOICE`); the dialog's "Add audio" box was off or
 `ANKI_PUSH_AUDIO=false`. "N failed" means `say` errored for some clips (log
 `anki_push_audio_failed` under `studious.tts` / `studious.anki`); those
-notes were still sent. If clips are generated but the field stays empty, the
-per-note `audio` media shape may differ in your AnkiConnect version (it is
-not verified against a real Anki; see `anki_push.attach_audio`). Cached
+notes were still sent. With the VOICEVOX engine, `GET /api/tts/status` gives
+the `reason` (engine app not running, wrong URL, no speaker chosen). Cached
 clips are in `backend/data/audio/`; delete one to regenerate it.
+
+### No speakers listed (Settings > Speech)
+The picker is filled from the engine's `GET /speakers`. "No speakers listed"
+means the engine app (VOICEVOX or AivisSpeech) is not running or the URL is
+wrong: VOICEVOX listens on `http://127.0.0.1:50021`, AivisSpeech on
+`http://127.0.0.1:10101`. Start the app, check the URL in Settings, and
+open `<url>/version` in a browser. The app must also be running whenever you
+send words to Anki or play a clip.
+
+### The audio sounds the same after changing the voice
+Cards already in Anki keep their old clips: Studious never edits existing
+notes. Only words sent afterwards get clips from the new voice (clips are
+cached per engine, speaker and text, so old ones are not reused). Row Play
+buttons use the current voice at once.
+
+### Textbook sentences have no readings on the card
+Readings come from the model in the Generate step of the Send to Anki dialog
+("N textbook sentences need readings"). A failed item (the model's furigana
+did not reduce to the sentence, after one retry) keeps the sentence without
+readings; see `readings_validation_dropped` under `studious.examples`. If the
+breakdown was re-run and the sentence changed, the stored readings are
+ignored and the dialog offers them again.
 
 ### The audio reads a word wrongly
 The built-in voice picks the reading from the kanji itself and can choose a

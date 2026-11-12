@@ -155,7 +155,10 @@ Environment variables (read at startup, `.env` supported):
 - `ANKI_CONNECT_URL` — AnkiConnect endpoint for the Anki import (default
   `http://127.0.0.1:8765`).
 - `STUDIOUS_TTS_VOICE` — macOS `say` voice for card audio (default
-  `Kyoko`); `ANKI_PUSH_AUDIO` — attach audio on send (default true).
+  `Kyoko`); `ANKI_PUSH_AUDIO` — attach audio on send (default true);
+  `STUDIOUS_TTS_ENGINE` (`say` or `voicevox`), `STUDIOUS_TTS_URL` (default
+  `http://127.0.0.1:50021`), `STUDIOUS_TTS_SPEAKER` (a VOICEVOX style id, no
+  default) — defaults for the speech engine, overridden by Settings > Speech.
 - `ANKI_PUSH_DECK` / `ANKI_PUSH_NOTE_TYPE` — where "Send to Anki" puts new
   cards (defaults `Studious` and `Kaishi 1.5k`).
 - `STUDIOUS_DATA_DIR` — data root (default `./data`).
@@ -343,17 +346,32 @@ store, and the Anki snapshot is re-synced so they leave the shortlist.
   vocab row's detail, **Play word** / **Play sentence** play the same clips.
   Better voices can be downloaded in macOS System Settings > Accessibility >
   Spoken Content > System Voice > Manage Voices; set `STUDIOUS_TTS_VOICE` to
-  the voice's name and restart. The per-note `audio` shape follows
-  AnkiConnect's documented `addNote` media format but has not been checked
-  against a real Anki yet.
+  the voice's name and restart.
+- **A better voice (VOICEVOX / AivisSpeech).** Both are free local apps that
+  speak Japanese through the same HTTP API. Install one, start it, then in
+  Settings > Speech pick the engine "VOICEVOX / AivisSpeech", check the URL
+  (VOICEVOX `http://127.0.0.1:50021`, AivisSpeech `http://127.0.0.1:10101`),
+  choose a speaker (listed as "Character — Style") and press **Test voice**.
+  The app must be running whenever you send words to Anki or play a clip.
+  VOICEVOX voices carry their own terms of use (credit requirements and
+  limits differ per voice): read them for the voice you pick. Clips are
+  converted to AAC .m4a with `afconvert` (part of macOS), else kept as .wav.
+  The engine's reading of a word or sentence is compared with the card's
+  reading and, when they differ, the clip is made from the card's reading
+  instead (the send result counts these). The choice is stored in
+  `data/preferences.json`; changing the voice does not touch cards already in
+  Anki, and new clips never reuse old ones.
 
 #### Example sentences
 
 Each card gets one example sentence, chosen in this order:
 
 1. A short sentence (60 characters or fewer) from a breakdown of a reading
-   passage where the word was seen, with its translation. Textbook
-   sentences keep their text as printed, with no readings added.
+   passage where the word was seen, with the breakdown's translation. The
+   sentence keeps its text as printed; its readings (furigana) and, when the
+   breakdown has no translation, an English translation come from the model
+   (stored on the item as an `example` with `source: "textbook"`). Until
+   you generate them the card has the sentence without readings.
 2. Otherwise a generated sentence stored on the vocab item (a する word
    gets a sentence that uses it as a verb, a な word as an adjective): one natural
    sentence in the style of the Kaishi 1.5k deck, using the word in its
@@ -361,8 +379,9 @@ Each card gets one example sentence, chosen in this order:
    and an English translation.
 3. Otherwise the sentence fields stay empty.
 
-When some of the words about to be sent have no sentence, the dialog says
-so and offers **Generate N sentences**. This asks the configured model
+When some of the words about to be sent have no sentence, or use a
+textbook sentence without readings, the dialog says so ("88 words need a
+sentence and 37 textbook sentences need readings.") and offers **Generate**. This asks the configured model
 (Settings > model) for the sentences in batches of 20, shows progress, and
 can be cancelled between batches; **Send without** skips it. It costs API
 tokens, audited under the `example_sentences` job type in the cost summary.

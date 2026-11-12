@@ -340,6 +340,30 @@ decisions:
   sentence of at most 60 characters, else the item's stored `example`, else
   empty; the preview reports `sentence_source` per row and
   `counts.needs_example` / `needs_example_ids`.
+- **Textbook sentence readings**: a stored `example` may have
+  `source: "textbook"` (`sentence` = the cleaned sentence `choose_sentence`
+  picks, `surface`, `furigana`, `gloss`, `model`, `created_at`,
+  `sighting {region_id, sentence_index}`); it is used only while its
+  `sentence` equals the one chosen now (else ignored, not deleted).
+  `examples.generate_examples(ids, doc_id, chapter_id)` gives each item
+  readings for its textbook sentence (tool `record_sentence_readings`,
+  `SENTENCE_READINGS_PROMPT`, audit `sentence_readings`, batches of 20,
+  furigana checks without the generated-sentence rules, one retry) or, with
+  none, a generated sentence; statuses `generated | readings | kept | failed`.
+  The breakdown gloss beats a stored one. Preview adds `needs_readings` /
+  `needs_readings_ids`.
+- **Speech engines** (`services/tts.py`, `services/voicevox.py`): `say`
+  (default) or a VOICEVOX-compatible engine (`GET /version`, `GET /speakers`,
+  `POST /audio_query`, `POST /synthesis`; all assumptions in `voicevox.py`).
+  Settings `tts_engine` / `tts_url` / `tts_speaker` (env `STUDIOUS_TTS_*`) are
+  overridden by `preferences.json` keys of the same names (PUT
+  `/api/preferences`; `""` clears). WAV is converted with `afconvert -f m4af -d aac`
+  else kept `.wav`; clips cached under `data/audio/` by hash of engine,
+  voice/speaker, text and expected reading. `synthesize(text, reading)` compares
+  the engine's kana with the card's reading (long vowels and は/へ/を
+  normalised) and re-queries with the reading on a mismatch
+  (`reading_corrected` in the push result). Endpoints: `GET /api/tts/status`
+  (engine, voice, reason), `GET /api/tts/speakers`, `POST /api/tts/test`.
 - **Dictionary links and `meaning_context`**: `jmdict.lookup` tries the
   surface, then without list markers (`store.strip_list_marker`), without a
   pattern tilde + particle, without する/な (`store.stem_parts`), and only
@@ -367,7 +391,8 @@ decisions:
   <voice> --file-format=m4af --data-format=aac -o tmp -f textfile`, cached
   `data/audio/<hash>.m4a`), settings `tts_voice` / `anki_push_audio`; the
   push attaches per-note `audio` media (`anki_push.attach_audio`, the only
-  place that knows the shape; unverified against a real Anki), never in the
+  place that knows the shape; confirmed against a real Anki: both
+  `[sound:…]` tags land in the fields), never in the
   can-add notes; preview reports `audio {enabled, available, voice}`, the
   result `audio {enabled, attached, failed}`; `GET /api/tts/status`,
   `GET /api/vocab/{id}/audio?part=word|sentence`.
