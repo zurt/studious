@@ -235,8 +235,17 @@ _MARKER_RE = re.compile(
     r"|[(（](?P<paren>\d+)[)）]\s*"
     r"|(?P<dot>\d+)\s*[.)．）]\s*"
     r"|(?P<bare>\d+)\s+"
-    r"|[-*+•●○▪・]\s+)"
+    r"|例\s*[)）:：]\s*"
+    r"|[-*+•●▪・]\s+)"
 )
+# Cleaned-text exercise patterns: a numbered or lettered blank such as （①）
+# or (a), a choose-one bracket such as （機械の・人間の）, and correction marks.
+_LABEL_BLANK_RE = re.compile(
+    r"[(（\[［【]\s*(?:[\u2460-\u2473]|\d+|[\u3041-\u30ffA-Za-z\uff21-\uff3a\uff41-\uff5a])\s*[)）\]］】]"
+)
+_CHOICE_RE = re.compile(r"[(（][^()（）]*[・/／][^()（）]*[)）]")
+_CORRECTION_MARKS = "×○✕✗"
+_GLOSS_EXAMPLE_RE = re.compile(r"^\s*(?:Example\s*[):：]|e\.g\.\s*[:)]?)\s*", re.IGNORECASE)
 _EMPTY_BRACKETS_RE = re.compile(r"[(（\[［【「『]\s*[)）\]］】」』]")
 _UNDERSCORE_RUN_RE = re.compile(r"_{2,}")
 _TERMINATORS = "。！？!?"
@@ -284,6 +293,10 @@ def usable_sentence(raw: str) -> str | None:
     for probe in (raw, text):
         if "|" in probe or "□" in probe or _has_blank(probe) or _EMPTY_BRACKETS_RE.search(probe):
             return None
+    if _LABEL_BLANK_RE.search(text) or _CHOICE_RE.search(text):
+        return None
+    if any(c in probe for probe in (raw, text) for c in _CORRECTION_MARKS):
+        return None
     if not any(t in text for t in _TERMINATORS):
         return None
     if text.rstrip(_CLOSERS + " ")[-1:] not in tuple(_TERMINATORS):
@@ -360,6 +373,7 @@ def sentence_gloss(sighting: dict[str, Any]) -> str:
         gloss = (sentence.get("gloss") or "").strip()
     except (KeyError, IndexError, TypeError, ValueError, OSError, AttributeError):
         return ""
+    gloss = _GLOSS_EXAMPLE_RE.sub("", gloss)
     _, number = split_marker(sighting.get("sentence_text") or "")
     if number is not None:
         rest, gloss_number = split_marker(gloss)

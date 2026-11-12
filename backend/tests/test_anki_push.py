@@ -669,6 +669,15 @@ class TestUsableSentence:
             "これは______です。",
             "これは\\_\\_\\_です。",
             "これは__です。",
+            "(④ )心理的要素をぬきに、プラセボ効果を説明できるだろうか?",
+            "この漫画の（①）は21歳の女性で、…という（②）だ。",
+            "工場の生産ラインでは、（機械の・人間の）代わりに、機械が働く。",
+            "泊まる人は（プライバシーが守られる・ルールを守らなければならない）。",
+            "泊まる人は（A／B）。",
+            "黒澤、小津×といったふうに監督は世界でも有名だ。",
+            "黒澤、小津○といったふうに監督は世界でも有名だ。",
+            "これは✕です。",
+            "これは✗です。",
             "これは本です",
             "犬と猫",
             "あ" * 120 + "。",
@@ -690,6 +699,12 @@ class TestUsableSentence:
             ("「行こう！」", "「行こう！」"),
             ("本当ですか？", "本当ですか？"),
             ("彼(かれ)は行く。", "彼は行く。"),
+            ("例）家族、友人、さらには上司にまで知られてしまった。", "家族、友人、さらには上司にまで知られてしまった。"),
+            ("例: 本を読む。", "本を読む。"),
+            ("例：本を読む。", "本を読む。"),
+            ("例) 本を読む。", "本を読む。"),
+            ("日(ひ)が出る。", "日が出る。"),
+            ("A(子供):お母さーん。B(母親):しょうがないわねえ。", "A(子供):お母さーん。B(母親):しょうがないわねえ。"),
         ],
     )
     def test_accepted_and_cleaned(self, raw, expected):
@@ -804,3 +819,12 @@ class TestNotesAndCounts:
         assert d["counts"]["without_sentence"] == 1
         assert d["items"][0]["tags"] == ["studious", f"studious::{doc}::{ch}"]
         assert [i["has_gloss"] for i in d["items"]] == [True, False, False]
+
+
+def test_gloss_example_marker_stripped(textbook):
+    doc, ch = textbook
+    text = "例）家族に知られてしまった。"
+    for gloss in ("Example) It got out to my family.", "Example: It got out to my family.",
+                  "e.g. It got out to my family."):
+        _breakdown(doc, ch, [{"text": text, "gloss": gloss}])
+        assert anki_push.sentence_gloss(_sighting(text, doc=doc, chapter=ch)) == "It got out to my family."
