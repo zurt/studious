@@ -47,6 +47,7 @@ button {
   cursor: pointer;
 }
 button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 button:disabled, select:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
 
 a.topbar-link-btn {
@@ -996,6 +997,12 @@ html[data-furigana="hidden"] .furi-reveal:not(.is-revealed) { filter: blur(4px);
 .study-detail-head .study-links { margin-bottom: 0; }
 .study-variants { font-size: 12px; color: var(--muted); }
 .study-edit-btn { font-size: 12px; padding: 3px 10px; }
+.study-example { margin: 6px 0 8px; }
+.study-example-text { font-size: 15px; line-height: 2; }
+.study-example-gloss { font-size: 13px; color: var(--muted); }
+.study-example-actions { gap: 6px; margin-top: 4px; }
+.study-example-actions button { font-size: 12px; padding: 3px 10px; }
+.anki-push-generate, .anki-push-progress { margin: 8px 0; }
 .study-notes {
   font-size: 13px; padding: 6px 8px; background: var(--bg-soft);
   border-radius: 6px; white-space: pre-wrap;

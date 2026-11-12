@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
+  ankiFuriganaHtml,
   applyFurigana,
   createFuriganaToggle,
   cycleFuriganaMode,
@@ -119,5 +120,33 @@ describe("display mode", () => {
     setFuriganaMode("shown");
     second.click();
     expect(second.classList.contains("is-revealed")).toBe(false);
+  });
+});
+
+describe("ankiFuriganaHtml", () => {
+  const furi = "彼[かれ]に 会[あ]えて 嬉[うれ]しかった。";
+
+  it("renders brackets as ruby and bolds the surface", () => {
+    const html = ankiFuriganaHtml(furi, "嬉しかった");
+    expect(html).toBe(
+      '<ruby class="furi">彼<rp>(</rp><rt>かれ</rt><rp>)</rp></ruby>に' +
+        '<ruby class="furi">会<rp>(</rp><rt>あ</rt><rp>)</rp></ruby>えて' +
+        '<b><ruby class="furi">嬉<rp>(</rp><rt>うれ</rt><rp>)</rp></ruby>しかった</b>。',
+    );
+  });
+
+  it("no bold when the surface is missing or empty", () => {
+    expect(ankiFuriganaHtml(furi, "ない")).not.toContain("<b>");
+    expect(ankiFuriganaHtml(furi)).not.toContain("<b>");
+  });
+
+  it("a surface cutting a kanji run bolds the whole unit; one at the start works", () => {
+    expect(ankiFuriganaHtml("旅行[りょこう]に 行[い]く。", "旅")).toMatch(/^<b><ruby[^>]*>旅行.*<\/ruby><\/b>に/);
+  });
+
+  it("escapes text and handles empty input", () => {
+    expect(ankiFuriganaHtml("A<B 嬉[うれ]しい。", "嬉しい")).toContain("A&lt;B<b>");
+    expect(ankiFuriganaHtml("")).toBe("");
+    expect(ankiFuriganaHtml(null)).toBe("");
   });
 });

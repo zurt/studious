@@ -1,10 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { previewAnkiPush, sendAnkiPush, type AnkiPushPreview, type AnkiPushResult } from "../src/api";
 import {
+  deleteVocabExample,
+  generateExamples,
+  previewAnkiPush,
+  sendAnkiPush,
+  type AnkiPushPreview,
+  type AnkiPushResult,
+  type ExamplesResponse,
+} from "../src/api";
+import {
+  GENERATE_CHUNK,
+  chunkIds,
   clampCount,
+  generateButtonLabel,
+  generationSummary,
+  needsExampleLine,
+  offerVisible,
+  progressText,
   pushDialogLines,
   pushResultMessage,
   sendButtonLabel,
+  tallyResults,
 } from "../src/modules/anki-push-dialog";
 import { sendToAnkiTitle } from "../src/pages/study-dashboard";
 
@@ -20,11 +36,11 @@ function preview(over: Partial<AnkiPushPreview> = {}, n = 12): AnkiPushPreview {
     note_type: "Kaishi 1.5k",
     counts: {
       candidates: n, will_add: n, skipped: 0, without_sentence: 0, with_sentence: n, with_gloss: 0,
-      headword_match: 0,
+      headword_match: 0, needs_example: 0, needs_example_ids: [],
     },
     items: Array.from({ length: n }, (_, i) => ({
       id: `i${i}`, headword: `語${i}`, reading: "", fields: {}, tags: [], has_sentence: true, has_gloss: false,
-      can_add: true, reason: "", headword_match: false,
+      can_add: true, reason: "", headword_match: false, sentence_source: "textbook",
     })),
     ...over,
   };
@@ -67,7 +83,7 @@ describe("push dialog text", () => {
     const p = preview({ will_create_deck: true, deck_exists: false }, 3);
     p.counts = {
       candidates: 5, will_add: 3, skipped: 2, without_sentence: 1, with_sentence: 2, with_gloss: 1,
-      headword_match: 1,
+      headword_match: 1, needs_example: 1, needs_example_ids: ["x"],
     };
     const text = pushDialogLines(p).join("\n");
     expect(text).toContain("This deck will be created.");
@@ -109,5 +125,77 @@ describe("send button title", () => {
     expect(sendToAnkiTitle("d", "", 5)).toContain("Pick a textbook");
     expect(sendToAnkiTitle("d", "c", 0)).toBe("No candidates to send");
     expect(sendToAnkiTitle("d", "c", 5)).toContain("Studious");
+  });
+});
+
+describe("example generation requests", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("posts ids and force", async () => {
+    fetchMock.mockImplementation(async () => jsonResponse({ items: [], usage: {} }));
+    await generateExamples(["a", "b"]);
+    await generateExamples(["a"], true);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/vocab/examples");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ item_ids: ["a", "b"], force: false });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ item_ids: ["a"], force: true });
+  });
+
+  it("deletes the stored example", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
+    await deleteVocabExample("v1");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/vocab/v1/example");
+    expect(fetchMock.mock.calls[0][1].method).toBe("DELETE");
+  });
+});
+
+describe("example generation text and chunking", () => {
+  it("chunks ids by 20, keeping order", () => {
+    const ids = Array.from({ length: 45 }, (_, i) => `i${i}`);
+    const chunks = chunkIds(ids);
+    expect(GENERATE_CHUNK).toBe(20);
+    expect(chunks.map((c) => c.length)).toEqual([20, 20, 5]);
+    expect(chunks.flat()).toEqual(ids);
+    expect(chunkIds([])).toEqual([]);
+    expect(chunkIds(["a", "b", "c"], 2)).toEqual([["a", "b"], ["c"]]);
+  });
+
+  it("offer line and button label", () => {
+    expect(needsExampleLine(103)).toBe("103 words have no example sentence.");
+    expect(needsExampleLine(1)).toBe("1 word has no example sentence.");
+    expect(generateButtonLabel(103)).toBe("Generate 103 sentences");
+    expect(generateButtonLabel(1)).toBe("Generate 1 sentence");
+  });
+
+  it("progress text", () => {
+    expect(progressText(40, 103)).toBe("Generating\u2026 40 of 103");
+  });
+
+  it("tallies results and summarizes", () => {
+    const res: ExamplesResponse = {
+      items: [
+        { id: "a", status: "generated" },
+        { id: "b", status: "generated" },
+        { id: "c", status: "failed", reason: "x" },
+        { id: "d", status: "kept" },
+      ],
+      usage: { calls: 1, input_tokens: 0, output_tokens: 0, estimated_cost_usd: 0 },
+    };
+    const t = tallyResults(res);
+    expect(t).toEqual({ generated: 2, kept: 1, failed: 1 });
+    expect(generationSummary(t, 1, null)).toBe("Generated 2 sentences, 1 failed. 1 word stays without a sentence.");
+    expect(generationSummary({ generated: 1, kept: 0, failed: 0 }, 0, null)).toBe("Generated 1 sentence.");
+    expect(generationSummary(t, 40, "cancelled")).toContain("Stopped.");
+  });
+
+  it("offer shows only when words need sentences and no run has completed", () => {
+    expect(offerVisible(5, false, false)).toBe(true);
+    expect(offerVisible(0, false, false)).toBe(false);
+    expect(offerVisible(5, true, false)).toBe(false);
+    expect(offerVisible(5, false, true)).toBe(false);
   });
 });
