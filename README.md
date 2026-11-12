@@ -366,8 +366,13 @@ store, and the Anki snapshot is re-synced so they leave the shortlist.
 
 Each card gets one example sentence, chosen in this order:
 
-1. A short sentence (60 characters or fewer) from a breakdown of a reading
-   passage where the word was seen, with the breakdown's translation. The
+1. A short sentence (50 characters or fewer) from a breakdown of a
+   `reading_passage` region where the word was seen (or a sentence in any
+   region introduced by an example marker such as `例）`), with the
+   breakdown's translation. Exercises, instructions, grammar points and vocab
+   lists never supply one, and neither do items that start with a number or
+   marker (①, ❽, 1.), sentences with a blank written as spaces, a `※`
+   footnote mark or two speakers, so those words get a generated sentence. The
    sentence keeps its text as printed; its readings (furigana) and, when the
    breakdown has no translation, an English translation come from the model
    (stored on the item as an `example` with `source: "textbook"`). Until

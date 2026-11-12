@@ -65,7 +65,11 @@ FILLED_FIELDS = (
 
 MAX_SENTENCE_CHARS = 120
 # Flashcard sentences should be short: a longer textbook sentence is passed over.
-MAX_TEXTBOOK_SENTENCE_CHARS = 60
+MAX_TEXTBOOK_SENTENCE_CHARS = 50
+# Only sentences from these region tags (or introduced by an example marker
+# such as 例）) may supply a card sentence; exercises, instructions, grammar
+# points and the like are not example sentences.
+TEXTBOOK_SENTENCE_TAGS = ("reading_passage",)
 
 # The card's Word Meaning: dictionary glosses are cut to this many, and to
 # this many characters (the first gloss is always kept).
@@ -296,6 +300,15 @@ _LABEL_BLANK_RE = re.compile(
     r"[(（\[［【]\s*(?:[\u2460-\u2473]|\d+|[\u3041-\u30ffA-Za-z\uff21-\uff3a\uff41-\uff5a])\s*[)）\]］】]"
 )
 _CHOICE_RE = re.compile(r"[(（][^()（）]*[・/／][^()（）]*[)）]")
+# Item markers other than ①-⑳ / (1) / 1. (which _MARKER_RE handles): negative
+# circled digits ❶-❿ ⓫-⓴, parenthesised ⑴-⒇, dotted ⒈-⒛, circled ㉑-㉟.
+_OTHER_ITEM_MARKER_RE = re.compile(r"^\s*[❶-❿⓫-⓴⑴-⒛㉑-㉟]")
+_EXAMPLE_MARKER_RE = re.compile(r"^\s*例\s*[)）:：]")
+_RAW_BLANK_SPACE_RE = re.compile(r"　|(?<=[^\x00-\x7f])[ \t]{2,}(?=[^\x00-\x7f])")
+_PARTICLE_PAIRS = ("はを", "がを", "にを", "をを", "はが")
+_SPEAKER_LABEL_RE = re.compile(
+    r"(?:^|[\s。！？…」』])[A-ZＡ-Ｚぁ-んァ-ヶ一-龥]{1,6}(?:[（(][^）)]{1,8}[）)])?[:：]"
+)
 _CORRECTION_MARKS = "×○✕✗"
 _GLOSS_EXAMPLE_RE = re.compile(r"^\s*(?:Example\s*[):：]|e\.g\.\s*[:)]?)\s*", re.IGNORECASE)
 _EMPTY_BRACKETS_RE = re.compile(r"[(（\[［【「『]\s*[)）\]］】」』]")
@@ -320,6 +333,21 @@ def split_marker(text: str) -> tuple[str, int | None]:
     return text[m.end() :], num
 
 
+def has_example_marker(raw: str) -> bool:
+    """Whether the text starts with an example marker (例）, 例:), which
+    introduces a real example sentence wherever it is printed."""
+    return bool(_EXAMPLE_MARKER_RE.match(_BLOCK_RE.sub("", raw or "")))
+
+
+def has_item_marker(raw: str) -> bool:
+    """Whether the text starts with an exercise/question item marker (①, ❽,
+    ⑴, ⒈, (1), 1., a bare number, a bullet). The 例） example marker is not one."""
+    text = _BLOCK_RE.sub("", raw or "")
+    if _EXAMPLE_MARKER_RE.match(text):
+        return False
+    return bool(_MARKER_RE.match(text) or _OTHER_ITEM_MARKER_RE.match(text))
+
+
 def plain_sentence(text: str) -> str:
     """Markdown, item markers and 漢字(かな) annotations removed, whitespace collapsed."""
     text, _ = split_marker(text)
@@ -339,8 +367,16 @@ def usable_sentence(raw: str) -> str | None:
     cleaning), no sentence-ending mark, or too long."""
     if not raw:
         return None
+    # An item marker means an exercise or question, not an example sentence;
+    # a blank written as spaces vanishes in cleaning and leaves a broken one.
+    if has_item_marker(raw) or _RAW_BLANK_SPACE_RE.search(raw):
+        return None
     text = plain_sentence(raw)
     if not text or len(text) > MAX_SENTENCE_CHARS:
+        return None
+    if "※" in text or any(p in text for p in _PARTICLE_PAIRS):
+        return None
+    if len(_SPEAKER_LABEL_RE.findall(text)) >= 2:
         return None
     for probe in (raw, text):
         if "|" in probe or "□" in probe or _has_blank(probe) or _EMPTY_BRACKETS_RE.search(probe):
@@ -390,14 +426,20 @@ def choose_sentence(
 ) -> tuple[dict[str, Any], str] | None:
     """(sighting, plain text) of the best usable breakdown sentence, or None.
     Vocab-list sightings are list rows, not sentences, so they never count.
-    Ranked: reading_passage regions first, then the given chapter, then the
-    shorter sentence. Sentences over MAX_TEXTBOOK_SENTENCE_CHARS never count."""
+    Only reading_passage regions (TEXTBOOK_SENTENCE_TAGS), or a sentence
+    introduced by an example marker, supply sentences. Ranked: reading_passage
+    first, then the given chapter, then the shorter sentence. Sentences over
+    MAX_TEXTBOOK_SENTENCE_CHARS never count."""
     cache = {} if cache is None else cache
     ranked: list[tuple[tuple, dict[str, Any], str]] = []
     for s in item.get("sightings") or []:
         if s.get("source") != "breakdown":
             continue
-        text = usable_sentence(s.get("sentence_text") or "")
+        raw = s.get("sentence_text") or ""
+        tag = _region_tag(s, cache)
+        if tag not in TEXTBOOK_SENTENCE_TAGS and not has_example_marker(raw):
+            continue
+        text = usable_sentence(raw)
         if text is None or len(text) > MAX_TEXTBOOK_SENTENCE_CHARS:
             continue
         key = (

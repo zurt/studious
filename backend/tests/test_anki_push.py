@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services import anki, anki_push, storage, store
+from tests.conftest import REAL_REGION_TAG
 
 client = TestClient(app)
 
@@ -132,9 +133,9 @@ class TestChooseSentence:
         item["sightings"] = item["sightings"][:3]
         assert anki_push.choose_sentence(item, CH) is None
 
-    def test_exactly_60_allowed_61_dropped(self):
-        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 59 + "。")]}, CH) is not None
-        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 60 + "。")]}, CH) is None
+    def test_exactly_50_allowed_51_dropped(self):
+        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 49 + "。")]}, CH) is not None
+        assert anki_push.choose_sentence({"sightings": [_sighting("あ" * 50 + "。")]}, CH) is None
 
     def test_usable_sentence_still_allows_120(self):
         assert anki_push.usable_sentence("あ" * 119 + "。") is not None
@@ -686,6 +687,35 @@ class TestUsableSentence:
             "これは✗です。",
             "これは本です",
             "犬と猫",
+            # an item marker means an exercise or question: rejected, not stripped
+            "3 次の図は、グラフです。",
+            "⑨休暇は大切です。",
+            "1. 本を読む。",
+            "１．本を読む。",
+            "(2) 本を読む。",
+            "- 本を読む。",
+            "❽その「ゆるキャラ」がどの地方(どの会社)のものか教えてください。",
+            "❶本を読む。",
+            "⓫本を読む。",
+            "⑴本を読む。",
+            "⒈本を読む。",
+            "㉑本を読む。",
+            # a blank written as spaces vanished in cleaning
+            "フィギュアスケートで、彼女は　　を使って、喜びを表した。",
+            "犬はぬいぐるみに　　、離さなかった。",
+            "犬はぬいぐるみに  、離さなかった。",
+            "犬はぬいぐるみに\t\t、離さなかった。",
+            "犬は　ぬいぐるみを離さなかった。",
+            "フィギュアスケートで、彼女はを使って、喜びを表した。",
+            "犬はぬいぐるみに、離さなかった。をを",
+            "犬がを離さなかった。",
+            "犬にを離さなかった。",
+            "犬はが離さなかった。",
+            # footnote mark
+            "…「ゆるキャラ※」の存在である。",
+            # two speakers in one unit
+            "A(子供):お母さーん。… B(母親):しょうがないわねえ。",
+            "A：行く？ B：行かない。",
             "あ" * 120 + "。",
             "",
         ],
@@ -696,12 +726,6 @@ class TestUsableSentence:
     @pytest.mark.parametrize(
         "raw,expected",
         [
-            ("3 次の図は、グラフです。", "次の図は、グラフです。"),
-            ("⑨休暇は大切です。", "休暇は大切です。"),
-            ("1. 本を読む。", "本を読む。"),
-            ("１．本を読む。", "本を読む。"),
-            ("(2) 本を読む。", "本を読む。"),
-            ("- 本を読む。", "本を読む。"),
             ("「行こう！」", "「行こう！」"),
             ("本当ですか？", "本当ですか？"),
             ("彼(かれ)は行く。", "彼は行く。"),
@@ -710,7 +734,8 @@ class TestUsableSentence:
             ("例：本を読む。", "本を読む。"),
             ("例) 本を読む。", "本を読む。"),
             ("日(ひ)が出る。", "日が出る。"),
-            ("A(子供):お母さーん。B(母親):しょうがないわねえ。", "A(子供):お母さーん。B(母親):しょうがないわねえ。"),
+            ("店員：いらっしゃいませ。", "店員：いらっしゃいませ。"),
+            ("A(子供):お母さーん。", "A(子供):お母さーん。"),
         ],
     )
     def test_accepted_and_cleaned(self, raw, expected):
@@ -723,7 +748,8 @@ class TestUsableSentence:
 
 
 class TestRanking:
-    def test_reading_passage_region_wins(self, textbook):
+    def test_reading_passage_region_wins(self, textbook, monkeypatch):
+        monkeypatch.setattr(anki_push, "_region_tag", REAL_REGION_TAG)
         doc, ch = textbook
         passage = storage.create_region(doc, ch, page=1, bbox=[0, 0, 1, 1], tag="reading_passage")
         other = storage.create_region(doc, ch, page=1, bbox=[0, 0, 1, 1], tag="exercises")
@@ -732,6 +758,30 @@ class TestRanking:
             _sighting("これは長めの文章です。", doc=doc, chapter=ch, region=passage["id"]),
         ]}
         assert anki_push.choose_sentence(item, ch)[1] == "これは長めの文章です。"
+
+    @pytest.mark.parametrize("tag", ["exercises", "instructions", "grammar_points", "vocab_list", "other", None])
+    def test_only_reading_passages_supply_sentences(self, textbook, monkeypatch, tag):
+        monkeypatch.setattr(anki_push, "_region_tag", REAL_REGION_TAG)
+        doc, ch = textbook
+        region = storage.create_region(doc, ch, page=1, bbox=[0, 0, 1, 1], tag=tag) if tag else {"id": "none"}
+        item = {"sightings": [_sighting("犬が走る。", doc=doc, chapter=ch, region=region["id"])]}
+        assert anki_push.choose_sentence(item, ch) is None
+        assert anki_push.TEXTBOOK_SENTENCE_TAGS == ("reading_passage",)
+
+    def test_example_marker_admits_other_regions(self, textbook, monkeypatch):
+        monkeypatch.setattr(anki_push, "_region_tag", REAL_REGION_TAG)
+        doc, ch = textbook
+        region = storage.create_region(doc, ch, page=1, bbox=[0, 0, 1, 1], tag="grammar_points")
+        for raw in ("例）犬が走る。", "例: 犬が走る。", "例：犬が走る。"):
+            item = {"sightings": [_sighting(raw, doc=doc, chapter=ch, region=region["id"])]}
+            assert anki_push.choose_sentence(item, ch)[1] == "犬が走る。"
+        item = {"sightings": [_sighting("犬が走る。", doc=doc, chapter=ch, region=region["id"])]}
+        assert anki_push.choose_sentence(item, ch) is None
+
+    def test_example_marker_helpers(self):
+        assert anki_push.has_example_marker("例）犬が走る。") and not anki_push.has_example_marker("犬が走る。")
+        assert anki_push.has_item_marker("❽その文。") and anki_push.has_item_marker("(1) 文。")
+        assert not anki_push.has_item_marker("例）文。") and not anki_push.has_item_marker("2週間は長い。")
 
     def test_chapter_then_shorter(self, textbook):
         item = {"sightings": [
@@ -746,6 +796,7 @@ class TestRanking:
         assert anki_push.choose_sentence(item, CH) is None
 
     def test_region_lookups_cached_per_request(self, textbook, monkeypatch):
+        monkeypatch.setattr(anki_push, "_region_tag", REAL_REGION_TAG)
         doc, ch = textbook
         calls = []
         real = storage.load_region
@@ -871,8 +922,8 @@ class TestSentenceSelection:
         note = anki_push.build_note(_happy([_sighting(long_text, doc=doc, chapter=ch)], KAISHI), doc, ch)
         assert note["sentence_source"] == "generated"
 
-    def test_sixty_chars_still_a_textbook_sentence(self):
-        text = "あ" * 59 + "。"
+    def test_fifty_chars_still_a_textbook_sentence(self):
+        text = "あ" * 49 + "。"
         item = _happy([_sighting(text)], KAISHI)
         assert anki_push.build_note(item)["sentence_source"] == "textbook"
 

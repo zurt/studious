@@ -341,13 +341,16 @@ skipped. A word reported as failed was accepted by the preview but refused by
 `addNotes`; it stays in the inbox and can be retried.
 
 ### Cards sent to Anki have no example sentence
-First choice is a breakdown sighting of at most 60 characters (a vocab-list
-sighting is a list row, not a sentence); second is a generated sentence
-stored on the item (see "Generate sentences fails" below). A word gets
-neither when it was never in a breakdown, or every sentence is exercise
-debris or too long: over 60 characters, a
-table, a word bank (`□`), a blank or empty brackets, or no sentence-ending
-mark. Sentences from `reading_passage` regions are preferred. Run the breakdown for the chapter's reading passages and send again
+First choice is a breakdown sighting of at most 50 characters from a
+`reading_passage` region (or introduced by an example marker such as `例）`
+in any region); sentences from exercises, instructions, grammar points and
+vocab lists never count. Second is a generated sentence stored on the item
+(see "Generate sentences fails" below). A textbook sentence is also
+rejected when it starts with an item marker (①, ❽, ⑴, 1.), has a blank
+written as spaces (a full-width space, or a run of spaces) or a leftover
+particle pair (はを, にを…), contains `※`, has two speaker labels, a table,
+a word bank (`□`), a blank or empty brackets, or no sentence-ending
+mark; such words get a generated sentence. Run the breakdown for the chapter's reading passages and send again
 (already-sent words are skipped as duplicates, so fix the note in Anki by
 hand). The translation is empty when the breakdown was re-run since the word
 was harvested and the sentence moved.

@@ -337,7 +337,8 @@ decisions:
   `createDeck` and `addNotes`) send a chapter's first `limit` shortlist
   candidates into the `ANKI_PUSH_DECK` deck as `ANKI_PUSH_NOTE_TYPE` notes
   (`services/anki_push.py`). A note's sentence is a textbook breakdown
-  sentence of at most 60 characters, else the item's stored `example`, else
+  sentence of at most 50 characters from a `reading_passage` region (or after
+  an example marker; `anki_push.TEXTBOOK_SENTENCE_TAGS`), else the item's stored `example`, else
   empty; the preview reports `sentence_source` per row and
   `counts.needs_example` / `needs_example_ids`.
 - **Textbook sentence readings**: a stored `example` may have
