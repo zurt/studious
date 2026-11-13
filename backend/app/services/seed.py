@@ -157,9 +157,12 @@ def seed(data_dir: Path | None = None) -> dict[str, Any]:
 
     Raises SeedRefusedError when the data dir is the real `backend/data`.
     """
-    target = Path(data_dir) if data_dir is not None else get_settings().data_dir
-    if is_real_data_dir(target):
-        raise SeedRefusedError(f"refusing to seed {target.resolve()}: that is the real study data")
+    # Writes go to the configured data dir whatever `data_dir` says, so the
+    # guard checks both: a caller cannot pass a harmless path past it.
+    configured = get_settings().data_dir
+    for target in (Path(data_dir) if data_dir is not None else configured, configured):
+        if is_real_data_dir(target):
+            raise SeedRefusedError(f"refusing to seed {target.resolve()}: that is the real study data")
     if storage.list_documents():
         return {"seeded": False, "reason": "data dir already holds a document"}
 
