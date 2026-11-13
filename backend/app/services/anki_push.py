@@ -367,7 +367,7 @@ def build_note(
 # ---------- Preview / push ----------
 
 
-def select_items(doc_id: str, chapter_id: str, limit: int) -> list[dict[str, Any]]:
+def select_items(doc_id: str, chapter_id: str, limit: int, source: str | None = None) -> list[dict[str, Any]]:
     """The first ``limit`` shortlist candidates, via the list endpoint's code path."""
     from ..api.store import _list_items  # local: the api package imports services
 
@@ -377,7 +377,7 @@ def select_items(doc_id: str, chapter_id: str, limit: int) -> list[dict[str, Any
         q=None,
         doc_id=doc_id,
         chapter_id=chapter_id,
-        source=None,
+        source=source,
         sort="recent",
         limit=limit,
         offset=0,
@@ -493,10 +493,10 @@ def _note_with_audio(row: dict[str, Any]) -> tuple[dict[str, Any], int, int, int
     return attach_audio(row["_note"], clips), len(clips), failed, corrected
 
 
-def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
+def _prepare(doc_id: str, chapter_id: str, limit: int, source: str | None = None) -> dict[str, Any]:
     settings = get_settings()
     deck, model = settings.anki_push_deck, settings.anki_push_note_type
-    items = select_items(doc_id, chapter_id, limit)
+    items = select_items(doc_id, chapter_id, limit, source)
     try:
         if model not in (_read("modelNames") or []):
             raise AnkiPushError(
@@ -560,9 +560,9 @@ def _prepare(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
     return {"deck": deck, "deck_exists": deck_exists, "note_type": model, "rows": rows}
 
 
-def preview(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
+def preview(doc_id: str, chapter_id: str, limit: int, source: str | None = None) -> dict[str, Any]:
     """What a send would do. Read actions only."""
-    prepared = _prepare(doc_id, chapter_id, limit)
+    prepared = _prepare(doc_id, chapter_id, limit, source)
     rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in prepared["rows"]]
     addable = [r for r in rows if r["can_add"]]
     needs = [r for r in addable if not r["has_sentence"]]
@@ -587,15 +587,17 @@ def preview(doc_id: str, chapter_id: str, limit: int) -> dict[str, Any]:
     }
 
 
-def push(doc_id: str, chapter_id: str, limit: int, audio: bool | None = None) -> dict[str, Any]:
+def push(
+    doc_id: str, chapter_id: str, limit: int, audio: bool | None = None, source: str | None = None
+) -> dict[str, Any]:
     """Create the notes in Anki. 409 if another send is running. ``audio``
     (default: the ANKI_PUSH_AUDIO setting) attaches Mac-voice clips when the
     voice is available; a failed clip leaves that note without it."""
     if not _push_lock.acquire(blocking=False):
         raise AnkiPushError(409, "A send to Anki is already running.")
     try:
-        log.info("anki_push_start", extra={"doc_id": doc_id, "chapter_id": chapter_id, "limit": limit})
-        prepared = _prepare(doc_id, chapter_id, limit)
+        log.info("anki_push_start", extra={"doc_id": doc_id, "chapter_id": chapter_id, "limit": limit, "source": source})
+        prepared = _prepare(doc_id, chapter_id, limit, source)
         rows = prepared["rows"]
         todo = [r for r in rows if r["can_add"]]
         skipped = [{"id": r["id"], "headword": r["headword"], "reason": r["reason"]} for r in rows if not r["can_add"]]

@@ -304,6 +304,12 @@ Anki anywhere in the collection), how many have no example sentence, and
 how many match an existing card by spelling only. You can change the count,
 then **Send N words**. Nothing is written until you press that button.
 
+The textbook, chapter and source filters all have to match the same sighting
+of a word, so "chapter 3 + Vocab lists" means words in chapter 3's own vocab
+list, not words that merely appear in a chapter 3 passage. Send to Anki
+honours the source filter too: with "Vocab lists" selected it sends only the
+textbook's official chapter vocabulary.
+
 Cards go into a separate deck (`ANKI_PUSH_DECK`, default `Studious`, created
 if missing) using your existing note type (`ANKI_PUSH_NOTE_TYPE`, default
 `Kaishi 1.5k`) so they look like your other cards. Word, reading, meaning,

@@ -359,6 +359,23 @@ class TestPreview:
         assert client.post("/api/anki/push/preview", json={**BODY, "limit": 501}).status_code == 422
         assert client.post("/api/anki/push/preview", json={"doc_id": DOC}).status_code == 422
 
+    def test_source_restricts_and_is_validated(self, isolated_data_dir, monkeypatch):
+        _seed()  # 犬 猫 鳥: breakdown sightings
+        ids = _seed(("馬",))
+        store.update_item("vocab", ids[0], sightings=[{
+            "doc_id": DOC, "chapter_id": CH, "region_id": "v", "sentence_index": 0,
+            "surface": "馬", "sentence_text": "", "source": "vocab_list"}])
+        _use(monkeypatch)
+        listed = client.post("/api/anki/push/preview", json={**BODY, "source": "vocab_list"}).json()
+        assert [i["headword"] for i in listed["items"]] == ["馬"]
+        assert [i["headword"] for i in anki_push.select_items(DOC, CH, 10, "vocab_list")] == ["馬"]
+        everything = client.post("/api/anki/push/preview", json=BODY).json()
+        assert len(everything["items"]) == 4
+        assert len(anki_push.select_items(DOC, CH, 10)) == 4
+        for path, extra in (("/preview", {}), ("", {"confirm": True})):
+            r = client.post(f"/api/anki/push{path}", json={**BODY, "source": "bogus", **extra})
+            assert r.status_code == 422
+
     def test_headword_match_flag(self, isolated_data_dir, monkeypatch):
         _seed(("犬",))
         monkeypatch.setattr(anki, "lookup", lambda *a, **k: {"state": "mature", "deck": "K", "interval": 9,

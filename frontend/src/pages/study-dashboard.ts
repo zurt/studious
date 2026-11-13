@@ -325,7 +325,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         <input id="study-search" type="search" placeholder="Search ${kind === "vocab" ? "word, reading, meaning" : "pattern, explanation"}…" value="${escapeHtml(state.q)}" />
         <select id="study-doc-filter"><option value="">All textbooks</option></select>
         <select id="study-chapter-filter" title="Pick a textbook first" disabled><option value="">All chapters</option></select>
-        <select id="study-source-filter">
+        <select id="study-source-filter" title="Vocab lists = the textbook's own chapter vocabulary (regions tagged vocab list)">
           <option value="">All sources</option>
           <option value="vocab_list">Vocab lists</option>
           <option value="breakdown">Breakdowns</option>
@@ -436,14 +436,15 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
   async function sendToAnki(btn: HTMLButtonElement) {
     const docId = state.docId;
     const chapterId = state.chapterId;
+    const source = state.source || undefined;
     btn.disabled = true;
     try {
-      const first = await previewAnkiPush(docId, chapterId, SHORTLIST_BUDGET);
+      const first = await previewAnkiPush(docId, chapterId, SHORTLIST_BUDGET, source);
       const choice = await ankiPushDialog(
         first,
         state.total,
         SHORTLIST_BUDGET,
-        (n) => previewAnkiPush(docId, chapterId, n),
+        (n) => previewAnkiPush(docId, chapterId, n, source),
         async (ids) => {
           try {
             return await generateExamples(ids);
@@ -454,7 +455,7 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
         },
       );
       if (choice === null) return;
-      const result = await sendAnkiPush(docId, chapterId, choice.limit, choice.audio);
+      const result = await sendAnkiPush(docId, chapterId, choice.limit, choice.audio, source);
       info("StudyDash", "anki_push_done", { created: result.created, failed: result.failed.length });
       (result.failed.length || !result.sync_ok ? toastError : toastInfo)(pushResultMessage(result));
       await reload();

@@ -63,6 +63,27 @@ class TestListVocab:
         assert client.get("/api/vocab", params={"source": "vocab_list"}).json()["total"] == 0
         assert client.get("/api/vocab", params={"source": "bogus"}).status_code == 400
 
+    def test_filters_match_one_sighting(self, isolated_data_dir: Path):
+        # In chapter A's vocab list, only seen in chapter B's breakdown.
+        for chapter, source, region in (("A", "vocab_list", "ra"), ("B", "breakdown", "rb")):
+            store.replace_region_sightings(
+                "vocab",
+                doc_id="d1",
+                chapter_id=chapter,
+                region_id=region,
+                source=source,
+                entries=[{"headword": "犬", "reading": "いぬ", "meaning": "dog", "sentence_index": 0}],
+            )
+
+        def total(**params):
+            return client.get("/api/vocab", params=params).json()["total"]
+
+        assert total(chapter_id="A", source="vocab_list") == 1
+        assert total(chapter_id="B", source="vocab_list") == 0
+        assert total(doc_id="d1", chapter_id="B", source="breakdown") == 1
+        assert total(chapter_id="B") == 1
+        assert total(source="vocab_list") == 1
+
     def test_alpha_sort_and_pagination(self, isolated_data_dir: Path):
         _seed(headword="猫", reading="ねこ", meaning="cat")
         _seed(headword="犬", reading="いぬ", meaning="dog", region_id="r2")

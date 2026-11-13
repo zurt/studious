@@ -5,9 +5,9 @@ import asyncio
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from ..services import anki_push
+from ..services import anki_push, store
 
 router = APIRouter(prefix="/api/anki", tags=["anki"])
 
@@ -16,6 +16,14 @@ class PushPreview(BaseModel):
     doc_id: str
     chapter_id: str
     limit: int = Field(default=125, ge=1, le=500)
+    source: str | None = None  # restrict to one sighting source (store.SOURCES)
+
+    @field_validator("source")
+    @classmethod
+    def _check_source(cls, v: str | None) -> str | None:
+        if v is not None and v not in store.SOURCES:
+            raise ValueError(f"invalid source: {v!r}")
+        return v
 
 
 class PushSend(PushPreview):
@@ -32,11 +40,11 @@ async def _run(fn, *args):
 
 @router.post("/push/preview")
 async def push_preview(body: PushPreview):
-    return await _run(anki_push.preview, body.doc_id, body.chapter_id, body.limit)
+    return await _run(anki_push.preview, body.doc_id, body.chapter_id, body.limit, body.source)
 
 
 @router.post("/push")
 async def push(body: PushSend):
     if body.confirm is not True:
         raise HTTPException(400, "confirm must be true to send words to Anki")
-    return await _run(anki_push.push, body.doc_id, body.chapter_id, body.limit, body.audio)
+    return await _run(anki_push.push, body.doc_id, body.chapter_id, body.limit, body.audio, body.source)

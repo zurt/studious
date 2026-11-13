@@ -996,8 +996,8 @@ export type AnkiPushResult = {
 };
 
 /** Request body shared by the preview and the send. */
-export function ankiPushBody(docId: string, chapterId: string, limit: number) {
-  return { doc_id: docId, chapter_id: chapterId, limit };
+export function ankiPushBody(docId: string, chapterId: string, limit: number, source?: string) {
+  return { doc_id: docId, chapter_id: chapterId, limit, ...(source ? { source } : {}) };
 }
 
 /** Read-only dry run of a send: what would be added, skipped and why. */
@@ -1005,8 +1005,9 @@ export async function previewAnkiPush(
   docId: string,
   chapterId: string,
   limit: number,
+  source?: string,
 ): Promise<AnkiPushPreview> {
-  return jpost("/api/anki/push/preview", ankiPushBody(docId, chapterId, limit));
+  return jpost("/api/anki/push/preview", ankiPushBody(docId, chapterId, limit, source));
 }
 
 /** The only call that writes to Anki: creates the deck and adds the notes. */
@@ -1015,9 +1016,10 @@ export async function sendAnkiPush(
   chapterId: string,
   limit: number,
   audio?: boolean,
+  source?: string,
 ): Promise<AnkiPushResult> {
   return jpost("/api/anki/push", {
-    ...ankiPushBody(docId, chapterId, limit),
+    ...ankiPushBody(docId, chapterId, limit, source),
     confirm: true,
     ...(audio === undefined ? {} : { audio }),
   });

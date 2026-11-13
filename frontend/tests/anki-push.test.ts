@@ -65,6 +65,19 @@ describe("anki push requests", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ doc_id: "d1", chapter_id: "c1", limit: 125 });
   });
 
+  it("preview and send carry source when set and omit it otherwise", async () => {
+    fetchMock.mockImplementation(async () => jsonResponse(preview()));
+    await previewAnkiPush("d1", "c1", 125, "vocab_list");
+    await sendAnkiPush("d1", "c1", 40, true, "vocab_list");
+    await sendAnkiPush("d1", "c1", 40, undefined, undefined);
+    const body = (i: number) => JSON.parse(fetchMock.mock.calls[i][1].body);
+    expect(body(0)).toEqual({ doc_id: "d1", chapter_id: "c1", limit: 125, source: "vocab_list" });
+    expect(body(1)).toEqual({
+      doc_id: "d1", chapter_id: "c1", limit: 40, source: "vocab_list", confirm: true, audio: true,
+    });
+    expect("source" in body(2)).toBe(false);
+  });
+
   it("send posts confirm: true", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ created: 1 }));
     await sendAnkiPush("d1", "c1", 40);
