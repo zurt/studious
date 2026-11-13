@@ -130,6 +130,8 @@ export type ProviderInfo = {
   default_prompt?: string;
   models?: string[];
   unavailable?: string;
+  /** True for the canned mock VLM (STUDIOUS_VLM_PROVIDER=mock). */
+  mock?: boolean;
 };
 
 export type ProvidersResponse = {

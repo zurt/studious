@@ -143,9 +143,10 @@ verification. See the E2E section of `docs/archive/test-coverage-plan.md`.
 - [x] Playwright scaffold: `frontend/playwright.config.ts`, `make test-e2e`,
       dedicated ports (backend 8775 / frontend 5273) so runs never touch a
       real dev stack or data dir
-- [x] `backend/e2e_server.py` — ASGI entrypoint that registers a canned mock
-      VLM under the "anthropic" name before app startup; isolated
-      `backend/.e2e-data` wiped per run
+- [x] Mock VLM provider (`backend/app/providers/vlm/mock.py`), selected with
+      `STUDIOUS_VLM_PROVIDER=mock` and registered under the "anthropic" name at
+      app startup (it replaced the separate `backend/e2e_server.py`
+      entrypoint); isolated `backend/.e2e-data` wiped per run
 - [x] Committed fixture PDF (`frontend/e2e/fixtures/sample.pdf`, 2 pages,
       generated with pymupdf)
 - [x] Journey: fresh library shows empty state
@@ -167,6 +168,11 @@ verification. See the E2E section of `docs/archive/test-coverage-plan.md`.
 - [x] Journey: vocab dashboard lists breakdown-harvested items; status
       change persists across reload; stat-chip filters; grammar
       dashboard shows the harvested pattern
+- [x] Dev default: `make dev-backend` runs the same mock provider on a data
+      dir (`backend/.dev-data`) seeded from a committed sample textbook
+      (`backend/seed/`, `app/services/seed.py`); `make run-backend` is the
+      real data and model, without `--reload`. The web UI shows a "Mock VLM ·
+      seed data" pill while the mock is active
 - [ ] Wire `make test-e2e` into CI (after journeys above stabilize)
 
 ## Phase 1.9: Supply Chain Hardening

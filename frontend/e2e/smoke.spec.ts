@@ -526,3 +526,9 @@ test("region popover remembers the last tag and Enter completes creation", async
   await expect(cards).toHaveCount(2);
   await expect(cards.nth(1).locator(".badge")).toHaveClass(/tag-grammar_points/);
 });
+
+test("the top bar says when the backend runs the mock VLM provider", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#mock-pill")).toBeVisible();
+  await expect(page.locator("#mock-pill")).toHaveText("Mock VLM · seed data");
+});

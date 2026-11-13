@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -108,10 +109,22 @@ def list_vlm() -> list[str]:
 
 def bootstrap_default_providers() -> None:
     """Register the default providers. Called once at app startup."""
+    from ..config import get_settings
     from .ocr.tesseract import TesseractOcr
-    from .vlm.anthropic import AnthropicVlm
 
     if "tesseract" not in _OCR:
         register_ocr("tesseract", TesseractOcr)
-    if "anthropic" not in _VLM:
+    if get_settings().vlm_provider == "mock":
+        # The mock takes the "anthropic" name so jobs, routes and saved
+        # preferences need no changes. It replaces whatever is registered.
+        from .vlm.mock import MockVlm
+
+        register_vlm("anthropic", MockVlm)
+        logging.getLogger("studious.providers").warning(
+            "mock_vlm_active",
+            extra={"vlm_provider": "mock", "note": "canned VLM output; no Anthropic calls are made"},
+        )
+    elif "anthropic" not in _VLM:
+        from .vlm.anthropic import AnthropicVlm
+
         register_vlm("anthropic", AnthropicVlm)

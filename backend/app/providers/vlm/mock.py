@@ -1,14 +1,10 @@
-"""ASGI entrypoint for the Playwright E2E suite.
+"""Canned mock VLM provider: no API key, no tokens, no network.
 
-Serves the real app with the "anthropic" VLM name bound to a canned mock
-provider, so browser journeys exercise the full upload → chapter → region →
-transcribe pipeline deterministically: no API key, no tokens, no network.
-
-The mock must be registered before app startup: `bootstrap_default_providers`
-only registers the real Anthropic provider when the name is unclaimed.
-
-Run via `make test-e2e` (Playwright launches it with an isolated
-STUDIOUS_DATA_DIR). Never use this entrypoint outside E2E runs.
+Selected with STUDIOUS_VLM_PROVIDER=mock (see `registry.bootstrap_default_providers`),
+which registers it under the "anthropic" name so the rest of the app (jobs,
+API routes, saved preferences) is unchanged. Used by the Playwright E2E suite
+and by `make dev-backend`. Its output is asserted on by
+`frontend/e2e/smoke.spec.ts`, so keep the canned responses stable.
 """
 
 from __future__ import annotations
@@ -181,7 +177,7 @@ class MockVlm:
         if tool_name == "record_region_check":
             return registry.ToolCallResult(tool_input=mock_region_check(prompt), meta=self._meta(config))
         if tool_name not in _TOOL_RESPONSES:
-            raise ValueError(f"e2e mock has no canned response for tool {tool_name!r}")
+            raise ValueError(f"mock VLM has no canned response for tool {tool_name!r}")
         tool_input = _TOOL_RESPONSES[tool_name]
         if tool_name == "record_exercise_completion" and "</reading_reference>" in registry.prompt_text(prompt):
             tool_input = {**tool_input, "explanation": MOCK_REFERENCE_EXPLANATION}
@@ -196,10 +192,3 @@ class MockVlm:
             "model": config.get("model", MOCK_MODEL),
             "usage": {"input_tokens": 100, "output_tokens": 50},
         }
-
-
-registry.register_vlm("anthropic", MockVlm)
-
-from app.main import app  # noqa: E402  (import after mock registration)
-
-__all__ = ["app"]
