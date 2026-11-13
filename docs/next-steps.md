@@ -146,10 +146,12 @@ Benchmarks:
 - **`benchmarks/model_eval/dataset/v2` exists only on the owner's Mac.** It
   is gitignored because it contains textbook crops. Losing `v1` is why
   July's results cannot be compared item by item; keep `v2`.
-- The regression fixture set is thin: six image fixtures, five of them
-  vocab lists from one book, all scoring 10/10. Add an exercise, a grammar
-  section, a reading passage and a workbook scan, each with a reference
-  checked against the page by a person.
+- The regression fixture set is thin: seven image fixtures, five of them
+  vocab lists from one book. A vertical reading passage was added
+  2026-11-13 (`reading-vertical-shiroi-kami`); its reference still wants a
+  character-level pass by a person. Add an exercise, a grammar section and
+  a workbook scan, each with a reference checked against the page by a
+  person.
 - Run transcriptions are not committed (public repo). They are in the run
   folder on the owner's Mac.
 

@@ -10,7 +10,7 @@ Two tools, two different questions. Both make real API calls and cost money.
 | Models | The app's default model only | Any set you name |
 | Data | `fixtures/` + `ground-truth/`, committed | A frozen sample of your own store, **not** committed |
 | Scoring | Judge vs. image + reviewed reference, plus CER | Blind judge ranks the candidates |
-| Size / cost | 6 transcriptions + 1 breakdown; cents | 48 items x 5 models; roughly $10, capped with `--budget-usd` |
+| Size / cost | 7 transcriptions + 1 breakdown; cents | 48 items x 5 models; roughly $10, capped with `--budget-usd` |
 | Docs | this file, `fixtures/README.md` | `model_eval/README.md` |
 
 Both use the same judge, rubric and price table (`model_eval/judging.py`,
@@ -49,7 +49,8 @@ models are not comparable, and `compare` says so when they differ.
 
 ### Limits worth knowing
 
-- **Six image fixtures, five of them vocab lists from one book.** A pass
+- **Seven image fixtures, five of them vocab lists from one book.** One
+  is vertical text (`reading-vertical-shiroi-kami`). A pass
   means "no obvious damage", not "quality held everywhere".
 - **The judge is a model.** Scores wobble by about a point run to run, which
   is why the regression threshold is a full point.
