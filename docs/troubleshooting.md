@@ -275,8 +275,9 @@ is never lost to it. Look for `region_check_error` in the backend log and for
 (`backend/data/llm_audit.YYYY-MM.jsonl`; `jq 'select(.job_type=="region_check" and .status=="error")' backend/data/llm_audit.*.jsonl`).
 Common causes: a missing `ANTHROPIC_API_KEY`, a helper model the account
 cannot use, or a malformed tool response (the error says which field). The
-**Check** button in the References pane (or `POST .../regions/{id}/check`)
-retries and shows the error as a toast (502). A suggestion also stays hidden
+**Check** button in the References pane (exercises regions only; for other
+tags use `POST .../regions/{id}/check` or re-transcribe) retries and shows
+the error as a toast (502). A suggestion also stays hidden
 when the model is not highly confident, after Dismiss, and once the region is
 re-transcribed or relabelled after the check (the stored check is then stale).
 The helper model is set separately in Settings > General, and its calls are
@@ -576,6 +577,16 @@ it's the subscriber, not the queue.
 Two chapter-view behaviors trip up new journey tests (both bit on 2026-06-12):
 1. **Region drags must stay inside the visible viewport.** At fit-width zoom the page canvas is taller than the 720px viewport; `canvas.boundingBox()` reports the full (partially clipped) height, so a drag endpoint at a large height fraction lands below the viewport, the canvas never sees `mouseup`, and the tag popover never opens. The failure screenshot shows a small stranded dashed box at the last in-viewport mousemove. Keep drag coordinates in the upper ~half of the canvas box. Also remember a `mousedown` inside an existing region's bbox *selects* that region instead of starting a draw — draw beside existing regions, not over or under them.
 2. **The chapter view auto-selects the page's first region on load** (falling back from the remembered selection). Clicking that region's card therefore *toggles it off* and unmounts the breakdown pane. Assert against the auto-selected state instead of re-clicking the card.
+
+### `make test-e2e` fails at startup: backend port 8765 is already in use
+AnkiConnect listens on 8765, the same port `frontend/playwright.config.ts`
+gives the E2E backend, so the suite cannot start while Anki is open. Quit
+Anki, or run with a local-only config that extends `playwright.config.ts` on
+other ports (`npx playwright test -c <that file>`; don't commit it).
+
+### Every E2E test fails with "Executable doesn't exist ... chromium_headless_shell-NNNN"
+A Playwright version bump (Dependabot) needs a newer browser build than the
+one in `~/Library/Caches/ms-playwright`. Run `cd frontend && npx playwright install chromium`.
 
 ### Playwright cannot download browsers (403 from cdn.playwright.dev)
 Sandboxed/CI-like environments may block the browser CDN. If a Playwright-managed chromium is preinstalled (this remote env ships one under `/opt/pw-browsers/`), point the suite at it with a local-only config that extends `playwright.config.ts` and sets `use.launchOptions.executablePath` — don't commit it (machine-specific path). If the local `uv` is too old to parse `exclude-newer = "7 days"` in `backend/uv.toml`, run the suite with `UV_NO_CONFIG=1` (harmless here: the E2E backend installs nothing; `uv run` only uses the existing lockfile environment).

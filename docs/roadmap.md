@@ -432,9 +432,12 @@ result on the region as `check`:
       `POST .../check/dismiss`; stale once `transcribed_at` or `tag`
       changes. Regions from before the feature show "Not checked yet".
 - [ ] No benchmark or fixtures for the prompt yet (see next-steps.md).
-- [ ] Not yet run against the real Haiku 5.5 API; unit, API and job tests
-      use mocks, and the E2E mock returns a benign "no change, no
-      reference needed".
+- [x] Dry run against the real Haiku 5.5 API (2026-11-13, 48 read-only
+      calls on real regions, nothing stored): 13 of 15 deliberately
+      mislabeled regions flagged at `high`; 1 of 33 correctly labeled
+      regions flagged; 6 of 8 exercises that already had references were
+      judged to need one. About 1.5 to 6 s and $0.0002 per check. The
+      `instructions` tag is where the model is least sure.
 
 ## Phase 3: Central Vocab/Grammar Store
 

@@ -134,8 +134,9 @@ Benchmarks:
   check, which runs on the separate helper model (default
   `claude-haiku-5-5`); the Opus 5.5 switch is evaluated for transcription
   only. See the roadmap entry.
-- **The region check prompt has no benchmark or fixtures yet.** Its
-  label and reading-reference answers are unmeasured against real pages.
+- **The region check prompt has no benchmark or fixtures yet.** A one-off
+  dry run on real regions looked good (numbers in the roadmap, Phase 2.6),
+  but nothing repeatable measures its label and reading-reference answers.
   Build a handful of deliberately mislabeled regions (a vocab list tagged
   as reading, an exercise with and without its own passage, a grammar
   explanation tagged as exercises) and score the tag/`needs_reference`
