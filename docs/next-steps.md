@@ -90,10 +90,12 @@ Still to do, in order:
    (`Dockerfile`, `.dockerignore`, `docker-compose.yml`, `make docker-*`,
    `STUDIOUS_STATIC_DIR` and `STUDIOUS_CORS_ORIGINS`, a `docker` CI job
    that builds the image and runs `scripts/docker-smoke.sh`, Dependabot for
-   the base images). `docs/hosting.md` describes it. Still open: the first
-   real build has to pass in CI; run the image against the real data and
-   measure memory (the 2 GB droplet estimate is unmeasured; the hosting doc
-   has a place for the numbers).
+   the base images). `docs/hosting.md` describes it. The image builds
+   locally (818 MB) and passes the smoke test. Run against a copy of the
+   real library on 2026-11-13, it peaked at 437 MiB and survived a 512 MiB
+   cap, so a 1 GB droplet is enough on this evidence (limits of the
+   measurement are in the hosting doc). Still open: the `docker` job is not
+   a required check until the owner adds it to the ruleset.
 6. Droplet, Tailscale, backups, CI deploy, data move.
 7. Move the Mac and iOS apps from direct file access to the API.
 8. **Features that rely on the service running on the Mac need a new
@@ -172,7 +174,8 @@ document. Context gathered so far:
   - The owner's website runs on DigitalOcean App Platform's smallest
     container (512 MB). That cannot host Studious (too little memory, and
     the app needs files that persist). A server means a new droplet; the
-    earlier estimate was 2 GB RAM, unmeasured.
+    earlier estimate was 2 GB RAM; measured 2026-11-13, 1 GB is enough
+    (`docs/hosting.md`, "Memory").
   - The website is static and rarely updated. Keep it off any Studious
     server. Reworking it into a CV/portfolio site with occasional posts and
     photos is a separate project.

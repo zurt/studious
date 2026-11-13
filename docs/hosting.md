@@ -12,7 +12,7 @@ laptop.
 | Piece | State |
 |---|---|
 | Image (`Dockerfile`), settings, compose file, `make docker-*` | Written. CI builds it and runs a smoke test on every push (`docker` job). |
-| Run against the real data, measure memory | Not done. Needs a Docker daemon and the owner's data; see "Memory" below. |
+| Run against the real data, measure memory | Done 2026-11-13 on a copy of the real library: 437 MiB peak, and it survives a 512 MiB cap. See "Memory" below. |
 | Droplet, Tailscale, backups, CI deploy, data move | Not done (`next-steps.md`, session 1, step 6). |
 | Mac and iOS apps talking to the API instead of the files | Not done (step 7). |
 | Features that need the Mac (speech, Anki) | Inventoried below; not fixed (step 8). |
@@ -166,14 +166,42 @@ unavailable.
 
 ## Memory
 
-The 2 GB droplet size is an estimate, not a measurement. Peak candidates:
-PyMuPDF rendering large pages at 300 DPI and the JMdict SQLite build.
+Measured 2026-11-13 on the owner's Mac (Docker Desktop, linux/arm64). The
+image is 818 MB. The container ran against a copy of the real library (728 MB,
+copied into a Docker volume from a read-only mount) with the mock VLM, one
+step at a time. The figures are the container's cgroup memory, peak per step:
 
-Measured: not yet. When someone runs the image against a realistic library,
-record here the image size and the container memory (`docker stats`) at idle,
-during an upload and page render, and during `fetch_refs.py`. CI prints the
-idle numbers for an empty mock instance in the `docker` job log, which is a
-floor, not the answer.
+| Step | Peak (MiB) |
+|---|---|
+| Idle after startup | 99 |
+| Browsing: document list, 25 page images, vocab, grammar, study queue | 236 |
+| Tesseract OCR job, 4 pages | 389 |
+| Mock VLM transcription job, 6 pages (image preparation only) | 288 |
+| Upload of a 197-page PDF, rendered at 300 DPI | 429 |
+| Whole run | 437 |
+
+The same run with the container capped at 512 MiB and no swap
+(`--memory=512m --memory-swap=512m`) completed every step with the same
+peak and was never killed.
+
+What this supports: the app fits in 512 MiB with about 70 MiB to spare on
+this workload, so a 1 GB droplet leaves room for the OS, Docker and
+Tailscale. The earlier 2 GB estimate is more than this evidence asks for.
+
+What it does not cover:
+
+- x86-64. The droplet will not be arm64; expect similar numbers, not the
+  same ones.
+- Real model calls. The mock stands in for the Anthropic client, so the
+  request and response handling of a real transcription is not in the
+  figures.
+- Concurrency. Two jobs at once, or an upload during an OCR job, were not
+  tried.
+- `fetch_refs.py` (the JMdict SQLite build) was not run in the container;
+  the copied library already had its refs.
+
+CI prints the idle numbers for an empty mock instance in the `docker` job
+log (62 MiB locally), which is a floor, not the answer.
 
 ## Not done yet
 
