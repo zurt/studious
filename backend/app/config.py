@@ -805,8 +805,9 @@ EXAMPLE_SENTENCES_TOOL_SCHEMA: dict = {
 # 0.1x input for a cache read (services/costs.py); `cache_write` /
 # `cache_read` override them where a model's rates differ.
 MODEL_PRICING: dict[str, dict[str, float]] = {
-    # Claude 5 family (Anthropic's published table as of 2026-09-25).
-    "claude-sonnet-5-5": {"input": 2.0, "output": 10.0, "cache_write": 2.5, "cache_read": 0.2},
+    # Claude 5 family (Anthropic's published table as of 2026-11-12). Cache
+    # reads on both are 0.05x input.
+    "claude-sonnet-5-5": {"input": 2.0, "output": 10.0, "cache_write": 2.5, "cache_read": 0.1},
     "claude-opus-5-5": {"input": 4.0, "output": 20.0, "cache_write": 5.0, "cache_read": 0.2},
     # Claude 4 family. Opus pricing dropped to $5/$25 with Opus 4.5; the
     # original Opus 4 and 4.1 remain at the launch $15/$75. Sonnet 5 is still

@@ -151,17 +151,9 @@ Dependencies:
   argument, so the `extra_body` workaround in the provider and the eval's
   judge call can be simplified. A future major SDK bump needs the same
   check: the tests use a mock provider and will not catch a real API break.
-- CI uses Node 22, whose npm silently ignores `min-release-age`. Installs
-  are protected by the lockfile, but the cooldown is not enforced there;
-  moving CI to Node 24 fixes it.
 
 Small checks:
 
-- If a model was ever saved in Settings, `backend/data/preferences.json`
-  overrides the new default. Clear it in Settings to pick up Opus 5.5.
-- The app prices Sonnet 5.5 cache reads at $0.20 per million tokens;
-  Anthropic's current figure appears to be $0.10. Check the pricing page
-  and correct `MODEL_PRICING` in `backend/app/config.py`.
 - Branch `claude/phase-1.6-improve-tests-ZBE7o` has nine commits from May
   that were never checked against `main`. Review, then delete or salvage.
 - Before any network exposure, the deferred findings in
