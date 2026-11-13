@@ -146,14 +146,12 @@ Benchmarks:
 
 Dependencies:
 
-- **Do not merge the `anthropic` 2.x Dependabot PR on green CI alone.** The
-  tests use a mock provider and will not catch a real API break. Verify
-  with `make benchmark` on the branch first. The eval's judge call also
-  relies on `extra_body` for `fallbacks` because SDK 0.96 has no typed
-  argument; a newer SDK may let that be simplified.
-- Confirm Dependabot auto-merge has worked end to end on at least one
-  patch/minor PR since it was enabled.
-- The vitest 5 and GitHub Actions bump PRs need a manual look.
+- The `anthropic` SDK is on 2.x (verified with `make benchmark` before and
+  after, no regression). `beta.messages.create` now has a typed `fallbacks`
+  argument, so the `extra_body` workaround in the provider and the eval's
+  judge call can be simplified. A future major SDK bump needs the same
+  check: the tests use a mock provider and will not catch a real API break.
+- The vitest 5 bump PR needs a manual look (failing checks, conflicts).
 - CI uses Node 22, whose npm silently ignores `min-release-age`. Installs
   are protected by the lockfile, but the cooldown is not enforced there;
   moving CI to Node 24 fixes it.
