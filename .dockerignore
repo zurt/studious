@@ -1,0 +1,63 @@
+# The build context is everything the daemon can see. Keep real study data,
+# credentials and anything the image does not need out of it. The Dockerfile
+# also copies by explicit path, so this is the second fence, not the first.
+
+# Real and throwaway data dirs (backend/data holds the owner's textbooks).
+data/
+**/data/
+backend/.dev-data/
+backend/.e2e-data/
+backend/data/
+
+# Secrets and env files
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+
+# Git and tooling
+.git
+.github
+.claude
+.gitignore
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.coverage
+**/htmlcov/
+**/*.egg-info/
+backend/tests/
+backend/seed/
+
+# Node
+**/node_modules/
+frontend/dist/
+frontend/e2e/
+frontend/tests/
+frontend/test-results/
+frontend/playwright-report/
+frontend/coverage/
+**/*.tsbuildinfo
+
+# Not part of the image
+apple/
+benchmarks/
+docs/
+screenshots/
+*.md
+*.pdf
+*.log
+.DS_Store
+.idea/
+.vscode/
+Makefile
+docker-compose.yml
+Dockerfile
+.dockerignore

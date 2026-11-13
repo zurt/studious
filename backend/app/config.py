@@ -967,6 +967,13 @@ class Settings(BaseModel):
     vlm_effort_examples: str = "medium"
     pdf_render_dpi: int = 300
     log_level: str = "INFO"
+    # Hosted mode: a directory holding the built frontend (frontend/dist). When
+    # set and present, the backend serves it at `/` itself. Unset in local dev,
+    # where vite serves the frontend. Read from STUDIOUS_STATIC_DIR.
+    static_dir: Path | None = None
+    # Origins allowed by CORS. Only matters when the frontend is served from a
+    # different origin than the API (vite dev server). STUDIOUS_CORS_ORIGINS.
+    cors_origins: list[str] = ["http://localhost:5173"]
 
 
 VLM_PROVIDERS = ("anthropic", "mock")
@@ -998,6 +1005,14 @@ def get_settings() -> Settings:
             f"use one of: {', '.join(VLM_PROVIDERS)}"
         )
     overrides["vlm_provider"] = vlm_provider_env
+    static_env = (os.environ.get("STUDIOUS_STATIC_DIR") or "").strip()
+    if static_env:
+        static_dir = Path(static_env).resolve()
+        if static_dir.is_dir():
+            overrides["static_dir"] = static_dir
+    cors_env = [o.strip() for o in (os.environ.get("STUDIOUS_CORS_ORIGINS") or "").split(",") if o.strip()]
+    if cors_env:
+        overrides["cors_origins"] = cors_env
     return Settings(
         data_dir=data_dir,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,

@@ -86,10 +86,16 @@ Still to do, in order:
    from `backend/data/refs` only when that exists, so a fresh clone or
    cloud session has no JMdict/JLPT enrichment unless it builds the refs
    into `.dev-data`.
-5. Salvage the Dockerfile commit (`5b06c4e`) from
-   `claude/mobile-spike-audit-hosting-9jjv6k`, build the image in CI, run
-   it locally against the real data and measure memory (the 2 GB droplet
-   estimate is unmeasured).
+5. Partly done: the Dockerfile work from `5b06c4e` is brought up to date
+   (`Dockerfile`, `.dockerignore`, `docker-compose.yml`, `make docker-*`,
+   `STUDIOUS_STATIC_DIR` and `STUDIOUS_CORS_ORIGINS`, a `docker` CI job
+   that builds the image and runs `scripts/docker-smoke.sh`, Dependabot for
+   the base images). `docs/hosting.md` describes it. The image builds
+   locally (818 MB) and passes the smoke test. Run against a copy of the
+   real library on 2026-11-13, it peaked at 437 MiB and survived a 512 MiB
+   cap, so a 1 GB droplet is enough on this evidence (limits of the
+   measurement are in the hosting doc). Still open: the `docker` job is not
+   a required check until the owner adds it to the ruleset.
 6. Droplet, Tailscale, backups, CI deploy, data move.
 7. Move the Mac and iOS apps from direct file access to the API.
 8. **Features that rely on the service running on the Mac need a new
@@ -168,15 +174,16 @@ document. Context gathered so far:
   - The owner's website runs on DigitalOcean App Platform's smallest
     container (512 MB). That cannot host Studious (too little memory, and
     the app needs files that persist). A server means a new droplet; the
-    earlier estimate was 2 GB RAM, unmeasured.
+    earlier estimate was 2 GB RAM; measured 2026-11-13, 1 GB is enough
+    (`docs/hosting.md`, "Memory").
   - The website is static and rarely updated. Keep it off any Studious
     server. Reworking it into a CV/portfolio site with occasional posts and
     photos is a separate project.
   - Moving the data off the Mac breaks the Mac app's direct file access and
     means setting up backups.
-  - An unlanded Dockerfile and hosting guide sit on branch
-    `claude/mobile-spike-audit-hosting-9jjv6k`. The Docker image has never
-    been built.
+  - The Dockerfile and hosting guide from branch
+    `claude/mobile-spike-audit-hosting-9jjv6k` were rewritten for today's
+    tree (`docs/hosting.md`); that branch can be deleted.
 
 ## Open items, smaller
 

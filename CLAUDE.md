@@ -31,6 +31,9 @@ make test             # run backend pytest + frontend vitest
 make lint             # ruff (backend, benchmarks) + Biome (frontend)
 make test-e2e         # Playwright smoke suite (STUDIOUS_VLM_PROVIDER=mock, isolated data dir)
 make test-apple       # Swift suite (needs a Mac)
+make docker-build     # single-container image (see docs/hosting.md)
+make docker-run       # run it on the mock VLM with a throwaway volume
+make docker-smoke     # build + the checks CI runs against the image
 make audit            # run npm audit + pip-audit
 make benchmark        # regression benchmark: fixtures vs. the default model, judged (real API calls)
 ```

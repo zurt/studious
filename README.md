@@ -158,6 +158,18 @@ is not enriched with JMdict/JLPT data.
     replay, so history is never lost and the scheduler can evolve
     without migrations.
 
+### Running it in a container
+
+A single image serves the API and the built frontend (`Dockerfile`; design and
+status in `docs/hosting.md`):
+
+```bash
+make docker-run      # mock VLM, throwaway volume, http://127.0.0.1:8000
+```
+
+CI builds the image and smoke-tests it on every push. The image is not
+deployed anywhere yet.
+
 ## Layout
 
 - `backend/` — FastAPI app (Python 3.11+), file-based storage.
@@ -207,6 +219,10 @@ Environment variables (read at startup, `.env` supported):
 - `ANKI_PUSH_DECK` / `ANKI_PUSH_NOTE_TYPE` — where "Send to Anki" puts new
   cards (defaults `Studious` and `Kaishi 1.5k`).
 - `STUDIOUS_DATA_DIR` — data root (default `./data`).
+- `STUDIOUS_STATIC_DIR` — directory with the built frontend; when set, the
+  backend serves it at `/` (the Docker image sets it; unset in local dev).
+- `STUDIOUS_CORS_ORIGINS` — comma-separated CORS allowlist (default
+  `http://localhost:5173`).
 - `STUDIOUS_PDF_RENDER_DPI` — page raster DPI (default `300`).
 - `STUDIOUS_LOG_LEVEL` — backend log level (default `INFO`; set `DEBUG` for
   verbose per-page events).
