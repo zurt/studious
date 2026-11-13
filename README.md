@@ -173,9 +173,10 @@ Environment variables (read at startup, `.env` supported):
 
 Valid effort values are `low`, `medium`, `high`, `xhigh`, `max`. Effort and
 adaptive thinking only apply to models that support them (Opus 4.5+ and
-Sonnet 4.6+); on Haiku 4.5 they are silently omitted. The `temperature`
-config field is silently dropped on Claude Opus 4.7+ and Sonnet 5+ (which
-removed it).
+Sonnet 4.6+); on Haiku 4.5 they are silently omitted. Sampling
+parameters (`temperature` etc.) are never sent: the Anthropic SDK 1.0+ removed
+them and the API rejects them, so a stale `temperature` in a saved config is
+ignored.
 
 The default VLM model is `claude-opus-5-5` (chosen on the November 2026
 model comparison: `benchmarks/model_eval/reports/2026-11-11-model-comparison.md`).

@@ -109,7 +109,7 @@ the item's `prompt_kind` (`page` / `region` / `vocab_list` — same prompts
 `app/jobs/` and `app/api/regions.py` use in production), and calls the
 `anthropic` VLM provider's `transcribe()` directly — the same code path a
 real transcription job takes, so results reflect production behavior
-(including the temperature/adaptive-thinking/effort handling in
+(including the adaptive-thinking/effort handling in
 `app/providers/vlm/anthropic.py`).
 
 Output: `runs/<run_id>/transcriptions/<item_id>/<model>.json` (model,
@@ -157,9 +157,9 @@ Judge design:
   schema has no numeric min/max (not supported in the structured-outputs
   schema subset) — the 0-10 range is enforced by prompt text and by
   `judging.clamp_score()` afterward.
-  The judge is a Fable model, so no `thinking`/`temperature`/`top_p` is
+  The judge is a Fable model, so no `thinking` is
   passed (thinking is always on and counts toward `max_tokens`, hence
-  16000). `stop_reason` is always checked before reading content; a
+  16000). No sampling parameters are sent either (SDK 1.0 removed them). `stop_reason` is always checked before reading content; a
   `"refusal"` is recorded as `{"status": "refused", ...}` rather than
   treated as an error.
 - **Server-side refusal fallback**: if the judge model declines an item,
