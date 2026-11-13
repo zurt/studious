@@ -60,16 +60,15 @@ Done 2026-11-13:
 
 Still to do, in order:
 
-1. **Verify the sandbox in a fresh session started from `~/dev/cc/studious`.**
-   It was configured from a session that could not test it. Check
-   `make test`, `make lint`, `make test-e2e`, `make test-apple` (nested
-   `sandbox-exec` under `swift build` is undocumented), git push over SSH
-   and `gh` (both excluded from the sandbox), and whether the Keychain
-   lookup works inside it. Record what needed loosening in
-   `docs/troubleshooting.md`.
-2. **Owner: create a separate Anthropic key for development with a low
-   spend cap** and store it in the Keychain in place of the current one;
-   the current key becomes production's.
+1. Done 2026-11-13: the sandbox is verified. `make test`, `make lint`,
+   `make test-e2e` and `make test-apple` pass, `make dev-backend` starts
+   and reads the key, and `git push` and `gh` work from a Claude Code
+   session. Nothing needed loosening; the one catch (the exclusions apply
+   only to a command run on its own) is in `docs/troubleshooting.md`.
+2. Done 2026-11-13: the Keychain item `ANTHROPIC_API_KEY` now holds a
+   development key (expires about 2026-12-13; rotate it then). The former
+   key is kept as `ANTHROPIC_API_KEY_PROD` for the droplet. Still to
+   confirm: the dev key's workspace has a low spend cap.
 3. `backend/data/` still lives inside the repo and the dev server still
    runs against it. It leaves when production moves to the droplet; until
    then nothing has changed about that risk.
@@ -200,6 +199,18 @@ Dependencies:
   argument, so the `extra_body` workaround in the provider and the eval's
   judge call can be simplified. A future major SDK bump needs the same
   check: the tests use a mock provider and will not catch a real API break.
+
+Transcription provider (`backend/app/providers/vlm/anthropic.py`), both
+found 2026-11-13 when a guest Wi-Fi network cut idle connections at 30
+seconds (see the `APIConnectionError` entry in `docs/troubleshooting.md`).
+Both touch provider logic, so run `make benchmark` before and after:
+
+- **Stream the transcription call**, as the breakdown path already does.
+  It is one non-streaming request today, and the model can think for
+  longer than a network's idle cut-off before sending its first byte.
+- **Log the underlying network error** in the `vlm_call_error` handlers.
+  They record only the exception class, so the wrapped cause (reset,
+  protocol error, DNS) is not in the log.
 
 Small checks:
 
