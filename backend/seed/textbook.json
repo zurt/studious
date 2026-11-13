@@ -1,0 +1,1002 @@
+{
+  "title": "Studious サンプル教科書",
+  "pdf": "sample_textbook.pdf",
+  "page_size": [
+    1400,
+    2100
+  ],
+  "pdf_page_pt": [
+    336,
+    504
+  ],
+  "chapters": [
+    {
+      "key": "c1",
+      "title": "第1課　私の一日",
+      "page_start": 1,
+      "page_end": 3,
+      "banner": "第1課　私(わたし)の一日(いちにち)",
+      "regions": [
+        {
+          "key": "c1-vocab",
+          "page": 1,
+          "tag": "vocab_list",
+          "label": "単語",
+          "section": "単語　Vocabulary",
+          "lines": [
+            "毎朝（まいあさ）every morning  ",
+            "起きる（おきる）to get up; to wake up  ",
+            "顔（かお）face  ",
+            "洗う（あらう）to wash  ",
+            "朝ご飯（あさごはん）breakfast  ",
+            "電車（でんしゃ）train  ",
+            "同僚（どうりょう）colleague; coworker  ",
+            "昼休み（ひるやすみ）lunch break  ",
+            "散歩（さんぽ）walk; stroll  ",
+            "残業（ざんぎょう）overtime work  ",
+            "お風呂（おふろ）bath  ",
+            "寝る（ねる）to sleep; to go to bed  ",
+            "ときどき　sometimes  "
+          ],
+          "bbox": [
+            0.0714,
+            0.1781,
+            0.9286,
+            0.5221
+          ]
+        },
+        {
+          "key": "c1-reading",
+          "page": 1,
+          "tag": "reading_passage",
+          "label": "本文「私の一日」",
+          "section": "本文　Reading",
+          "lines": [
+            "私(わたし)は毎朝(まいあさ)六時(ろくじ)に起(お)きます。顔(かお)を洗(あら)ってから、朝(あさ)ご飯(はん)を食(た)べます。パンを食(た)べながら、ニュースを見(み)ます。七時半(しちじはん)の電車(でんしゃ)で会社(かいしゃ)へ行(い)きます。電車(でんしゃ)の中(なか)ではいつも本(ほん)を読(よ)んでいます。",
+            "",
+            "会社(かいしゃ)は九時(くじ)からです。昼休(ひるやす)みには、同僚(どうりょう)と話(はな)したり、散歩(さんぽ)したりします。仕事(しごと)は六時(ろくじ)に終(お)わりますが、ときどき残業(ざんぎょう)をします。家(いえ)に帰(かえ)ってから、お風呂(ふろ)に入(はい)って、十一時(じゅういちじ)ごろ寝(ね)ます。"
+          ],
+          "breakdown": {
+            "sentences": [
+              {
+                "text": "私(わたし)は毎朝(まいあさ)六時(ろくじ)に起(お)きます。",
+                "gloss": "I get up at six every morning.",
+                "vocab": [
+                  {
+                    "word": "毎朝",
+                    "meaning": "every morning",
+                    "reading": "まいあさ"
+                  },
+                  {
+                    "word": "起きる",
+                    "meaning": "to get up; to wake up",
+                    "reading": "おきる"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜に（時間）",
+                    "explanation": "Marks the exact time at which something happens.",
+                    "surfaces": [
+                      "に"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "顔(かお)を洗(あら)ってから、朝(あさ)ご飯(はん)を食(た)べます。",
+                "gloss": "After washing my face, I eat breakfast.",
+                "vocab": [
+                  {
+                    "word": "顔",
+                    "meaning": "face",
+                    "reading": "かお"
+                  },
+                  {
+                    "word": "洗う",
+                    "meaning": "to wash",
+                    "reading": "あらう"
+                  },
+                  {
+                    "word": "朝ご飯",
+                    "meaning": "breakfast",
+                    "reading": "あさごはん"
+                  },
+                  {
+                    "word": "食べる",
+                    "meaning": "to eat",
+                    "reading": "たべる"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜てから",
+                    "explanation": "Do B after finishing A; the て-form plus から fixes the order of two actions.",
+                    "surfaces": [
+                      "てから"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "パンを食(た)べながら、ニュースを見(み)ます。",
+                "gloss": "I watch the news while eating bread.",
+                "vocab": [
+                  {
+                    "word": "見る",
+                    "meaning": "to see; to watch",
+                    "reading": "みる"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜ながら",
+                    "explanation": "Two actions by the same person at the same time; the action at the end of the sentence is the main one.",
+                    "surfaces": [
+                      "ながら"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "七時半(しちじはん)の電車(でんしゃ)で会社(かいしゃ)へ行(い)きます。",
+                "gloss": "I go to work on the 7:30 train.",
+                "vocab": [
+                  {
+                    "word": "電車",
+                    "meaning": "train",
+                    "reading": "でんしゃ"
+                  },
+                  {
+                    "word": "会社",
+                    "meaning": "company; workplace",
+                    "reading": "かいしゃ"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜へ",
+                    "explanation": "Marks the direction or destination of a movement.",
+                    "surfaces": [
+                      "へ"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "電車(でんしゃ)の中(なか)ではいつも本(ほん)を読(よ)んでいます。",
+                "gloss": "On the train I always read a book.",
+                "vocab": [
+                  {
+                    "word": "読む",
+                    "meaning": "to read",
+                    "reading": "よむ"
+                  },
+                  {
+                    "word": "いつも",
+                    "meaning": "always"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜ている",
+                    "explanation": "Describes a habitual, repeated action, here something done every day.",
+                    "surfaces": [
+                      "でいます"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "会社(かいしゃ)は九時(くじ)からです。",
+                "gloss": "Work starts at nine.",
+                "vocab": [],
+                "grammar": [
+                  {
+                    "pattern": "〜から（始まり）",
+                    "explanation": "Marks the starting point in time.",
+                    "surfaces": [
+                      "から"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "昼休(ひるやす)みには、同僚(どうりょう)と話(はな)したり、散歩(さんぽ)したりします。",
+                "gloss": "During the lunch break I do things like talk with colleagues and take a walk.",
+                "vocab": [
+                  {
+                    "word": "昼休み",
+                    "meaning": "lunch break",
+                    "reading": "ひるやすみ"
+                  },
+                  {
+                    "word": "同僚",
+                    "meaning": "colleague; coworker",
+                    "reading": "どうりょう"
+                  },
+                  {
+                    "word": "話す",
+                    "meaning": "to talk",
+                    "reading": "はなす"
+                  },
+                  {
+                    "word": "散歩",
+                    "meaning": "walk; stroll",
+                    "reading": "さんぽ"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜たり、〜たりする",
+                    "explanation": "Lists a few example actions out of several; the final する carries the tense.",
+                    "surfaces": [
+                      "たり",
+                      "たり"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "仕事(しごと)は六時(ろくじ)に終(お)わりますが、ときどき残業(ざんぎょう)をします。",
+                "gloss": "Work ends at six, but sometimes I work overtime.",
+                "vocab": [
+                  {
+                    "word": "仕事",
+                    "meaning": "work; job",
+                    "reading": "しごと"
+                  },
+                  {
+                    "word": "終わる",
+                    "meaning": "to end; to finish",
+                    "reading": "おわる"
+                  },
+                  {
+                    "word": "残業",
+                    "meaning": "overtime work",
+                    "reading": "ざんぎょう"
+                  },
+                  {
+                    "word": "ときどき",
+                    "meaning": "sometimes"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜が（逆接）",
+                    "explanation": "Joins two clauses that contrast, like 'but'.",
+                    "surfaces": [
+                      "が"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "家(いえ)に帰(かえ)ってから、お風呂(ふろ)に入(はい)って、十一時(じゅういちじ)ごろ寝(ね)ます。",
+                "gloss": "After I get home, I take a bath and go to bed around eleven.",
+                "vocab": [
+                  {
+                    "word": "帰る",
+                    "meaning": "to return home",
+                    "reading": "かえる"
+                  },
+                  {
+                    "word": "お風呂",
+                    "meaning": "bath",
+                    "reading": "おふろ"
+                  },
+                  {
+                    "word": "入る",
+                    "meaning": "to enter; to take (a bath)",
+                    "reading": "はいる"
+                  },
+                  {
+                    "word": "寝る",
+                    "meaning": "to sleep; to go to bed",
+                    "reading": "ねる"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜てから",
+                    "explanation": "Do B after finishing A; the て-form plus から fixes the order of two actions.",
+                    "surfaces": [
+                      "てから"
+                    ]
+                  },
+                  {
+                    "pattern": "〜ごろ",
+                    "explanation": "Attached to a time word to mean 'around' or 'about'.",
+                    "surfaces": [
+                      "ごろ"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "bbox": [
+            0.0714,
+            0.5592,
+            0.9286,
+            0.7881
+          ]
+        },
+        {
+          "key": "c1-grammar",
+          "page": 2,
+          "tag": "grammar_points",
+          "label": "文法",
+          "section": "文法　Grammar",
+          "lines": [
+            "**1. 〜てから**　after doing 〜",
+            "",
+            "動詞(どうし)のて形(けい)＋から  ",
+            "手(て)を洗(あら)ってから、ご飯(はん)を食(た)べます。  ",
+            "I eat after washing my hands.",
+            "",
+            "**2. 〜ながら**　while doing 〜",
+            "",
+            "動詞(どうし)のます形(けい)＋ながら  ",
+            "音楽(おんがく)を聞(き)きながら、勉強(べんきょう)します。  ",
+            "I study while listening to music.",
+            "",
+            "**3. 〜たり、〜たりする**　doing things such as 〜 and 〜",
+            "",
+            "動詞(どうし)のた形(けい)＋り、動詞(どうし)のた形(けい)＋りする  ",
+            "日曜日(にちようび)は、本(ほん)を読(よ)んだり、映画(えいが)を見(み)たりします。  ",
+            "On Sundays I do things like read books and watch movies."
+          ],
+          "bbox": [
+            0.0714,
+            0.0829,
+            0.9286,
+            0.4806
+          ]
+        },
+        {
+          "key": "c1-instructions",
+          "page": 3,
+          "tag": "instructions",
+          "label": "練習の説明",
+          "section": "練習　Practice",
+          "lines": [
+            "次(つぎ)の練習(れんしゅう)をしましょう。わからないときは、本文(ほんぶん)をもう一度(いちど)読(よ)みましょう。"
+          ],
+          "bbox": [
+            0.0714,
+            0.0829,
+            0.9286,
+            0.1589
+          ]
+        },
+        {
+          "key": "c1-exercises",
+          "page": 3,
+          "tag": "exercises",
+          "label": "練習A・B・C",
+          "lines": [
+            "**練習(れんしゅう)A**　下(した)の言葉(ことば)から選(えら)んで、＿＿＿＿＿に入(い)れましょう。",
+            "",
+            "［聞(き)き／飲(の)み／歩(ある)き］",
+            "",
+            "1. 音楽(おんがく)を＿＿＿＿＿ながら、勉強(べんきょう)します。",
+            "2. コーヒーを＿＿＿＿＿ながら、友達(ともだち)と話(はな)します。",
+            "3. 駅(えき)まで＿＿＿＿＿ながら、電話(でんわ)をします。",
+            "",
+            "**練習(れんしゅう)B**　＿＿＿＿＿に自由(じゆう)に言葉(ことば)を入(い)れましょう。",
+            "",
+            "1. 家(いえ)に帰(かえ)ってから、＿＿＿＿＿。",
+            "2. 日曜日(にちようび)は、＿＿＿＿＿たり、＿＿＿＿＿たりします。",
+            "",
+            "**練習(れんしゅう)C**　本文(ほんぶん)を読(よ)んで、答(こた)えましょう。",
+            "",
+            "1. 「私(わたし)」は、毎朝(まいあさ)何時(なんじ)に起(お)きますか。",
+            "2. 「私(わたし)」は、電車(でんしゃ)の中(なか)で何(なに)をしていますか。"
+          ],
+          "references": [
+            "c1-reading"
+          ],
+          "breakdown": {
+            "sentences": [
+              {
+                "text": "**練習(れんしゅう)A**　下(した)の言葉(ことば)から選(えら)んで、＿＿＿＿＿に入(い)れましょう。",
+                "gloss": "Practice A: choose from the words below and put one in each blank.",
+                "vocab": [
+                  {
+                    "word": "言葉",
+                    "meaning": "word; language",
+                    "reading": "ことば"
+                  },
+                  {
+                    "word": "選ぶ",
+                    "meaning": "to choose",
+                    "reading": "えらぶ"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜ましょう",
+                    "explanation": "Polite invitation or instruction: 'let's ...'.",
+                    "surfaces": [
+                      "ましょう"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "［聞(き)き／飲(の)み／歩(ある)き］",
+                "gloss": "Word bank: listen / drink / walk (ます-stem forms).",
+                "vocab": [
+                  {
+                    "word": "聞く",
+                    "meaning": "to listen; to hear",
+                    "reading": "きく"
+                  },
+                  {
+                    "word": "飲む",
+                    "meaning": "to drink",
+                    "reading": "のむ"
+                  },
+                  {
+                    "word": "歩く",
+                    "meaning": "to walk",
+                    "reading": "あるく"
+                  }
+                ],
+                "grammar": []
+              },
+              {
+                "text": "1. 音楽(おんがく)を＿＿＿＿＿ながら、勉強(べんきょう)します。",
+                "gloss": "1. I study while ___ to music.",
+                "vocab": [
+                  {
+                    "word": "音楽",
+                    "meaning": "music",
+                    "reading": "おんがく"
+                  },
+                  {
+                    "word": "勉強",
+                    "meaning": "study",
+                    "reading": "べんきょう"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜ながら",
+                    "explanation": "Two actions by the same person at the same time.",
+                    "surfaces": [
+                      "ながら"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "2. コーヒーを＿＿＿＿＿ながら、友達(ともだち)と話(はな)します。",
+                "gloss": "2. I talk with a friend while ___ coffee.",
+                "vocab": [
+                  {
+                    "word": "友達",
+                    "meaning": "friend",
+                    "reading": "ともだち"
+                  },
+                  {
+                    "word": "話す",
+                    "meaning": "to talk",
+                    "reading": "はなす"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜ながら",
+                    "explanation": "Two actions by the same person at the same time.",
+                    "surfaces": [
+                      "ながら"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "3. 駅(えき)まで＿＿＿＿＿ながら、電話(でんわ)をします。",
+                "gloss": "3. I talk on the phone while ___ to the station.",
+                "vocab": [
+                  {
+                    "word": "駅",
+                    "meaning": "station",
+                    "reading": "えき"
+                  },
+                  {
+                    "word": "電話",
+                    "meaning": "telephone; phone call",
+                    "reading": "でんわ"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜ながら",
+                    "explanation": "Two actions by the same person at the same time.",
+                    "surfaces": [
+                      "ながら"
+                    ]
+                  },
+                  {
+                    "pattern": "〜まで",
+                    "explanation": "Marks the endpoint of a movement or period.",
+                    "surfaces": [
+                      "まで"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "**練習(れんしゅう)B**　＿＿＿＿＿に自由(じゆう)に言葉(ことば)を入(い)れましょう。",
+                "gloss": "Practice B: put any words you like in the blanks.",
+                "vocab": [
+                  {
+                    "word": "自由",
+                    "meaning": "freedom; free",
+                    "reading": "じゆう"
+                  }
+                ],
+                "grammar": []
+              },
+              {
+                "text": "1. 家(いえ)に帰(かえ)ってから、＿＿＿＿＿。",
+                "gloss": "1. After I get home, ___.",
+                "vocab": [
+                  {
+                    "word": "帰る",
+                    "meaning": "to return home",
+                    "reading": "かえる"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜てから",
+                    "explanation": "Do B after finishing A.",
+                    "surfaces": [
+                      "てから"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "2. 日曜日(にちようび)は、＿＿＿＿＿たり、＿＿＿＿＿たりします。",
+                "gloss": "2. On Sundays I ___ and ___, among other things.",
+                "vocab": [
+                  {
+                    "word": "日曜日",
+                    "meaning": "Sunday",
+                    "reading": "にちようび"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜たり、〜たりする",
+                    "explanation": "Lists a few example actions out of several.",
+                    "surfaces": [
+                      "たり",
+                      "たり"
+                    ]
+                  }
+                ]
+              },
+              {
+                "text": "**練習(れんしゅう)C**　本文(ほんぶん)を読(よ)んで、答(こた)えましょう。",
+                "gloss": "Practice C: read the text and answer.",
+                "vocab": [
+                  {
+                    "word": "本文",
+                    "meaning": "main text",
+                    "reading": "ほんぶん"
+                  },
+                  {
+                    "word": "答える",
+                    "meaning": "to answer",
+                    "reading": "こたえる"
+                  }
+                ],
+                "grammar": []
+              },
+              {
+                "text": "1. 「私(わたし)」は、毎朝(まいあさ)何時(なんじ)に起(お)きますか。",
+                "gloss": "1. What time does \"I\" get up every morning?",
+                "vocab": [
+                  {
+                    "word": "何時",
+                    "meaning": "what time",
+                    "reading": "なんじ"
+                  },
+                  {
+                    "word": "起きる",
+                    "meaning": "to get up; to wake up",
+                    "reading": "おきる"
+                  }
+                ],
+                "grammar": []
+              },
+              {
+                "text": "2. 「私(わたし)」は、電車(でんしゃ)の中(なか)で何(なに)をしていますか。",
+                "gloss": "2. What does \"I\" do on the train?",
+                "vocab": [
+                  {
+                    "word": "電車",
+                    "meaning": "train",
+                    "reading": "でんしゃ"
+                  }
+                ],
+                "grammar": [
+                  {
+                    "pattern": "〜ている",
+                    "explanation": "Describes a habitual or ongoing action.",
+                    "surfaces": [
+                      "ています"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "completions": {
+            "2": {
+              "exercise_type": "constrained",
+              "answer": "音楽(おんがく)を聞(き)きながら、勉強(べんきょう)します。",
+              "answer_english": "I study while listening to music.",
+              "explanation": "聞き is the only word in the list that goes with 音楽. 飲み fits drinks and 歩き fits walking, so they do not work here.",
+              "filled_text": "聞(き)き",
+              "examples": []
+            },
+            "3": {
+              "exercise_type": "constrained",
+              "answer": "コーヒーを飲(の)みながら、友達(ともだち)と話(はな)します。",
+              "answer_english": "I talk with a friend while drinking coffee.",
+              "explanation": "You drink coffee, so 飲み is the fit. 聞き and 歩き do not take コーヒー as an object.",
+              "filled_text": "飲(の)み",
+              "examples": []
+            },
+            "6": {
+              "exercise_type": "open",
+              "answer": "家(いえ)に帰(かえ)ってから、お風呂(ふろ)に入(はい)ります。",
+              "answer_english": "After I get home, I take a bath.",
+              "explanation": "〜てから links two actions in order. Any action that normally comes after getting home fits the blank; the reading passage uses お風呂に入る.",
+              "filled_text": "お風呂(ふろ)に入(はい)ります",
+              "examples": [
+                {
+                  "japanese": "家(いえ)に帰(かえ)ってから、お風呂(ふろ)に入(はい)ります。",
+                  "reading": "いえにかえってから、おふろにはいります。",
+                  "english": "After I get home, I take a bath.",
+                  "explanation": "The most natural fit: a bath is the usual next step after coming home, as in the reading."
+                },
+                {
+                  "japanese": "家(いえ)に帰(かえ)ってから、晩(ばん)ご飯(はん)を作(つく)ります。",
+                  "reading": "いえにかえってから、ばんごはんをつくります。",
+                  "english": "After I get home, I cook dinner.",
+                  "explanation": "Another everyday action that follows getting home."
+                },
+                {
+                  "japanese": "家(いえ)に帰(かえ)ってから、少(すこ)し休(やす)みます。",
+                  "reading": "いえにかえってから、すこしやすみます。",
+                  "english": "After I get home, I rest for a bit.",
+                  "explanation": "Shows a calmer alternative; 少し softens the action."
+                }
+              ]
+            },
+            "9": {
+              "exercise_type": "question",
+              "answer": "六時(ろくじ)に起(お)きます。",
+              "answer_english": "(The narrator) gets up at six.",
+              "explanation": "The first sentence of the reading says 「毎朝六時に起きます」.",
+              "filled_text": "",
+              "examples": []
+            },
+            "10": {
+              "exercise_type": "question",
+              "answer": "本(ほん)を読(よ)んでいます。",
+              "answer_english": "(The narrator) reads a book.",
+              "explanation": "The reading says 「電車の中ではいつも本を読んでいます」.",
+              "filled_text": "",
+              "examples": []
+            }
+          },
+          "bbox": [
+            0.0714,
+            0.175,
+            0.9286,
+            0.6196
+          ]
+        }
+      ],
+      "grammar_guide": {
+        "intro": "Chapter 1 links the actions of a daily routine: one thing after another (〜てから), two things at once (〜ながら), and a short list of example actions (〜たり、〜たりする).",
+        "points": [
+          {
+            "title": "〜てから",
+            "subtitle": "After doing 〜",
+            "sections": [
+              {
+                "heading": "Meaning",
+                "body_md": "Do B **after** finishing A. The order is the point: A is complete before B begins."
+              },
+              {
+                "heading": "Form",
+                "body_md": "- Verb て-form + から\n- 洗う → 洗ってから\n- 食べる → 食べてから\n- The tense comes from the last verb of the sentence."
+              },
+              {
+                "heading": "Examples",
+                "body_md": "顔を洗ってから、朝ご飯を食べます。\nAfter washing my face, I eat breakfast.\n\n家に帰ってから、お風呂に入ります。\nAfter I get home, I take a bath."
+              },
+              {
+                "heading": "Related",
+                "body_md": "- 〜たあとで (after doing 〜): similar in meaning, a little more formal. Not in this chapter.\n- 〜ながら (while doing 〜): use it when the actions happen together, not one after the other."
+              }
+            ]
+          },
+          {
+            "title": "〜ながら",
+            "subtitle": "While doing 〜",
+            "sections": [
+              {
+                "heading": "Meaning",
+                "body_md": "Two actions done by the same person at the same time. The verb before ながら is the background action; the verb at the end of the sentence is the main one."
+              },
+              {
+                "heading": "Form",
+                "body_md": "- Verb ます-stem + ながら\n- 聞きます → 聞きながら\n- 飲みます → 飲みながら\n- Both actions must have the same subject."
+              },
+              {
+                "heading": "Examples",
+                "body_md": "パンを食べながら、ニュースを見ます。\nI watch the news while eating bread.\n\n音楽を聞きながら、勉強します。\nI study while listening to music."
+              },
+              {
+                "heading": "Related",
+                "body_md": "- 〜てから (after doing 〜): the actions happen in order, not together."
+              }
+            ]
+          },
+          {
+            "title": "〜たり、〜たりする",
+            "subtitle": "Doing things such as 〜 and 〜",
+            "sections": [
+              {
+                "heading": "Meaning",
+                "body_md": "Gives two (or more) example actions out of a longer list: 'things like A and B'. It does not say that these are the only things you do."
+              },
+              {
+                "heading": "Form",
+                "body_md": "- Verb た-form + り、Verb た-form + り + します\n- 話す → 話したり\n- 散歩する → 散歩したり\n- The final します (or する) carries the tense, even with two verbs."
+              },
+              {
+                "heading": "Examples",
+                "body_md": "昼休みには、同僚と話したり、散歩したりします。\nDuring the lunch break I do things like talk with colleagues and take a walk.\n\n日曜日は、本を読んだり、映画を見たりします。\nOn Sundays I do things like read books and watch movies."
+              },
+              {
+                "heading": "Related",
+                "body_md": "- 〜と〜 (A and B): joins nouns, as in パンとコーヒー.\n- 〜たり〜たり can also show actions that alternate: 雨が降ったりやんだりしています (it keeps raining on and off)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "c2",
+      "title": "第2課　週末の予定",
+      "page_start": 4,
+      "page_end": 5,
+      "banner": "第2課　週末(しゅうまつ)の予定(よてい)",
+      "regions": [
+        {
+          "key": "c2-vocab",
+          "page": 4,
+          "tag": "vocab_list",
+          "label": "単語",
+          "section": "単語　Vocabulary",
+          "lines": [
+            "予定（よてい）plan; schedule  ",
+            "週末（しゅうまつ）weekend  ",
+            "お寺（おてら）temple  ",
+            "疲れる（つかれる）to get tired  ",
+            "休む（やすむ）to rest; to take a day off  ",
+            "天気（てんき）weather  ",
+            "公園（こうえん）park  ",
+            "降る（ふる）to fall (rain, snow)  ",
+            "映画（えいが）movie; film  ",
+            "楽しい（たのしい）fun; enjoyable  ",
+            "つもり　intention; plan  "
+          ],
+          "bbox": [
+            0.0714,
+            0.1781,
+            0.9286,
+            0.4718
+          ]
+        },
+        {
+          "key": "c2-reading",
+          "page": 4,
+          "tag": "reading_passage",
+          "label": "本文「週末の予定」",
+          "section": "本文　Reading",
+          "lines": [
+            "田中(たなか)：スミスさん、今度(こんど)の週末(しゅうまつ)は何(なに)をする予定(よてい)ですか。",
+            "",
+            "スミス：土曜日(どようび)は、友達(ともだち)と京都(きょうと)へ行(い)くつもりです。",
+            "",
+            "田中(たなか)：いいですね。京都(きょうと)で何(なに)をしますか。",
+            "",
+            "スミス：お寺(てら)を見(み)たり、おいしいものを食(た)べたりしたいです。",
+            "",
+            "田中(たなか)：日曜日(にちようび)は？",
+            "",
+            "スミス：日曜日(にちようび)は、疲(つか)れているかもしれませんから、家(いえ)で休(やす)むつもりです。田中(たなか)さんは？",
+            "",
+            "田中(たなか)：私(わたし)は、天気(てんき)がよかったら、公園(こうえん)で友達(ともだち)とテニスをします。雨(あめ)が降(ふ)ったら、映画(えいが)を見(み)に行(い)きます。",
+            "",
+            "スミス：楽(たの)しい週末(しゅうまつ)になるといいですね。"
+          ],
+          "bbox": [
+            0.0714,
+            0.509,
+            0.9286,
+            0.9292
+          ]
+        },
+        {
+          "key": "c2-grammar",
+          "page": 5,
+          "tag": "grammar_points",
+          "label": "文法",
+          "section": "文法　Grammar",
+          "lines": [
+            "**1. 〜つもりです**　intend to 〜",
+            "",
+            "動詞(どうし)の辞書形(じしょけい)＋つもりです  ",
+            "来週(らいしゅう)、京都(きょうと)へ行(い)くつもりです。  ",
+            "I intend to go to Kyoto next week.",
+            "",
+            "**2. 〜かもしれません**　might 〜; may 〜",
+            "",
+            "動詞(どうし)・形容詞(けいようし)の普通形(ふつうけい)＋かもしれません  ",
+            "雨(あめ)が降(ふ)るかもしれません。  ",
+            "It might rain.",
+            "",
+            "**3. 〜たら、〜**　if 〜; when 〜",
+            "",
+            "動詞(どうし)のた形(けい)＋ら  ",
+            "お金(かね)があったら、旅行(りょこう)に行(い)きたいです。  ",
+            "If I have money, I would like to go on a trip."
+          ],
+          "bbox": [
+            0.0714,
+            0.0829,
+            0.9286,
+            0.4806
+          ]
+        },
+        {
+          "key": "c2-exercises-a",
+          "page": 5,
+          "tag": "exercises",
+          "label": "練習A",
+          "section": "練習　Practice",
+          "lines": [
+            "**練習(れんしゅう)A**　＿＿＿＿＿に自由(じゆう)に言葉(ことば)を入(い)れましょう。",
+            "",
+            "1. 今度(こんど)の日曜日(にちようび)は、＿＿＿＿＿つもりです。",
+            "2. 明日(あした)は、雨(あめ)が＿＿＿＿＿かもしれません。",
+            "3. 時間(じかん)があったら、＿＿＿＿＿。"
+          ],
+          "bbox": [
+            0.0714,
+            0.5177,
+            0.9286,
+            0.6791
+          ]
+        },
+        {
+          "key": "c2-exercises-b",
+          "page": 5,
+          "tag": "exercises",
+          "label": "練習B",
+          "lines": [
+            "**練習(れんしゅう)B**　正(ただ)しいほうを選(えら)びましょう。",
+            "",
+            "1. 来週(らいしゅう)、友達(ともだち)と旅行(りょこう)に（行(い)く／行(い)った）つもりです。",
+            "2. 宿題(しゅくだい)が（終(お)わる／終(お)わった）ら、テレビを見(み)ます。"
+          ],
+          "transcribed": false,
+          "bbox": [
+            0.0714,
+            0.6953,
+            0.9286,
+            0.823
+          ]
+        }
+      ]
+    }
+  ],
+  "store": {
+    "statuses": {
+      "vocab": {
+        "起きる": "active",
+        "朝ご飯": "active",
+        "電車": "active",
+        "寝る": "active",
+        "残業": "active",
+        "顔": "known",
+        "洗う": "known",
+        "ときどき": "ignored"
+      },
+      "grammar": {
+        "〜てから": "active",
+        "〜ながら": "active",
+        "〜ている": "known"
+      }
+    },
+    "reviews": [
+      [
+        "vocab",
+        "起きる",
+        "word",
+        6,
+        3
+      ],
+      [
+        "vocab",
+        "起きる",
+        "word",
+        3,
+        3
+      ],
+      [
+        "vocab",
+        "起きる",
+        "word",
+        1,
+        4
+      ],
+      [
+        "vocab",
+        "朝ご飯",
+        "word",
+        5,
+        3
+      ],
+      [
+        "vocab",
+        "朝ご飯",
+        "word",
+        2,
+        2
+      ],
+      [
+        "vocab",
+        "電車",
+        "word",
+        4,
+        1
+      ],
+      [
+        "vocab",
+        "電車",
+        "word",
+        4,
+        3
+      ],
+      [
+        "grammar",
+        "〜てから",
+        "pattern",
+        5,
+        3
+      ],
+      [
+        "grammar",
+        "〜てから",
+        "pattern",
+        2,
+        3
+      ]
+    ]
+  }
+}

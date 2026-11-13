@@ -39,6 +39,9 @@ DerivedData/
 
 # Playwright E2E
 backend/.e2e-data/
+
+# Dev data dir for `make dev-backend` (mock VLM + sample textbook)
+backend/.dev-data/
 frontend/test-results/
 frontend/playwright-report/
 

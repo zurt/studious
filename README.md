@@ -32,20 +32,51 @@ brew install uv
 # install
 make install
 
+# run (two terminals): no API key needed
+make dev-backend     # http://localhost:8000, mock VLM + sample textbook
+make dev-frontend    # http://localhost:5173
+```
+
+Open <http://localhost:5173>. `make dev-backend` is the development
+setup: it runs the **mock VLM provider** (canned output, no key, no
+network) against a throwaway data dir, `backend/.dev-data`, that it seeds
+with a small invented textbook ("Studious サンプル教科書", two chapters).
+It never touches `backend/data`, the Anthropic API, WaniKani or your real
+Anki. Chapter 1 arrives fully processed (transcriptions, breakdowns,
+grammar guide, exercise completions, a few vocab statuses and reviews);
+chapter 2 has transcriptions only, plus one region drawn but not
+transcribed, so you can press the buttons and watch the mock pipeline run.
+The web UI shows a "Mock VLM · seed data" pill in the top bar while the
+mock is active. `make dev-reset` deletes the dev data and seeds it again.
+
+### Using your own data and the real model
+
+```bash
 # config
 cp .env.example .env
 
 # store your Anthropic API key in macOS Keychain (do not put it in .env,
-# and do not export it from ~/.zshrc: `make dev-backend` and
+# and do not export it from ~/.zshrc: `make run-backend` and
 # `make benchmark` read it from the Keychain for that one process)
 security add-generic-password -s ANTHROPIC_API_KEY -a "$USER" -w
 
-# run (two terminals)
-make dev-backend     # http://localhost:8000
-make dev-frontend    # http://localhost:5173
+make run-backend     # http://localhost:8000, real data dir, real model
+make dev-frontend
 ```
 
-Open <http://localhost:5173>.
+`make run-backend` has no `--reload` on purpose: a reload in the middle of
+a request kills the in-process job queue. Restart it by hand after code
+changes. To run the dev stack next to the real one, give it another port:
+`make dev-backend BACKEND_PORT=8001` and `make dev-frontend BACKEND_PORT=8001`
+(vite takes the next free port, 5174, when 5173 is busy).
+
+The sample content lives in `backend/seed/` (a manifest plus an image-only
+PDF). The PDF is built from the manifest by `backend/scripts/build_seed.py`,
+which needs macOS fonts and is run by hand only when the content changes;
+seeding itself (`backend/app/services/seed.py`) needs nothing but the PDF.
+Reference data (`make refs`) is linked into the dev data dir from
+`backend/data/refs` when that exists; without it the dev app works but vocab
+is not enriched with JMdict/JLPT data.
 
 ## Workflow
 
@@ -157,11 +188,14 @@ Open <http://localhost:5173>.
 Environment variables (read at startup, `.env` supported):
 
 - `ANTHROPIC_API_KEY` — required for the Anthropic VLM provider.
+- `STUDIOUS_VLM_PROVIDER` — `anthropic` (default) or `mock` (canned output,
+  no key; used by `make dev-backend` and the E2E suite). Anything else is
+  rejected at startup.
 - `WANIKANI_API_TOKEN` — optional; enables the WaniKani sync (levels,
   mnemonics, your own WK notes, kanji/radical drill-down). Store it in the
   Keychain like the Anthropic key:
   `security add-generic-password -s WANIKANI_API_TOKEN -a "$USER" -w`;
-  `make dev-backend` reads it from there. Never put it in `.env` or export
+  `make run-backend` reads it from there. Never put it in `.env` or export
   it from `~/.zshrc`.
 - `ANKI_CONNECT_URL` — AnkiConnect endpoint for the Anki import (default
   `http://127.0.0.1:8765`).
@@ -259,7 +293,7 @@ Vitest + jsdom; run `cd frontend && npm run test:coverage` for a v8
 coverage report.
 
 The E2E suite drives Chromium against the real stack on dedicated ports
-(backend 8775, frontend 5273) with a mock VLM provider and an isolated,
+(backend 8775, frontend 5273) with `STUDIOUS_VLM_PROVIDER=mock` and an isolated,
 per-run data dir (`backend/.e2e-data`) — no API key or tokens needed.
 One-time setup: `cd frontend && npx playwright install chromium`. On
 failure, traces and screenshots land in `frontend/test-results/`.

@@ -57,10 +57,10 @@ Events needs the separate Accessibility permission and will pop a
 dialog if missing.
 
 ### Backend logs (stdout)
-Configured in `backend/app/main.py` with a single `StreamHandler` — logs go to the terminal running `make dev-backend`. Nothing is written to disk by default. To capture a session:
+Configured in `backend/app/main.py` with a single `StreamHandler` — logs go to the terminal running `make dev-backend` (or `make run-backend`). Nothing is written to disk by default. To capture a session:
 
 ```bash
-make dev-backend 2>&1 | tee /tmp/studious-backend.log
+make run-backend 2>&1 | tee /tmp/studious-backend.log
 make logs           # tail -F /tmp/studious-backend.log | jq -C .
 ```
 
@@ -177,7 +177,7 @@ model overrides in `MODEL_PRICING`).
 ### E2E (Playwright) state and artifacts
 - `frontend/test-results/` — per-failure screenshots, error context, and traces. Inspect a trace with `cd frontend && npx playwright show-trace test-results/<test-dir>/trace.zip`.
 - `backend/.e2e-data/` — the isolated data dir for the E2E backend, wiped at the start of every run (the wipe happens in the backend `webServer` command in `frontend/playwright.config.ts`). Documents/jobs left here after a failed run reflect the state the failing test saw.
-- The E2E backend (`backend/e2e_server.py`, port 8775) logs at `WARNING` to Playwright's server output; transcriptions come from the mock VLM provider, so real-API failure modes (auth, rate limits) cannot occur in this suite. If an E2E run reports a port already in use, something is squatting on 8775 or 5273 (`lsof -i :8775`); the suite never reuses an existing server by design.
+- The E2E backend (`app.main:app` with `STUDIOUS_VLM_PROVIDER=mock`, port 8775) logs at `WARNING` to Playwright's server output; transcriptions come from the mock VLM provider, so real-API failure modes (auth, rate limits) cannot occur in this suite. If an E2E run reports a port already in use, something is squatting on 8775 or 5273 (`lsof -i :8775`); the suite never reuses an existing server by design.
 
 ### Model-eval runs (benchmarks/model_eval)
 State lives entirely on disk under `benchmarks/model_eval/`:
@@ -207,7 +207,7 @@ investigate if calls exceed the SDK's retry budget and return errors.
 
 ### A long request (e.g. `POST /api/store/backfill`) 500s; store/dashboard left partial
 
-`make dev-backend` runs uvicorn with `--reload`, which watches every
+A uvicorn started with `--reload` (`make dev-backend` does; `make run-backend` deliberately does not, so the real data is never exposed to this) watches every
 `.py` under `backend/` — including `tests/`. Any concurrent edit to a
 backend Python file (an agent implementing a feature, a stray save)
 restarts the server and kills in-flight requests and the in-process
@@ -607,16 +607,26 @@ Fixing collides with the 7-day install cooldown (`backend/uv.toml` `exclude-newe
 
 How to catch it: after a Dependabot rebase that touches `pyproject` (or any time the lock's age looks off), run `uv lock` in `backend/` — if it reports `Updated <pkg> vX -> vY`, the committed lock was stale; commit the reconciled lock. To detect drift without changing anything, `uv lock --check` (or `uv lock --locked`) fails when the lock doesn't match `pyproject`. Consider adding `uv lock --check` to the backend CI job so `--frozen`'s blind spot can't merge a desynced lock. `uv lock` honors `exclude-newer` in `backend/uv.toml`, so it won't pull anything inside the 7-day cooldown.
 
+### My documents are gone, or I see a "Studious サンプル教科書" after `make dev-backend`
+`make dev-backend` is the development setup: it runs the mock VLM provider against `backend/.dev-data`, a throwaway data dir it seeds with a sample textbook, not against `backend/data`. Your real documents are untouched; they appear when the backend runs against `backend/data`: start it with `make run-backend` (real Keychain keys, real model, no `--reload`). The web UI shows an amber "Mock VLM · seed data" pill in the top bar whenever the mock is active, and `GET /api/providers` reports `"mock": true` for the VLM. Related checks:
+
+- Transcriptions say "Mock transcription" and breakdowns always describe 勉強: that is the canned mock output (`backend/app/providers/vlm/mock.py`), not a broken model call.
+- To run both at once, give the dev stack another port: `make dev-backend BACKEND_PORT=8001` and `make dev-frontend BACKEND_PORT=8001` (the second vite takes port 5174 if 5173 is busy).
+- Dev data looks wrong or half-edited: `make dev-reset` deletes `backend/.dev-data` and seeds it again. The seeder does nothing when the dir already holds a document, and refuses to run against `backend/data`.
+- Vocab items in the dev app have no JLPT/common badges: reference data is linked into `.dev-data/refs` from `backend/data/refs` only when that exists (the seeder prints which case it hit). Build it into the dev dir with `cd backend && STUDIOUS_DATA_DIR=.dev-data uv run python scripts/fetch_refs.py`.
+- `STUDIOUS_VLM_PROVIDER` accepts only `anthropic` or `mock`; anything else stops the backend at startup with a `ValueError` naming the variable.
+- The sample page images come from `backend/seed/sample_textbook.pdf`; after editing `backend/seed/textbook.json`, run `cd backend && uv run python scripts/build_seed.py` on a Mac (it needs the Hiragino fonts) to rebuild the PDF and the region boxes, then `make dev-reset`.
+
 ### Upload fails with 400 "could not render uploaded file"
 The file reached the backend but PyMuPDF/Pillow could not parse it — usually a corrupt download, a password-protected PDF, or a file whose extension doesn't match its contents. The partial document directory is cleaned up automatically (nothing appears in the library), and the render error is logged as `document_render_failed` with the underlying parser message. Re-export or decrypt the source file and upload again. Note: the re-upload endpoint (`PUT /api/documents/{id}/file`) does not yet have this protection — a failed re-upload render can leave a document with stale metadata and no pages (see R6 in `docs/archive/improvement-recommendations.md`).
 
 ### Spinner never stops on a region transcription
-1. Check the job JSON — if `status: "failed"` with an `ANTHROPIC_API_KEY is not set` error, the backend process didn't see the env var. Re-export it in the shell that runs `make dev-backend` and restart.
+1. Check the job JSON — if `status: "failed"` with an `ANTHROPIC_API_KEY is not set` error, the backend process didn't see the env var. You are probably on the real provider without a key: use `make run-backend` (reads the Keychain), or `make dev-backend` for the mock. Restart it.
 2. If the job completed but the UI didn't update, inspect the EventStream — confirm `job-done`/`job-failed` actually streamed (not just `snapshot` + `ping`).
 3. The frontend handles the SSE race where a job finishes before `EventSource` subscribes by reading terminal status from the replayed `snapshot`. If you change `openJobStream` consumers, preserve that behavior.
 
 ### `ANTHROPIC_API_KEY is not set`
-The backend process can't read the key from its environment. `make dev-backend` reads `ANTHROPIC_API_KEY` (and `WANIKANI_API_TOKEN`) from the macOS Keychain when it starts; the keys are deliberately not exported from `~/.zshrc`. Check that the Keychain item exists (`security find-generic-password -s ANTHROPIC_API_KEY -a "$USER"` prints its attributes, not the secret), then restart `make dev-backend`. Starting uvicorn by hand skips the lookup. Inside Claude Code's sandbox the Keychain lookup may be blocked, which is intended: an agent's shell should not get the real key by default.
+The backend process can't read the key from its environment. `make run-backend` reads `ANTHROPIC_API_KEY` (and `WANIKANI_API_TOKEN`) from the macOS Keychain when it starts; the keys are deliberately not exported from `~/.zshrc`. Check that the Keychain item exists (`security find-generic-password -s ANTHROPIC_API_KEY -a "$USER"` prints its attributes, not the secret), then restart `make run-backend`. Starting uvicorn by hand skips the lookup. `make dev-backend` never reads the Keychain: it runs the mock provider, which needs no key. Inside Claude Code's sandbox the Keychain lookup may be blocked, which is intended: an agent's shell should not get the real key by default.
 
 ### In a Claude Code session, `gh` fails with `~/.config/gh/config.yml: operation not permitted`, or git fails with `Host key verification failed`
 The sandbox denies reads of `~/.config/gh` and `~/.ssh`. The owner's user settings exclude `gh *`, `git push *`, `git fetch *` and `git pull *` from the sandbox, but an exclusion matches only when the command is run on its own. Chained after other commands (`git log && gh pr list`), the whole line runs sandboxed and the credential read is refused. The same happens when the command contains a substitution, such as `gh pr create --body "$(cat <<'EOF' ...)"`; pass `--body-file` instead. Run `gh` and the git network commands as separate, plain commands. Git commands that reach the remote but are not on the list (`git ls-remote`, `git clone`) fail the same way; use `git fetch` instead. Verified 2026-11-13: `gh pr list` and `git push --dry-run origin main` both work when run alone.

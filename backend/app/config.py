@@ -955,6 +955,10 @@ class Settings(BaseModel):
         "claude-sonnet-5-5",
         "claude-opus-5-5",
     ]
+    # Which implementation backs the "anthropic" VLM name: the real Anthropic
+    # provider, or the canned mock (providers/vlm/mock.py) for local dev and
+    # E2E. Read from STUDIOUS_VLM_PROVIDER.
+    vlm_provider: str = "anthropic"
     default_vlm_prompt: str = DEFAULT_VLM_PROMPT
     vlm_max_edge: int = 1568
     vlm_effort_transcription: str = "high"
@@ -963,6 +967,9 @@ class Settings(BaseModel):
     vlm_effort_examples: str = "medium"
     pdf_render_dpi: int = 300
     log_level: str = "INFO"
+
+
+VLM_PROVIDERS = ("anthropic", "mock")
 
 
 @lru_cache
@@ -984,6 +991,13 @@ def get_settings() -> Settings:
     breakdown_effort_env = os.environ.get("STUDIOUS_VLM_EFFORT_BREAKDOWN")
     if breakdown_effort_env:
         overrides["vlm_effort_breakdown"] = breakdown_effort_env.lower()
+    vlm_provider_env = (os.environ.get("STUDIOUS_VLM_PROVIDER") or "anthropic").strip().lower()
+    if vlm_provider_env not in VLM_PROVIDERS:
+        raise ValueError(
+            f"STUDIOUS_VLM_PROVIDER={vlm_provider_env!r} is not valid; "
+            f"use one of: {', '.join(VLM_PROVIDERS)}"
+        )
+    overrides["vlm_provider"] = vlm_provider_env
     return Settings(
         data_dir=data_dir,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,

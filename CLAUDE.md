@@ -23,11 +23,13 @@ Japanese study tool: upload PDFs, organize into chapters, select regions of inte
 
 ```bash
 make install          # install all deps (uv + npm)
-make dev-backend      # uvicorn on :8000 with reload
-make dev-frontend     # vite on :5173 with proxy to backend
+make dev-backend      # mock VLM + seeded backend/.dev-data, no key; :8000 (BACKEND_PORT=) with reload
+make dev-reset        # delete backend/.dev-data and reseed it
+make run-backend      # real data dir + real model (Keychain keys), no reload; :8000 (BACKEND_PORT=)
+make dev-frontend     # vite on :5173 with proxy to the backend (BACKEND_PORT=)
 make test             # run backend pytest + frontend vitest
 make lint             # ruff (backend, benchmarks) + Biome (frontend)
-make test-e2e         # Playwright smoke suite (mock VLM, isolated data dir)
+make test-e2e         # Playwright smoke suite (STUDIOUS_VLM_PROVIDER=mock, isolated data dir)
 make test-apple       # Swift suite (needs a Mac)
 make audit            # run npm audit + pip-audit
 make benchmark        # regression benchmark: fixtures vs. the default model, judged (real API calls)

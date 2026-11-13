@@ -24,14 +24,18 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      // Fresh data dir every run; e2e_server registers the mock VLM
-      // provider under the "anthropic" name before app startup.
-      command: `rm -rf .e2e-data && uv run uvicorn e2e_server:app --port ${BACKEND_PORT}`,
+      // Fresh data dir every run; STUDIOUS_VLM_PROVIDER=mock registers the
+      // canned mock VLM under the "anthropic" name at app startup.
+      command: `rm -rf .e2e-data && uv run uvicorn app.main:app --port ${BACKEND_PORT}`,
       cwd: "../backend",
       url: `http://localhost:${BACKEND_PORT}/api/health`,
       reuseExistingServer: false,
       env: {
         STUDIOUS_DATA_DIR: ".e2e-data",
+        STUDIOUS_VLM_PROVIDER: "mock",
+        // Never reach a real Anthropic key, WaniKani or Anki from the suite.
+        ANTHROPIC_API_KEY: "",
+        WANIKANI_API_TOKEN: "",
         STUDIOUS_PDF_RENDER_DPI: "100",
         STUDIOUS_LOG_LEVEL: "WARNING",
       },

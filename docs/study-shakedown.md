@@ -8,9 +8,12 @@ something's off, `docs/troubleshooting.md` is organized by symptom.
 ## 0. Start the apps
 
 ```bash
-make dev-backend    # :8000
+make run-backend    # :8000, real data and real model (this walkthrough uses your own material)
 make dev-frontend   # :5173
 ```
+
+(`make dev-backend` runs the mock model on sample data instead; fine for
+poking at the screens, but there is no real material to backfill.)
 
 Note: `backend/data/store/` doesn't exist until the first harvest —
 empty dashboards before step 1 are expected, not a bug.

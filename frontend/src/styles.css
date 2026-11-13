@@ -259,6 +259,14 @@ textarea { width: 100%; min-height: 100px; resize: vertical; }
   display: inline-block; font-size: 11px; padding: 2px 6px; border-radius: 4px;
   background: var(--bg-soft); color: var(--muted); border: 1px solid var(--border);
 }
+/* Shown in the app topbar when the backend runs the mock VLM provider. */
+.badge.mock-pill {
+  color: #b45309; background: rgba(245, 158, 11, 0.14); border-color: rgba(245, 158, 11, 0.5);
+  cursor: help;
+}
+@media (prefers-color-scheme: dark) {
+  .badge.mock-pill { color: #fbbf24; }
+}
 .action-bar {
   display: flex; gap: 6px; margin: 8px 0 12px;
 }

@@ -225,7 +225,7 @@ status lives in `docs/roadmap.md` (Phase 1.8.1).
 
 **Approach.** Playwright drives Chromium against the full stack: a vite dev
 server (port 5273) proxying to a FastAPI backend (port 8765) started from
-`backend/e2e_server.py`, which registers a canned mock VLM provider under the
+`backend/e2e_server.py` (since replaced by `STUDIOUS_VLM_PROVIDER=mock`), which registered a canned mock VLM provider under the
 "anthropic" name. Each run gets a fresh `backend/.e2e-data` dir, so journeys
 are deterministic and cost nothing. Dedicated ports guarantee a run can never
 reuse — or write into — a real dev backend.

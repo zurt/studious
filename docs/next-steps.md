@@ -51,8 +51,9 @@ Done 2026-11-13:
 - Everything under iCloud Drive's `dev/` moved to `~/dev`; the repo is
   `~/dev/cc/studious`. Time Machine covers it when the backup drive is
   plugged in.
-- The keys are no longer exported from `~/.zshrc`. `make dev-backend` and
-  `make benchmark` read them from the Keychain for that one process.
+- The keys are no longer exported from `~/.zshrc`. `make run-backend` and
+  `make benchmark` read them from the Keychain for that one process;
+  `make dev-backend` needs no key (see step 4).
 - Claude Code's sandbox is enabled in the owner's user settings, with
   reads of `~/.ssh`, iCloud Drive and other personal folders denied and a
   network allowlist. The project allowlist no longer auto-approves
@@ -62,17 +63,29 @@ Still to do, in order:
 
 1. Done 2026-11-13: the sandbox is verified. `make test`, `make lint`,
    `make test-e2e` and `make test-apple` pass, `make dev-backend` starts
-   and reads the key, and `git push` and `gh` work from a Claude Code
+   and reads the key (it has since changed: see step 4), and `git push` and `gh` work from a Claude Code
    session. Nothing needed loosening; the one catch (the exclusions apply
    only to a command run on its own) is in `docs/troubleshooting.md`.
 2. Done 2026-11-13: the Keychain item `ANTHROPIC_API_KEY` now holds a
    development key (expires about 2026-12-13; rotate it then). The former
-   key is kept as `ANTHROPIC_API_KEY_PROD` for the droplet. Still to
-   confirm: the dev key's workspace has a low spend cap.
-3. `backend/data/` still lives inside the repo and the dev server still
-   runs against it. It leaves when production moves to the droplet; until
-   then nothing has changed about that risk.
-4. Make mock VLM plus seed data the dev default (overlaps session 2).
+   key is kept as `ANTHROPIC_API_KEY_PROD` for the droplet. The owner
+   confirmed on 2026-11-13 that the dev key's workspace has a low spend cap.
+3. `backend/data/` still lives inside the repo. The dev server no longer
+   runs against it (step 4); `make run-backend` does, without `--reload`.
+   It leaves the repo when production moves to the droplet; until then the
+   real data and the real key are one command away, so run that target
+   deliberately.
+4. Done 2026-11-13: mock VLM plus seed data is the dev default.
+   `make dev-backend` runs `STUDIOUS_VLM_PROVIDER=mock` on a seeded
+   `backend/.dev-data` (a committed sample textbook, `backend/seed/`) with
+   no key, no WaniKani token and Anki pointed at a closed port;
+   `make dev-reset` reseeds it; `make run-backend` is the real thing
+   (Keychain keys, `backend/data`, no reload). Both take `BACKEND_PORT=`.
+   The web UI shows a "Mock VLM · seed data" pill while the mock is
+   active. Open: reference data (`make refs`) is linked into the dev dir
+   from `backend/data/refs` only when that exists, so a fresh clone or
+   cloud session has no JMdict/JLPT enrichment unless it builds the refs
+   into `.dev-data`.
 5. Salvage the Dockerfile commit (`5b06c4e`) from
    `claude/mobile-spike-audit-hosting-9jjv6k`, build the image in CI, run
    it locally against the real data and measure memory (the 2 GB droplet
@@ -95,9 +108,9 @@ files nor the API key.
 
 What already exists:
 
-- A Playwright suite (`frontend/e2e/smoke.spec.ts`, 13 journeys) that boots
-  an isolated backend with a **mock VLM provider** and a fresh data dir on
-  dedicated ports. It needs no API key and no local data, runs in CI, and
+- A Playwright suite (`frontend/e2e/smoke.spec.ts`, 14 journeys) that boots
+  an isolated backend with the **mock VLM provider**
+  (`STUDIOUS_VLM_PROVIDER=mock`) and a fresh data dir on dedicated ports. It needs no API key and no local data, runs in CI, and
   was run inside a cloud session during this cleanup using the
   pre-installed Chromium (`docs/troubleshooting.md` describes the
   local-only config override needed for a pre-installed browser).
@@ -106,8 +119,11 @@ What already exists:
 
 Gaps to design for:
 
-- No committed, realistic seed data. Real pages are copyrighted and stay
-  out of the repo, so screens in a cloud session look sparse.
+- Seed data now exists (done 2026-11-13): `backend/seed/` holds an invented
+  five-page N4 textbook as a manifest plus an image-only PDF, and
+  `make dev-backend` seeds it. Still thin: one reading passage and one
+  dialogue, no vertical text, no tables, no handwritten or scanned-looking
+  pages. Grow it as UI work needs more shapes.
 - No screenshot helper or `make` target for "show me page X in state Y".
 - No visual regression checks (Playwright's screenshot assertions).
 - No frontend linting of accessibility or layout.

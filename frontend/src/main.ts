@@ -8,6 +8,7 @@ import { mountVocabDashboard, mountGrammarDashboard } from "./pages/study-dashbo
 import { mountStudySession } from "./pages/study-session";
 import { openSettingsModal, syncSettingsModalFromUrl } from "./modules/settings-modal";
 import { initFurigana } from "./modules/furigana";
+import { initMockIndicator } from "./modules/mock-indicator";
 import {
   openShortcutsHelp,
   closeShortcutsHelp,
@@ -26,6 +27,7 @@ root.innerHTML = `
         <a href="/vocab" class="topbar-link-btn" data-nav-link>Vocab</a>
         <a href="/grammar" class="topbar-link-btn" data-nav-link>Grammar</a>
       </nav>
+      <span id="mock-pill" class="badge mock-pill" hidden title="The backend is running the canned mock VLM provider against local sample data (make dev-backend). Nothing here touches your real documents or the Anthropic API.">Mock VLM · seed data</span>
       <div class="spacer"></div>
     </div>
     <div id="page-container" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
@@ -107,6 +109,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 initFurigana();
+initMockIndicator(root.querySelector<HTMLElement>("#mock-pill")!);
 
 const pageContainer = root.querySelector<HTMLElement>("#page-container")!;
 
