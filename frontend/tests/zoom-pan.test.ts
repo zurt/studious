@@ -12,11 +12,13 @@ function setNaturalSize(img: HTMLImageElement, w: number, h: number) {
 }
 
 function parseTransform(content: HTMLElement) {
+  // jsdom 31 serializes `translate(Xpx, 0px)` as `translate(Xpx)`, so the
+  // y component is optional and defaults to 0.
   const m = content.style.transform.match(
-    /translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([-\d.]+)\)/,
+    /translate\(([-\d.]+)px(?:,\s*([-\d.]+)px)?\)\s*scale\(([-\d.]+)\)/,
   );
   if (!m) throw new Error(`unparseable transform: "${content.style.transform}"`);
-  return { tx: parseFloat(m[1]), ty: parseFloat(m[2]), s: parseFloat(m[3]) };
+  return { tx: parseFloat(m[1]), ty: parseFloat(m[2] ?? "0"), s: parseFloat(m[3]) };
 }
 
 describe("zoom-pan", () => {
