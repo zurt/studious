@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-reset run-backend dev-frontend test test-backend test-frontend test-e2e test-apple run-mac lint audit audit-log logs clean benchmark refs golden
+.PHONY: install install-backend install-frontend dev dev-backend dev-reset run-backend dev-frontend test test-backend test-frontend test-e2e test-apple run-mac lint audit audit-log logs clean benchmark refs golden docker-build docker-run docker-smoke
 
 install: install-backend install-frontend
 	@echo ""
@@ -136,6 +136,37 @@ audit-log:
 # calls. See benchmarks/README.md (and model_eval/ for comparing models).
 benchmark:
 	$(WITH_KEYS) uv run --project backend python -m benchmarks.run_benchmark
+
+# Single-container image (Dockerfile, docs/hosting.md). Needs a Docker daemon.
+# docker-run starts it on the mock VLM with a throwaway named volume, so it
+# never touches backend/data. Variables:
+#   DOCKER_DATA      the /data volume: a volume name (default) or an absolute
+#                    host path writable by UID 10001. Never backend/data
+#                    unless you mean it.
+#   DOCKER_VLM       mock (default) or anthropic
+#   DOCKER_ENV_FILE  an env file with ANTHROPIC_API_KEY etc. (not committed)
+#   DOCKER_PORT      host port, bound to 127.0.0.1 only (default 8000)
+DOCKER_IMAGE ?= studious:local
+DOCKER_DATA ?= studious-local-data
+DOCKER_VLM ?= mock
+DOCKER_PORT ?= 8000
+
+docker-build:
+	docker build -t $(DOCKER_IMAGE) .
+
+docker-run: docker-build
+	@echo "==> http://127.0.0.1:$(DOCKER_PORT)  VLM=$(DOCKER_VLM)  /data=$(DOCKER_DATA)"
+	docker run --rm -it --name studious-local \
+		-p 127.0.0.1:$(DOCKER_PORT):8000 \
+		-v $(DOCKER_DATA):/data \
+		$(if $(DOCKER_ENV_FILE),--env-file $(DOCKER_ENV_FILE)) \
+		-e STUDIOUS_VLM_PROVIDER=$(DOCKER_VLM) \
+		$(DOCKER_IMAGE)
+
+# What CI runs: build the image, run it on the mock VLM, check it from outside.
+docker-smoke:
+	docker build -t studious:smoke .
+	scripts/docker-smoke.sh studious:smoke
 
 clean:
 	rm -rf backend/.venv backend/.pytest_cache backend/**/__pycache__ frontend/node_modules frontend/dist

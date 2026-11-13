@@ -48,3 +48,13 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # The root Dockerfile: base images are pinned by tag and digest, so this
+  # proposes new tags (and their digests) for node, python and uv.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5

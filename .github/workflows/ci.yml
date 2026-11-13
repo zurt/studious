@@ -97,6 +97,19 @@ jobs:
       - name: Test
         run: swift run studious-tests
 
+  # Builds the single-container image (Dockerfile) with plain `docker build`
+  # and smoke-tests it on the mock VLM: health, built frontend at / and on a
+  # deep SPA path, JSON 404 for unknown /api paths, mock provider, non-root.
+  # Image size and memory are printed in the log. Nothing is pushed anywhere.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build image
+        run: docker build -t studious:smoke .
+      - name: Smoke test
+        run: scripts/docker-smoke.sh studious:smoke
+
   audit:
     runs-on: ubuntu-latest
     steps:

@@ -20,6 +20,7 @@ coverage/
 # Env / data
 .env
 .env.local
+.env.docker
 data/
 
 # Benchmarks

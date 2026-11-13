@@ -1,0 +1,32 @@
+# Studious on one host (see docs/hosting.md). A local / droplet convenience,
+# not the deploy mechanism.
+#
+# The API has NO authentication of its own. Never publish it on a public
+# interface: the port below is bound to loopback on purpose. Reach it from
+# other devices over Tailscale (docs/hosting.md), never by opening the port.
+services:
+  studious:
+    build: .
+    image: studious:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    # Keys come from an env file that is NOT committed (`.env.docker`,
+    # gitignored), one KEY=value per line:
+    #   ANTHROPIC_API_KEY=...   WANIKANI_API_TOKEN=...
+    # Add STUDIOUS_VLM_PROVIDER=mock to run with no key at all. Without the
+    # file the container starts with no keys.
+    env_file:
+      - path: .env.docker
+        required: false
+    volumes:
+      # Everything the app owns lives here: documents, page images,
+      # transcriptions, jobs, the vocab/grammar store, review log, LLM audit
+      # log, reference caches. It is the one path to back up. The directory
+      # must be writable by UID 10001 (the container user). Defaults to a
+      # throwaway named volume; point STUDIOUS_HOST_DATA at a directory to
+      # use that instead.
+      - ${STUDIOUS_HOST_DATA:-studious-data}:/data
+
+volumes:
+  studious-data:
