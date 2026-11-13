@@ -35,10 +35,10 @@ make install
 # config
 cp .env.example .env
 
-# store your Anthropic API key in macOS Keychain (do not put it in .env)
+# store your Anthropic API key in macOS Keychain (do not put it in .env,
+# and do not export it from ~/.zshrc: `make dev-backend` and
+# `make benchmark` read it from the Keychain for that one process)
 security add-generic-password -s ANTHROPIC_API_KEY -a "$USER" -w
-# then add to ~/.zshrc:
-#   export ANTHROPIC_API_KEY="$(security find-generic-password -s ANTHROPIC_API_KEY -a "$USER" -w 2>/dev/null)"
 
 # run (two terminals)
 make dev-backend     # http://localhost:8000
@@ -160,8 +160,9 @@ Environment variables (read at startup, `.env` supported):
 - `WANIKANI_API_TOKEN` — optional; enables the WaniKani sync (levels,
   mnemonics, your own WK notes, kanji/radical drill-down). Store it in the
   Keychain like the Anthropic key:
-  `security add-generic-password -s WANIKANI_API_TOKEN -a "$USER" -w`, then
-  export it in `~/.zshrc` the same way. Never put it in `.env`.
+  `security add-generic-password -s WANIKANI_API_TOKEN -a "$USER" -w`;
+  `make dev-backend` reads it from there. Never put it in `.env` or export
+  it from `~/.zshrc`.
 - `ANKI_CONNECT_URL` — AnkiConnect endpoint for the Anki import (default
   `http://127.0.0.1:8765`).
 - `STUDIOUS_TTS_VOICE` — macOS `say` voices for card audio: `auto`

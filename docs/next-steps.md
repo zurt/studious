@@ -19,35 +19,73 @@ Delete items as they are done; when the file is empty, delete the file.
 
 The owner's stated near-term goals, in order.
 
-### 1. Safe local development with Claude Code on a personal Mac
+### 1. Safe development, and where Studious runs
 
-Today: Claude Code runs in Terminal against a checkout inside **iCloud
-Drive** (`~/Library/Mobile Documents/com~apple~CloudDocs/dev/cc/studious`).
-The concern is side effects and exploits during development; the first
-instinct is to containerize.
+Decided 2026-11-13. The laptop was risky because development, the real
+study data and the real credentials shared one directory. The answer is to
+separate them, which is also the first slice of hub infrastructure (the
+hub needs a backend that is up when the laptop lid is closed).
 
-Facts that bear on the decision:
+Three planes:
 
-- The checkout being in iCloud Drive is a problem independent of isolation:
-  `.git`, `node_modules`, `.venv` and `backend/data/` are all being synced,
-  and anything written there replicates to every device on the account.
-- `backend/data/` holds the real study data: copyrighted textbook scans,
-  the vocab/grammar store, review history, and `preferences.json`. It is
-  the thing most worth protecting and backing up.
-- The Anthropic key lives in the macOS Keychain and is exported from the
-  shell rc file (README "Quick start"); the benchmark tools fall back to a
-  Keychain lookup. A container would need the key passed in deliberately.
-- The Apple targets (`make test-apple`, `make run-mac`) need macOS and
-  cannot run in a Linux container. Everything else can.
-- Supply-chain posture already in place: 7-day package cooldown, frozen
-  lockfiles, audits in CI.
-- Cloud sessions (this one was one) are already isolated from the Mac, but
-  have no access to `backend/data/` or the API key.
+- **Production**: one container on a small DigitalOcean droplet, reachable
+  only over Tailscale. Real data on a volume, its own API key with a spend
+  cap, encrypted backups. CI builds and deploys the image, so no deploy
+  credential sits on the laptop. The owner accepts the textbook scans
+  living there.
+- **Development**: native on the Mac (the Apple targets need macOS anyway),
+  holding nothing valuable. Mock VLM plus seed data by default; keys read
+  from the Keychain only by the targets that need them; Claude Code's
+  sandbox on. Unattended or permission-bypassed agent work goes to cloud
+  sessions.
+- **Clients** (web, Mac, iOS): all talk to the production API. Apple builds
+  stay local.
 
-To decide: container (dev container / Docker) vs. Claude Code's own
-sandboxing and permission settings vs. a separate macOS user account; where
-the repo and the data directory should live; how the key reaches the dev
-environment; what stays Mac-native.
+Rejected: a dev container (two environments to maintain, little gained once
+data and keys are out of dev) and a macOS VM (heavy). A separate macOS user
+account is held in reserve; it is the only Mac-native hard boundary for
+commands the owner runs outside Claude Code.
+
+Done 2026-11-13:
+
+- Everything under iCloud Drive's `dev/` moved to `~/dev`; the repo is
+  `~/dev/cc/studious`. Time Machine covers it when the backup drive is
+  plugged in.
+- The keys are no longer exported from `~/.zshrc`. `make dev-backend` and
+  `make benchmark` read them from the Keychain for that one process.
+- Claude Code's sandbox is enabled in the owner's user settings, with
+  reads of `~/.ssh`, iCloud Drive and other personal folders denied and a
+  network allowlist. The project allowlist no longer auto-approves
+  arbitrary `uv run`, `npm run` or `npx` commands.
+
+Still to do, in order:
+
+1. **Verify the sandbox in a fresh session started from `~/dev/cc/studious`.**
+   It was configured from a session that could not test it. Check
+   `make test`, `make lint`, `make test-e2e`, `make test-apple` (nested
+   `sandbox-exec` under `swift build` is undocumented), git push over SSH
+   and `gh` (both excluded from the sandbox), and whether the Keychain
+   lookup works inside it. Record what needed loosening in
+   `docs/troubleshooting.md`.
+2. **Owner: create a separate Anthropic key for development with a low
+   spend cap** and store it in the Keychain in place of the current one;
+   the current key becomes production's.
+3. `backend/data/` still lives inside the repo and the dev server still
+   runs against it. It leaves when production moves to the droplet; until
+   then nothing has changed about that risk.
+4. Make mock VLM plus seed data the dev default (overlaps session 2).
+5. Salvage the Dockerfile commit (`5b06c4e`) from
+   `claude/mobile-spike-audit-hosting-9jjv6k`, build the image in CI, run
+   it locally against the real data and measure memory (the 2 GB droplet
+   estimate is unmeasured).
+6. Droplet, Tailscale, backups, CI deploy, data move.
+7. Move the Mac and iOS apps from direct file access to the API.
+8. **Features that rely on the service running on the Mac need a new
+   home** once production is on Linux: the macOS voices (TTS), Anki sync
+   through AnkiConnect on localhost, and anything else that calls a local
+   Mac service. Inventory them before step 6. Likely shapes: a small
+   Mac-side helper the server or client calls, or moving the feature into
+   the Mac app.
 
 ### 2. Letting Claude Code sessions see the UI
 
