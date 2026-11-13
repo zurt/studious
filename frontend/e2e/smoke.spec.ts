@@ -236,6 +236,8 @@ test("completing an exercise renders the answer and example sentences", async ({
   await expect(page.locator("#region-references")).toContainText(
     "does not appear to need a reading reference",
   );
+  // ...and that answer replaces the generic "None. Add the reading passages…" prompt.
+  await expect(page.locator("#region-references")).not.toContainText("None.");
   await expect(page.locator(".region-check-notice")).toHaveCount(0);
 
   // Exercises regions get a per-sentence "Complete exercise" action once a
@@ -458,7 +460,7 @@ test("an exercises region can cite a reading from another document", async ({ pa
 
   const refs = page.locator("#region-references");
   await expect(refs).toContainText("Reading references");
-  await expect(refs).toContainText("None.");
+  await expect(refs).toContainText("does not appear to need a reading reference");
   await refs.getByRole("button", { name: "Add…" }).click();
 
   const picker = page.locator(".reference-picker");

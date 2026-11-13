@@ -878,10 +878,14 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       referencesPane.appendChild(note);
     }
     if (refs.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "region-references-note";
-      empty.textContent = "None. Add the reading passages these exercises ask about so completions can use them.";
-      referencesPane.appendChild(empty);
+      // Once the check has answered, its note says what to do; the generic
+      // prompt would only repeat or contradict it.
+      if (need === "unchecked") {
+        const empty = document.createElement("p");
+        empty.className = "region-references-note";
+        empty.textContent = "None. Add the reading passages these exercises ask about so completions can use them.";
+        referencesPane.appendChild(empty);
+      }
       return;
     }
     const list = document.createElement("ol");
