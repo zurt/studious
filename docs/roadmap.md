@@ -410,6 +410,32 @@ motivating case).
       the chapter view, shown for any region of an exercises chain and
       editing the chain head's list.
 
+### Phase 2.6: Region Check
+
+After a region is transcribed, one text-only call to the **helper model**
+(`helper_model` preference, default `claude-haiku-5-5`; the first job type
+not driven by the main model setting) answers two questions and stores the
+result on the region as `check`:
+
+- [x] Label check: is the tag right for the text? A confident (`high`)
+      suggestion shows a notice with Relabel / Relabel and re-transcribe
+      (when the change is to or from `vocab_list`, the only tag with its own
+      transcription prompt) / Dismiss. Never auto-relabels.
+- [x] Reading-reference check: for exercise content, do the questions need
+      a reading passage that is not in the text? Shown in the References
+      pane (Add… highlighted when needed); requesting a completion asks
+      for confirmation first when a reference is needed and none is set.
+- [x] Runs from the shared `_transcribe_region_core` (single and bulk
+      transcription); a continuation also re-checks its chain head. Failure
+      is logged (`region_check_error`) and audited, never fails the job.
+- [x] `POST .../regions/{id}/check` (run / re-run) and
+      `POST .../check/dismiss`; stale once `transcribed_at` or `tag`
+      changes. Regions from before the feature show "Not checked yet".
+- [ ] No benchmark or fixtures for the prompt yet (see next-steps.md).
+- [ ] Not yet run against the real Haiku 5.5 API; unit, API and job tests
+      use mocks, and the E2E mock returns a benign "no change, no
+      reference needed".
+
 ## Phase 3: Central Vocab/Grammar Store
 
 The long-term core study workflow: vocab and grammar accumulate across

@@ -267,6 +267,21 @@ is `@lru_cache`d, so `monkeypatch.delenv` alone is not enough — also call
 `config.get_settings.cache_clear()` (the same pattern the `wk_env`
 fixture uses for `setenv`).
 
+### No label suggestion, or the References pane says "Not checked yet", after transcribing
+The region check (label and reading-reference questions, run on the helper
+model after each transcription) fails silently by design, so a transcription
+is never lost to it. Look for `region_check_error` in the backend log and for
+`job_type: "region_check"` entries with `status: "error"` in the LLM audit log
+(`backend/data/llm_audit.YYYY-MM.jsonl`; `jq 'select(.job_type=="region_check" and .status=="error")' backend/data/llm_audit.*.jsonl`).
+Common causes: a missing `ANTHROPIC_API_KEY`, a helper model the account
+cannot use, or a malformed tool response (the error says which field). The
+**Check** button in the References pane (or `POST .../regions/{id}/check`)
+retries and shows the error as a toast (502). A suggestion also stays hidden
+when the model is not highly confident, after Dismiss, and once the region is
+re-transcribed or relabelled after the check (the stored check is then stale).
+The helper model is set separately in Settings > General, and its calls are
+costed under that model in the Usage summary.
+
 ### The Study page says "No cards to study yet" despite a full vocab store
 The queue only serves items with curation status **active** — that's the
 point of the curation lifecycle (see the status-vs-SRS-state distinction
