@@ -162,14 +162,14 @@ def test_judge_uses_category_routed_fallback_by_default_and_records_who_answered
 
 def test_judge_retries_without_fallback_when_the_api_rejects_it():
     import anthropic
-    import httpx
+    import httpx2
 
     from benchmarks.model_eval import judge_cmd
 
-    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
     rejection = anthropic.BadRequestError(
         "fallbacks: this model does not support server-side fallback",
-        response=httpx.Response(400, request=request),
+        response=httpx2.Response(400, request=request),
         body=None,
     )
 
@@ -185,7 +185,7 @@ def test_judge_retries_without_fallback_when_the_api_rejects_it():
 
     # An unrelated 400 is not swallowed.
     other = anthropic.BadRequestError(
-        "image too large", response=httpx.Response(400, request=request), body=None
+        "image too large", response=httpx2.Response(400, request=request), body=None
     )
 
     class _Other:

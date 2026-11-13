@@ -14,13 +14,11 @@ from ...config import get_settings
 from ..registry import Prompt, ToolCallResult, TranscriptionResult, prompt_text
 
 # Prefix matching: "claude-sonnet-5" also covers claude-sonnet-5-5, and
-# "claude-opus-5" covers claude-opus-5-5. "claude-haiku-5" is Haiku 5.5:
-# unlike Haiku 4.5 it 400s on a non-default temperature, thinks adaptively
-# and takes `effort` (its own default is `medium`, so sending the settings
-# effort keeps it on the same footing as the other models).
-_TEMPERATURE_DEPRECATED_PREFIXES = (
-    "claude-opus-4-7", "claude-opus-4-8", "claude-opus-5", "claude-sonnet-5", "claude-haiku-5",
-)
+# "claude-opus-5" covers claude-opus-5-5. "claude-haiku-5" is Haiku 5.5, which
+# thinks adaptively and takes `effort` (its own default is `medium`, so
+# sending the settings effort keeps it on the same footing as the other
+# models). Sampling parameters (`temperature` etc.) are never sent: SDK 1.0+
+# removed them and API version 2026-10-21 rejects them with a 400.
 # Models that support adaptive thinking (`thinking: {type: "adaptive"}`).
 _ADAPTIVE_THINKING_PREFIXES = (
     "claude-opus-4-6",
@@ -68,10 +66,6 @@ _UNSUPPORTED_SCHEMA_KEYS = {
 }
 
 log = logging.getLogger("studious.providers.anthropic")
-
-
-def _model_deprecates_temperature(model: str) -> bool:
-    return any(model.startswith(p) for p in _TEMPERATURE_DEPRECATED_PREFIXES)
 
 
 def _model_supports_adaptive_thinking(model: str) -> bool:
@@ -154,8 +148,6 @@ def _build_common_kwargs(
     model: str, max_tokens: int, config: dict[str, Any], effort: str
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens}
-    if "temperature" in config and not _model_deprecates_temperature(model):
-        kwargs["temperature"] = float(config["temperature"])
     if _model_supports_adaptive_thinking(model):
         kwargs["thinking"] = {"type": "adaptive"}
     if _model_supports_effort(model):
@@ -238,12 +230,6 @@ class AnthropicVlm:
             "config_schema": {
                 "model": {"type": "string"},
                 "max_tokens": {"type": "integer", "default": 8192, "min": 256, "max": 16000},
-                "temperature": {
-                    "type": "number",
-                    "min": 0,
-                    "max": 1,
-                    "note": "Ignored on claude-opus-4-7+/4-8 and other adaptive-thinking models.",
-                },
                 "effort": {
                     "type": "string",
                     "enum": ["low", "medium", "high", "xhigh", "max"],

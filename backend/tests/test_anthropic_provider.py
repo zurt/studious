@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.providers.vlm.anthropic import AnthropicVlm, _model_deprecates_temperature
+from app.providers.vlm.anthropic import AnthropicVlm
 
 
 class _StubMessage:
@@ -89,33 +89,22 @@ def vlm(monkeypatch: pytest.MonkeyPatch):
     return inst, inst._client.messages, stub_message
 
 
-def test_temperature_dropped_for_opus_4_7(vlm):
+@pytest.mark.parametrize("model", ["claude-sonnet-4-6", "claude-opus-5-5", "claude-haiku-4-5"])
+def test_temperature_is_never_sent(vlm, model):
+    # SDK 1.0+ removed sampling parameters and API 2026-10-21 400s on them;
+    # a stale `temperature` in a saved config or job payload is ignored.
     inst, messages, _ = vlm
-    inst.transcribe(b"img", "prompt", {"model": "claude-opus-4-7", "temperature": 0.5})
+    inst.transcribe(b"img", "prompt", {"model": model, "temperature": 0.5})
     assert "temperature" not in messages.calls[0]
+    assert "temperature" not in messages.calls[0].get("extra_body", {})
 
 
-def test_temperature_kept_for_other_models(vlm):
-    inst, messages, _ = vlm
-    inst.transcribe(b"img", "prompt", {"model": "claude-sonnet-4-6", "temperature": 0.5})
-    assert messages.calls[0]["temperature"] == 0.5
-
-
-def test_temperature_helper_recognises_4_7_prefix():
-    assert _model_deprecates_temperature("claude-opus-4-7")
-    assert _model_deprecates_temperature("claude-opus-4-7-20251010")
-    assert not _model_deprecates_temperature("claude-opus-4-6")
-    assert not _model_deprecates_temperature("claude-sonnet-4-6")
-
-
-def test_4_8_recognised_for_temperature_thinking_and_effort():
+def test_4_8_recognised_for_thinking_and_effort():
     from app.providers.vlm.anthropic import (
-        _model_deprecates_temperature,
         _model_supports_adaptive_thinking,
         _model_supports_effort,
     )
 
-    assert _model_deprecates_temperature("claude-opus-4-8")
     assert _model_supports_adaptive_thinking("claude-opus-4-8")
     assert _model_supports_effort("claude-opus-4-8")
 
@@ -421,23 +410,20 @@ def test_forced_tool_models_keep_forced_tool_choice(vlm):
     ]
 
 
-def test_opus_5_family_recognised_for_temperature_thinking_and_effort(vlm):
+def test_opus_5_family_recognised_for_thinking_and_effort(vlm):
     inst, messages, _ = vlm
-    inst.transcribe(b"img", "prompt", {"model": "claude-opus-5-5", "temperature": 0.2})
+    inst.transcribe(b"img", "prompt", {"model": "claude-opus-5-5"})
     call = messages.calls[0]
-    assert "temperature" not in call
     assert call["thinking"] == {"type": "adaptive"}
     assert call["output_config"] == {"effort": "high"}
     assert call["betas"] == ["server-side-fallback-2026-07-01"]
 
 
-def test_haiku_5_5_gets_adaptive_thinking_explicit_effort_and_no_temperature(vlm):
-    # Haiku 5.5 400s on a non-default temperature and defaults to `medium`
-    # effort; it must be sent the same effort as the models it is compared to.
+def test_haiku_5_5_gets_adaptive_thinking_and_explicit_effort(vlm):
+    # Haiku 5.5 defaults to `medium` effort; it must be sent the same effort as the models it is compared to.
     inst, messages, _ = vlm
-    inst.transcribe(b"img", "prompt", {"model": "claude-haiku-5-5", "temperature": 0.2})
+    inst.transcribe(b"img", "prompt", {"model": "claude-haiku-5-5"})
     call = messages.calls[0]
-    assert "temperature" not in call
     assert call["thinking"] == {"type": "adaptive"}
     assert call["output_config"] == {"effort": "high"}
     # No server-side fallback exists for Haiku 5.5: plain endpoint, no beta.
@@ -446,7 +432,6 @@ def test_haiku_5_5_gets_adaptive_thinking_explicit_effort_and_no_temperature(vlm
 
 def test_haiku_4_5_request_shape_is_unchanged(vlm):
     inst, messages, _ = vlm
-    inst.transcribe(b"img", "prompt", {"model": "claude-haiku-4-5", "temperature": 0.2})
+    inst.transcribe(b"img", "prompt", {"model": "claude-haiku-4-5"})
     call = messages.calls[0]
-    assert call["temperature"] == 0.2
     assert "thinking" not in call and "output_config" not in call
