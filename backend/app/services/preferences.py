@@ -37,3 +37,11 @@ def get_active_vlm_model() -> str:
     if isinstance(chosen, str) and chosen:
         return chosen
     return settings.default_vlm_model
+
+
+def get_active_helper_model() -> str:
+    """Model for short text-only checks (the region check); see Settings."""
+    chosen = load().get("helper_model")
+    if isinstance(chosen, str) and chosen:
+        return chosen
+    return get_settings().default_helper_model

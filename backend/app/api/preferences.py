@@ -11,6 +11,8 @@ router = APIRouter(prefix="/api/preferences", tags=["preferences"])
 
 class PreferencesUpdate(BaseModel):
     vlm_model: str | None = None
+    # Model for short text-only checks (region check); same conventions.
+    helper_model: str | None = None
     # Learner profile (exercise completions). For each field, None leaves it
     # unchanged and "" clears it back to the default.
     learner_level: str | None = None
@@ -34,6 +36,10 @@ def get_preferences():
         "vlm_model_override": prefs.get("vlm_model"),
         "available_vlm_models": settings.selectable_vlm_models,
         "default_vlm_model": settings.default_vlm_model,
+        "helper_model": preferences.get_active_helper_model(),
+        "helper_model_override": prefs.get("helper_model"),
+        "available_helper_models": settings.selectable_helper_models,
+        "default_helper_model": settings.default_helper_model,
         "learner_level": profile["level"],
         "learner_note": profile["note"],
         "answer_length": profile["answer_length"],
@@ -58,6 +64,14 @@ def update_preferences(body: PreferencesUpdate):
             if model not in settings.selectable_vlm_models:
                 raise HTTPException(400, f"unsupported vlm_model: {model}")
             prefs["vlm_model"] = model
+    if body.helper_model is not None:
+        helper = body.helper_model.strip()
+        if not helper:
+            prefs.pop("helper_model", None)
+        else:
+            if helper not in settings.selectable_helper_models:
+                raise HTTPException(400, f"unsupported helper_model: {helper}")
+            prefs["helper_model"] = helper
     if body.learner_level is not None:
         level = body.learner_level.strip().upper()
         if not level:

@@ -128,6 +128,20 @@ def mock_examples(prompt: Any) -> dict[str, Any]:
     return {"examples": out}
 
 
+# Benign region check: the label is fine and no reading reference is needed.
+# suggested_tag echoes the tag named in the prompt's <current_tag> block.
+def mock_region_check(prompt: Any) -> dict[str, Any]:
+    text = registry.prompt_text(prompt)
+    tag = text.rsplit("<current_tag>", 1)[1].split("</current_tag>", 1)[0]
+    return {
+        "suggested_tag": tag,
+        "tag_confidence": "high",
+        "tag_reason": "",
+        "needs_reference": False,
+        "reference_reason": "The questions are self-contained.",
+    }
+
+
 _TOOL_RESPONSES: dict[str, dict[str, Any]] = {
     "record_breakdown": MOCK_BREAKDOWN,
     "record_grammar_guide": MOCK_GRAMMAR_GUIDE,
@@ -164,6 +178,8 @@ class MockVlm:
     ) -> registry.ToolCallResult:
         if tool_name == "record_examples":
             return registry.ToolCallResult(tool_input=mock_examples(prompt), meta=self._meta(config))
+        if tool_name == "record_region_check":
+            return registry.ToolCallResult(tool_input=mock_region_check(prompt), meta=self._meta(config))
         if tool_name not in _TOOL_RESPONSES:
             raise ValueError(f"e2e mock has no canned response for tool {tool_name!r}")
         tool_input = _TOOL_RESPONSES[tool_name]
