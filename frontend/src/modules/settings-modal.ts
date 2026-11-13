@@ -160,6 +160,13 @@ function generalHtml(
       return `<option value="${escapeHtml(m)}"${selected}>${escapeHtml(m)}${suffix}</option>`;
     })
     .join("");
+  const helperOptions = prefs.available_helper_models
+    .map((m) => {
+      const selected = m === prefs.helper_model ? " selected" : "";
+      const suffix = m === prefs.default_helper_model ? " (default)" : "";
+      return `<option value="${escapeHtml(m)}"${selected}>${escapeHtml(m)}${suffix}</option>`;
+    })
+    .join("");
   const vlmList = providers.vlm.map((p) => {
     const flag = p.unavailable ? ` <span class="muted">(unavailable: ${escapeHtml(p.unavailable)})</span>` : "";
     return `<li><code>${escapeHtml(p.name)}</code>${flag}</li>`;
@@ -223,6 +230,11 @@ function generalHtml(
           <select id="settings-vlm-model" class="settings-select">${modelOptions}</select>
           <span id="settings-vlm-model-status" class="muted small" style="margin-left:0.5rem;"></span>
         </dd>
+        <dt>Helper model</dt><dd>
+          <select id="settings-helper-model" class="settings-select">${helperOptions}</select>
+          <span id="settings-helper-model-status" class="muted small" style="margin-left:0.5rem;"></span>
+          <div class="muted small">Used for quick checks after transcription (label and reading-reference checks). Separate from the main model above.</div>
+        </dd>
         <dt>Default OCR provider</dt><dd><code>${escapeHtml(d.ocr)}</code></dd>
         <dt>VLM providers</dt><dd><ul class="settings-inline-list">${vlmList || '<li class="muted">none</li>'}</ul></dd>
         <dt>OCR providers</dt><dd><ul class="settings-inline-list">${ocrList || '<li class="muted">none</li>'}</ul></dd>
@@ -263,25 +275,35 @@ function wireProfile(host: HTMLElement): void {
   note?.addEventListener("change", () => void save({ learner_note: note.value }));
 }
 
-function wireGeneral(host: HTMLElement): void {
-  wireProfile(host);
-  const select = host.querySelector<HTMLSelectElement>("#settings-vlm-model");
-  const status = host.querySelector<HTMLElement>("#settings-vlm-model-status");
+function wireModelSelect(
+  host: HTMLElement,
+  selectId: string,
+  statusId: string,
+  field: "vlm_model" | "helper_model",
+): void {
+  const select = host.querySelector<HTMLSelectElement>(selectId);
+  const status = host.querySelector<HTMLElement>(statusId);
   if (!select) return;
   select.addEventListener("change", async () => {
     const model = select.value;
     select.disabled = true;
     if (status) status.textContent = "Saving…";
     try {
-      await updatePreferences({ vlm_model: model });
+      await updatePreferences({ [field]: model });
       if (status) status.textContent = "Saved.";
     } catch (e: any) {
-      logError("SettingsModal", "preferences_save_failed", { error: e?.message ?? String(e) });
+      logError("SettingsModal", "preferences_save_failed", { error: e?.message ?? String(e), field });
       if (status) status.textContent = `Failed: ${e?.message ?? String(e)}`;
     } finally {
       select.disabled = false;
     }
   });
+}
+
+function wireGeneral(host: HTMLElement): void {
+  wireProfile(host);
+  wireModelSelect(host, "#settings-vlm-model", "#settings-vlm-model-status", "vlm_model");
+  wireModelSelect(host, "#settings-helper-model", "#settings-helper-model-status", "helper_model");
 }
 
 async function renderUsage(host: HTMLElement) {

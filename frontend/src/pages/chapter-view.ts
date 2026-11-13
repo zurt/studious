@@ -2,13 +2,17 @@ import {
   getDocument, getChapter, pageImageUrl,
   createRegion, deleteRegion, transcribeRegion, listRegions, openJobStream, linkRegion,
   requestGrammarGuide, getStoreCoverage, bulkPrepareChapter, setRegionReferences,
+  updateRegion, checkRegion, dismissRegionCheck,
   type DocMeta, type Chapter, type Region, type RegionReference,
 } from "../api";
 import { on, STORE_STATUS_CHANGED } from "../modules/events";
 import { generateCorrelationId, info, error as logError } from "../logger";
 import { navigate, replaceQuery } from "../router";
 import { createRegionDrawer, type DrawableRegion } from "../modules/region-drawer";
-import { renderRegionList, makeCopyButton } from "../modules/region-list";
+import { renderRegionList, makeCopyButton, TAG_LABELS } from "../modules/region-list";
+import {
+  labelSuggestion, missingReference, referenceNeed, relabelNeedsRetranscribe,
+} from "../modules/region-check";
 import { createZoomPanViewer } from "../modules/zoom-pan";
 import { confirmDialog } from "../modules/confirm";
 import { toastError, toastInfo } from "../modules/toast";
@@ -823,7 +827,21 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     breakdownMountKey = key;
     if (eligible && region) {
       breakdownPane.style.display = "";
-      breakdownDestroy = mountBreakdownPane(breakdownPane, { docId, chapterId, region });
+      const regionId = region.id;
+      breakdownDestroy = mountBreakdownPane(breakdownPane, {
+        docId, chapterId, region,
+        // Read the live region: the check may have arrived, or references
+        // been set, since the pane was mounted.
+        beforeComplete: async () => {
+          const current = regions.find((r) => r.id === regionId);
+          if (!current || !missingReference(current)) return true;
+          return confirmDialog(
+            "Reading reference missing",
+            "This exercise appears to need a reading reference, and none is set. Complete anyway?",
+            "Complete anyway",
+          );
+        },
+      });
     } else {
       breakdownPane.style.display = "none";
       breakdownPane.innerHTML = "";
@@ -841,15 +859,18 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       return;
     }
     const refs = head.references || [];
+    const need = referenceNeed(head);
+    const highlightAdd = need === "needed" && refs.length === 0;
     referencesPane.style.display = "";
     referencesPane.innerHTML = `
       <div class="region-references-header">
         <span>Reading references</span>
-        <button type="button" class="region-references-edit">${refs.length ? "Edit…" : "Add…"}</button>
+        <button type="button" class="region-references-edit${highlightAdd ? " primary" : ""}" data-references-edit>${refs.length ? "Edit…" : "Add…"}</button>
       </div>
     `;
-    referencesPane.querySelector<HTMLButtonElement>(".region-references-edit")!
+    referencesPane.querySelector<HTMLButtonElement>("[data-references-edit]")!
       .addEventListener("click", () => void editReferences(head));
+    renderReferenceCheckNote(head, need, refs.length);
     if (head.id !== region.id) {
       const note = document.createElement("p");
       note.className = "region-references-note";
@@ -906,6 +927,87 @@ export function mountChapterView(params: Record<string, string>, container: HTML
     }
   }
 
+  // The helper model's answer to "does this exercise need a reading passage
+  // it doesn't contain?" (see modules/region-check.ts). Quiet when a
+  // reference is already set.
+  function renderReferenceCheckNote(head: Region, need: ReturnType<typeof referenceNeed>, refCount: number) {
+    if (!head.transcription_md) return;
+    const note = document.createElement("p");
+    note.className = "region-references-note";
+    if (need === "unchecked") {
+      note.append("Not checked yet. ");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "region-references-edit";
+      btn.textContent = "Check";
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        btn.textContent = "Checking…";
+        try {
+          const updated = await checkRegion(docId, chapterId, head.id);
+          const idx = regions.findIndex((r) => r.id === head.id);
+          if (idx >= 0) regions[idx] = { ...regions[idx], check: updated.check };
+          refreshRegionUI();
+        } catch (e: any) {
+          logError("ChapterView", "region_check_failed", { region_id: head.id, error: e.message });
+          toastError("Region check failed: " + e.message);
+          btn.disabled = false;
+          btn.textContent = "Check";
+        }
+      });
+      note.appendChild(btn);
+    } else if (need === "needed") {
+      if (refCount > 0) return;
+      note.textContent = "This exercise appears to need a reading reference. " + (head.check?.reference_reason ?? "");
+    } else {
+      note.textContent = "This exercise does not appear to need a reading reference.";
+    }
+    referencesPane.appendChild(note);
+  }
+
+  // A compact notice above the transcription when the check is confident the
+  // tag is wrong. Never relabels on its own.
+  function labelSuggestionHtml(region: Region): string {
+    const s = labelSuggestion(region);
+    if (!s) return "";
+    const retranscribe = relabelNeedsRetranscribe(region.tag, s.tag);
+    const name = (t: string) => `<strong>${escapeHtml(TAG_LABELS[t] || t)}</strong>`;
+    return `
+      <div class="region-check-notice" role="note">
+        <div>This looks like ${name(s.tag)}, not ${name(region.tag)}. ${escapeHtml(s.reason)}</div>
+        <div class="region-check-actions">
+          <button type="button" class="primary" data-relabel="${escapeHtml(s.tag)}">${retranscribe ? "Relabel and re-transcribe" : "Relabel"}</button>
+          <button type="button" data-relabel-dismiss>Dismiss</button>
+        </div>
+      </div>`;
+  }
+
+  async function relabelRegion(region: Region, tag: string) {
+    try {
+      const updated = await updateRegion(docId, chapterId, region.id, { tag });
+      const idx = regions.findIndex((r) => r.id === region.id);
+      if (idx >= 0) regions[idx] = { ...regions[idx], tag: updated.tag };
+      info("ChapterView", "region_relabelled", { region_id: region.id, from: region.tag, to: tag });
+      refreshRegionUI();
+      if (idx >= 0 && relabelNeedsRetranscribe(region.tag, tag)) void handleTranscribe(regions[idx]);
+    } catch (e: any) {
+      logError("ChapterView", "region_relabel_failed", { region_id: region.id, error: e.message });
+      toastError("Failed to relabel: " + e.message);
+    }
+  }
+
+  async function dismissLabelSuggestion(region: Region) {
+    try {
+      const updated = await dismissRegionCheck(docId, chapterId, region.id);
+      const idx = regions.findIndex((r) => r.id === region.id);
+      if (idx >= 0) regions[idx] = { ...regions[idx], check: updated.check };
+      refreshRegionUI();
+    } catch (e: any) {
+      logError("ChapterView", "region_check_dismiss_failed", { region_id: region.id, error: e.message });
+      toastError("Failed to dismiss: " + e.message);
+    }
+  }
+
   async function editReferences(head: Region) {
     const result = await openReferencePicker({ docId, chapterId, initial: head.references || [] });
     if (!result) return;
@@ -943,6 +1045,7 @@ export function mountChapterView(params: Record<string, string>, container: HTML
       const size = getTranscriptionTextSize();
       const collapsed = isPaneCollapsed("transcription");
       regionDetail.innerHTML = `
+        ${labelSuggestionHtml(region)}
         <div class="region-detail-header pane-collapsible-header" role="button" tabindex="0" aria-expanded="${!collapsed}">
           <span class="pane-header-label">${chevronHtml(collapsed)}<span>Transcription</span>${infoBtnHtml}</span>
           <span class="region-detail-actions">
@@ -956,6 +1059,10 @@ export function mountChapterView(params: Record<string, string>, container: HTML
         ${busyHtml}
         <div class="markdown text-size-${size}">${displayHtml}</div>
       `;
+      regionDetail.querySelector<HTMLButtonElement>("[data-relabel]")
+        ?.addEventListener("click", (e) => void relabelRegion(region, (e.currentTarget as HTMLElement).dataset.relabel!));
+      regionDetail.querySelector<HTMLButtonElement>("[data-relabel-dismiss]")
+        ?.addEventListener("click", () => void dismissLabelSuggestion(region));
       const detailActions = regionDetail.querySelector(".region-detail-actions");
       // Vocab lists keep their readings inline in （…）; ruby would hide them.
       const isVocabList = region.tag === "vocab_list";
