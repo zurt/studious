@@ -18,11 +18,11 @@
     "@biomejs/biome": "2.6.4",
     "@playwright/test": "1.64.1",
     "@testing-library/dom": "10.4.2",
-    "@vitest/coverage-v8": "4.1.12",
+    "@vitest/coverage-v8": "5.1.0",
     "jsdom": "29.1.1",
     "typescript": "^6.0.3",
     "vite": "^8.1.0",
-    "vitest": "4.1.12"
+    "vitest": "5.1.0"
   },
   "dependencies": {
     "dompurify": "^3.4.11",

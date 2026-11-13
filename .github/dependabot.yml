@@ -25,6 +25,13 @@ updates:
       default-days: 7
     open-pull-requests-limit: 5
     groups:
+      # vitest and @vitest/* must be the exact same version (peer dependency),
+      # so they move together, majors included. Listed first: a dependency
+      # joins the first group it matches.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       frontend-minor-patch:
         update-types:
           - minor
