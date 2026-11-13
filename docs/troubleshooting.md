@@ -616,7 +616,7 @@ The file reached the backend but PyMuPDF/Pillow could not parse it — usually a
 3. The frontend handles the SSE race where a job finishes before `EventSource` subscribes by reading terminal status from the replayed `snapshot`. If you change `openJobStream` consumers, preserve that behavior.
 
 ### `ANTHROPIC_API_KEY is not set`
-The backend process can't read the key from its environment. The Keychain-based setup (see README) only injects into the shell that sources it — restart `make dev-backend` from that shell.
+The backend process can't read the key from its environment. `make dev-backend` reads `ANTHROPIC_API_KEY` (and `WANIKANI_API_TOKEN`) from the macOS Keychain when it starts; the keys are deliberately not exported from `~/.zshrc`. Check that the Keychain item exists (`security find-generic-password -s ANTHROPIC_API_KEY -a "$USER"` prints its attributes, not the secret), then restart `make dev-backend`. Starting uvicorn by hand skips the lookup. Inside Claude Code's sandbox the Keychain lookup may be blocked, which is intended: an agent's shell should not get the real key by default.
 
 ### Job stuck in `running`
 The worker is sequential (`backend/app/jobs/` `JobManager`). One stuck job blocks all subsequent ones. Check backend stdout for an exception traceback in the worker, then either let it finish or restart the backend (in-progress jobs do not resume on restart).

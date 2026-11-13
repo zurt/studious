@@ -7,7 +7,7 @@ install: install-backend install-frontend
 	@echo "    Debian/Ubuntu: sudo apt install tesseract-ocr tesseract-ocr-jpn tesseract-ocr-jpn-vert"
 	@echo "                   (install uv: https://docs.astral.sh/uv/)"
 	@echo ""
-	@echo "==> Copy .env.example to .env and fill in ANTHROPIC_API_KEY."
+	@echo "==> Copy .env.example to .env; store ANTHROPIC_API_KEY in the Keychain (see README)."
 	@echo ""
 	@echo "==> Required tools: uv, npm >= 11.10"
 
@@ -20,8 +20,16 @@ install-frontend:
 dev:
 	@echo "Run 'make dev-backend' and 'make dev-frontend' in two terminals."
 
+# API keys are read from the macOS Keychain for the one process that needs
+# them, never exported from the shell rc file (where every npm script and
+# Python import could read them). A key already in the environment wins;
+# off macOS the lookup is empty and the app treats the key as unset.
+KEYCHAIN = security find-generic-password -a "$$USER" -w -s
+WITH_KEYS = ANTHROPIC_API_KEY="$${ANTHROPIC_API_KEY:-$$($(KEYCHAIN) ANTHROPIC_API_KEY 2>/dev/null)}" \
+	WANIKANI_API_TOKEN="$${WANIKANI_API_TOKEN:-$$($(KEYCHAIN) WANIKANI_API_TOKEN 2>/dev/null)}"
+
 dev-backend:
-	cd backend && uv run uvicorn app.main:app --reload --port 8000
+	cd backend && $(WITH_KEYS) uv run uvicorn app.main:app --reload --port 8000
 
 dev-frontend:
 	cd frontend && npm run dev
@@ -94,7 +102,7 @@ audit-log:
 # default model and has a judge model grade the results. Makes real API
 # calls. See benchmarks/README.md (and model_eval/ for comparing models).
 benchmark:
-	uv run --project backend python -m benchmarks.run_benchmark
+	$(WITH_KEYS) uv run --project backend python -m benchmarks.run_benchmark
 
 clean:
 	rm -rf backend/.venv backend/.pytest_cache backend/**/__pycache__ frontend/node_modules frontend/dist
