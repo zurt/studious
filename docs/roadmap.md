@@ -141,7 +141,7 @@ UI documentation and a seeded environment for agent-driven browser
 verification. See the E2E section of `docs/archive/test-coverage-plan.md`.
 
 - [x] Playwright scaffold: `frontend/playwright.config.ts`, `make test-e2e`,
-      dedicated ports (backend 8765 / frontend 5273) so runs never touch a
+      dedicated ports (backend 8775 / frontend 5273) so runs never touch a
       real dev stack or data dir
 - [x] `backend/e2e_server.py` — ASGI entrypoint that registers a canned mock
       VLM under the "anthropic" name before app startup; isolated

@@ -2,8 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 // Dedicated ports so E2E runs never collide with (or reuse) a real dev
 // stack on 8000/5173 — the backend here uses the mock VLM provider and an
-// isolated data dir, and must stay that way.
-const BACKEND_PORT = 8765;
+// isolated data dir, and must stay that way. Not 8765: that is AnkiConnect's
+// port, so the suite could not start while Anki was open.
+const BACKEND_PORT = 8775;
 const FRONTEND_PORT = 5273;
 
 export default defineConfig({

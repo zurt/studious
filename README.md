@@ -258,7 +258,7 @@ Vitest + jsdom; run `cd frontend && npm run test:coverage` for a v8
 coverage report.
 
 The E2E suite drives Chromium against the real stack on dedicated ports
-(backend 8765, frontend 5273) with a mock VLM provider and an isolated,
+(backend 8775, frontend 5273) with a mock VLM provider and an isolated,
 per-run data dir (`backend/.e2e-data`) — no API key or tokens needed.
 One-time setup: `cd frontend && npx playwright install chromium`. On
 failure, traces and screenshots land in `frontend/test-results/`.

@@ -177,7 +177,7 @@ model overrides in `MODEL_PRICING`).
 ### E2E (Playwright) state and artifacts
 - `frontend/test-results/` — per-failure screenshots, error context, and traces. Inspect a trace with `cd frontend && npx playwright show-trace test-results/<test-dir>/trace.zip`.
 - `backend/.e2e-data/` — the isolated data dir for the E2E backend, wiped at the start of every run (the wipe happens in the backend `webServer` command in `frontend/playwright.config.ts`). Documents/jobs left here after a failed run reflect the state the failing test saw.
-- The E2E backend (`backend/e2e_server.py`, port 8765) logs at `WARNING` to Playwright's server output; transcriptions come from the mock VLM provider, so real-API failure modes (auth, rate limits) cannot occur in this suite. If an E2E run reports a port already in use, something is squatting on 8765 or 5273 (`lsof -i :8765`); the suite never reuses an existing server by design.
+- The E2E backend (`backend/e2e_server.py`, port 8775) logs at `WARNING` to Playwright's server output; transcriptions come from the mock VLM provider, so real-API failure modes (auth, rate limits) cannot occur in this suite. If an E2E run reports a port already in use, something is squatting on 8775 or 5273 (`lsof -i :8775`); the suite never reuses an existing server by design.
 
 ### Model-eval runs (benchmarks/model_eval)
 State lives entirely on disk under `benchmarks/model_eval/`:
@@ -577,12 +577,6 @@ it's the subscriber, not the queue.
 Two chapter-view behaviors trip up new journey tests (both bit on 2026-06-12):
 1. **Region drags must stay inside the visible viewport.** At fit-width zoom the page canvas is taller than the 720px viewport; `canvas.boundingBox()` reports the full (partially clipped) height, so a drag endpoint at a large height fraction lands below the viewport, the canvas never sees `mouseup`, and the tag popover never opens. The failure screenshot shows a small stranded dashed box at the last in-viewport mousemove. Keep drag coordinates in the upper ~half of the canvas box. Also remember a `mousedown` inside an existing region's bbox *selects* that region instead of starting a draw — draw beside existing regions, not over or under them.
 2. **The chapter view auto-selects the page's first region on load** (falling back from the remembered selection). Clicking that region's card therefore *toggles it off* and unmounts the breakdown pane. Assert against the auto-selected state instead of re-clicking the card.
-
-### `make test-e2e` fails at startup: backend port 8765 is already in use
-AnkiConnect listens on 8765, the same port `frontend/playwright.config.ts`
-gives the E2E backend, so the suite cannot start while Anki is open. Quit
-Anki, or run with a local-only config that extends `playwright.config.ts` on
-other ports (`npx playwright test -c <that file>`; don't commit it).
 
 ### Every E2E test fails with "Executable doesn't exist ... chromium_headless_shell-NNNN"
 A Playwright version bump (Dependabot) needs a newer browser build than the
