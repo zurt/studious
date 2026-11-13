@@ -151,7 +151,6 @@ Dependencies:
   argument, so the `extra_body` workaround in the provider and the eval's
   judge call can be simplified. A future major SDK bump needs the same
   check: the tests use a mock provider and will not catch a real API break.
-- The vitest 5 bump PR needs a manual look (failing checks, conflicts).
 - CI uses Node 22, whose npm silently ignores `min-release-age`. Installs
   are protected by the lockfile, but the cooldown is not enforced there;
   moving CI to Node 24 fixes it.
