@@ -137,20 +137,18 @@ def _list_items(
     if q:
         needle = q.casefold()
         items = [i for i in items if needle in _search_text(kind, i)]
-    if doc_id:
-        items = [
-            i for i in items if any(s.get("doc_id") == doc_id for s in i.get("sightings", []))
-        ]
-    if chapter_id:
-        items = [
-            i
-            for i in items
-            if any(s.get("chapter_id") == chapter_id for s in i.get("sightings", []))
-        ]
-    if source:
-        items = [
-            i for i in items if any(s.get("source") == source for s in i.get("sightings", []))
-        ]
+    if doc_id or chapter_id or source:
+        # One sighting must satisfy every supplied filter, so a word listed in
+        # chapter 1's vocab list but only seen in a chapter 2 breakdown is not
+        # "chapter 2 + vocab list".
+        def _matches(s: dict[str, Any]) -> bool:
+            return (
+                (not doc_id or s.get("doc_id") == doc_id)
+                and (not chapter_id or s.get("chapter_id") == chapter_id)
+                and (not source or s.get("source") == source)
+            )
+
+        items = [i for i in items if any(_matches(s) for s in i.get("sightings", []))]
 
     if sort == "updated":
         items.sort(key=lambda i: i.get("updated_at", ""), reverse=True)
