@@ -103,3 +103,29 @@ def test_learner_profile_update_and_clear(client, isolated_data_dir):
 )
 def test_learner_profile_rejects_invalid(client, patch):
     assert client.put("/api/preferences", json=patch).status_code == 400
+
+
+def test_helper_model_defaults_and_override(client):
+    body = client.get("/api/preferences").json()
+    assert body["default_helper_model"] == "claude-haiku-5-5"
+    assert body["helper_model"] == "claude-haiku-5-5"
+    assert body["helper_model_override"] is None
+    assert "claude-opus-5-5" in body["available_helper_models"]
+
+    body = client.put("/api/preferences", json={"helper_model": "claude-sonnet-5-5"}).json()
+    assert body["helper_model"] == "claude-sonnet-5-5"
+    assert body["helper_model_override"] == "claude-sonnet-5-5"
+    assert preferences.get_active_helper_model() == "claude-sonnet-5-5"
+    # The main model is untouched.
+    assert body["vlm_model_override"] is None
+
+    # None leaves it unchanged; "" clears it.
+    assert client.put("/api/preferences", json={}).json()["helper_model"] == "claude-sonnet-5-5"
+    body = client.put("/api/preferences", json={"helper_model": ""}).json()
+    assert body["helper_model_override"] is None
+    assert body["helper_model"] == "claude-haiku-5-5"
+
+
+def test_unsupported_helper_model_rejected(client):
+    r = client.put("/api/preferences", json={"helper_model": "claude-opus-4-7"})
+    assert r.status_code == 400

@@ -17,6 +17,7 @@ from ..services import (
     blanks,
     harvest,
     pdf,
+    region_check,
     storage,
 )
 from ._common import _audit, _ms_since, _now_iso, _RegionOpError, log
@@ -107,6 +108,18 @@ class RegionJobMixin:
                     "harvest_vocab_list_error",
                     extra={"job_id": job_id, "doc_id": doc_id, "chapter_id": chapter_id, "region_id": region_id},
                 )
+        # The check is a convenience layered on a finished transcription: a
+        # failure here must not fail the job. (run_after_transcription also
+        # swallows its own errors; this guards the thread hop itself.)
+        try:
+            await asyncio.to_thread(
+                region_check.run_after_transcription, doc_id, chapter_id, region_id
+            )
+        except Exception:
+            log.exception(
+                "region_check_error",
+                extra={"job_id": job_id, "doc_id": doc_id, "chapter_id": chapter_id, "region_id": region_id},
+            )
         return duration_ms
 
     async def _run_region_job(self, job_id: str, job: dict[str, Any]) -> None:

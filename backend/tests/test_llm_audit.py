@@ -354,7 +354,9 @@ async def test_region_job_writes_audit_entry(isolated_data_dir, mock_vlm_provide
     finally:
         await mgr.stop()
 
-    entries = llm_audit.read_all()
+    # The follow-up region check (unmocked "anthropic" here) audits its own
+    # failure under a different job type; this test is about the transcription.
+    entries = [e for e in llm_audit.read_all() if e["job_type"] != "region_check"]
     assert len(entries) == 1
     e = entries[0]
     assert e["job_type"] == "transcribe_region"

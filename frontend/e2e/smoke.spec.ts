@@ -230,6 +230,14 @@ test("completing an exercise renders the answer and example sentences", async ({
     timeout: 15_000,
   });
 
+  // The post-transcription region check (mock: label fine, no reference
+  // needed) is stored before the job completes and shows in the references
+  // pane; a label the check agrees with shows no suggestion.
+  await expect(page.locator("#region-references")).toContainText(
+    "does not appear to need a reading reference",
+  );
+  await expect(page.locator(".region-check-notice")).toHaveCount(0);
+
   // Exercises regions get a per-sentence "Complete exercise" action once a
   // breakdown exists.
   const pane = page.locator("#breakdown-pane");

@@ -64,7 +64,7 @@ export function makeCopyButton(getText: () => string): HTMLButtonElement {
   return btn;
 }
 
-const TAG_LABELS: Record<string, string> = {
+export const TAG_LABELS: Record<string, string> = {
   reading_passage: "Reading",
   vocab_list: "Vocab",
   grammar_points: "Grammar",

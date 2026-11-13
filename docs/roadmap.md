@@ -141,7 +141,7 @@ UI documentation and a seeded environment for agent-driven browser
 verification. See the E2E section of `docs/archive/test-coverage-plan.md`.
 
 - [x] Playwright scaffold: `frontend/playwright.config.ts`, `make test-e2e`,
-      dedicated ports (backend 8765 / frontend 5273) so runs never touch a
+      dedicated ports (backend 8775 / frontend 5273) so runs never touch a
       real dev stack or data dir
 - [x] `backend/e2e_server.py` — ASGI entrypoint that registers a canned mock
       VLM under the "anthropic" name before app startup; isolated
@@ -409,6 +409,35 @@ motivating case).
       selection tray with ↑/↓/✕) and a "Reading references" section in
       the chapter view, shown for any region of an exercises chain and
       editing the chain head's list.
+
+### Phase 2.6: Region Check
+
+After a region is transcribed, one text-only call to the **helper model**
+(`helper_model` preference, default `claude-haiku-5-5`; the first job type
+not driven by the main model setting) answers two questions and stores the
+result on the region as `check`:
+
+- [x] Label check: is the tag right for the text? A confident (`high`)
+      suggestion shows a notice with Relabel / Relabel and re-transcribe
+      (when the change is to or from `vocab_list`, the only tag with its own
+      transcription prompt) / Dismiss. Never auto-relabels.
+- [x] Reading-reference check: for exercise content, do the questions need
+      a reading passage that is not in the text? Shown in the References
+      pane (Add… highlighted when needed); requesting a completion asks
+      for confirmation first when a reference is needed and none is set.
+- [x] Runs from the shared `_transcribe_region_core` (single and bulk
+      transcription); a continuation also re-checks its chain head. Failure
+      is logged (`region_check_error`) and audited, never fails the job.
+- [x] `POST .../regions/{id}/check` (run / re-run) and
+      `POST .../check/dismiss`; stale once `transcribed_at` or `tag`
+      changes. Regions from before the feature show "Not checked yet".
+- [ ] No benchmark or fixtures for the prompt yet (see next-steps.md).
+- [x] Dry run against the real Haiku 5.5 API (2026-11-13, 48 read-only
+      calls on real regions, nothing stored): 13 of 15 deliberately
+      mislabeled regions flagged at `high`; 1 of 33 correctly labeled
+      regions flagged; 6 of 8 exercises that already had references were
+      judged to need one. About 1.5 to 6 s and $0.0002 per check. The
+      `instructions` tag is where the model is least sure.
 
 ## Phase 3: Central Vocab/Grammar Store
 

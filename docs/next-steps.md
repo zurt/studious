@@ -130,8 +130,17 @@ document. Context gathered so far:
 Benchmarks:
 
 - **Benchmarks for breakdowns, exercise completions and grammar guides do
-  not exist.** The model setting drives every job type; the Opus 5.5 switch
-  is evaluated for transcription only. See the roadmap entry.
+  not exist.** The model setting drives every job type except the region
+  check, which runs on the separate helper model (default
+  `claude-haiku-5-5`); the Opus 5.5 switch is evaluated for transcription
+  only. See the roadmap entry.
+- **The region check prompt has no benchmark or fixtures yet.** A one-off
+  dry run on real regions looked good (numbers in the roadmap, Phase 2.6),
+  but nothing repeatable measures its label and reading-reference answers.
+  Build a handful of deliberately mislabeled regions (a vocab list tagged
+  as reading, an exercise with and without its own passage, a grammar
+  explanation tagged as exercises) and score the tag/`needs_reference`
+  output, ideally per helper model.
 - **Sonnet 5.5 prompt fix** is worth testing only if volume makes the cost
   gap matter. See the roadmap entry.
 - **`benchmarks/model_eval/dataset/v2` exists only on the owner's Mac.** It

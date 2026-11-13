@@ -15,7 +15,13 @@ from ..config import (
     VOCAB_LIST_TRANSCRIBE_PROMPT,
 )
 from ..jobs import manager
-from ..services import breakdown_links, learner_profile, region_chain, storage
+from ..services import (
+    breakdown_links,
+    learner_profile,
+    region_chain,
+    region_check,
+    storage,
+)
 from ..services.preferences import get_active_vlm_model
 
 log = logging.getLogger("studious.api.regions")
@@ -277,6 +283,39 @@ def transcribe_region(doc_id: str, chapter_id: str, region_id: str):
     }
     job = manager.submit(payload)
     return {"job_id": job["id"]}
+
+
+@router.post("/{region_id}/check")
+def check_region(doc_id: str, chapter_id: str, region_id: str):
+    """Run (or re-run) the post-transcription region check synchronously."""
+    _require_chapter(doc_id, chapter_id)
+    region = storage.load_region(doc_id, chapter_id, region_id)
+    if region is None:
+        raise HTTPException(404, "region not found")
+    if not (region.get("transcription_md") or "").strip():
+        raise HTTPException(409, "region has no transcription to check")
+    try:
+        return region_check.check_region(doc_id, chapter_id, region_id)
+    except Exception as exc:
+        log.exception(
+            "region_check_error",
+            extra={"doc_id": doc_id, "chapter_id": chapter_id, "region_id": region_id},
+        )
+        raise HTTPException(502, f"region check failed: {exc}") from exc
+
+
+@router.post("/{region_id}/check/dismiss")
+def dismiss_region_check(doc_id: str, chapter_id: str, region_id: str):
+    _require_chapter(doc_id, chapter_id)
+    region = storage.load_region(doc_id, chapter_id, region_id)
+    if region is None:
+        raise HTTPException(404, "region not found")
+    check = region.get("check")
+    if not isinstance(check, dict):
+        raise HTTPException(404, "region has no check")
+    return storage.update_region(
+        doc_id, chapter_id, region_id, check={**check, "label_dismissed": True}
+    )
 
 
 class BreakdownRequest(BaseModel):

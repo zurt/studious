@@ -16,6 +16,14 @@ def isolated_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture(autouse=True)
+def _no_real_anthropic_key(monkeypatch: pytest.MonkeyPatch):
+    """Transcription jobs now run a follow-up region check on the "anthropic"
+    provider. Without a key the real provider cannot be built, so a test that
+    forgets to mock it fails the (swallowed) check instead of calling the API."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _no_real_anki(monkeypatch: pytest.MonkeyPatch):
     """Tests must never reach a real AnkiConnect (Anki may be open on the
     dev machine). Tests that need Anki replace anki._post themselves."""

@@ -32,6 +32,11 @@ def test_summary_cache_recomputed_when_formula_version_changes(isolated_data_dir
     assert "2026-01" not in llm_audit.load_summary_cache()
 
 
+def test_haiku_5_5_is_priced():
+    entry = {"model": "claude-haiku-5-5", "input_tokens": 1_000_000, "output_tokens": 1_000_000}
+    assert costs.estimate_cost(entry) == 0.10 + 0.50
+
+
 def test_estimate_cost_unknown_model_returns_none():
     assert costs.estimate_cost({"model": "made-up-model", "input_tokens": 1, "output_tokens": 1}) is None
 

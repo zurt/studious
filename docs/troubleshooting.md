@@ -177,7 +177,7 @@ model overrides in `MODEL_PRICING`).
 ### E2E (Playwright) state and artifacts
 - `frontend/test-results/` — per-failure screenshots, error context, and traces. Inspect a trace with `cd frontend && npx playwright show-trace test-results/<test-dir>/trace.zip`.
 - `backend/.e2e-data/` — the isolated data dir for the E2E backend, wiped at the start of every run (the wipe happens in the backend `webServer` command in `frontend/playwright.config.ts`). Documents/jobs left here after a failed run reflect the state the failing test saw.
-- The E2E backend (`backend/e2e_server.py`, port 8765) logs at `WARNING` to Playwright's server output; transcriptions come from the mock VLM provider, so real-API failure modes (auth, rate limits) cannot occur in this suite. If an E2E run reports a port already in use, something is squatting on 8765 or 5273 (`lsof -i :8765`); the suite never reuses an existing server by design.
+- The E2E backend (`backend/e2e_server.py`, port 8775) logs at `WARNING` to Playwright's server output; transcriptions come from the mock VLM provider, so real-API failure modes (auth, rate limits) cannot occur in this suite. If an E2E run reports a port already in use, something is squatting on 8775 or 5273 (`lsof -i :8775`); the suite never reuses an existing server by design.
 
 ### Model-eval runs (benchmarks/model_eval)
 State lives entirely on disk under `benchmarks/model_eval/`:
@@ -266,6 +266,22 @@ future test asserting a missing-env-var path: `app.config.get_settings()`
 is `@lru_cache`d, so `monkeypatch.delenv` alone is not enough — also call
 `config.get_settings.cache_clear()` (the same pattern the `wk_env`
 fixture uses for `setenv`).
+
+### No label suggestion, or the References pane says "Not checked yet", after transcribing
+The region check (label and reading-reference questions, run on the helper
+model after each transcription) fails silently by design, so a transcription
+is never lost to it. Look for `region_check_error` in the backend log and for
+`job_type: "region_check"` entries with `status: "error"` in the LLM audit log
+(`backend/data/llm_audit.YYYY-MM.jsonl`; `jq 'select(.job_type=="region_check" and .status=="error")' backend/data/llm_audit.*.jsonl`).
+Common causes: a missing `ANTHROPIC_API_KEY`, a helper model the account
+cannot use, or a malformed tool response (the error says which field). The
+**Check** button in the References pane (exercises regions only; for other
+tags use `POST .../regions/{id}/check` or re-transcribe) retries and shows
+the error as a toast (502). A suggestion also stays hidden
+when the model is not highly confident, after Dismiss, and once the region is
+re-transcribed or relabelled after the check (the stored check is then stale).
+The helper model is set separately in Settings > General, and its calls are
+costed under that model in the Usage summary.
 
 ### The Study page says "No cards to study yet" despite a full vocab store
 The queue only serves items with curation status **active** — that's the
@@ -561,6 +577,10 @@ it's the subscriber, not the queue.
 Two chapter-view behaviors trip up new journey tests (both bit on 2026-06-12):
 1. **Region drags must stay inside the visible viewport.** At fit-width zoom the page canvas is taller than the 720px viewport; `canvas.boundingBox()` reports the full (partially clipped) height, so a drag endpoint at a large height fraction lands below the viewport, the canvas never sees `mouseup`, and the tag popover never opens. The failure screenshot shows a small stranded dashed box at the last in-viewport mousemove. Keep drag coordinates in the upper ~half of the canvas box. Also remember a `mousedown` inside an existing region's bbox *selects* that region instead of starting a draw — draw beside existing regions, not over or under them.
 2. **The chapter view auto-selects the page's first region on load** (falling back from the remembered selection). Clicking that region's card therefore *toggles it off* and unmounts the breakdown pane. Assert against the auto-selected state instead of re-clicking the card.
+
+### Every E2E test fails with "Executable doesn't exist ... chromium_headless_shell-NNNN"
+A Playwright version bump (Dependabot) needs a newer browser build than the
+one in `~/Library/Caches/ms-playwright`. Run `cd frontend && npx playwright install chromium`.
 
 ### Playwright cannot download browsers (403 from cdn.playwright.dev)
 Sandboxed/CI-like environments may block the browser CDN. If a Playwright-managed chromium is preinstalled (this remote env ships one under `/opt/pw-browsers/`), point the suite at it with a local-only config that extends `playwright.config.ts` and sets `use.launchOptions.executablePath` — don't commit it (machine-specific path). If the local `uv` is too old to parse `exclude-newer = "7 days"` in `backend/uv.toml`, run the suite with `UV_NO_CONFIG=1` (harmless here: the E2E backend installs nothing; `uv run` only uses the existing lockfile environment).

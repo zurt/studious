@@ -798,6 +798,86 @@ EXAMPLE_SENTENCES_TOOL_SCHEMA: dict = {
 }
 
 
+REGION_CHECK_PROMPT = """\
+You check one transcribed region of a Japanese textbook after it has been \
+transcribed. Answer two questions about it by calling the record_region_check \
+tool.
+
+The tags a region can carry:
+- reading_passage: continuous prose or dialogue meant to be read.
+- vocab_list: a list of words with readings and meanings.
+- grammar_points: grammar explanations, usually with example sentences.
+- exercises: questions or tasks for the student to answer, such as \
+fill-in-the-blank items, matching, or comprehension questions.
+- instructions: directions about how to do something, without the task \
+content itself.
+- other: anything else.
+
+Question 1: is the current tag appropriate for the text in <region>?
+Textbook sections blur into each other. A grammar explanation contains \
+example sentences, an exercise starts with an instruction line, and a \
+passage may be followed by a couple of footnoted words. The tag should \
+describe what the region mostly is. Suggest a different tag only when the \
+current one is clearly wrong, and use confidence "high" only in that case; \
+use "medium" or "low" when it is arguable. When the tag is fine, return the \
+current tag as suggested_tag and leave tag_reason empty.
+
+Question 2: does this region need a reading passage it does not contain? \
+Set needs_reference to true only when the text is exercise content whose \
+questions cannot be answered without a separate reading passage or dialogue \
+that is not included in the text. For example, 「本文を読んで質問に答えなさい」 \
+or "according to the passage" followed by questions about the passage's \
+content, with no passage present, needs one. Fill-in-the-blank grammar \
+drills do not, and neither does an exercise that includes its own passage or \
+dialogue. Anything that is not exercise content does not need one. Judge \
+this on <region> together with <continuation>, if present.
+
+The label is judged on <region> alone. <continuation> is the text of the \
+regions that follow it in the same chain; use it only for the second \
+question.
+
+Keep both reasons to one short English sentence.
+"""
+
+REGION_CHECK_TOOL_SCHEMA: dict = {
+    "type": "object",
+    "required": [
+        "suggested_tag",
+        "tag_confidence",
+        "tag_reason",
+        "needs_reference",
+        "reference_reason",
+    ],
+    "properties": {
+        "suggested_tag": {
+            "type": "string",
+            "enum": [
+                "vocab_list",
+                "grammar_points",
+                "reading_passage",
+                "exercises",
+                "instructions",
+                "other",
+            ],
+            "description": "The best tag for the region; the current tag when it is fine.",
+        },
+        "tag_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "tag_reason": {
+            "type": "string",
+            "description": "One short English sentence; may be empty when the tag is unchanged.",
+        },
+        "needs_reference": {
+            "type": "boolean",
+            "description": (
+                "True only for exercise content whose questions cannot be answered "
+                "without a separate reading passage or dialogue that is not in the text."
+            ),
+        },
+        "reference_reason": {"type": "string", "description": "One short English sentence."},
+    },
+}
+
+
 # Per-model pricing in USD per 1M tokens. Keep in sync with Anthropic's
 # published pricing. Image tokens are billed as input tokens by Anthropic
 # and are already included in `usage.input_tokens`, so no separate rate.
@@ -805,6 +885,10 @@ EXAMPLE_SENTENCES_TOOL_SCHEMA: dict = {
 # 0.1x input for a cache read (services/costs.py); `cache_write` /
 # `cache_read` override them where a model's rates differ.
 MODEL_PRICING: dict[str, dict[str, float]] = {
+    # Haiku 5.5: the rate for prompts up to 100K tokens. The $0.50/$2.50 rate
+    # for longer prompts is not modelled; the region check never sends prompts
+    # that long.
+    "claude-haiku-5-5": {"input": 0.10, "output": 0.50},
     # Claude 5 family (Anthropic's published table as of 2026-11-12). Cache
     # reads on both are 0.05x input.
     "claude-sonnet-5-5": {"input": 2.0, "output": 10.0, "cache_write": 2.5, "cache_read": 0.1},
@@ -860,6 +944,16 @@ class Settings(BaseModel):
         "claude-sonnet-5",
         "claude-opus-4-8",
         "claude-opus-4-7",
+    ]
+    # The helper model runs short text-only checks (currently the region
+    # check) that don't need the main model. It is separate from
+    # `default_vlm_model`, which drives transcription, breakdowns,
+    # completions, guides and examples.
+    default_helper_model: str = "claude-haiku-5-5"
+    selectable_helper_models: list[str] = [
+        "claude-haiku-5-5",
+        "claude-sonnet-5-5",
+        "claude-opus-5-5",
     ]
     default_vlm_prompt: str = DEFAULT_VLM_PROMPT
     vlm_max_edge: int = 1568

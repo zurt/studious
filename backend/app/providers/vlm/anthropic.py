@@ -221,6 +221,7 @@ class AnthropicVlm:
             "models": [
                 "claude-sonnet-5-5",
                 "claude-opus-5-5",
+                "claude-haiku-5-5",
                 "claude-opus-4-8",
                 "claude-opus-4-7",
                 "claude-sonnet-5",

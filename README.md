@@ -77,6 +77,16 @@ Open <http://localhost:5173>.
    chapter, in reading order. Exercise completion then gets that text
    as context, and comprehension or discussion questions come back as a
    model answer with an explanation pointing into the reading.
+   After each transcription a cheap text-only **region check** (on the
+   helper model, see Settings) asks whether the region's tag fits its
+   text and, for exercises, whether the questions need a reading passage
+   that is not included. A confident mismatch shows a notice with
+   **Relabel** (or **Relabel and re-transcribe** when the change is to or
+   from a vocab list) and **Dismiss**; it never relabels on its own. The
+   References pane notes whether a reference looks needed and highlights
+   **Add…** when it is, and requesting a completion asks first if one is
+   needed but none is set. Regions transcribed before this existed show
+   "Not checked yet" with a **Check** button.
 9. **Prepare a whole chapter** (beta — not yet exercised on a live
    chapter) — the chapter view's **Prepare chapter…** button is a
    one-click alternative to steps 4 and 6: it
@@ -191,6 +201,15 @@ thinking at `medium`). Requests to those two models opt into Anthropic's
 server-side refusal fallback, so a safety-classifier decline is retried on
 the recommended fallback model rather than failing the job.
 
+Settings → General also has a **Helper model** (default `claude-haiku-5-5`;
+Haiku 5.5, Sonnet 5.5 or Opus 5.5), separate from the main model above. It
+runs short text-only checks that do not need the main model; today that is
+the region check after each transcription. It is stored as `helper_model` in
+`data/preferences.json` and exposed on `GET`/`PUT /api/preferences`; its calls
+are audited under job type `region_check`, so their cost shows under the
+helper model in the usage summary. A failed check never fails the
+transcription (see `docs/troubleshooting.md`).
+
 The same panel holds the **Study profile** used by exercise completions:
 your JLPT level (plus an optional note), and an answer length. Answers are
 written at your level with at most one or two words or grammar points one
@@ -239,7 +258,7 @@ Vitest + jsdom; run `cd frontend && npm run test:coverage` for a v8
 coverage report.
 
 The E2E suite drives Chromium against the real stack on dedicated ports
-(backend 8765, frontend 5273) with a mock VLM provider and an isolated,
+(backend 8775, frontend 5273) with a mock VLM provider and an isolated,
 per-run data dir (`backend/.e2e-data`) — no API key or tokens needed.
 One-time setup: `cd frontend && npx playwright install chromium`. On
 failure, traces and screenshots land in `frontend/test-results/`.

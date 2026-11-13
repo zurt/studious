@@ -14,7 +14,13 @@ import { applyPaneCollapsed, chevronHtml, isPaneCollapsed, setChevronCollapsed, 
 import { makeCopyButton, ICON_REDO } from "./region-list";
 import { escapeHtml } from "./html";
 
-type Ctx = { docId: string; chapterId: string; region: Region };
+type Ctx = {
+  docId: string;
+  chapterId: string;
+  region: Region;
+  /** Asked before a first-time completion request; resolve false to cancel. */
+  beforeComplete?: () => Promise<boolean>;
+};
 
 type TextSize = 1 | 2 | 3;
 const TEXT_SIZE_KEY = "studious.breakdown.textSize";
@@ -684,6 +690,9 @@ export function mountBreakdownPane(container: HTMLElement, ctx: Ctx): () => void
   container.addEventListener("keydown", onKeydown);
 
   async function generateCompletion(idx: number, overwrite: boolean) {
+    if (completionBusy.has(idx)) return;
+    // Regenerating is already behind its own confirmation.
+    if (!overwrite && ctx.beforeComplete && !(await ctx.beforeComplete())) return;
     if (completionBusy.has(idx)) return;
     completionBusy.add(idx);
     completionErrors.delete(idx);

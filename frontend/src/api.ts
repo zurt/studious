@@ -73,7 +73,26 @@ export type Region = {
   // document) sent as context to exercise completion. Absent on regions
   // created before references existed.
   references?: RegionReference[];
+  // Post-transcription check by the helper model (absent on regions never
+  // checked). Stale once `transcribed_at` or `tag` no longer match; see
+  // modules/region-check.ts.
+  check?: RegionCheck;
   created_at: string;
+};
+
+export type RegionCheck = {
+  checked_at: string;
+  model: string;
+  /** The region's `transcribed_at` when checked. */
+  transcribed_at: string | null;
+  /** The region's tag when checked. */
+  tag: string;
+  suggested_tag: string;
+  tag_confidence: "high" | "medium" | "low";
+  tag_reason: string;
+  needs_reference: boolean;
+  reference_reason: string;
+  label_dismissed: boolean;
 };
 
 export type RegionReference = { doc_id: string; chapter_id: string; region_id: string };
@@ -251,6 +270,11 @@ export type Preferences = {
   vlm_model_override: string | null;
   available_vlm_models: string[];
   default_vlm_model: string;
+  // Model for short text-only checks (the region check).
+  helper_model: string;
+  helper_model_override: string | null;
+  available_helper_models: string[];
+  default_helper_model: string;
   // Learner profile for exercise completions: answers are pitched at (or one
   // step above) this level, and `answer_length` sizes the Japanese answer.
   learner_level: JlptLevel | null;
@@ -274,6 +298,7 @@ export async function getPreferences(): Promise<Preferences> {
 export async function updatePreferences(
   patch: {
     vlm_model?: string | null;
+    helper_model?: string | null;
     learner_level?: JlptLevel | "";
     learner_note?: string;
     answer_length?: AnswerLength | "";
@@ -461,6 +486,23 @@ export async function setRegionReferences(
     `/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/references`,
     { references },
   );
+}
+
+/** Run (or re-run) the region check; resolves to the updated region. */
+export async function checkRegion(
+  docId: string,
+  chapterId: string,
+  regionId: string,
+): Promise<Region> {
+  return jpost(`/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/check`);
+}
+
+export async function dismissRegionCheck(
+  docId: string,
+  chapterId: string,
+  regionId: string,
+): Promise<Region> {
+  return jpost(`/api/documents/${docId}/chapters/${chapterId}/regions/${regionId}/check/dismiss`);
 }
 
 export async function moveRegion(
