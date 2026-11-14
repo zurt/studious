@@ -241,17 +241,17 @@ Dependencies:
   judge call can be simplified. A future major SDK bump needs the same
   check: the tests use a mock provider and will not catch a real API break.
 
-Transcription provider (`backend/app/providers/vlm/anthropic.py`), both
+Transcription provider (`backend/app/providers/vlm/anthropic.py`), two items
 found 2026-11-13 when a guest Wi-Fi network cut idle connections at 30
 seconds (see the `APIConnectionError` entry in `docs/troubleshooting.md`).
-Both touch provider logic, so run `make benchmark` before and after:
+The second, logging the underlying network error, is done (2026-11-14:
+`error` and `error_cause` on `vlm_call_error` / `vlm_tool_call_error`; log
+fields only, so no benchmark run). The first touches provider logic, so run
+`make benchmark` before and after:
 
 - **Stream the transcription call**, as the breakdown path already does.
   It is one non-streaming request today, and the model can think for
   longer than a network's idle cut-off before sending its first byte.
-- **Log the underlying network error** in the `vlm_call_error` handlers.
-  They record only the exception class, so the wrapped cause (reset,
-  protocol error, DNS) is not in the log.
 
 Small checks:
 

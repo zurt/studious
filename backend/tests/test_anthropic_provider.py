@@ -9,8 +9,11 @@ from __future__ import annotations
 import logging
 from types import SimpleNamespace
 
+import anthropic
+import httpx
 import pytest
 
+from app.providers.vlm import anthropic as anthropic_vlm
 from app.providers.vlm.anthropic import AnthropicVlm
 
 
@@ -271,6 +274,69 @@ def test_logs_error_and_reraises(vlm, caplog):
     assert error_record.error_class == "RuntimeError"
     assert error_record.model == "claude-opus-4-7"
     assert isinstance(error_record.duration_ms, int)
+    assert error_record.error == "boom from sdk"
+    assert not hasattr(error_record, "error_cause")
+
+
+def _raise_wrapped_reset(**kwargs):
+    # The shape the SDK gives a dropped connection: a bland wrapper whose
+    # cause chain holds what happened.
+    try:
+        try:
+            raise ConnectionResetError(54, "Connection reset by peer")
+        except ConnectionResetError as low:
+            raise httpx.ReadError("peer closed connection") from low
+    except httpx.ReadError as mid:
+        raise anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com")) from mid
+
+
+def test_connection_error_log_names_the_underlying_cause(vlm, caplog):
+    inst, _, _ = vlm
+
+    class _DroppedMessages:
+        create = staticmethod(_raise_wrapped_reset)
+
+    inst._client.messages = _DroppedMessages()
+
+    with (
+        caplog.at_level(logging.DEBUG, logger="studious.providers.anthropic"),
+        pytest.raises(anthropic.APIConnectionError),
+    ):
+        inst.transcribe(b"img", "prompt", {"model": "claude-opus-4-7"})
+
+    record = next(r for r in caplog.records if r.getMessage() == "vlm_call_error")
+    assert record.error_class == "APIConnectionError"
+    assert record.error == "Connection error."
+    assert record.error_cause == (
+        "httpx.ReadError: peer closed connection <- ConnectionResetError: [Errno 54] Connection reset by peer"
+    )
+
+
+def test_tool_call_error_log_names_the_underlying_cause(vlm, caplog):
+    inst, _, _ = vlm
+
+    class _DroppedMessages:
+        stream = staticmethod(_raise_wrapped_reset)
+
+    inst._client.messages = _DroppedMessages()
+
+    with (
+        caplog.at_level(logging.DEBUG, logger="studious.providers.anthropic"),
+        pytest.raises(anthropic.APIConnectionError),
+    ):
+        inst.call_tool("p", "record_breakdown", {"type": "object"}, {"model": "claude-opus-4-7"})
+
+    record = next(r for r in caplog.records if r.getMessage() == "vlm_tool_call_error")
+    assert record.error_cause.startswith("httpx.ReadError: peer closed connection <- ConnectionResetError")
+
+
+def test_error_detail_stops_on_a_cause_cycle_and_caps_length():
+    a, b = RuntimeError("a"), ValueError("x" * 1000)
+    a.__cause__, b.__cause__ = b, a
+    detail = anthropic_vlm._error_detail(a)
+    assert detail["error"] == "a"
+    assert detail["error_cause"].startswith("ValueError: xxx")
+    assert len(detail["error_cause"]) == 300
 
 
 # ---------- Claude 5.5 models: no forced tool use ----------
