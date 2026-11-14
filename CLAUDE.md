@@ -26,6 +26,7 @@ make install          # install all deps (uv + npm)
 make dev-backend      # mock VLM + seeded backend/.dev-data, no key; :8000 (BACKEND_PORT=) with reload
 make dev-reset        # delete backend/.dev-data and reseed it
 make run-backend      # real data dir + real model (Keychain keys), no reload; :8000 (BACKEND_PORT=)
+make say-helper       # Mac `say` wrapper on 127.0.0.1:8766 (STUDIOUS_SAY_HELPER_PORT=) for STUDIOUS_TTS_ENGINE=say_remote
 make dev-frontend     # vite on :5173 with proxy to the backend (BACKEND_PORT=)
 make test             # run backend pytest + frontend vitest
 make lint             # ruff (backend, benchmarks) + Biome (frontend)

@@ -64,6 +64,10 @@ make run-backend     # http://localhost:8000, real data dir, real model
 make dev-frontend
 ```
 
+`make say-helper` runs the Mac speech helper (a tiny HTTP wrapper around
+`say` on `127.0.0.1:8766`, port from `STUDIOUS_SAY_HELPER_PORT`) for a server
+that is not on the Mac; see `docs/hosting.md`.
+
 `make run-backend` has no `--reload` on purpose: a reload in the middle of
 a request kills the in-process job queue. Restart it by hand after code
 changes. To run the dev stack next to the real one, give it another port:

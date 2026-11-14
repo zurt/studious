@@ -36,6 +36,8 @@ export default defineConfig({
         // Never reach a real Anthropic key, WaniKani or Anki from the suite.
         ANTHROPIC_API_KEY: "",
         WANIKANI_API_TOKEN: "",
+        // No background card audio: the suite may run on a Mac where `say` exists.
+        STUDIOUS_TTS_PREGENERATE: "0",
         STUDIOUS_PDF_RENDER_DPI: "100",
         STUDIOUS_LOG_LEVEL: "WARNING",
       },
