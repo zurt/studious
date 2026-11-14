@@ -27,7 +27,7 @@ from .config import get_settings
 from .jobs import manager
 from .middleware import CorrelationMiddleware, StructuredFormatter
 from .providers import registry
-from .services import enrich
+from .services import enrich, speech_queue
 from .services.storage import InvalidIdError
 
 # Structured JSON logging. Level is configurable via STUDIOUS_LOG_LEVEL.
@@ -61,10 +61,13 @@ async def lifespan(app: FastAPI):
     # Items enriched before a reference index was (re)built pick up new fields
     # here; a no-op when nothing is pending.
     enrich_task = asyncio.create_task(_enrich_in_background())
+    # Card clips still missing (the Mac was asleep) are retried on a timer.
+    speech_task = asyncio.create_task(speech_queue.periodic())
     try:
         yield
     finally:
         enrich_task.cancel()
+        speech_task.cancel()
         await manager.stop()
 
 

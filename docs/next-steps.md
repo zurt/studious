@@ -109,9 +109,15 @@ Still to do, in order:
    harvest with a catch-up list for when the Mac is unreachable. The
    droplet stays at 1 GB. VOICEVOX on the droplet was measured and set
    aside (2 GB, slow on one CPU); revisit if missing audio becomes a
-   problem. Not yet built: the helper, the engine, background generation
-   and catch-up, serving cached clips while the engine is down, and the
-   reworded messages.
+   problem. Built: the helper (`make say-helper`), the `say_remote` engine,
+   background generation at harvest with a catch-up list and
+   `POST /api/tts/catch-up`, cached clips served while the engine is down,
+   and the reworded messages (details in `docs/hosting.md`, "New homes").
+   Still to do: a LaunchAgent so the helper starts at login, and trying
+   the `tailscale serve` routes for both Anki and the helper once the
+   droplet exists (neither has been run). The helper was run for real on
+   the Mac over loopback: about 1.2 s a clip (`docs/hosting.md`); the
+   tailnet path is untimed.
 
 ### 2. Letting Claude Code sessions see the UI
 

@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-reset run-backend dev-frontend test test-backend test-frontend test-e2e test-apple run-mac lint audit audit-log logs clean benchmark refs golden docker-build docker-run docker-smoke
+.PHONY: install install-backend install-frontend dev dev-backend dev-reset run-backend say-helper dev-frontend test test-backend test-frontend test-e2e test-apple run-mac lint audit audit-log logs clean benchmark refs golden docker-build docker-run docker-smoke
 
 install: install-backend install-frontend
 	@echo ""
@@ -63,6 +63,12 @@ dev-reset:
 # which has damaged real data before. Restart it by hand after code changes.
 run-backend:
 	cd backend && $(WITH_KEYS) uv run uvicorn app.main:app --port $(BACKEND_PORT)
+
+# The Mac speech helper: wraps `say` behind a tiny HTTP server on 127.0.0.1
+# (port STUDIOUS_SAY_HELPER_PORT, default 8766) for a server that is not on
+# the Mac (STUDIOUS_TTS_ENGINE=say_remote). Needs no data dir and no keys.
+say-helper:
+	cd backend && uv run python -m app.say_helper
 
 dev-frontend:
 	cd frontend && STUDIOUS_BACKEND_PORT=$(BACKEND_PORT) npm run dev

@@ -13,6 +13,7 @@ import {
   GENERATE_CHUNK,
   audioLabel,
   betterVoicesHint,
+  cachedAudioLabel,
   audioUnavailableLine,
   chunkIds,
   clampCount,
@@ -233,9 +234,18 @@ describe("audio option", () => {
     expect(betterVoicesHint("say", ["Kyoko (Enhanced)"])).toBe("");
     expect(betterVoicesHint("say", ["a (Enhanced)", "b (Enhanced)"])).toBe("");
     expect(betterVoicesHint("voicevox", ["Kyoko"])).toBe("");
-    expect(audioUnavailableLine("", "The speech engine is not reachable")).toBe(
-      "No audio: The speech engine is not reachable",
+    expect(audioUnavailableLine("", "The speech engine is not reachable.")).toBe(
+      "No new audio: The speech engine is not reachable. Clips already made are still attached.",
     );
+    expect(audioUnavailableLine("Kyoko")).not.toMatch(/macOS/);
+    expect(audioUnavailableLine("")).toBe(
+      "No new audio: the Mac voice is not reachable. Clips already made are still attached.",
+    );
+    expect(cachedAudioLabel()).toBe("Add audio (clips already made only)");
+    expect(audioLabel("Kyoko, O-Ren (Enhanced)", "say_remote", ["a", "b"])).toBe(
+      "Add audio (Mac voices: Kyoko, O-Ren \u2014 Enhanced)",
+    );
+    expect(betterVoicesHint("say_remote", ["Kyoko"])).toContain("Spoken Content");
   });
 
   it("result message reports clips and failures", () => {
@@ -251,6 +261,14 @@ describe("audio option", () => {
     expect(pushResultMessage({ ...base, audio: { enabled: true, attached: 1, failed: 2 } })).toContain(
       "1 audio clip added, 2 failed.",
     );
+    const down = pushResultMessage({ ...base, audio: { enabled: true, unavailable: true, attached: 1, failed: 0, missing: 3 } });
+    expect(down).toContain("1 audio clip added.");
+    expect(down).toContain("3 clips were left off because the Mac was not reachable");
+    expect(down).toContain("not added to the cards later");
+    expect(
+      pushResultMessage({ ...base, audio: { enabled: true, unavailable: true, attached: 0, failed: 0, missing: 1 } }),
+    ).toContain("1 clip was left off");
+    expect(pushResultMessage({ ...base, audio: { enabled: true, attached: 2, failed: 0, missing: 0 } })).not.toContain("left off");
   });
 
   it("send body carries audio only when given", async () => {

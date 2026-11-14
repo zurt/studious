@@ -414,7 +414,45 @@ Not fixed by this: an inflected form such as 受けて can still resolve to a
 homophone whose kanji include its own (受け手); edit the item's reading or
 headword, or its meaning (an edited meaning is never overwritten).
 
-### Cards have no audio
+### Cards have no audio / Play answers 503 on the server
+When the server is not on the Mac, speech uses the `say_remote` engine
+(`STUDIOUS_TTS_ENGINE=say_remote`) and the Mac speech helper. The 503 message
+names the cause; `GET /api/tts/status` shows `available`, `reason`, `pending`
+(vocab items waiting for clips) and `helper_url`.
+- **Check the helper.** On the Mac, `curl http://127.0.0.1:8766/health` should
+  answer `{"ok": true, "service": "studious-say-helper", ...}`. If not, start
+  it with `make say-helper` (it is not a LaunchAgent yet), and check the Mac is
+  awake. From the server, try the same URL as `STUDIOUS_SAY_HELPER_URL`; the
+  tailnet route (`tailscale serve --tcp 8766 tcp://127.0.0.1:8766`) must exist.
+- **The helper answers 502 "The format 'aac' is unknown"** when it was
+  started inside Claude Code's sandbox: `say` cannot reach the system's AAC
+  encoder there (a bare `say --data-format=aac` fails the same way). Start
+  the helper from an ordinary terminal.
+- **Clips that exist still play** with the Mac away; only missing ones answer
+  503.
+- **Where state lives.** `data/audio/pending.json`: the vocab item ids still
+  waiting for clips, in order. `data/audio/say-voices.txt`: the last voice
+  listing the helper returned, used to work out cache keys while the Mac is
+  unreachable (delete it and the pool is empty until the helper answers).
+  Clips are `data/audio/<hash>.m4a`.
+- **Log events** (`studious.speech_queue`): `speech_queue_drained` (counts made,
+  cached, failed, remaining), `speech_queue_unavailable` (the Mac did not
+  answer, nothing touched), `speech_queue_clip_failed` (one clip failed for
+  another reason: text too long, `say` failed; it is dropped from the list and
+  retried on play), `speech_queue_enqueue_error` (a harvest hook failed; the
+  job itself did not). `studious.say_remote`: `say_remote_unreachable`,
+  `say_remote_timeout`. `studious.tts`: `tts_voice_failed`. On the Mac,
+  `studious.say_helper`: `say_helper_request` (status, duration, characters,
+  bytes; never the text).
+- **Force a catch-up.** `POST /api/tts/catch-up` (the button in Settings >
+  Speech) starts a drain now. `{"all": true}` queues every vocab item first, for
+  example after moving the data to a new server. Background generation is off
+  with `STUDIOUS_TTS_PREGENERATE=0`; the endpoint still works.
+- **Send to Anki gives some cards no audio** while the Mac is away: the result
+  says how many clips were left off (`audio.missing`); they are not added to
+  those cards later.
+
+### Cards have no audio (server on the Mac)
 The send result says how many clips were added. None means: not macOS or
 no `say` on PATH; the voice is not installed (`say -v '?'` lists them;
 `GET /api/tts/status` shows `available`, the `voices` in use and a `reason`;

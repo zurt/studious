@@ -94,7 +94,7 @@ def _post(action: str, params: dict[str, Any] | None = None, *, timeout: float =
         log.warning("anki_unreachable", extra={"url": url, "error": str(exc)})
         raise AnkiUnavailable(
             f"Anki is not reachable at {url}. "
-            "Open Anki on this Mac with the AnkiConnect add-on installed."
+            "Open Anki on the Mac with the AnkiConnect add-on installed, and check that the Mac is reachable."
         ) from exc
     if not isinstance(payload, dict):
         raise AnkiUnavailable(f"AnkiConnect returned an unexpected response to {action!r}")
