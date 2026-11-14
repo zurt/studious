@@ -140,32 +140,96 @@ backend and the Apple apps. Once the backend runs on a droplet:
 
 ### Features that need the Mac
 
-Inventory for step 8 (from `backend/app/services/`; nothing here is fixed).
-In the container none of these crashes the server; each reports itself
-unavailable.
+Inventory for step 8, taken 2026-11-13 across the backend, the web app, the
+Apple package and the build scripts. Nothing here is fixed. In the container
+none of these crashes the server; each reports itself unavailable.
 
-- **macOS `say` voices** (`tts.py`, the default `STUDIOUS_TTS_ENGINE=say`).
-  `_say_info` returns not-ok with "The Mac voice needs macOS with the `say`
-  command" when `sys.platform != "darwin"` or `say` is missing. The speech
-  status endpoint reports that reason, and the audio endpoints
-  (`api/store.py`) answer 503 with it.
-- **VOICEVOX / AivisSpeech** (`STUDIOUS_TTS_ENGINE=voicevox`) is an HTTP
-  service on `STUDIOUS_TTS_URL` (default `http://127.0.0.1:50021`). Inside a
-  container `127.0.0.1` is the container itself, so it reports unavailable
-  unless the URL points at a reachable host. Its WAV output is converted to
-  AAC with `afconvert` (macOS); without it the clip stays `.wav`, which still
-  plays.
-- **Anki through AnkiConnect** (`anki.py`, `anki_push.py`) calls
-  `ANKI_CONNECT_URL` (default `http://127.0.0.1:8765`). Unreachable raises
-  `AnkiUnavailable`, which the API turns into a 503 with the message "Anki is
-  not reachable at ... Open Anki on this Mac"; the push endpoints do the same.
-  Audio
-  attached to a push degrades per clip (the failure is logged and counted, the
-  card is sent without audio).
-- **Keychain** is only a convenience of the Makefile for starting the backend
-  on the Mac; the app itself reads plain environment variables. One error
-  message in `api/store.py` (WaniKani) still says "Keychain".
+| Feature | What it calls | On the droplet | Who notices |
+|---|---|---|---|
+| Card audio, `say` engine (the default, and what the owner uses) | `say` and `say -v '?'` as subprocesses (`tts.py`) | Unavailable: `/api/tts/status` gives the reason, `/api/vocab/{id}/audio` and `/api/tts/test` answer 503 | Study dashboard play button, speech settings, audio on Anki pushes |
+| Card audio, VOICEVOX / AivisSpeech engine | HTTP on `STUDIOUS_TTS_URL` (default `127.0.0.1:50021`), then `afconvert` for AAC | Unavailable unless the URL points at a reachable host; clips stay `.wav` because `afconvert` is macOS only | Same as above |
+| Anki state import ("already in Anki" badges) | AnkiConnect on `ANKI_CONNECT_URL` (default `127.0.0.1:8765`), read actions only (`anki.py`) | 503 "Anki is not reachable"; the last `data/refs/anki/snapshot.json` keeps working but goes stale | Vocab store badges, the sync button |
+| Anki push (shortlist to deck) | AnkiConnect `createDeck` and `addNotes` (`anki_push.py`), plus card audio per note | 503; with Anki reachable but speech not, cards go without audio | Push dialog |
+| Mac app and `studious-sync` | Read and write `backend/data/store/*.jsonl` directly | The files are no longer on the Mac (step 7) | Mac app, CLI, and iOS through CloudKit |
+| Mac app settings | Health check on `127.0.0.1:8000`, "Open web app" link to `localhost:5173` (`SettingsView.swift`) | Both point at nothing | Mac app settings pane |
+
+Details that matter for the fix:
+
+- **Cached clips do not survive the move.** `synthesize` checks that the
+  engine is available before it looks in `data/audio/`, and the cache key
+  includes the voice name, so the existing clips (23 files, under 1 MB) are
+  never served on Linux. They are cheap to regenerate; do not bother
+  migrating them.
+- **Audio is made on first play, on the server.** The web app never uses the
+  browser's own speech synthesis; it plays `/api/vocab/{id}/audio`.
+- **Anki only answers while the Anki desktop app is open on the Mac**, so
+  both Anki features already depend on the Mac being awake, wherever the
+  backend runs. AnkiConnect listens on `127.0.0.1` only by default.
+- **Messages name the Mac.** "Open Anki on this Mac" (`anki.py`), "needs
+  macOS with the ... voice installed" (`anki-push-dialog.ts`), "store your
+  token in the Keychain" (`api/store.py`, WaniKani). Reword when the fix
+  lands.
+
+Not affected:
+
+- **Keychain** is a convenience of the Makefile for starting the backend on
+  the Mac; the app reads plain environment variables.
 - **Tesseract** is installed in the image, so the OCR provider works.
+- **WaniKani sync** and the Anthropic API are outbound HTTPS.
+- **`backend/scripts/build_seed.py`** reads fonts from `/System/Library/Fonts`,
+  but it only regenerates the committed seed PDF and runs on the Mac.
+- **Apple builds, `make test-apple`, benchmarks and the model eval** stay on
+  the Mac by design.
+
+### New homes (decided 2026-11-13)
+
+- **Anki: reach the Mac over Tailscale.** The Mac can be expected to be on
+  for Anki exchanges, since Anki itself must be open. On the Mac,
+  publish AnkiConnect to the tailnet without changing its bind address
+  (`tailscale serve --tcp 8765 tcp://127.0.0.1:8765` or the equivalent;
+  not yet tried); the droplet sets `ANKI_CONNECT_URL` to the Mac's tailnet
+  name. No code change beyond the messages. Set an AnkiConnect API key if
+  any other tailnet device is not trusted.
+- **Speech: VOICEVOX on the droplet**, so that audio never needs the Mac.
+  Feasible, but not on the 1 GB droplet (measurements below), so the
+  owner chose a 2 GB droplet. It also costs a second container, one fixed speaker, and a lower cap on
+  the text sent in one synthesis call. The voice changes from the Mac's
+  Kyoko family to a VOICEVOX character. Wrapping `say` on the Mac is the
+  fallback if this disappoints.
+- **Mac app:** covered by step 7; the two hard-coded URLs become one
+  backend URL setting.
+
+### VOICEVOX memory and speed
+
+Measured 2026-11-13 with `voicevox/voicevox_engine:cpu-latest` (engine
+0.26.1, 2.1 GB image, linux/arm64 under Docker Desktop on the owner's Mac),
+limited to one CPU. A droplet's x86 vCPU will differ, so repeat the timing
+there.
+
+| Text sent in one call | Time on one CPU | Peak memory |
+|---|---|---|
+| 2 characters (a word) | 2 s | about 205 MiB |
+| 33 characters | 9 s | 342 MiB |
+| 66 characters | 19 s | 528 MiB |
+| 99 characters | 26 s | 735 MiB |
+| 198 characters (near `MAX_CHARS`) | 51 s | 1,478 MiB |
+
+- Idle, before any synthesis: 89 MiB. Ready about 4 seconds after start.
+- **Memory grows with the length of the text**, roughly 7 MiB per
+  character. Capped at 512 MiB the engine was OOM-killed on a 208-character
+  text. Words and example sentences (8 to 25 characters) stay under
+  350 MiB, so either lower the limit for this engine or split long text by
+  sentence and join the clips.
+- **Each further voice model stays loaded.** Eight speakers from different
+  model files took the engine from 342 MiB to 1,853 MiB. Use one speaker.
+- **Speed is about a quarter of a second per character on one CPU.**
+  Without the CPU limit the same 21-character sentence took half a second.
+  Clips are cached, so only the first play waits; an Anki push of 20 new
+  cards with word and sentence audio would take a few minutes.
+- With Studious peaking at 437 MiB (below), the two together need about
+  800 MiB plus the system: too tight for 1 GB, comfortable in 2 GB.
+- The image has no `afconvert`, so clips stay `.wav` (190 KB for a
+  sentence) until the Studious image gains a converter such as `ffmpeg`.
 
 ## Memory
 
@@ -189,7 +253,9 @@ peak and was never killed.
 
 What this supports: the app fits in 512 MiB with about 70 MiB to spare on
 this workload, so a 1 GB droplet leaves room for the OS, Docker and
-Tailscale. The earlier 2 GB estimate is more than this evidence asks for.
+Tailscale. The earlier 2 GB estimate is more than Studious alone asks
+for; the droplet is 2 GB anyway because VOICEVOX runs beside it (see
+"VOICEVOX memory and speed").
 
 What it does not cover:
 

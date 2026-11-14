@@ -93,7 +93,8 @@ Still to do, in order:
    the base images). `docs/hosting.md` describes it. The image builds
    locally (818 MB) and passes the smoke test. Run against a copy of the
    real library on 2026-11-13, it peaked at 437 MiB and survived a 512 MiB
-   cap, so a 1 GB droplet is enough on this evidence (limits of the
+   cap, so 1 GB is enough for Studious alone; the droplet will be 2 GB
+   because VOICEVOX runs beside it, see step 8 (limits of the
    measurement are in the hosting doc). Still open: the `docker` job is not
    a required check until the owner adds it to the ruleset.
 6. Droplet, Tailscale, backups, CI deploy, data move.
@@ -101,9 +102,14 @@ Still to do, in order:
 8. **Features that rely on the service running on the Mac need a new
    home** once production is on Linux: the macOS voices (TTS), Anki sync
    through AnkiConnect on localhost, and anything else that calls a local
-   Mac service. Inventory them before step 6. Likely shapes: a small
-   Mac-side helper the server or client calls, or moving the feature into
-   the Mac app.
+   Mac service. Inventoried 2026-11-13 in `docs/hosting.md` ("Features
+   that need the Mac"). Decided the same day: Anki is reached on the Mac
+   over Tailscale; speech moves to VOICEVOX on the droplet, which measured
+   as needing a 2 GB droplet rather than 1 GB (accepted by the owner), one fixed speaker and a
+   shorter text limit. Wrapping `say` on the Mac is the fallback. Not yet
+   built: the compose service, the text limit or sentence splitting, a
+   WAV converter in the image, the reworded messages, and choosing a
+   speaker.
 
 ### 2. Letting Claude Code sessions see the UI
 
@@ -175,6 +181,7 @@ document. Context gathered so far:
     container (512 MB). That cannot host Studious (too little memory, and
     the app needs files that persist). A server means a new droplet; the
     earlier estimate was 2 GB RAM; measured 2026-11-13, 1 GB is enough
+    for Studious alone, and the owner chose 2 GB to fit VOICEVOX
     (`docs/hosting.md`, "Memory").
   - The website is static and rarely updated. Keep it off any Studious
     server. Reworking it into a CV/portfolio site with occasional posts and
