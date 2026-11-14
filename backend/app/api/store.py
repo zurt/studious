@@ -21,6 +21,7 @@ from ..services import (
     examples,
     harvest,
     jmdict,
+    speech_queue,
     store,
     tts,
     voicevox,
@@ -322,15 +323,19 @@ def generate_vocab_examples(body: ExamplesBody):
     """Generate (and store) an example sentence for each item, in the Kaishi
     style. Items that already have one are reported as `kept` unless `force`."""
     try:
-        return examples.generate_examples(body.item_ids, force=body.force)
+        result = examples.generate_examples(body.item_ids, force=body.force)
     except examples.ExamplesError as exc:
         raise HTTPException(exc.status, exc.message) from exc
+    # A new sentence is a new clip.
+    speech_queue.enqueue_and_kick(r["id"] for r in result["items"] if r.get("status") == "generated")
+    return result
 
 
 @router.delete("/vocab/{item_id}/example")
 def delete_vocab_example(item_id: str):
     if not examples.remove_example(item_id):
         raise HTTPException(404, "vocab item not found")
+    speech_queue.enqueue_and_kick([item_id])
     return {"ok": True}
 
 
@@ -360,7 +365,7 @@ def tts_test(body: TtsTestBody | None = None):
     one named installed Japanese voice)."""
     voice = body.voice if body and body.voice else None
     if voice is not None:
-        if tts.engine() != "say" or not tts.is_available():
+        if not tts._uses_say_voices() or not tts.is_available():
             raise HTTPException(400, "A voice can only be chosen for the Mac voice engine.")
         if voice not in tts.status()["installed"]:
             raise HTTPException(400, f"{voice!r} is not an installed Japanese voice")
@@ -371,6 +376,24 @@ def tts_test(body: TtsTestBody | None = None):
     return FileResponse(path, media_type=tts.media_type(path))
 
 
+class CatchUpBody(BaseModel):
+    all: bool = False  # queue every vocab item first (e.g. after moving the data)
+
+
+@router.post("/tts/catch-up")
+def tts_catch_up(body: CatchUpBody | None = None):
+    """Make the clips that are still missing, now: start a background drain of the
+    pending list (after queueing every vocab item when ``all``) and return at once."""
+    if body is not None and body.all:
+        speech_queue.enqueue_all(manual=True)
+    speech_queue.kick(manual=True)
+    return {
+        "pending": speech_queue.pending_count(),
+        "available": tts.is_available(),
+        "reason": tts.unavailable_reason(),
+    }
+
+
 @router.get("/vocab/{item_id}/audio")
 def vocab_audio(item_id: str, part: str = "word"):
     """The clip for the item's word or sentence, as it would go on the card."""
@@ -379,15 +402,13 @@ def vocab_audio(item_id: str, part: str = "word"):
     item = store.get_item("vocab", item_id)
     if item is None or item.get("deleted"):
         raise HTTPException(404, "vocab item not found")
-    note = anki_push.build_note(item)
-    text = note["word_text"] if part == "word" else note["sentence_text"]
-    if not text:
+    spec = next((s for s in anki_push.clip_specs(item) if s[0] == part), None)
+    if spec is None:
         raise HTTPException(404, f"this item has no {part} to speak")
-    if not tts.is_available():
-        raise HTTPException(503, tts.unavailable_reason())
-    reading = note["word_reading"] if part == "word" else note["sentence_reading"]
+    _part, text, reading, seed = spec
     try:
-        path = tts.synthesize(text, anki_push.expected_reading(reading), seed=note["fields"]["Word"])
+        # Serves a cached clip even when the engine is down.
+        path = tts.synthesize(text, reading, seed=seed)
     except tts.TtsError as exc:
         raise HTTPException(503, str(exc)) from exc
     return FileResponse(path, media_type=tts.media_type(path))
@@ -546,8 +567,8 @@ async def wanikani_sync(full: bool = False):
     if not wanikani.is_configured():
         raise HTTPException(
             409,
-            "WANIKANI_API_TOKEN is not set — store your token in the Keychain "
-            "and export it like ANTHROPIC_API_KEY (see README)",
+            "WANIKANI_API_TOKEN is not set. The server needs it in its environment; "
+            "on the Mac, `make run-backend` reads it from the Keychain (see README).",
         )
     try:
         result = await asyncio.to_thread(wanikani.sync, full=full)
