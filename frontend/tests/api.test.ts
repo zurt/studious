@@ -23,6 +23,7 @@ import {
   transcribeRegion,
   requestBreakdown,
   submitTranscription,
+  jobStreamRetryDelayMs,
   openJobStream,
   bulkPrepareChapter,
 } from "../src/api";
@@ -319,30 +320,109 @@ describe("api", () => {
   });
 
   describe("openJobStream", () => {
-    it("subscribes to all event types and returns a closer", () => {
-      const handlers: Record<string, (ev: MessageEvent) => void> = {};
-      const closeMock = vi.fn();
-      const constructorSpy = vi.fn();
-      class FakeES {
-        onerror: unknown = null;
-        constructor(url: string) {
-          constructorSpy(url);
-        }
-        addEventListener(type: string, h: (ev: MessageEvent) => void) {
-          handlers[type] = h;
-        }
-        close = closeMock;
+    class FakeES {
+      static instances: FakeES[] = [];
+      onerror: (() => void) | null = null;
+      handlers: Record<string, (ev: MessageEvent) => void> = {};
+      close = vi.fn();
+      constructor(public url: string) {
+        FakeES.instances.push(this);
       }
-      vi.stubGlobal("EventSource", FakeES);
+      addEventListener(type: string, h: (ev: MessageEvent) => void) {
+        this.handlers[type] = h;
+      }
+      emit(type: string, data: unknown) {
+        this.handlers[type]!({ data: JSON.stringify(data) } as MessageEvent);
+      }
+    }
 
+    beforeEach(() => {
+      FakeES.instances = [];
+      vi.stubGlobal("EventSource", FakeES);
+      vi.useFakeTimers();
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("subscribes to all event types and returns a closer", () => {
       const onEvent = vi.fn();
       const close = openJobStream("job-1", onEvent);
-      expect(constructorSpy).toHaveBeenCalledWith("/api/jobs/job-1/events");
-      // Fire a known event
-      handlers["job-done"]!({ data: '{"ok": true}' } as MessageEvent);
-      expect(onEvent).toHaveBeenCalledWith({ event: "job-done", data: { ok: true } });
+      const es = FakeES.instances[0]!;
+      expect(es.url).toBe("/api/jobs/job-1/events");
+      es.emit("region-done", { ok: true });
+      expect(onEvent).toHaveBeenCalledWith({ event: "region-done", data: { ok: true } });
       close();
-      expect(closeMock).toHaveBeenCalled();
+      expect(es.close).toHaveBeenCalled();
+    });
+
+    it("reopens a dropped stream, waiting longer each time", () => {
+      const onEvent = vi.fn();
+      openJobStream("job-1", onEvent);
+      FakeES.instances[0]!.onerror!();
+      expect(FakeES.instances[0]!.close).toHaveBeenCalled();
+      vi.advanceTimersByTime(999);
+      expect(FakeES.instances).toHaveLength(1);
+      vi.advanceTimersByTime(1);
+      expect(FakeES.instances).toHaveLength(2);
+
+      FakeES.instances[1]!.onerror!();
+      vi.advanceTimersByTime(1999);
+      expect(FakeES.instances).toHaveLength(2);
+      vi.advanceTimersByTime(1);
+      expect(FakeES.instances).toHaveLength(3);
+
+      // The reopened stream's snapshot reaches the caller.
+      FakeES.instances[2]!.emit("snapshot", { status: "running" });
+      expect(onEvent).toHaveBeenLastCalledWith({ event: "snapshot", data: { status: "running" } });
+    });
+
+    it("starts the delay over once an event arrives", () => {
+      openJobStream("job-1", vi.fn());
+      FakeES.instances[0]!.onerror!();
+      vi.advanceTimersByTime(1000);
+      FakeES.instances[1]!.onerror!();
+      vi.advanceTimersByTime(2000);
+      FakeES.instances[2]!.emit("ping", {});
+      FakeES.instances[2]!.onerror!();
+      vi.advanceTimersByTime(1000);
+      expect(FakeES.instances).toHaveLength(4);
+    });
+
+    it("caps the delay at 15 seconds", () => {
+      expect(jobStreamRetryDelayMs(0)).toBe(1000);
+      expect(jobStreamRetryDelayMs(3)).toBe(8000);
+      expect(jobStreamRetryDelayMs(4)).toBe(15000);
+      expect(jobStreamRetryDelayMs(30)).toBe(15000);
+    });
+
+    it.each([
+      ["job-done", {}],
+      ["job-failed", { error: "x" }],
+      ["snapshot", { status: "completed" }],
+      ["snapshot", { status: "completed_with_errors" }],
+      ["snapshot", { status: "failed" }],
+    ])("does not reopen after %s %j", (type, data) => {
+      const onEvent = vi.fn();
+      openJobStream("job-1", onEvent);
+      const es = FakeES.instances[0]!;
+      es.emit(type, data);
+      expect(onEvent).toHaveBeenCalledTimes(1);
+      expect(es.close).toHaveBeenCalled();
+      // The server closing the finished stream surfaces as an error.
+      es.onerror!();
+      vi.advanceTimersByTime(60000);
+      expect(FakeES.instances).toHaveLength(1);
+    });
+
+    it("does not reopen after the caller closes, even mid-wait", () => {
+      const onEvent = vi.fn();
+      const close = openJobStream("job-1", onEvent);
+      FakeES.instances[0]!.onerror!();
+      close();
+      vi.advanceTimersByTime(60000);
+      expect(FakeES.instances).toHaveLength(1);
     });
   });
 });

@@ -25,7 +25,11 @@ from .api import (
 )
 from .config import get_settings
 from .jobs import manager
-from .middleware import CorrelationMiddleware, StructuredFormatter
+from .middleware import (
+    BodySizeLimitMiddleware,
+    CorrelationMiddleware,
+    StructuredFormatter,
+)
 from .providers import registry
 from .services import enrich, speech_queue
 from .services.storage import InvalidIdError
@@ -88,6 +92,18 @@ def _mount_frontend(app: FastAPI, static_dir: Path) -> None:
         return FileResponse(index)
 
 
+class _UploadLimit:
+    """BodySizeLimitMiddleware with the limit taken from settings on each
+    request (the settings cache is cleared between tests)."""
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        limit = get_settings().upload_max_mb * 1024 * 1024
+        await BodySizeLimitMiddleware(self.app, limit)(scope, receive, send)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Studious", lifespan=lifespan)
@@ -106,6 +122,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
         expose_headers=["x-correlation-id"],
     )
+    # Read per request so the limit follows the current settings.
+    app.add_middleware(_UploadLimit)
 
     for module in (
         documents,

@@ -611,6 +611,27 @@ as terminal. The chapter-view batch-transcribe waiter missed this until
 Diagnosis tip: if the UI says pending but `data/jobs/*.json` say completed,
 it's the subscriber, not the queue.
 
+### Job progress stalls for a few seconds, or the console shows `job_stream_reconnect`
+The connection to `GET /api/jobs/{id}/events` dropped (a proxy's idle
+cut-off, a network change, a backend restart) and `openJobStream` is
+reopening it: 1 s, doubling to 15 s, until the job finishes or the view
+closes. Each `job_stream_reconnect` warning carries the job id, the attempt
+number and the wait. The new connection's `snapshot` carries the outcome if
+the job ended meanwhile; progress events from the gap are not replayed, so
+an "N of M" counter can lag until the job ends. Warnings that repeat every
+15 s mean the backend is unreachable, or the job id no longer exists (a
+wiped data dir): reload the page.
+
+### Upload fails with 413
+The file is over a limit; the message names which. `upload is larger than
+the N MB limit` is the request-size cap (`STUDIOUS_UPLOAD_MAX_MB`, default
+300), applied before the file is stored; the backend logs
+`request_body_too_large` with the size. `PDF has N pages; the limit is M` is
+the page cap (`STUDIOUS_UPLOAD_MAX_PAGES`, default 1500), applied before any
+page is rendered; logged as `document_too_many_pages`. Raise either in the
+environment (`0` = no limit) and restart. A 413 with an HTML body and no
+backend log line came from a proxy in front, which has its own limit.
+
 ### E2E test drawing a region times out waiting for `#tag-select` (or a card click shows an empty breakdown pane)
 Two chapter-view behaviors trip up new journey tests (both bit on 2026-06-12):
 1. **Region drags must stay inside the visible viewport.** At fit-width zoom the page canvas is taller than the 720px viewport; `canvas.boundingBox()` reports the full (partially clipped) height, so a drag endpoint at a large height fraction lands below the viewport, the canvas never sees `mouseup`, and the tag popover never opens. The failure screenshot shows a small stranded dashed box at the last in-viewport mousemove. Keep drag coordinates in the upper ~half of the canvas box. Also remember a `mousedown` inside an existing region's bbox *selects* that region instead of starting a draw — draw beside existing regions, not over or under them.

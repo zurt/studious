@@ -106,9 +106,7 @@ ignored silently and the backend runs API-only.
 - **No authentication on any endpoint.** That includes the recursive document
   delete and the transcribe and breakdown endpoints, which spend the API key.
   Publish nothing on a public interface; the compose file binds loopback, and
-  the droplet plan is Tailscale only. Deferred findings (upload size limits,
-  reconnect on the job progress stream) are in
-  `docs/archive/audit-2026-07-mobile-spike.md`.
+  the droplet plan is Tailscale only.
 - **State is one directory.** `STUDIOUS_DATA_DIR` holds documents, page
   images, transcriptions, jobs, the vocab/grammar store, the review log, the
   LLM audit log and reference caches. One volume to mount, one path to back
@@ -118,13 +116,19 @@ ignored silently and the backend runs API-only.
   paths, so serving `dist` from the backend, or through a proxy, just works.
 - **Progress streams are SSE.** A proxy must not buffer them (Caddy:
   `flush_interval -1`; nginx: `proxy_buffering off` and a long
-  `proxy_read_timeout`). `openJobStream` in `frontend/src/api.ts` closes on
-  the first error with no reconnect, so a network blip freezes job progress
-  until reload. Harmless on localhost; worth fixing before relying on it
-  remotely.
+  `proxy_read_timeout`). A dropped stream is reopened by the page
+  (`openJobStream` in `frontend/src/api.ts`: 1 s, doubling to 15 s, until the
+  job finishes or the view closes). Each connection starts with the job's
+  current state, so the outcome is never missed; per-region progress sent
+  during the gap is not replayed, so a counter can lag until the job ends.
 - **Jobs do not survive a restart.** Check the jobs view is idle before
   restarting or deploying.
-- **Uploads are unbounded.** Cap the body size at the proxy if there is one.
+- **Uploads are capped.** A request body over `STUDIOUS_UPLOAD_MAX_MB`
+  (default 300) is refused with 413 before it is stored, and a PDF over
+  `STUDIOUS_UPLOAD_MAX_PAGES` (default 1500) before any page is rendered; `0`
+  turns either off. Rendered pages are the larger cost: at 300 DPI a page is
+  a PNG of a few MB, so size the volume for the page limit, not the upload.
+  A proxy in front needs its own body limit at least as high.
 - **Region of the droplet** matters only for the round trip to the Anthropic
   API; jobs are API-latency-bound, not CPU-bound.
 

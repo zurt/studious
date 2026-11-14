@@ -532,3 +532,37 @@ test("the top bar says when the backend runs the mock VLM provider", async ({ pa
   await expect(page.locator("#mock-pill")).toBeVisible();
   await expect(page.locator("#mock-pill")).toHaveText("Mock VLM · seed data");
 });
+
+test("job progress survives a dropped event stream", async ({ page }) => {
+  await page.goto("/");
+  // Cut the first two connections to any job's event stream, as a proxy's
+  // idle timeout or a network blip would.
+  let attempts = 0;
+  await page.route("**/api/jobs/*/events", async (route) => {
+    attempts += 1;
+    if (attempts <= 2) await route.abort("connectionreset");
+    else await route.continue();
+  });
+
+  const events = await page.evaluate(async () => {
+    // Vite serves the source modules, so the page can use the real client.
+    const api = await import("/src/api.ts" as string);
+    const [doc] = await api.listDocuments();
+    const { job_id } = await api.submitTranscription(doc.id, {
+      engine: "vlm", provider: "anthropic", pages: "1", config: {}, overwrite: true,
+    });
+    return await new Promise<string[]>((resolve) => {
+      const seen: string[] = [];
+      api.openJobStream(job_id, (e: { event: string; data: { status?: string } }) => {
+        seen.push(e.event === "snapshot" ? `snapshot:${e.data.status}` : e.event);
+        const last = seen[seen.length - 1]!;
+        if (last.startsWith("job-") && last !== "job-started") resolve(seen);
+        else if (last.startsWith("snapshot:") && e.data.status !== "queued" && e.data.status !== "running") resolve(seen);
+      });
+    });
+  });
+
+  // Two refused connections, then the one that delivered the outcome.
+  expect(attempts).toBe(3);
+  expect(["job-done", "snapshot:completed"]).toContain(events[events.length - 1]);
+});
