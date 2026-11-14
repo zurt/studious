@@ -217,9 +217,16 @@ Environment variables (read at startup, `.env` supported):
   `http://127.0.0.1:8765`).
 - `STUDIOUS_TTS_VOICE` — macOS `say` voices for card audio: `auto`
   (default) or a comma-separated list of voice names; `ANKI_PUSH_AUDIO` — attach audio on send (default true);
-  `STUDIOUS_TTS_ENGINE` (`say` or `voicevox`), `STUDIOUS_TTS_URL` (default
+  `STUDIOUS_TTS_ENGINE` (`say`, `say_remote` or `voicevox`), `STUDIOUS_TTS_URL` (default
   `http://127.0.0.1:50021`), `STUDIOUS_TTS_SPEAKER` (a VOICEVOX style id, no
   default) — defaults for the speech engine, overridden by Settings > Speech.
+  `STUDIOUS_TTS_ENGINE=say_remote` speaks through the Mac speech helper (`make
+  say-helper`) for a server that is not on the Mac: `STUDIOUS_SAY_HELPER_URL`
+  (default `http://127.0.0.1:8766`, environment only) is where the server finds
+  it, `STUDIOUS_SAY_HELPER_PORT` (default `8766`) is the port the helper
+  listens on, on `127.0.0.1` only. `STUDIOUS_TTS_PREGENERATE` (default on;
+  `0`/`false`/`no`/`off` turn it off) makes clips in the background when items
+  are harvested.
 - `ANKI_PUSH_DECK` / `ANKI_PUSH_NOTE_TYPE` — where "Send to Anki" puts new
   cards (defaults `Studious` and `Kaishi 1.5k`).
 - `STUDIOUS_DATA_DIR` — data root (default `./data`).
