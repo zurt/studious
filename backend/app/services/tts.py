@@ -22,8 +22,10 @@ under ``data/audio/`` named by a hash of engine + voice/speaker + text, so
 changing the voice never reuses old clips. ``is_available`` / ``status`` say
 whether (and if not, why) clips can be made.
 
-``synthesize`` serves a cached clip before it looks at availability, so clips
-that exist still play when the engine is down; ``cached_clip`` is that lookup
+``synthesize`` serves a cached clip before it looks at availability, and
+without any network call (for `say_remote` the cache key comes from the last
+known voice listing, in memory or in ``say-voices.txt``), so clips that exist
+play at once even when the engine is down; ``cached_clip`` is that lookup
 alone. ``TtsUnavailable`` (a ``TtsError``) means "the engine is down", as
 opposed to a clip that could not be made. ``speech_queue`` makes the clips in
 the background.
@@ -78,7 +80,7 @@ class TtsUnavailable(TtsError):  # noqa: N818 - reads better than TtsUnavailable
     can be made now, but nothing is wrong with the text either."""
 
 
-def _uses_say_voices(eng: str | None = None) -> bool:
+def uses_say_voices(eng: str | None = None) -> bool:
     """Whether the engine speaks with Mac `say` voices (locally or through the helper)."""
     return (eng or engine()) in ("say", "say_remote")
 
@@ -280,11 +282,23 @@ def _say_state() -> tuple[bool, str]:
     return info["ok"], info["reason"]
 
 
-def _pool_info() -> dict[str, Any]:
+def _pool_info(probe: bool = True) -> dict[str, Any]:
+    """The voice pool information for the engine. ``probe=False`` never asks the
+    helper: for `say_remote` it returns the in-memory entry whatever its age,
+    else one built from the last listing on disk (not stored, so the next probing
+    call still asks the helper). Only with no listing known anywhere does it probe."""
     eng = engine()
     remote = eng == "say_remote"
     key = (eng, "say-info", voice_setting(), helper_url() if remote else "")
     hit = _info.get(key)
+    if remote and not probe:
+        if hit is not None:
+            return hit
+        listing = _last_listing()
+        if listing:
+            info = _info_from_listing(listing, voice_setting())
+            info["ok"], info["reason"] = False, ""
+            return info
     # The Mac may fall asleep or wake at any time; the local listing stays until reset_cache().
     if hit is not None and (not remote or time.monotonic() - hit["_at"] < AVAILABILITY_TTL):
         return hit
@@ -301,7 +315,7 @@ def _forget_remote() -> None:
 
 def pool() -> list[str]:
     """The voices the `say` / `say_remote` engine rotates among (empty when unavailable)."""
-    return list(_pool_info()["pool"]) if _uses_say_voices() else []
+    return list(_pool_info()["pool"]) if uses_say_voices() else []
 
 
 def pool_label(voices: list[str]) -> str:
@@ -342,7 +356,7 @@ def _voicevox_state() -> tuple[bool, str]:
 
 def _state() -> tuple[bool, str]:
     eng = engine()
-    if _uses_say_voices(eng):
+    if uses_say_voices(eng):
         return _say_state()  # _pool_info() caches the listing itself (for good, or for the TTL if remote)
     key: Any = (eng, url(), speaker())
     hit = _available.get(key)
@@ -365,7 +379,7 @@ def unavailable_reason() -> str:
 
 def speaker_label() -> str:
     """"Character — Style" of the chosen speaker, or the `say` voice name."""
-    if _uses_say_voices():
+    if uses_say_voices():
         return pool_label(pool())
     sid = speaker()
     try:
@@ -387,7 +401,7 @@ def status() -> dict[str, Any]:
         "voice": speaker_label() if ok else "",
         "voices": pool(),
         "setting": voice_setting(),
-        "installed": list(_pool_info()["ja"]) if _uses_say_voices() else [],
+        "installed": list(_pool_info()["ja"]) if uses_say_voices() else [],
         "url": url(),
         "speaker": speaker(),
         "reason": reason,
@@ -457,7 +471,7 @@ def _key(text: str, reading: str | None, voice_name: str = "") -> str:
     # `say` and `say_remote` hash alike (the literal engine name `say`), so a
     # clip made by either is found by the other. Do not change this: it is
     # every existing clip's file name.
-    if _uses_say_voices(eng):
+    if uses_say_voices(eng):
         eng, who, extra = "say", voice_name, ""
     else:
         who = f"{url()}|{speaker()}"
@@ -608,12 +622,14 @@ def _voicevox(text: str, reading: str | None, key: str, report: dict[str, Any] |
     return wav
 
 
-def _plan(text: str, reading: str | None, seed: str | None, voice: str | None) -> tuple[list[str], str]:
-    """(the voices to try in order, the cache key) for a clip. Pure lookups:
-    nothing here makes a clip or touches the engine beyond its cached listing."""
+def _plan(
+    text: str, reading: str | None, seed: str | None, voice: str | None, probe: bool = True
+) -> tuple[list[str], str]:
+    """(the voices to try in order, the cache key) for a clip. Makes no clip.
+    ``probe=False`` makes no network call either (see ``_pool_info``)."""
     chain: list[str] = []
-    if _uses_say_voices():
-        info = _pool_info()
+    if uses_say_voices():
+        info = _pool_info(probe)
         plain = "Kyoko" if info["plain"] else None
         chain = [voice] if voice else pick_voices(info["pool"], seed if seed is not None else text, plain)
         if voice and plain and voice != plain:
@@ -629,7 +645,7 @@ def cached_clip(
     text = clean_text(text)
     if not text or len(text) > MAX_CHARS:
         return None
-    return _cached(_plan(text, reading, seed, voice)[1])
+    return _cached(_plan(text, reading, seed, voice, probe=False)[1])
 
 
 def synthesize(
@@ -642,9 +658,11 @@ def synthesize(
 ) -> Path:
     """The cached clip for ``text`` (HTML tags removed), made when missing.
 
-    The cache is looked at first, so a clip that exists is served even when the
-    engine is down; only a missing clip needs the engine (``TtsUnavailable``
-    when it is not available).
+    The cache is looked at first, without any network call (the key comes from
+    the last known voice listing), so a clip that exists is served at once, even
+    with the engine down. Only a missing clip needs the engine (``TtsUnavailable``
+    when it is not available); the voice pool is then refreshed and the cache is
+    checked once more, since a changed listing changes the key.
 
     ``reading`` (hiragana) is the reading the caller expects; with the VOICEVOX
     engine a different reading from the engine is replaced by this one, and
@@ -661,13 +679,16 @@ def synthesize(
         raise TtsError("nothing to speak")
     if len(text) > MAX_CHARS:
         raise TtsError(f"text is {len(text)} characters; the limit is {MAX_CHARS}")
+    hit = _cached(_plan(text, reading, seed, voice, probe=False)[1])
+    if hit:
+        return hit
+    ok, reason = _state()  # probes the helper when its listing has expired
+    if not ok:
+        raise TtsUnavailable(reason)
     chain, key = _plan(text, reading, seed, voice)
     hit = _cached(key)
     if hit:
         return hit
-    ok, reason = _state()
-    if not ok:
-        raise TtsUnavailable(reason)
     audio_dir().mkdir(parents=True, exist_ok=True)
     with _lock:
         hit = _cached(key)

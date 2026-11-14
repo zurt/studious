@@ -48,9 +48,9 @@ export function ttsStatusLine(s: { available: boolean; engine: string; voice: st
   return s.reason || `The ${s.engine} voice is not available.`;
 }
 
-/** "N clips waiting for the Mac", or "" when nothing waits. */
+/** "N words waiting for audio", or "" when nothing waits (the count is vocab items). */
 export function pendingLine(pending: number): string {
-  return pending > 0 ? `${pending} ${pending === 1 ? "clip" : "clips"} waiting for the Mac` : "";
+  return pending > 0 ? `${pending} ${pending === 1 ? "word" : "words"} waiting for audio` : "";
 }
 
 /** Whether Play buttons are worth showing: the engine is up, or it is one whose
@@ -189,7 +189,7 @@ export function wireTts(host: HTMLElement, prefs: Preferences): void {
     say("Asking the Mac for the waiting clips…");
     try {
       const r = await catchUpSpeech();
-      say(r.available ? `${r.pending} still waiting.` : r.reason);
+      say(r.available ? `Started. ${r.pending} ${r.pending === 1 ? "word" : "words"} still waiting.` : r.reason);
     } catch (e: any) {
       say(String(e?.message ?? e));
     } finally {

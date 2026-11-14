@@ -418,7 +418,7 @@ headword, or its meaning (an edited meaning is never overwritten).
 When the server is not on the Mac, speech uses the `say_remote` engine
 (`STUDIOUS_TTS_ENGINE=say_remote`) and the Mac speech helper. The 503 message
 names the cause; `GET /api/tts/status` shows `available`, `reason`, `pending`
-(clips waiting) and `helper_url`.
+(vocab items waiting for clips) and `helper_url`.
 - **Check the helper.** On the Mac, `curl http://127.0.0.1:8766/health` should
   answer `{"ok": true, "service": "studious-say-helper", ...}`. If not, start
   it with `make say-helper` (it is not a LaunchAgent yet), and check the Mac is

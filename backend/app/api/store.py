@@ -365,7 +365,7 @@ def tts_test(body: TtsTestBody | None = None):
     one named installed Japanese voice)."""
     voice = body.voice if body and body.voice else None
     if voice is not None:
-        if not tts._uses_say_voices() or not tts.is_available():
+        if not tts.uses_say_voices() or not tts.is_available():
             raise HTTPException(400, "A voice can only be chosen for the Mac voice engine.")
         if voice not in tts.status()["installed"]:
             raise HTTPException(400, f"{voice!r} is not an installed Japanese voice")

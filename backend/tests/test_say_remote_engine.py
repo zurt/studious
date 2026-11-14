@@ -333,3 +333,55 @@ class TestPushWhileDown:
 
 def test_error_messages_name_the_remote_option(isolated_data_dir):
     assert "say_remote" in tts.unavailable_reason()
+
+
+# ---------- cached clips cost no network call ----------
+
+
+class TestNoNetworkForCachedClips:
+    def _count(self, mac, monkeypatch):
+        calls: list[str] = []
+        real = mac.__call__
+        monkeypatch.setattr(say_remote, "_open", lambda req, timeout: calls.append(req.full_url) or real(req, timeout))
+        return calls
+
+    def test_cold_memory_listing_on_disk(self, mac, monkeypatch):
+        made = tts.synthesize("犬", seed="犬")
+        mac.up = False
+        tts.reset_cache()
+        calls = self._count(mac, monkeypatch)
+        assert tts.synthesize("犬", seed="犬") == made
+        assert tts.cached_clip("犬", seed="犬") == made
+        assert calls == []
+
+    def test_expired_memory_entry_is_still_used(self, mac, monkeypatch):
+        made = tts.synthesize("犬", seed="犬")
+        mac.up = False
+        now = tts.time.monotonic()
+        monkeypatch.setattr(tts.time, "monotonic", lambda: now + tts.AVAILABILITY_TTL + 100)
+        calls = self._count(mac, monkeypatch)
+        assert tts.synthesize("犬", seed="犬") == made
+        assert tts.cached_clip("犬", seed="犬") == made
+        assert calls == []
+
+    def test_miss_with_a_changed_listing_uses_the_fresh_pool(self, mac):
+        tts.synthesize("犬", seed="犬")  # the stale pool: three Enhanced voices
+        old_pool = tts.pool()
+        new_pool = sorted([*old_pool, "Hattori (Enhanced)"])
+        mac.listing += "Hattori (Enhanced)    ja_JP    # こんにちは!\n"
+        tts._info[next(iter(tts._info))]["_at"] -= tts.AVAILABILITY_TTL + 1
+        seed = next(
+            s for s in map(str, range(500)) if tts.pick_voices(new_pool, s)[0] != tts.pick_voices(old_pool, s)[0]
+        )
+        path = tts.synthesize("猫", seed=seed)
+        assert mac.say_calls[-1][0] == tts.pick_voices(new_pool, seed)[0]
+        mac.up = False
+        tts.reset_cache()  # the pool now comes from the refreshed file on disk
+        assert tts.cached_clip("猫", seed=seed) == path
+
+    def test_miss_with_the_helper_down_is_unavailable(self, mac):
+        tts.synthesize("犬", seed="犬")
+        mac.up = False
+        tts.reset_cache()
+        with pytest.raises(tts.TtsUnavailable):
+            tts.synthesize("猫", seed="猫")

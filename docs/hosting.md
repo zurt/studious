@@ -232,7 +232,7 @@ Not affected:
   - **Catch-up.** When the Mac is unreachable the ids stay on the list. A
     background task retries every 300 seconds, and
     `POST /api/tts/catch-up` does it by hand (Settings > Speech shows
-    "N clips waiting for the Mac" with a "Generate now" button). Send
+    "N words waiting for audio" with a "Generate now" button). Send
     `{"all": true}` to queue every vocab item.
 
   How to run it:

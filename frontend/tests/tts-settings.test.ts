@@ -51,8 +51,8 @@ describe("tts settings helpers", () => {
 
   it("pending line", () => {
     expect(pendingLine(0)).toBe("");
-    expect(pendingLine(1)).toBe("1 clip waiting for the Mac");
-    expect(pendingLine(12)).toBe("12 clips waiting for the Mac");
+    expect(pendingLine(1)).toBe("1 word waiting for audio");
+    expect(pendingLine(12)).toBe("12 words waiting for audio");
   });
 
   it("Play buttons show whenever the engine could have clips", () => {
@@ -150,7 +150,7 @@ describe("speech section wiring", () => {
     const host = mount("say_remote");
     wireTts(host, prefs("say_remote"));
     await tick();
-    expect(host.querySelector("#settings-tts-pending")!.textContent).toBe("3 clips waiting for the Mac");
+    expect(host.querySelector("#settings-tts-pending")!.textContent).toBe("3 words waiting for audio");
     expect(host.querySelector<HTMLElement>("#settings-tts-pending-row")!.hidden).toBe(false);
     expect(host.querySelector("#settings-tts-helper-url")!.textContent).toBe("http://mac:8766");
 

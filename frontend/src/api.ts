@@ -1091,7 +1091,7 @@ export type TtsStatus = {
   voices: string[];
   setting: string;
   installed: string[];
-  /** Clips still waiting to be made (the Mac was not reachable). */
+  /** Vocab items still waiting for their clips (each has one or two). */
   pending: number;
   /** `say_remote` engine: the Mac speech helper's URL (STUDIOUS_SAY_HELPER_URL). */
   helper_url?: string;
