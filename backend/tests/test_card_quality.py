@@ -487,7 +487,7 @@ class TestPushAudio:
         store.update_item("vocab", ids[0], example=GEN)
         fake = _use(monkeypatch)
         r = client.post("/api/anki/push", json={**BODY, "confirm": True}).json()
-        assert r["audio"] == {"enabled": True, "attached": 3, "failed": 0, "reading_corrected": 0}  # 犬: word+sentence, 猫: word
+        assert r["audio"] == {"enabled": True, "attached": 3, "failed": 0, "reading_corrected": 0, "unavailable": False, "missing": 0}  # 犬: word+sentence, 猫: word
         notes = _addnotes(fake)
         assert [a["fields"] for a in notes[0]["audio"]] == [["Word Audio"], ["Sentence Audio"]]
         assert [a["fields"] for a in notes[1]["audio"]] == [["Word Audio"]]
@@ -512,7 +512,7 @@ class TestPushAudio:
         monkeypatch.setattr(tts, "synthesize", flaky)
         fake = _use(monkeypatch)
         r = client.post("/api/anki/push", json={**BODY, "confirm": True}).json()
-        assert r["created"] == 2 and r["audio"] == {"enabled": True, "attached": 1, "failed": 1, "reading_corrected": 0}
+        assert r["created"] == 2 and r["audio"] == {"enabled": True, "attached": 1, "failed": 1, "reading_corrected": 0, "unavailable": False, "missing": 0}
         notes = _addnotes(fake)
         assert "audio" not in notes[0] and len(notes[1]["audio"]) == 1
 
@@ -538,7 +538,7 @@ class TestPushAudio:
         _seed(("犬",))
         fake = _use(monkeypatch)
         r = client.post("/api/anki/push", json={**BODY, "confirm": True}).json()
-        assert r["created"] == 1 and r["audio"] == {"enabled": False, "attached": 0, "failed": 0, "reading_corrected": 0}
+        assert r["created"] == 1 and r["audio"] == {"enabled": True, "unavailable": True, "attached": 0, "failed": 0, "reading_corrected": 0, "missing": 1}
         assert "audio" not in _addnotes(fake)[0]
 
     def test_preview_reports_audio_without_synthesizing(self, isolated_data_dir, monkeypatch, say):
@@ -546,7 +546,7 @@ class TestPushAudio:
         _use(monkeypatch)
         d = client.post("/api/anki/push/preview", json=BODY).json()
         assert d["audio"] == {"enabled": True, "available": True, "voice": "Kyoko", "voices": ["Kyoko"],
-                              "engine": "say", "reason": ""}
+                              "engine": "say", "reason": "", "pending": 0}
         assert say.calls == []
         assert all(not k.startswith("_") for k in d["items"][0])
 
