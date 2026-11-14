@@ -38,14 +38,22 @@ export function audioLabel(voice: string, engine = "say", voices: string[] = [])
 /** Hint under the checkbox when only the plain Mac voice is in use. */
 export function betterVoicesHint(engine: string, voices: string[]): string {
   const plain = voices.length === 1 && !/\((Enhanced|Premium)\)$/.test(voices[0]);
-  return engine === "say" && plain
+  return (engine === "say" || engine === "say_remote") && plain
     ? "Better voices can be downloaded in System Settings \u2192 Accessibility \u2192 Spoken Content."
     : "";
 }
 
 /** Muted line shown instead of the checkbox when the voice cannot be used. */
 export function audioUnavailableLine(voice: string, reason = ""): string {
-  return reason ? `No audio: ${reason}` : `No audio: needs macOS with the "${voice}" voice installed (see STUDIOUS_TTS_VOICE).`;
+  const cached = "Clips already made are still attached.";
+  return reason
+    ? `No new audio: ${reason} ${cached}`
+    : `No new audio: the Mac voice${voice ? ` "${voice}"` : ""} is not reachable. ${cached}`;
+}
+
+/** Checkbox label when the engine is down and only cached clips can be attached. */
+export function cachedAudioLabel(): string {
+  return "Add audio (clips already made only)";
 }
 
 export type SendChoice = { limit: number; audio: boolean };
@@ -62,6 +70,9 @@ export function pushResultMessage(r: AnkiPushResult): string {
   if (r.audio?.enabled) {
     msg += ` ${r.audio.attached} audio ${r.audio.attached === 1 ? "clip" : "clips"} added`;
     msg += r.audio.failed ? `, ${r.audio.failed} failed.` : ".";
+    if (r.audio.missing) {
+      msg += ` ${r.audio.missing} ${r.audio.missing === 1 ? "clip was" : "clips were"} left off because the Mac was not reachable; they are not added to the cards later.`;
+    }
     if (r.audio.reading_corrected) {
       msg += ` ${r.audio.reading_corrected} ${r.audio.reading_corrected === 1 ? "reading" : "readings"} corrected.`;
     }
@@ -194,6 +205,9 @@ export function ankiPushDialog(
         audioNote.textContent = hint;
       }
     } else if (au?.enabled) {
+      // The engine is down, but clips already made can still go on the cards.
+      audioRow.hidden = false;
+      audioRow.querySelector("span")!.textContent = cachedAudioLabel();
       audioNote.hidden = false;
       audioNote.textContent = audioUnavailableLine(au.voice, au.reason);
     }

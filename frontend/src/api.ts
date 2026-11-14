@@ -283,7 +283,7 @@ export type Preferences = {
   learner_note: string;
   answer_length: AnswerLength;
   // Speech engine for card audio (Settings > Speech).
-  tts_engine: "say" | "voicevox";
+  tts_engine: "say" | "voicevox" | "say_remote";
   /** `say` voices: "auto" or a comma-separated list of voice names. */
   tts_voice: string;
   tts_url: string;
@@ -1036,7 +1036,16 @@ export type AnkiPushResult = {
   deck_created: boolean;
   sync_ok: boolean;
   sync_error: string | null;
-  audio?: { enabled: boolean; attached: number; failed: number; reading_corrected?: number };
+  audio?: {
+    enabled: boolean;
+    attached: number;
+    failed: number;
+    reading_corrected?: number;
+    /** The speech engine was down during the send: only cached clips were attached. */
+    unavailable?: boolean;
+    /** Clips skipped because the engine was down. */
+    missing?: number;
+  };
 };
 
 /** Request body shared by the preview and the send. */
@@ -1082,6 +1091,10 @@ export type TtsStatus = {
   voices: string[];
   setting: string;
   installed: string[];
+  /** Clips still waiting to be made (the Mac was not reachable). */
+  pending: number;
+  /** `say_remote` engine: the Mac speech helper's URL (STUDIOUS_SAY_HELPER_URL). */
+  helper_url?: string;
 };
 
 export type TtsSpeaker = { id: number; character: string; style: string; label: string };
@@ -1117,6 +1130,19 @@ export async function testTtsVoice(voice?: string): Promise<Blob> {
   });
   if (!r.ok) throw new Error(await failureText(r));
   return r.blob();
+}
+
+/** Make the clips that are still missing, now. `all` queues every vocab item first. */
+export async function catchUpSpeech(
+  all = false,
+): Promise<{ pending: number; available: boolean; reason: string }> {
+  const r = await fetch("/api/tts/catch-up", {
+    method: "POST",
+    headers: { "x-correlation-id": generateCorrelationId(), "Content-Type": "application/json" },
+    body: JSON.stringify({ all }),
+  });
+  if (!r.ok) throw new Error(await failureText(r));
+  return r.json();
 }
 
 /** URL of the clip for a vocab item's word or sentence as it would go on the card. */
