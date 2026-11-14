@@ -115,7 +115,9 @@ Still to do, in order:
    and the reworded messages (details in `docs/hosting.md`, "New homes").
    Still to do: a LaunchAgent so the helper starts at login, and trying
    the `tailscale serve` routes for both Anki and the helper once the
-   droplet exists (neither has been run; the helper's timing is unmeasured).
+   droplet exists (neither has been run). The helper was run for real on
+   the Mac over loopback: about 1.2 s a clip (`docs/hosting.md`); the
+   tailnet path is untimed.
 
 ### 2. Letting Claude Code sessions see the UI
 

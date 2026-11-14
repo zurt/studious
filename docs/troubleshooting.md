@@ -424,6 +424,10 @@ names the cause; `GET /api/tts/status` shows `available`, `reason`, `pending`
   it with `make say-helper` (it is not a LaunchAgent yet), and check the Mac is
   awake. From the server, try the same URL as `STUDIOUS_SAY_HELPER_URL`; the
   tailnet route (`tailscale serve --tcp 8766 tcp://127.0.0.1:8766`) must exist.
+- **The helper answers 502 "The format 'aac' is unknown"** when it was
+  started inside Claude Code's sandbox: `say` cannot reach the system's AAC
+  encoder there (a bare `say --data-format=aac` fails the same way). Start
+  the helper from an ordinary terminal.
 - **Clips that exist still play** with the Mac away; only missing ones answer
   503.
 - **Where state lives.** `data/audio/pending.json`: the vocab item ids still

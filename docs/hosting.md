@@ -255,7 +255,14 @@ Not affected:
     interface.
   - Until the Mac answers, items harvested meanwhile have no audio, on any
     device.
-  - Timing of `say` through the helper: TODO(reviewer)
+  - Timing of `say` through the helper, measured 2026-11-13 on the owner's
+    Mac over loopback (server and helper on the same machine, Enhanced
+    voices, one sample each): 1.2 s for a 2-character word, 1.1 s for an
+    18-character sentence, 1.2 s for 49 characters, against 1.0 to 1.1 s
+    for `say` run directly. The time barely grows with length and the
+    helper adds about 0.1 s. A cached clip is served in under a
+    millisecond, with the helper up or down. Not measured: the same calls
+    from a droplet over the tailnet.
 
   Chosen for the initial setup, to be revisited if the gaps turn out to
   matter. It replaces the first choice made the same day, VOICEVOX
