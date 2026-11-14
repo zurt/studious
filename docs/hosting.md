@@ -47,6 +47,9 @@ of the multi-arch index (the digests were read from the registries, not from
 a local pull). The uv version was more than 7 days old when pinned, in line
 with the repo's cooldown rule. Dependabot's `docker` entry proposes new tags
 and digests weekly with the same 7-day cooldown as the other ecosystems.
+It does not propose a new Python minor: dependencies may not have wheels for
+it yet and the image has no compiler (see `docs/troubleshooting.md`). Change
+the Python minor by hand.
 
 ## Build and run locally
 

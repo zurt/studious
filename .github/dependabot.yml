@@ -58,3 +58,12 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    # A new Python minor arrives before every dependency ships wheels for
+    # it, and the image has no compiler, so the build fails (uvloop on
+    # 3.15, 2026-11). Move the Python minor by hand, with the docker job
+    # green.
+    ignore:
+      - dependency-name: python
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
