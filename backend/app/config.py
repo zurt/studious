@@ -922,10 +922,16 @@ class Settings(BaseModel):
     # `say` voices: "auto" (every installed Enhanced/Premium ja_JP voice, else the
     # plain Kyoko) or a comma-separated list of voice names.
     tts_voice: str = "auto"
-    # Speech engine: "say" (the Mac voice) or "voicevox" (VOICEVOX / AivisSpeech
+    # Speech engine: "say" (the Mac voice), "say_remote" (the Mac voice through
+    # the helper) or "voicevox" (VOICEVOX / AivisSpeech
     # on localhost). The speaker is a style id from the engine's /speakers;
     # there is no default, one must be chosen. Preferences override these.
     tts_engine: str = "say"
+    # "say_remote": the Mac's `say` through the helper (make say-helper), for a
+    # server that is not on the Mac. Environment only, no preference field.
+    say_helper_url: str = "http://127.0.0.1:8766"
+    # Generate card clips in the background when items are harvested.
+    tts_pregenerate: bool = True
     tts_url: str = "http://127.0.0.1:50021"
     tts_speaker: int | None = None
     anki_push_audio: bool = True
@@ -1021,8 +1027,11 @@ def get_settings() -> Settings:
         anki_push_deck=os.environ.get("ANKI_PUSH_DECK") or "Studious",
         tts_voice=os.environ.get("STUDIOUS_TTS_VOICE") or "auto",
         tts_engine=(os.environ.get("STUDIOUS_TTS_ENGINE") or "say").strip().lower()
-        if (os.environ.get("STUDIOUS_TTS_ENGINE") or "say").strip().lower() in ("say", "voicevox")
+        if (os.environ.get("STUDIOUS_TTS_ENGINE") or "say").strip().lower() in ("say", "voicevox", "say_remote")
         else "say",
+        say_helper_url=(os.environ.get("STUDIOUS_SAY_HELPER_URL") or "http://127.0.0.1:8766").strip(),
+        tts_pregenerate=(os.environ.get("STUDIOUS_TTS_PREGENERATE") or "true").strip().lower()
+        not in ("0", "false", "no", "off"),
         tts_url=os.environ.get("STUDIOUS_TTS_URL") or "http://127.0.0.1:50021",
         tts_speaker=int(os.environ["STUDIOUS_TTS_SPEAKER"])
         if (os.environ.get("STUDIOUS_TTS_SPEAKER") or "").strip().lstrip("-").isdigit()

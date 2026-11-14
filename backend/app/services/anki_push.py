@@ -364,6 +364,24 @@ def build_note(
     }
 
 
+def clip_specs(item: dict[str, Any], note: dict[str, Any] | None = None) -> list[tuple[str, str, str | None, str]]:
+    """The clips a vocab item needs: ``(part, text, reading, seed)`` for the word
+    and, when the item has an example sentence, the sentence. The one place that
+    decides the text, expected reading and voice seed of a clip, so the Play
+    endpoint, the Anki push and the background queue can never disagree about a
+    cache key. ``note`` is ``build_note(item)`` when the caller already has it."""
+    note = note or build_note(item)
+    seed = note["fields"]["Word"]
+    specs: list[tuple[str, str, str | None, str]] = []
+    for part, text, reading in (
+        ("word", note["word_text"], note["word_reading"]),
+        ("sentence", note["sentence_text"], note["sentence_reading"]),
+    ):
+        if text:
+            specs.append((part, text, expected_reading(reading), seed))
+    return specs
+
+
 # ---------- Preview / push ----------
 
 
@@ -442,6 +460,7 @@ def audio_status() -> dict[str, Any]:
         "voices": st["voices"],
         "engine": st["engine"],
         "reason": st["reason"],
+        "pending": st["pending"],
     }
 
 
@@ -475,22 +494,36 @@ def attach_audio(note: dict[str, Any], clips: list[tuple[str, Path]]) -> dict[st
     }
 
 
-def _note_with_audio(row: dict[str, Any]) -> tuple[dict[str, Any], int, int, int]:
-    """(note, clips attached, clips failed, readings corrected). A failed clip
-    is left out."""
+_FIELD_OF_PART = {"word": "Word Audio", "sentence": "Sentence Audio"}
+
+
+def _note_with_audio(row: dict[str, Any], down: threading.Event) -> tuple[dict[str, Any], int, int, int, int]:
+    """(note, clips attached, clips failed, readings corrected, clips missing).
+    A failed clip is left out. While the engine is down (``down`` is set, at
+    the start or once a clip finds it unreachable) only clips already cached are
+    attached, without waiting on the network; the rest count as missing."""
     clips: list[tuple[str, Path]] = []
-    failed = corrected = 0
-    for field, text, reading in row["_audio_texts"]:
-        if not text:
-            continue
-        report: dict[str, Any] = {}
-        try:
-            clips.append((field, tts.synthesize(text, reading, report=report, seed=row["_note"]["fields"]["Word"])))
-            corrected += bool(report.get("corrected"))
-        except tts.TtsError as exc:
-            failed += 1
-            log.warning("anki_push_audio_failed", extra={"word": row["headword"], "field": field, "error": str(exc)})
-    return attach_audio(row["_note"], clips), len(clips), failed, corrected
+    failed = corrected = missing = 0
+    for part, text, reading, seed in row["_clips"]:
+        field = _FIELD_OF_PART[part]
+        if not down.is_set():
+            report: dict[str, Any] = {}
+            try:
+                clips.append((field, tts.synthesize(text, reading, report=report, seed=seed)))
+                corrected += bool(report.get("corrected"))
+                continue
+            except tts.TtsUnavailable:
+                down.set()
+            except tts.TtsError as exc:
+                failed += 1
+                log.warning("anki_push_audio_failed", extra={"word": row["headword"], "field": field, "error": str(exc)})
+                continue
+        cached = tts.cached_clip(text, reading, seed=seed)
+        if cached is not None:
+            clips.append((field, cached))
+        else:
+            missing += 1
+    return attach_audio(row["_note"], clips), len(clips), failed, corrected, missing
 
 
 def _prepare(doc_id: str, chapter_id: str, limit: int, source: str | None = None) -> dict[str, Any]:
@@ -551,10 +584,7 @@ def _prepare(doc_id: str, chapter_id: str, limit: int, source: str | None = None
                 "reason": reason,
                 "headword_match": (item.get("anki") or {}).get("match") == "headword",
                 "_note": note,
-                "_audio_texts": [
-                    ("Word Audio", b["word_text"], expected_reading(b["word_reading"])),
-                    ("Sentence Audio", b["sentence_text"], expected_reading(b["sentence_reading"])),
-                ],
+                "_clips": clip_specs(item, b),
             }
         )
     return {"deck": deck, "deck_exists": deck_exists, "note_type": model, "rows": rows}
@@ -591,8 +621,10 @@ def push(
     doc_id: str, chapter_id: str, limit: int, audio: bool | None = None, source: str | None = None
 ) -> dict[str, Any]:
     """Create the notes in Anki. 409 if another send is running. ``audio``
-    (default: the ANKI_PUSH_AUDIO setting) attaches Mac-voice clips when the
-    voice is available; a failed clip leaves that note without it."""
+    (default: the ANKI_PUSH_AUDIO setting) attaches Mac-voice clips. When the
+    engine is down only clips already cached are attached and the rest count
+    as ``missing``; a clip that fails for another reason counts as ``failed``
+    and leaves that note without it."""
     if not _push_lock.acquire(blocking=False):
         raise AnkiPushError(409, "A send to Anki is already running.")
     try:
@@ -603,17 +635,21 @@ def push(
         skipped = [{"id": r["id"], "headword": r["headword"], "reason": r["reason"]} for r in rows if not r["can_add"]]
         failed: list[dict[str, Any]] = []
         want_audio = get_settings().anki_push_audio if audio is None else audio
-        use_audio = bool(want_audio) and tts.is_available()
-        audio_stats = {"attached": 0, "failed": 0, "reading_corrected": 0}
+        use_audio = bool(want_audio)
+        down = threading.Event()
+        if use_audio and not tts.is_available():
+            down.set()
+        audio_stats = {"attached": 0, "failed": 0, "reading_corrected": 0, "missing": 0}
         notes = [r["_note"] for r in todo]
         if use_audio and todo:
             with ThreadPoolExecutor(max_workers=AUDIO_WORKERS) as pool:
-                done = list(pool.map(_note_with_audio, todo))
+                done = list(pool.map(lambda r: _note_with_audio(r, down), todo))
             notes = [d[0] for d in done]
             audio_stats = {
                 "attached": sum(d[1] for d in done),
                 "failed": sum(d[2] for d in done),
                 "reading_corrected": sum(d[3] for d in done),
+                "missing": sum(d[4] for d in done),
             }
         created = 0
         deck_created = False
@@ -659,7 +695,7 @@ def push(
             "deck_created": deck_created,
             "sync_ok": sync_error is None,
             "sync_error": sync_error,
-            "audio": {"enabled": use_audio, **audio_stats},
+            "audio": {"enabled": use_audio, "unavailable": use_audio and down.is_set(), **audio_stats},
         }
     finally:
         _push_lock.release()

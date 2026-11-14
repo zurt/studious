@@ -15,7 +15,7 @@ laptop.
 | Run against the real data, measure memory | Done 2026-11-13 on a copy of the real library: 437 MiB peak, and it survives a 512 MiB cap. See "Memory" below. |
 | Droplet, Tailscale, backups, CI deploy, data move | Not done (`next-steps.md`, session 1, step 6). |
 | Mac and iOS apps talking to the API instead of the files | Not done (step 7). |
-| Features that need the Mac (speech, Anki) | Inventoried below; not fixed (step 8). |
+| Features that need the Mac (speech, Anki) | Speech is built (helper, `say_remote` engine, background generation, catch-up); not yet run against a droplet. Anki needs only the tailnet route, not tried. See "New homes" (step 8). |
 
 Rejected: public HTTPS behind a reverse proxy with basic auth. It works from
 anywhere, but then a password is all that stands between the internet and the
@@ -93,6 +93,10 @@ once: `docker exec <container> python scripts/fetch_refs.py`.
 | `STUDIOUS_CORS_ORIGINS` | Comma-separated CORS allowlist. Only needed when the frontend is served from another origin than the API (the vite dev server). | `http://localhost:5173` |
 | `STUDIOUS_DATA_DIR` | The one data directory. | `./data`; `/data` in the image |
 | `STUDIOUS_VLM_PROVIDER` | `anthropic` or `mock`. | `anthropic` |
+| `STUDIOUS_TTS_ENGINE` | `say`, `say_remote` (the Mac's `say` through the helper) or `voicevox`. Settings > Speech overrides it. | `say` |
+| `STUDIOUS_SAY_HELPER_URL` | Where the server finds the Mac speech helper (`say_remote` only; environment only, no preference). | `http://127.0.0.1:8766` |
+| `STUDIOUS_SAY_HELPER_PORT` | Port the helper listens on, on `127.0.0.1` only (read by `make say-helper`, not by the server). | `8766` |
+| `STUDIOUS_TTS_PREGENERATE` | Make card clips in the background when items are harvested. `0`, `false`, `no` or `off` turns it off. | on |
 
 A `STUDIOUS_STATIC_DIR` that does not exist, or has no `index.html`, is
 ignored silently and the backend runs API-only.
@@ -141,34 +145,38 @@ backend and the Apple apps. Once the backend runs on a droplet:
 ### Features that need the Mac
 
 Inventory for step 8, taken 2026-11-13 across the backend, the web app, the
-Apple package and the build scripts. Nothing here is fixed. In the container
-none of these crashes the server; each reports itself unavailable.
+Apple package and the build scripts. The table says what happened before the
+speech fix; the right-hand column notes what changed. In the container none of
+these crashes the server; each reports itself unavailable.
 
 | Feature | What it calls | On the droplet | Who notices |
 |---|---|---|---|
-| Card audio, `say` engine (the default, and what the owner uses) | `say` and `say -v '?'` as subprocesses (`tts.py`) | Unavailable: `/api/tts/status` gives the reason, `/api/vocab/{id}/audio` and `/api/tts/test` answer 503 | Study dashboard play button, speech settings, audio on Anki pushes |
-| Card audio, VOICEVOX / AivisSpeech engine | HTTP on `STUDIOUS_TTS_URL` (default `127.0.0.1:50021`), then `afconvert` for AAC | Unavailable unless the URL points at a reachable host; clips stay `.wav` because `afconvert` is macOS only | Same as above |
+| Card audio, `say` engine (the default, and what the owner uses) | `say` and `say -v '?'` as subprocesses (`tts.py`) | Unavailable: `/api/tts/status` gives the reason, `/api/vocab/{id}/audio` and `/api/tts/test` answer 503. Fixed by the `say_remote` engine below: the droplet reaches the Mac's `say` through the helper | Study dashboard play button, speech settings, audio on Anki pushes |
+| Card audio, VOICEVOX / AivisSpeech engine | HTTP on `STUDIOUS_TTS_URL` (default `127.0.0.1:50021`), then `afconvert` for AAC | Unavailable unless the URL points at a reachable host; clips stay `.wav` because `afconvert` is macOS only. Not used on the droplet (set aside, see below) | Same as above |
 | Anki state import ("already in Anki" badges) | AnkiConnect on `ANKI_CONNECT_URL` (default `127.0.0.1:8765`), read actions only (`anki.py`) | 503 "Anki is not reachable"; the last `data/refs/anki/snapshot.json` keeps working but goes stale | Vocab store badges, the sync button |
-| Anki push (shortlist to deck) | AnkiConnect `createDeck` and `addNotes` (`anki_push.py`), plus card audio per note | 503; with Anki reachable but speech not, cards go without audio | Push dialog |
+| Anki push (shortlist to deck) | AnkiConnect `createDeck` and `addNotes` (`anki_push.py`), plus card audio per note | 503 until the tailnet route exists. With Anki reachable but speech not, cached clips are still attached and the rest are counted as `missing` in the result | Push dialog |
 | Mac app and `studious-sync` | Read and write `backend/data/store/*.jsonl` directly | The files are no longer on the Mac (step 7) | Mac app, CLI, and iOS through CloudKit |
 | Mac app settings | Health check on `127.0.0.1:8000`, "Open web app" link to `localhost:5173` (`SettingsView.swift`) | Both point at nothing | Mac app settings pane |
 
 Details that matter for the fix:
 
-- **Cached clips do not survive the move.** `synthesize` checks that the
-  engine is available before it looks in `data/audio/`, and the cache key
-  includes the voice name, so the existing clips (23 files, under 1 MB) are
-  never served on Linux. They are cheap to regenerate; do not bother
-  migrating them.
+- **Cached clips can survive the move.** `synthesize` used to check that the
+  engine was available before it looked in `data/audio/`, and the `say` cache
+  key includes the voice name, so the existing clips (23 files, under 1 MB)
+  would never have been served on Linux. Now the cache is read first, and
+  `say` and `say_remote` share one key for the same voice and text, so
+  copying `data/audio/` to the droplet keeps them valid. They are also cheap
+  to regenerate (`POST /api/tts/catch-up`, below), so migrating them is
+  optional.
 - **Audio is made on first play, on the server.** The web app never uses the
   browser's own speech synthesis; it plays `/api/vocab/{id}/audio`.
 - **Anki only answers while the Anki desktop app is open on the Mac**, so
   both Anki features already depend on the Mac being awake, wherever the
   backend runs. AnkiConnect listens on `127.0.0.1` only by default.
-- **Messages name the Mac.** "Open Anki on this Mac" (`anki.py`), "needs
-  macOS with the ... voice installed" (`anki-push-dialog.ts`), "store your
-  token in the Keychain" (`api/store.py`, WaniKani). Reword when the fix
-  lands.
+- **Messages named the Mac as if the server ran on it** ("Open Anki on this
+  Mac", "needs macOS with the ... voice installed", "store your token in the
+  Keychain"). Reworded in `anki.py`, `tts.py`, `anki-push-dialog.ts` and
+  `api/store.py`.
 
 Not affected:
 
@@ -196,13 +204,65 @@ Not affected:
   made when items are harvested (the end of a vocab-list transcription or
   a sentence breakdown) rather than on first play, so they are ready
   before study. The owner does that work on the Mac, so the Mac is
-  normally reachable at that moment. Consequences to build for:
-  - Harvest with the Mac unreachable leaves clips missing; the server
-    keeps a list and catches up when the Mac next answers.
-  - Until then those items have no audio, on any device.
-  - Cached clips must be served with the engine down: today `synthesize`
-    checks availability before the cache, so move the check after it.
-  - Not yet timed: `say` through the helper.
+  normally reachable at that moment. Built:
+  - **The helper** (`backend/app/say_helper.py`, `make say-helper`): a
+    standard-library HTTP server on `127.0.0.1:8766` (port from
+    `STUDIOUS_SAY_HELPER_PORT`) with `GET /health`, `GET /voices` and
+    `POST /say`. It reuses `tts._say`, so the clip is the same AAC .m4a the
+    local engine writes. It validates the voice against `say -v '?'` and
+    refuses bodies over 16 KB, and it runs one `say` at a time.
+  - **The engine** `say_remote` (`services/say_remote.py`, `tts.py`):
+    `STUDIOUS_TTS_ENGINE=say_remote` and `STUDIOUS_SAY_HELPER_URL`. It
+    shares the voice setting, the pool, the rotation by seed and the
+    fallback chain with `say`, and the same cache key, so a clip made by
+    either engine is found by the other. The last voice listing the helper
+    returned is kept in `data/audio/say-voices.txt`, so the right cache key
+    is still worked out while the Mac is asleep.
+  - **Cache before availability.** `synthesize` returns a cached clip before
+    it checks the engine, for every engine. A clip that is not cached and
+    whose engine is down raises `TtsUnavailable`, which the audio endpoint
+    answers with 503 and the message. The Anki push attaches the cached
+    clips and reports the rest as `audio.missing` (and
+    `audio.unavailable`), without waiting on the network per clip.
+  - **Background generation.** After a vocab-list transcription or a
+    breakdown is harvested, and after an example sentence is generated or
+    removed, the affected items go on a list (`data/audio/pending.json`)
+    and a drain makes their word and sentence clips. `STUDIOUS_TTS_PREGENERATE=0`
+    turns that off.
+  - **Catch-up.** When the Mac is unreachable the ids stay on the list. A
+    background task retries every 300 seconds, and
+    `POST /api/tts/catch-up` does it by hand (Settings > Speech shows
+    "N words waiting for audio" with a "Generate now" button). Send
+    `{"all": true}` to queue every vocab item.
+
+  How to run it:
+  - On the Mac: `make say-helper`. Check it with
+    `curl http://127.0.0.1:8766/health`.
+  - On the Mac, publish it to the tailnet without changing its bind address:
+    `tailscale serve --tcp 8766 tcp://127.0.0.1:8766` (not yet tried, like
+    the Anki line above).
+  - On the droplet: `STUDIOUS_TTS_ENGINE=say_remote` and
+    `STUDIOUS_SAY_HELPER_URL=http://<mac tailnet name>:8766`.
+  - Once after the data move, when no clips exist on the droplet:
+    `POST /api/tts/catch-up` with `{"all": true}`. The Mac makes them in
+    the background; progress shows as the pending count in Settings > Speech.
+
+  Still open:
+  - The helper is started by hand; there is no LaunchAgent yet, so after a
+    reboot or login the helper is down until someone runs `make say-helper`.
+  - The helper has no authentication of its own. The tailnet is the
+    boundary, the same stance as AnkiConnect; it never binds a public
+    interface.
+  - Until the Mac answers, items harvested meanwhile have no audio, on any
+    device.
+  - Timing of `say` through the helper, measured 2026-11-13 on the owner's
+    Mac over loopback (server and helper on the same machine, Enhanced
+    voices, one sample each): 1.2 s for a 2-character word, 1.1 s for an
+    18-character sentence, 1.2 s for 49 characters, against 1.0 to 1.1 s
+    for `say` run directly. The time barely grows with length and the
+    helper adds about 0.1 s. A cached clip is served in under a
+    millisecond, with the helper up or down. Not measured: the same calls
+    from a droplet over the tailnet.
 
   Chosen for the initial setup, to be revisited if the gaps turn out to
   matter. It replaces the first choice made the same day, VOICEVOX

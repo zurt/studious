@@ -34,6 +34,7 @@ import {
 import { chooseDialog, confirmDialog } from "../modules/confirm";
 import { ankiPushDialog, pushResultMessage } from "../modules/anki-push-dialog";
 import { ankiFuriganaHtml } from "../modules/furigana";
+import { canHaveClips, playFailure } from "../modules/tts-settings";
 import { emit, STORE_STATUS_CHANGED, type StoreStatusChange } from "../modules/events";
 import { toastError, toastInfo } from "../modules/toast";
 import { info, error as logError } from "../logger";
@@ -853,31 +854,46 @@ function mountStudyDashboard(kind: StoreKind, container: HTMLElement) {
     }
   }
 
-  let ttsStatus: Promise<{ available: boolean; voice: string }> | null = null;
+  let ttsStatus: Promise<{ available: boolean; voice: string; engine: string }> | null = null;
 
-  /** "Play word" / "Play sentence" buttons, only when the Mac voice is available. */
+  /** "Play word" / "Play sentence" buttons, whenever the engine could have clips:
+   * ones already made play even while the engine is down, and a 503 for the rest
+   * is shown next to the button. */
   async function renderAudio(item: VocabItem, el: HTMLElement) {
-    ttsStatus ??= getTtsStatus().catch(() => ({ available: false, voice: "" }));
+    ttsStatus ??= getTtsStatus().catch(() => ({ available: false, voice: "", engine: "" }));
     const status = await ttsStatus;
-    if (!status.available || !el.isConnected) return;
+    if (!canHaveClips(status) || !el.isConnected) return;
     el.hidden = false;
     el.innerHTML = `
-      <button class="study-audio-btn" data-part="word" title="Speak the word with the Mac voice (${escapeHtml(status.voice)})">Play word</button>
-      <button class="study-audio-btn" data-part="sentence" title="Speak the example sentence with the Mac voice">Play sentence</button>`;
+      <button class="study-audio-btn" data-part="word" title="Speak the word with the Mac voice${status.voice ? ` (${escapeHtml(status.voice)})` : ""}">Play word</button>
+      <button class="study-audio-btn" data-part="sentence" title="Speak the example sentence with the Mac voice">Play sentence</button>
+      <span class="study-audio-msg muted small" hidden></span>`;
+    const msgEl = el.querySelector<HTMLElement>(".study-audio-msg")!;
     el.querySelectorAll<HTMLButtonElement>(".study-audio-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const part = btn.dataset.part as "word" | "sentence";
         btn.disabled = true;
+        msgEl.hidden = true;
         try {
           const r = await fetch(vocabAudioUrl(item.id, part));
-          if (!r.ok) throw new Error(ankiErrorDetail(`${r.status} ${await r.text()}`));
+          if (!r.ok) {
+            const err = new Error(ankiErrorDetail(`${r.status} ${await r.text()}`)) as Error & { status?: number };
+            err.status = r.status;
+            throw err;
+          }
           const url = URL.createObjectURL(await r.blob());
           const audio = new Audio(url);
           audio.addEventListener("ended", () => URL.revokeObjectURL(url));
           await audio.play();
         } catch (e: any) {
           logError("StudyDash", "audio_failed", { item_id: item.id, error: e.message });
-          toastError(`Play ${part} failed: ` + e.message);
+          const f = playFailure(e.status ?? 0, e.message);
+          if (f.inline) {
+            msgEl.textContent = f.message;
+            msgEl.hidden = false;
+          } else {
+            toastError(`Play ${part} failed: ` + f.message);
+          }
         } finally {
           btn.disabled = false;
         }

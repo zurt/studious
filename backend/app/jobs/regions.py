@@ -18,6 +18,7 @@ from ..services import (
     harvest,
     pdf,
     region_check,
+    speech_queue,
     storage,
 )
 from ._common import _audit, _ms_since, _now_iso, _RegionOpError, log
@@ -108,6 +109,16 @@ class RegionJobMixin:
                     "harvest_vocab_list_error",
                     extra={"job_id": job_id, "doc_id": doc_id, "chapter_id": chapter_id, "region_id": region_id},
                 )
+            else:
+                # Card clips for the new items, made in the background.
+                try:
+                    speech_queue.enqueue_region(doc_id, chapter_id, region_id)
+                    speech_queue.kick()
+                except Exception:
+                    log.exception(
+                        "speech_queue_enqueue_error",
+                        extra={"job_id": job_id, "doc_id": doc_id, "chapter_id": chapter_id, "region_id": region_id},
+                    )
         # The check is a convenience layered on a finished transcription: a
         # failure here must not fail the job. (run_after_transcription also
         # swallows its own errors; this guards the thread hop itself.)

@@ -15,6 +15,7 @@ from ..services import (
     breakdown_links,
     harvest,
     region_chain,
+    speech_queue,
     storage,
 )
 from ._common import _audit, _ms_since, _RegionOpError, log
@@ -161,6 +162,13 @@ class BreakdownJobMixin:
             harvest.ingest_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
         except Exception:
             log.exception("harvest_breakdown_error", extra=job_extra)
+        else:
+            # Card clips for the new items, made in the background.
+            try:
+                speech_queue.enqueue_region(doc_id, chapter_id, region_id)
+                speech_queue.kick()
+            except Exception:
+                log.exception("speech_queue_enqueue_error", extra=job_extra)
         return duration_ms
 
     async def _run_breakdown_job(self, job_id: str, job: dict[str, Any]) -> None:

@@ -1,18 +1,34 @@
-"""Speech for Anki cards, from one of two engines.
+"""Speech for Anki cards, from one of three engines.
 
-- ``say``: the Mac's built-in voice. Written as a real AAC .m4a
+- ``say``: the Mac's built-in voice, run as a subprocess (the server is on the Mac). Written as a real AAC .m4a
   (``--file-format=m4af --data-format=aac``; plain ``-o x.m4a`` would write AIFF
   data under an .m4a name). The text goes through a temporary UTF-8 file
   (``-f``), so text beginning with ``-`` can never be read as an option.
 - ``voicevox``: a VOICEVOX-compatible engine (VOICEVOX, AivisSpeech) on
   localhost (see ``voicevox.py``). Its WAV output is converted to AAC .m4a
   with ``afconvert`` when that exists, else kept as .wav.
+- ``say_remote``: the same Mac voices, reached over HTTP through the helper
+  (``say_helper.py``, ``make say-helper``) for a server that is not on the Mac.
+  ``say`` and ``say_remote`` share the voice setting, the voice pool, the
+  rotation and the fallback chain, and they produce the same cache key for the
+  same voice and text, so a clip made by either is found by the other. The
+  last voice listing the helper returned is kept in ``data/audio/say-voices.txt``,
+  so the pool (and with it the cache key) can still be worked out when the
+  Mac is asleep.
 
 The engine, URL and speaker come from preferences (Settings), falling back to
 the ``STUDIOUS_TTS_*`` environment settings. ``synthesize`` returns a cached file
 under ``data/audio/`` named by a hash of engine + voice/speaker + text, so
 changing the voice never reuses old clips. ``is_available`` / ``status`` say
 whether (and if not, why) clips can be made.
+
+``synthesize`` serves a cached clip before it looks at availability, and
+without any network call (for `say_remote` the cache key comes from the last
+known voice listing, in memory or in ``say-voices.txt``), so clips that exist
+play at once even when the engine is down; ``cached_clip`` is that lookup
+alone. ``TtsUnavailable`` (a ``TtsError``) means "the engine is down", as
+opposed to a clip that could not be made. ``speech_queue`` makes the clips in
+the background.
 """
 from __future__ import annotations
 
@@ -32,11 +48,12 @@ from pathlib import Path
 from typing import Any
 
 from ..config import get_settings
-from . import preferences, store, voicevox
+from . import preferences, say_remote, store, voicevox
 
 log = logging.getLogger("studious.tts")
 
-ENGINES = ("say", "voicevox")
+ENGINES = ("say", "voicevox", "say_remote")
+VOICES_FILE = "say-voices.txt"
 MAX_CHARS = 200
 MIN_BYTES = 1024
 SAY_TIMEOUT = 30  # seconds
@@ -56,6 +73,16 @@ _info: dict[Any, dict[str, Any]] = {}
 
 class TtsError(Exception):
     """Synthesis failed or is not possible; the message says why."""
+
+
+class TtsUnavailable(TtsError):  # noqa: N818 - reads better than TtsUnavailableError
+    """The engine is down (or, remotely, became unreachable mid-call): nothing
+    can be made now, but nothing is wrong with the text either."""
+
+
+def uses_say_voices(eng: str | None = None) -> bool:
+    """Whether the engine speaks with Mac `say` voices (locally or through the helper)."""
+    return (eng or engine()) in ("say", "say_remote")
 
 
 # ---------- Configuration (preferences over environment) ----------
@@ -80,6 +107,10 @@ def speaker() -> int | None:
     if isinstance(chosen, int) and not isinstance(chosen, bool):
         return chosen
     return get_settings().tts_speaker
+
+
+def helper_url() -> str:
+    return get_settings().say_helper_url
 
 
 def voice_setting() -> str:
@@ -156,23 +187,17 @@ def resolve_pool(listing: str, setting: str) -> tuple[list[str], str]:
     return auto, ""
 
 
-def _say_info() -> dict[str, Any]:
-    """{ok, reason, pool, plain, ja} for the `say` engine."""
-    setting = voice_setting()
-    info: dict[str, Any] = {"ok": False, "reason": "", "pool": [], "plain": False, "ja": []}
-    if sys.platform != "darwin" or not shutil.which("say"):
-        info["reason"] = "The Mac voice needs macOS with the `say` command."
-        return info
-    try:
-        listing = _voices_output()
-    except (OSError, subprocess.SubprocessError) as exc:
-        log.warning("tts_probe_failed", extra={"error": str(exc)})
-        info["reason"] = "Could not list the Mac voices (`say -v '?'`)."
-        return info
+def _info_from_listing(listing: str, setting: str) -> dict[str, Any]:
+    """{ok, reason, pool, plain, ja} for a ``say -v '?'`` listing."""
     pool, note = resolve_pool(listing, setting)
-    info["ja"] = sorted({n for n, loc in parse_voices(listing) if loc == "ja_JP"})
-    info["plain"] = any(is_plain_kyoko(n) for n, _ in parse_voices(listing))
-    info["pool"] = pool
+    voices = parse_voices(listing)
+    info: dict[str, Any] = {
+        "ok": False,
+        "reason": "",
+        "pool": pool,
+        "plain": any(is_plain_kyoko(n) for n, _ in voices),
+        "ja": sorted({n for n, loc in voices if loc == "ja_JP"}),
+    }
     if not pool:
         info["reason"] = (
             "No Japanese Mac voice is installed: add one in System Settings > Accessibility > Spoken Content."
@@ -182,22 +207,115 @@ def _say_info() -> dict[str, Any]:
     return info
 
 
+def _say_info() -> dict[str, Any]:
+    """{ok, reason, pool, plain, ja} for the `say` engine."""
+    setting = voice_setting()
+    if sys.platform != "darwin" or not shutil.which("say"):
+        info = _info_from_listing("", setting)
+        info["reason"] = (
+            "The Mac voice needs macOS with the `say` command. "
+            "A server that is not on a Mac can use the `say_remote` engine with the Mac speech helper."
+        )
+        return info
+    try:
+        listing = _voices_output()
+    except (OSError, subprocess.SubprocessError) as exc:
+        log.warning("tts_probe_failed", extra={"error": str(exc)})
+        info = _info_from_listing("", setting)
+        info["reason"] = "Could not list the Mac voices (`say -v '?'`)."
+        return info
+    return _info_from_listing(listing, setting)
+
+
+def _voices_path() -> Path:
+    return audio_dir() / VOICES_FILE
+
+
+def _save_listing(listing: str) -> None:
+    """Keep the helper's latest voice listing on disk (atomically), so the pool
+    is known while the Mac is unreachable."""
+    path = _voices_path()
+    try:
+        if path.exists() and path.read_text(encoding="utf-8") == listing:
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(suffix=".tmp", dir=path.parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(listing)
+            os.replace(tmp, path)
+        finally:
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(tmp)
+    except OSError as exc:
+        log.warning("tts_voices_save_failed", extra={"error": str(exc)})
+
+
+def _last_listing() -> str:
+    try:
+        return _voices_path().read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _say_remote_info() -> dict[str, Any]:
+    """{ok, reason, pool, plain, ja} for `say_remote`. When the helper cannot be
+    reached the pool still comes from the last listing on disk (none: empty)."""
+    setting = voice_setting()
+    try:
+        listing = say_remote.voices(helper_url())
+    except say_remote.EngineError as exc:
+        info = _info_from_listing(_last_listing(), setting)
+        info["ok"], info["reason"] = False, str(exc)
+        return info
+    _save_listing(listing)
+    info = _info_from_listing(listing, setting)
+    if not info["pool"]:
+        info["reason"] = (
+            "No Japanese voice is installed on the Mac: add one in System Settings > Accessibility > Spoken Content."
+        )
+    return info
+
+
 def _say_state() -> tuple[bool, str]:
     info = _pool_info()
     return info["ok"], info["reason"]
 
 
-def _pool_info() -> dict[str, Any]:
-    key = ("say-info", voice_setting())
+def _pool_info(probe: bool = True) -> dict[str, Any]:
+    """The voice pool information for the engine. ``probe=False`` never asks the
+    helper: for `say_remote` it returns the in-memory entry whatever its age,
+    else one built from the last listing on disk (not stored, so the next probing
+    call still asks the helper). Only with no listing known anywhere does it probe."""
+    eng = engine()
+    remote = eng == "say_remote"
+    key = (eng, "say-info", voice_setting(), helper_url() if remote else "")
     hit = _info.get(key)
-    if hit is None:
-        hit = _info[key] = _say_info()
+    if remote and not probe:
+        if hit is not None:
+            return hit
+        listing = _last_listing()
+        if listing:
+            info = _info_from_listing(listing, voice_setting())
+            info["ok"], info["reason"] = False, ""
+            return info
+    # The Mac may fall asleep or wake at any time; the local listing stays until reset_cache().
+    if hit is not None and (not remote or time.monotonic() - hit["_at"] < AVAILABILITY_TTL):
+        return hit
+    hit = _info[key] = _say_remote_info() if remote else _say_info()
+    hit["_at"] = time.monotonic()
     return hit
 
 
+def _forget_remote() -> None:
+    """Drop the cached helper listing so the next status asks the helper again."""
+    for key in [k for k in _info if isinstance(k, tuple) and k and k[0] == "say_remote"]:
+        _info.pop(key, None)
+
+
 def pool() -> list[str]:
-    """The voices the `say` engine rotates among (empty when unavailable)."""
-    return list(_pool_info()["pool"]) if engine() == "say" else []
+    """The voices the `say` / `say_remote` engine rotates among (empty when unavailable)."""
+    return list(_pool_info()["pool"]) if uses_say_voices() else []
 
 
 def pool_label(voices: list[str]) -> str:
@@ -238,12 +356,14 @@ def _voicevox_state() -> tuple[bool, str]:
 
 def _state() -> tuple[bool, str]:
     eng = engine()
-    key: Any = (eng, voice_setting()) if eng == "say" else (eng, url(), speaker())
+    if uses_say_voices(eng):
+        return _say_state()  # _pool_info() caches the listing itself (for good, or for the TTL if remote)
+    key: Any = (eng, url(), speaker())
     hit = _available.get(key)
     now = time.monotonic()
-    if hit and (eng == "say" or now - hit[0] < AVAILABILITY_TTL):
+    if hit and now - hit[0] < AVAILABILITY_TTL:
         return hit[1], hit[2]
-    ok, reason = _say_state() if eng == "say" else _voicevox_state()
+    ok, reason = _voicevox_state()
     _available[key] = (now, ok, reason)
     return ok, reason
 
@@ -259,7 +379,7 @@ def unavailable_reason() -> str:
 
 def speaker_label() -> str:
     """"Character — Style" of the chosen speaker, or the `say` voice name."""
-    if engine() == "say":
+    if uses_say_voices():
         return pool_label(pool())
     sid = speaker()
     try:
@@ -272,18 +392,24 @@ def speaker_label() -> str:
 
 
 def status() -> dict[str, Any]:
+    from . import speech_queue  # speech_queue imports this module
+
     ok, reason = _state()
-    return {
+    out = {
         "available": ok,
         "engine": engine(),
         "voice": speaker_label() if ok else "",
         "voices": pool(),
         "setting": voice_setting(),
-        "installed": list(_pool_info()["ja"]) if engine() == "say" else [],
+        "installed": list(_pool_info()["ja"]) if uses_say_voices() else [],
         "url": url(),
         "speaker": speaker(),
         "reason": reason,
+        "pending": speech_queue.pending_count(),
     }
+    if engine() == "say_remote":
+        out["helper_url"] = helper_url()
+    return out
 
 
 # ---------- Reading check (VOICEVOX) ----------
@@ -342,8 +468,14 @@ def clean_text(text: str) -> str:
 
 def _key(text: str, reading: str | None, voice_name: str = "") -> str:
     eng = engine()
-    who = voice_name if eng == "say" else f"{url()}|{speaker()}"
-    extra = (reading or "") if eng == "voicevox" else ""
+    # `say` and `say_remote` hash alike (the literal engine name `say`), so a
+    # clip made by either is found by the other. Do not change this: it is
+    # every existing clip's file name.
+    if uses_say_voices(eng):
+        eng, who, extra = "say", voice_name, ""
+    else:
+        who = f"{url()}|{speaker()}"
+        extra = reading or ""
     return hashlib.sha256(f"{eng}\0{who}\0{text}\0{extra}".encode()).hexdigest()[:20]
 
 
@@ -395,6 +527,41 @@ def _say_with_fallback(text: str, out: Path, chain: list[str]) -> Path:
         except TtsError as exc:
             last = exc
             log.warning("tts_voice_failed", extra={"voice": name, "error": str(exc)})
+    raise last or TtsError("no voice to speak with")
+
+
+def _write_atomic(data: bytes, out: Path, suffix: str) -> None:
+    fd, tmp = tempfile.mkstemp(suffix=suffix, dir=out.parent)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, out)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(tmp)
+
+
+def _say_remote_with_fallback(text: str, out: Path, chain: list[str]) -> Path:
+    """The helper's `say` with each voice of ``chain`` in turn until one works.
+    An unreachable helper stops at once (TtsUnavailable): no other voice helps."""
+    base = helper_url()
+    last: TtsError | None = None
+    for name in chain:
+        try:
+            data = say_remote.say(base, text, name)
+        except say_remote.EngineError as exc:
+            if exc.unreachable:
+                _forget_remote()
+                raise TtsUnavailable(str(exc)) from exc
+            last = TtsError(str(exc))
+            log.warning("tts_voice_failed", extra={"voice": name, "error": str(exc)})
+            continue
+        if len(data) < MIN_BYTES:
+            last = TtsError("the Mac speech helper produced no usable audio")
+            log.warning("tts_voice_failed", extra={"voice": name, "error": str(last)})
+            continue
+        _write_atomic(data, out, ".m4a")
+        return out
     raise last or TtsError("no voice to speak with")
 
 
@@ -455,6 +622,32 @@ def _voicevox(text: str, reading: str | None, key: str, report: dict[str, Any] |
     return wav
 
 
+def _plan(
+    text: str, reading: str | None, seed: str | None, voice: str | None, probe: bool = True
+) -> tuple[list[str], str]:
+    """(the voices to try in order, the cache key) for a clip. Makes no clip.
+    ``probe=False`` makes no network call either (see ``_pool_info``)."""
+    chain: list[str] = []
+    if uses_say_voices():
+        info = _pool_info(probe)
+        plain = "Kyoko" if info["plain"] else None
+        chain = [voice] if voice else pick_voices(info["pool"], seed if seed is not None else text, plain)
+        if voice and plain and voice != plain:
+            chain.append(plain)
+    return chain, _key(text, reading, chain[0] if chain else "")
+
+
+def cached_clip(
+    text: str, reading: str | None = None, *, seed: str | None = None, voice: str | None = None
+) -> Path | None:
+    """The cached clip for ``text`` if there is one. Never makes a clip and never
+    raises for an unavailable engine."""
+    text = clean_text(text)
+    if not text or len(text) > MAX_CHARS:
+        return None
+    return _cached(_plan(text, reading, seed, voice, probe=False)[1])
+
+
 def synthesize(
     text: str,
     reading: str | None = None,
@@ -465,31 +658,34 @@ def synthesize(
 ) -> Path:
     """The cached clip for ``text`` (HTML tags removed), made when missing.
 
+    The cache is looked at first, without any network call (the key comes from
+    the last known voice listing), so a clip that exists is served at once, even
+    with the engine down. Only a missing clip needs the engine (``TtsUnavailable``
+    when it is not available); the voice pool is then refreshed and the cache is
+    checked once more, since a changed listing changes the key.
+
     ``reading`` (hiragana) is the reading the caller expects; with the VOICEVOX
     engine a different reading from the engine is replaced by this one, and
     ``report["corrected"]`` is set. The file is .m4a, or .wav when VOICEVOX
     output could not be converted (use ``media_type``).
 
-    With the `say` engine the voice is picked from the pool by a stable hash of
-    ``seed`` (default: the text), so one card keeps one voice and a replay gets
-    the same clip. ``voice`` forces one voice. If a voice fails the next in the
-    pool, then the plain Kyoko, is tried before the clip counts as failed."""
+    With the `say` and `say_remote` engines the voice is picked from the pool by
+    a stable hash of ``seed`` (default: the text), so one card keeps one voice
+    and a replay gets the same clip. ``voice`` forces one voice. If a voice
+    fails the next in the pool, then the plain Kyoko, is tried before the clip
+    counts as failed."""
     text = clean_text(text)
     if not text:
         raise TtsError("nothing to speak")
     if len(text) > MAX_CHARS:
         raise TtsError(f"text is {len(text)} characters; the limit is {MAX_CHARS}")
-    ok, reason = _state()
+    hit = _cached(_plan(text, reading, seed, voice, probe=False)[1])
+    if hit:
+        return hit
+    ok, reason = _state()  # probes the helper when its listing has expired
     if not ok:
-        raise TtsError(reason)
-    chain: list[str] = []
-    if engine() == "say":
-        info = _pool_info()
-        plain = "Kyoko" if info["plain"] else None
-        chain = [voice] if voice else pick_voices(info["pool"], seed if seed is not None else text, plain)
-        if voice and plain and voice != plain:
-            chain.append(plain)
-    key = _key(text, reading, chain[0] if chain else "")
+        raise TtsUnavailable(reason)
+    chain, key = _plan(text, reading, seed, voice)
     hit = _cached(key)
     if hit:
         return hit
@@ -498,9 +694,12 @@ def synthesize(
         hit = _cached(key)
         if hit:
             return hit
-        if engine() == "say":
+        eng = engine()
+        if eng == "say":
             out = _say_with_fallback(text, audio_dir() / f"{key}.m4a", chain)
+        elif eng == "say_remote":
+            out = _say_remote_with_fallback(text, audio_dir() / f"{key}.m4a", chain)
         else:
             out = _voicevox(text, reading, key, report)
-        log.info("tts_synthesized", extra={"engine": engine(), "chars": len(text), "bytes": out.stat().st_size})
+        log.info("tts_synthesized", extra={"engine": eng, "chars": len(text), "bytes": out.stat().st_size})
         return out

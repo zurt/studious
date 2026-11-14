@@ -221,6 +221,18 @@ def list_items(kind: str, *, include_deleted: bool = False) -> list[dict[str, An
     return items
 
 
+def items_sighted_in_region(kind: str, doc_id: str, chapter_id: str, region_id: str) -> list[dict[str, Any]]:
+    """The non-deleted items with a sighting in this region."""
+    return [
+        i
+        for i in list_items(kind)
+        if any(
+            s.get("region_id") == region_id and s.get("doc_id") == doc_id and s.get("chapter_id") == chapter_id
+            for s in i.get("sightings", [])
+        )
+    ]
+
+
 def get_item(kind: str, item_id: str) -> dict[str, Any] | None:
     return _load_latest(store_path(kind)).get(item_id)
 
