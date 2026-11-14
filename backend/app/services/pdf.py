@@ -24,6 +24,17 @@ def render_pdf_to_pages(pdf_path: Path, out_dir: Path, dpi: int = 150) -> int:
     return page_count
 
 
+def check_readable(path: Path, source_type: str) -> int:
+    """Open an upload far enough to know it can be rendered, without
+    rendering it. Returns its page count; raises if it cannot be read."""
+    if source_type == "pdf":
+        with fitz.open(path) as doc:
+            return doc.page_count
+    with Image.open(path) as im:
+        im.verify()
+    return 1
+
+
 def copy_image_as_page(image_path: Path, out_dir: Path) -> int:
     """Convert an uploaded image to ``out_dir/0001.png`` and return ``1``."""
     out_dir.mkdir(parents=True, exist_ok=True)

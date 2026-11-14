@@ -972,6 +972,12 @@ class Settings(BaseModel):
     # Short single-sentence generation: no need for the breakdown effort.
     vlm_effort_examples: str = "medium"
     pdf_render_dpi: int = 300
+    # Upload limits; 0 turns one off. A request body over the size limit is
+    # refused with 413 before it is stored; a PDF over the page limit is
+    # refused before any page is rendered (each page becomes a PNG on disk).
+    # STUDIOUS_UPLOAD_MAX_MB / STUDIOUS_UPLOAD_MAX_PAGES.
+    upload_max_mb: int = 300
+    upload_max_pages: int = 1500
     log_level: str = "INFO"
     # Hosted mode: a directory holding the built frontend (frontend/dist). When
     # set and present, the backend serves it at `/` itself. Unset in local dev,
@@ -995,6 +1001,16 @@ def get_settings() -> Settings:
     dpi_env = os.environ.get("STUDIOUS_PDF_RENDER_DPI")
     if dpi_env:
         overrides["pdf_render_dpi"] = int(dpi_env)
+    for env_name, field in (
+        ("STUDIOUS_UPLOAD_MAX_MB", "upload_max_mb"),
+        ("STUDIOUS_UPLOAD_MAX_PAGES", "upload_max_pages"),
+    ):
+        raw = (os.environ.get(env_name) or "").strip()
+        if raw:
+            value = int(raw)
+            if value < 0:
+                raise ValueError(f"{env_name}={raw!r} must be 0 (no limit) or a positive number")
+            overrides[field] = value
     log_level_env = os.environ.get("STUDIOUS_LOG_LEVEL")
     if log_level_env:
         overrides["log_level"] = log_level_env.upper()

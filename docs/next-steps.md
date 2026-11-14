@@ -128,7 +128,7 @@ files nor the API key.
 
 What already exists:
 
-- A Playwright suite (`frontend/e2e/smoke.spec.ts`, 14 journeys) that boots
+- A Playwright suite (`frontend/e2e/smoke.spec.ts`, 15 journeys) that boots
   an isolated backend with the **mock VLM provider**
   (`STUDIOUS_VLM_PROVIDER=mock`) and a fresh data dir on dedicated ports. It needs no API key and no local data, runs in CI, and
   runs inside a cloud session on the pre-installed Chromium
@@ -255,11 +255,17 @@ fields only, so no benchmark run). The first touches provider logic, so run
 
 Small checks:
 
-- Branch `claude/phase-1.6-improve-tests-ZBE7o` has nine commits from May
-  that were never checked against `main`. Review, then delete or salvage.
-- Before any network exposure, the deferred findings in
-  `docs/archive/audit-2026-07-mobile-spike.md` apply: authentication,
-  upload size limits, reconnect on the job progress stream.
+- Branch `claude/phase-1.6-improve-tests-ZBE7o` can be deleted (owner:
+  cloud sessions cannot). Reviewed 2026-11-14: its nine commits from May
+  (copy buttons, text size toggle, region auto-select, hover fade, cost
+  API, settings modal, logging tests) are all on `main` already, in later
+  form; it shares no history with `main` since the rewrite, and none of its
+  test names is missing from `main`.
+- Before any network exposure, the remaining deferred findings in
+  `docs/archive/audit-2026-07-mobile-spike.md` apply: authentication (the
+  plan is Tailscale only, no login), and the read-modify-write races and
+  blocking harvest work it lists. Upload limits and reconnect on the job
+  progress stream were done 2026-11-14 (`docs/hosting.md`).
 
 ## Working notes for future sessions
 

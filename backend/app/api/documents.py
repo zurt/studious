@@ -45,10 +45,35 @@ async def _save_upload_to_tmp(file: UploadFile, suffix: str) -> Path:
     return Path(tmp_name)
 
 
-@router.post("")
-async def upload_document(file: UploadFile = File(...)):
+async def _receive_upload(file: UploadFile) -> tuple[Path, str, str]:
+    """Save an upload to a temp file and vet it before anything is created
+    or replaced: it must open, and a PDF must be within the page limit.
+    Returns (tmp path, suffix, source_type); on refusal the temp file is gone."""
     suffix, source_type = _classify_upload(file)
     tmp = await _save_upload_to_tmp(file, suffix)
+    try:
+        try:
+            page_count = await asyncio.to_thread(pdf.check_readable, tmp, source_type)
+        except Exception as exc:
+            log.error("document_unreadable", extra={"source_type": source_type, "error": str(exc)})
+            raise HTTPException(400, f"could not render uploaded file: {exc}") from exc
+        max_pages = get_settings().upload_max_pages
+        if max_pages and page_count > max_pages:
+            log.warning("document_too_many_pages", extra={"page_count": page_count, "limit": max_pages})
+            raise HTTPException(
+                413,
+                f"PDF has {page_count} pages; the limit is {max_pages} "
+                "(STUDIOUS_UPLOAD_MAX_PAGES raises it)",
+            )
+    except HTTPException:
+        tmp.unlink(missing_ok=True)
+        raise
+    return tmp, suffix, source_type
+
+
+@router.post("")
+async def upload_document(file: UploadFile = File(...)):
+    tmp, suffix, source_type = await _receive_upload(file)
 
     meta = storage.create_document(
         name=file.filename,
@@ -93,8 +118,9 @@ async def reupload_document(doc_id: str, file: UploadFile = File(...)):
     meta = storage.load_document(doc_id)
     if meta is None:
         raise HTTPException(404, "document not found")
-    suffix, source_type = _classify_upload(file)
-    tmp = await _save_upload_to_tmp(file, suffix)
+    # Vetted before the old file and pages are removed, so a refused or
+    # unreadable replacement leaves the document as it was.
+    tmp, suffix, source_type = await _receive_upload(file)
 
     doc_dir = storage.document_dir(doc_id)
     pages_dir = doc_dir / "pages"

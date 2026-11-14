@@ -36,7 +36,7 @@ Historical record. Not maintained.
 
 | Doc | What it was |
 |---|---|
-| [audit-2026-07-mobile-spike.md](archive/audit-2026-07-mobile-spike.md) | July 2026 codebase audit. Fixes landed; its **"Deferred findings"** (auth, upload limits, SSE reconnect) are still open |
+| [audit-2026-07-mobile-spike.md](archive/audit-2026-07-mobile-spike.md) | July 2026 codebase audit. Fixes landed; of its **"Deferred findings"**, upload limits and SSE reconnect are done (2026-11-14) and authentication is still open |
 | [improvement-recommendations.md](archive/improvement-recommendations.md) | June 2026 code review |
 | [logging-improvements.md](archive/logging-improvements.md) | Phase 1.6 logging plan |
 | [test-coverage-plan.md](archive/test-coverage-plan.md) | Phase 1.7 test plan |

@@ -1,4 +1,4 @@
-import { generateCorrelationId, startTimer } from "./logger";
+import { generateCorrelationId, startTimer, warn as logWarn } from "./logger";
 
 export type DocMeta = {
   id: string;
@@ -645,22 +645,75 @@ export async function submitTranscription(
   return jpost(`/api/documents/${docId}/transcribe`, body);
 }
 
+const JOB_EVENT_TYPES: JobEvent["event"][] = [
+  "snapshot", "job-started", "page-started", "page-done",
+  "page-skipped", "page-error", "phase-started", "region-started",
+  "region-done", "region-skipped", "region-error", "job-done", "job-failed", "ping",
+];
+
+const TERMINAL_JOB_STATUSES = new Set(["completed", "completed_with_errors", "failed"]);
+
+/** Delay before reconnect attempt `n` (0-based): 1 s doubling to 15 s. */
+export function jobStreamRetryDelayMs(attempt: number): number {
+  return Math.min(1000 * 2 ** attempt, 15000);
+}
+
+/**
+ * Follow a job's progress events until it finishes or the caller closes.
+ *
+ * A dropped connection (a proxy's idle cut-off, a network blip, a backend
+ * restart) is reopened with a growing delay. Every connection starts with a
+ * `snapshot` of the job's current state, so a job that finished while the
+ * stream was down still reaches the caller as a terminal snapshot; progress
+ * events sent during the gap are not replayed.
+ */
 export function openJobStream(jobId: string, onEvent: (e: JobEvent) => void): () => void {
-  const es = new EventSource(`/api/jobs/${jobId}/events`);
-  const types: JobEvent["event"][] = [
-    "snapshot", "job-started", "page-started", "page-done",
-    "page-skipped", "page-error", "phase-started", "region-started",
-    "region-done", "region-skipped", "region-error", "job-done", "job-failed", "ping",
-  ];
-  for (const t of types) {
-    es.addEventListener(t, (ev: MessageEvent) => {
-      let data: any = ev.data;
-      try { data = JSON.parse(ev.data); } catch { /* ignore */ }
-      onEvent({ event: t, data });
-    });
-  }
-  es.onerror = () => es.close();
-  return () => es.close();
+  let es: EventSource | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let attempt = 0;
+  let finished = false;
+
+  const stop = () => {
+    finished = true;
+    if (retryTimer !== null) clearTimeout(retryTimer);
+    retryTimer = null;
+    es?.close();
+    es = null;
+  };
+
+  const connect = () => {
+    retryTimer = null;
+    const source = new EventSource(`/api/jobs/${jobId}/events`);
+    es = source;
+    for (const t of JOB_EVENT_TYPES) {
+      source.addEventListener(t, (ev: MessageEvent) => {
+        if (finished || es !== source) return;
+        attempt = 0;
+        let data: any = ev.data;
+        try { data = JSON.parse(ev.data); } catch { /* ignore */ }
+        // The server ends the stream after these; stop before its close
+        // looks like a dropped connection.
+        if (t === "job-done" || t === "job-failed" || (t === "snapshot" && TERMINAL_JOB_STATUSES.has(data?.status))) {
+          stop();
+        }
+        onEvent({ event: t, data });
+      });
+    }
+    source.onerror = () => {
+      if (finished || es !== source) return;
+      // Always reopen by hand: the browser's own retry gives up for good on
+      // an HTTP error (a 502 from a proxy while the backend restarts).
+      source.close();
+      es = null;
+      const delay = jobStreamRetryDelayMs(attempt);
+      attempt += 1;
+      logWarn("api", "job_stream_reconnect", { job_id: jobId, attempt, delay_ms: delay });
+      retryTimer = setTimeout(connect, delay);
+    };
+  };
+
+  connect();
+  return stop;
 }
 
 // ---------- Vocab/Grammar store ----------

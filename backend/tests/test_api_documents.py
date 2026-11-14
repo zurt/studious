@@ -198,3 +198,111 @@ def test_upload_corrupt_image_returns_400_and_cleans_up(client):
     r = client.post("/api/documents", files=files)
     assert r.status_code == 400
     assert client.get("/api/documents").json() == []
+
+
+# ---- upload limits ----
+
+
+@pytest.fixture
+def limits(monkeypatch):
+    """Set the upload limits for one test: limits(mb=..., pages=...)."""
+    from app import config
+
+    def _set(mb: int | None = None, pages: int | None = None) -> None:
+        if mb is not None:
+            monkeypatch.setenv("STUDIOUS_UPLOAD_MAX_MB", str(mb))
+        if pages is not None:
+            monkeypatch.setenv("STUDIOUS_UPLOAD_MAX_PAGES", str(pages))
+        config.get_settings.cache_clear()
+
+    yield _set
+    config.get_settings.cache_clear()
+
+
+def _big_png_upload() -> dict:
+    # A valid PNG followed by padding: over 1 MB, and still opens as an image.
+    return {"file": ("big.png", _make_png_bytes() + b"\0" * (1024 * 1024), "image/png")}
+
+
+def test_upload_over_size_limit_returns_413(client, limits):
+    limits(mb=1)
+    r = client.post("/api/documents", files=_big_png_upload())
+    assert r.status_code == 413
+    assert "1 MB" in r.json()["detail"]
+    assert "STUDIOUS_UPLOAD_MAX_MB" in r.json()["detail"]
+    assert client.get("/api/documents").json() == []
+
+
+def test_upload_without_content_length_is_cut_off_at_the_limit(client, limits):
+    limits(mb=1)
+    boundary = "xxBOUNDARYxx"
+    head = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="big.png"\r\n'
+        "Content-Type: image/png\r\n\r\n"
+    ).encode()
+
+    def body():
+        yield head
+        for _ in range(40):
+            yield b"\0" * (64 * 1024)
+        yield f"\r\n--{boundary}--\r\n".encode()
+
+    r = client.post(
+        "/api/documents",
+        content=body(),
+        headers={"content-type": f"multipart/form-data; boundary={boundary}"},
+    )
+    assert r.status_code == 413
+    assert client.get("/api/documents").json() == []
+
+
+def test_size_limit_zero_means_no_limit(client, limits):
+    limits(mb=0)
+    r = client.post("/api/documents", files=_big_png_upload())
+    assert r.status_code == 200
+
+
+def test_upload_under_size_limit_is_accepted(client, limits):
+    limits(mb=1)
+    files = {"file": ("a.png", _make_png_bytes(), "image/png")}
+    assert client.post("/api/documents", files=files).status_code == 200
+
+
+def test_upload_pdf_over_page_limit_returns_413(client, limits):
+    limits(pages=2)
+    files = {"file": ("long.pdf", _make_pdf_bytes(3), "application/pdf")}
+    r = client.post("/api/documents", files=files)
+    assert r.status_code == 413
+    assert "3 pages" in r.json()["detail"]
+    assert "STUDIOUS_UPLOAD_MAX_PAGES" in r.json()["detail"]
+    assert client.get("/api/documents").json() == []
+
+    files = {"file": ("ok.pdf", _make_pdf_bytes(2), "application/pdf")}
+    assert client.post("/api/documents", files=files).status_code == 200
+
+
+def test_refused_reupload_leaves_the_document_untouched(client, limits):
+    files = {"file": ("a.pdf", _make_pdf_bytes(2), "application/pdf")}
+    doc = client.post("/api/documents", files=files).json()
+    limits(pages=2)
+
+    too_long = {"file": ("long.pdf", _make_pdf_bytes(3), "application/pdf")}
+    assert client.put(f"/api/documents/{doc['id']}/file", files=too_long).status_code == 413
+    broken = {"file": ("broken.pdf", b"this is not a pdf", "application/pdf")}
+    assert client.put(f"/api/documents/{doc['id']}/file", files=broken).status_code == 400
+
+    after = client.get(f"/api/documents/{doc['id']}").json()
+    assert after["name"] == "a.pdf"
+    assert after["page_count"] == 2
+    assert client.get(f"/api/documents/{doc['id']}/pages/2/image").status_code == 200
+
+
+def test_negative_upload_limit_is_rejected(monkeypatch, isolated_data_dir):
+    from app import config
+
+    monkeypatch.setenv("STUDIOUS_UPLOAD_MAX_MB", "-1")
+    config.get_settings.cache_clear()
+    with pytest.raises(ValueError, match="STUDIOUS_UPLOAD_MAX_MB"):
+        config.get_settings()
+    monkeypatch.delenv("STUDIOUS_UPLOAD_MAX_MB")
+    config.get_settings.cache_clear()

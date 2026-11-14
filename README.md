@@ -235,6 +235,8 @@ Environment variables (read at startup, `.env` supported):
 - `STUDIOUS_CORS_ORIGINS` — comma-separated CORS allowlist (default
   `http://localhost:5173`).
 - `STUDIOUS_PDF_RENDER_DPI` — page raster DPI (default `300`).
+- `STUDIOUS_UPLOAD_MAX_MB` / `STUDIOUS_UPLOAD_MAX_PAGES` — largest upload
+  accepted, in MB and in PDF pages (defaults `300` and `1500`; `0` = no limit).
 - `STUDIOUS_LOG_LEVEL` — backend log level (default `INFO`; set `DEBUG` for
   verbose per-page events).
 - `TESSERACT_CMD` — path to the Tesseract binary if not on `$PATH`.
