@@ -131,9 +131,8 @@ What already exists:
 - A Playwright suite (`frontend/e2e/smoke.spec.ts`, 14 journeys) that boots
   an isolated backend with the **mock VLM provider**
   (`STUDIOUS_VLM_PROVIDER=mock`) and a fresh data dir on dedicated ports. It needs no API key and no local data, runs in CI, and
-  was run inside a cloud session during this cleanup using the
-  pre-installed Chromium (`docs/troubleshooting.md` describes the
-  local-only config override needed for a pre-installed browser).
+  runs inside a cloud session on the pre-installed Chromium
+  (`STUDIOUS_CHROMIUM_PATH=/opt/pw-browsers/chromium make test-e2e`).
 - So a cloud session can already start the real stack and take screenshots.
   What it sees is mock data: the E2E fixtures, not real textbook pages.
 
@@ -144,9 +143,14 @@ Gaps to design for:
   `make dev-backend` seeds it. Still thin: one reading passage and one
   dialogue, no vertical text, no tables, no handwritten or scanned-looking
   pages. Grow it as UI work needs more shapes.
-- No screenshot helper or `make` target for "show me page X in state Y".
+- Done 2026-11-14: `make shot` takes PNGs of named views or any path, with
+  click/press/fill steps, on a freshly seeded mock stack
+  (`docs/screenshots.md`). Verified in a cloud session.
 - No visual regression checks (Playwright's screenshot assertions).
 - No frontend linting of accessibility or layout.
+- No narrow layout: `make shot SHOT="reading --mobile"` shows the chapter
+  view overflowing sideways at 390 px. Matters only if the web UI is meant
+  to be used on a phone.
 - `frontend/src/pages/chapter-view.ts` is still one 1,200-line closure and
   is the file most UI work will touch.
 

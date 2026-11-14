@@ -308,6 +308,7 @@ make test-backend    # pytest only
 make test-frontend   # vitest only
 make test-apple      # iOS companion Swift suite (incl. FSRS golden parity)
 make test-e2e        # browser smoke suite (Playwright)
+make shot            # screenshots of the seeded app (docs/screenshots.md)
 make lint            # ruff (backend, benchmarks) + Biome (frontend)
 ```
 
@@ -324,6 +325,11 @@ The E2E suite drives Chromium against the real stack on dedicated ports
 per-run data dir (`backend/.e2e-data`) — no API key or tokens needed.
 One-time setup: `cd frontend && npx playwright install chromium`. On
 failure, traces and screenshots land in `frontend/test-results/`.
+
+`make shot` takes screenshots of the app without a browser window: it boots
+the mock stack with a fresh seed on its own ports (8776/5274) and writes one
+PNG per view to `frontend/screenshots/`. `make shot SHOT="reading --dark"`
+picks a view; `docs/screenshots.md` has the rest.
 
 ## Reference data
 

@@ -7,6 +7,11 @@ import { defineConfig, devices } from "@playwright/test";
 const BACKEND_PORT = 8775;
 const FRONTEND_PORT = 5273;
 
+// A Chromium other than the one `npx playwright install` fetches, for machines
+// that ship their own and cannot download (cloud sessions:
+// STUDIOUS_CHROMIUM_PATH=/opt/pw-browsers/chromium). Unset everywhere else.
+const chromiumPath = process.env.STUDIOUS_CHROMIUM_PATH;
+
 export default defineConfig({
   testDir: "./e2e",
   // Journeys share one backend data dir and build on each other's state
@@ -20,6 +25,7 @@ export default defineConfig({
     baseURL: `http://localhost:${FRONTEND_PORT}`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    launchOptions: chromiumPath ? { executablePath: chromiumPath } : {},
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [

@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-reset run-backend say-helper dev-frontend test test-backend test-frontend test-e2e test-apple run-mac lint audit audit-log logs clean benchmark refs golden docker-build docker-run docker-smoke
+.PHONY: install install-backend install-frontend dev dev-backend dev-reset run-backend say-helper dev-frontend test test-backend test-frontend test-e2e shot test-apple run-mac lint audit audit-log logs clean benchmark refs golden docker-build docker-run docker-smoke
 
 install: install-backend install-frontend
 	@echo ""
@@ -115,6 +115,16 @@ golden:
 # One-time setup: cd frontend && npx playwright install chromium
 test-e2e:
 	cd frontend && npm run test:e2e
+
+# Screenshots of the app for a session that cannot open a browser window:
+# boots the dev stack's twin (mock VLM, a fresh seed in backend/.shot-data,
+# ports 8776/5274) and writes one PNG per view to frontend/screenshots/.
+#   make shot                          every named view
+#   make shot SHOT="reading --dark"    one view, dark scheme
+#   make shot SHOT="--list"            the views; --help for every option
+# See docs/screenshots.md.
+shot:
+	cd frontend && node scripts/shot.mjs $(SHOT)
 
 # Fetch pinned reference datasets (JMdict, JLPT lists; see
 # backend/refs.lock.json) and build data/refs/jmdict/jmdict.sqlite.
