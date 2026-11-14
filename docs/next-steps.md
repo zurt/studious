@@ -93,8 +93,7 @@ Still to do, in order:
    the base images). `docs/hosting.md` describes it. The image builds
    locally (818 MB) and passes the smoke test. Run against a copy of the
    real library on 2026-11-13, it peaked at 437 MiB and survived a 512 MiB
-   cap, so 1 GB is enough for Studious alone; the droplet will be 2 GB
-   because VOICEVOX runs beside it, see step 8 (limits of the
+   cap, so a 1 GB droplet is enough on this evidence (limits of the
    measurement are in the hosting doc). Still open: the `docker` job is not
    a required check until the owner adds it to the ruleset.
 6. Droplet, Tailscale, backups, CI deploy, data move.
@@ -103,13 +102,16 @@ Still to do, in order:
    home** once production is on Linux: the macOS voices (TTS), Anki sync
    through AnkiConnect on localhost, and anything else that calls a local
    Mac service. Inventoried 2026-11-13 in `docs/hosting.md` ("Features
-   that need the Mac"). Decided the same day: Anki is reached on the Mac
-   over Tailscale; speech moves to VOICEVOX on the droplet, which measured
-   as needing a 2 GB droplet rather than 1 GB (accepted by the owner), one fixed speaker and a
-   shorter text limit. Wrapping `say` on the Mac is the fallback. Not yet
-   built: the compose service, the text limit or sentence splitting, a
-   WAV converter in the image, the reworded messages, and choosing a
-   speaker.
+   that need the Mac"). Decided: Anki is reached on the Mac
+   over Tailscale. Speech stays on the Mac's `say`
+   voices: a small helper on the Mac behind the same tailnet route, a
+   third engine in `tts.py`, and clips generated in the background at
+   harvest with a catch-up list for when the Mac is unreachable. The
+   droplet stays at 1 GB. VOICEVOX on the droplet was measured and set
+   aside (2 GB, slow on one CPU); revisit if missing audio becomes a
+   problem. Not yet built: the helper, the engine, background generation
+   and catch-up, serving cached clips while the engine is down, and the
+   reworded messages.
 
 ### 2. Letting Claude Code sessions see the UI
 
@@ -181,7 +183,6 @@ document. Context gathered so far:
     container (512 MB). That cannot host Studious (too little memory, and
     the app needs files that persist). A server means a new droplet; the
     earlier estimate was 2 GB RAM; measured 2026-11-13, 1 GB is enough
-    for Studious alone, and the owner chose 2 GB to fit VOICEVOX
     (`docs/hosting.md`, "Memory").
   - The website is static and rarely updated. Keep it off any Studious
     server. Reworking it into a CV/portfolio site with occasional posts and

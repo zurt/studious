@@ -190,12 +190,24 @@ Not affected:
   not yet tried); the droplet sets `ANKI_CONNECT_URL` to the Mac's tailnet
   name. No code change beyond the messages. Set an AnkiConnect API key if
   any other tailnet device is not trusted.
-- **Speech: VOICEVOX on the droplet**, so that audio never needs the Mac.
-  Feasible, but not on the 1 GB droplet (measurements below), so the
-  owner chose a 2 GB droplet. It also costs a second container, one fixed speaker, and a lower cap on
-  the text sent in one synthesis call. The voice changes from the Mac's
-  Kyoko family to a VOICEVOX character. Wrapping `say` on the Mac is the
-  fallback if this disappoints.
+- **Speech: the Mac's `say` voices, generated in the background.** A small
+  helper on the Mac wraps `say` and is reached over the same tailnet route
+  as Anki; the server gets a third speech engine that calls it. Clips are
+  made when items are harvested (the end of a vocab-list transcription or
+  a sentence breakdown) rather than on first play, so they are ready
+  before study. The owner does that work on the Mac, so the Mac is
+  normally reachable at that moment. Consequences to build for:
+  - Harvest with the Mac unreachable leaves clips missing; the server
+    keeps a list and catches up when the Mac next answers.
+  - Until then those items have no audio, on any device.
+  - Cached clips must be served with the engine down: today `synthesize`
+    checks availability before the cache, so move the check after it.
+  - Not yet timed: `say` through the helper.
+
+  Chosen for the initial setup, to be revisited if the gaps turn out to
+  matter. It replaces the first choice made the same day, VOICEVOX
+  on the droplet, which works without the Mac but needs a 2 GB droplet and
+  was slow on one CPU (measurements below, kept in case it is revived).
 - **Mac app:** covered by step 7; the two hard-coded URLs become one
   backend URL setting.
 
@@ -227,7 +239,8 @@ there.
   Clips are cached, so only the first play waits; an Anki push of 20 new
   cards with word and sentence audio would take a few minutes.
 - With Studious peaking at 437 MiB (below), the two together need about
-  800 MiB plus the system: too tight for 1 GB, comfortable in 2 GB.
+  800 MiB plus the system: too tight for 1 GB, comfortable in 2 GB
+  (about $12 a month against $6, by third-party price lists).
 - The image has no `afconvert`, so clips stay `.wav` (190 KB for a
   sentence) until the Studious image gains a converter such as `ffmpeg`.
 
@@ -254,8 +267,8 @@ peak and was never killed.
 What this supports: the app fits in 512 MiB with about 70 MiB to spare on
 this workload, so a 1 GB droplet leaves room for the OS, Docker and
 Tailscale. The earlier 2 GB estimate is more than Studious alone asks
-for; the droplet is 2 GB anyway because VOICEVOX runs beside it (see
-"VOICEVOX memory and speed").
+for. Speech is generated on the Mac, so nothing else runs beside it; a
+VOICEVOX container would change that (see "VOICEVOX memory and speed").
 
 What it does not cover:
 
