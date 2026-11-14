@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "shot": "node scripts/shot.mjs",
     "lint": "biome lint --error-on-warnings"
   },
   "devDependencies": {

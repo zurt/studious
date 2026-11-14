@@ -31,6 +31,7 @@ make dev-frontend     # vite on :5173 with proxy to the backend (BACKEND_PORT=)
 make test             # run backend pytest + frontend vitest
 make lint             # ruff (backend, benchmarks) + Biome (frontend)
 make test-e2e         # Playwright smoke suite (STUDIOUS_VLM_PROVIDER=mock, isolated data dir)
+make shot             # PNGs of the seeded app in frontend/screenshots/ (SHOT="reading --dark"; docs/screenshots.md)
 make test-apple       # Swift suite (needs a Mac)
 make docker-build     # single-container image (see docs/hosting.md)
 make docker-run       # run it on the mock VLM with a throwaway volume

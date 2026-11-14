@@ -157,6 +157,29 @@ def _build_common_kwargs(
     return kwargs
 
 
+def _error_detail(exc: BaseException) -> dict[str, str]:
+    """Log fields for an error that never got an HTTP status: its message
+    and the chain of causes under it.
+
+    The SDK wraps a network failure in `APIConnectionError("Connection
+    error.")`; what actually happened (a reset, a protocol error, DNS) is
+    only in `__cause__`, so the class name alone cannot tell them apart.
+    """
+    causes: list[str] = []
+    seen = {id(exc)}
+    cause = exc.__cause__ or exc.__context__
+    while cause is not None and id(cause) not in seen and len(causes) < 5:
+        seen.add(id(cause))
+        kind = type(cause)
+        name = kind.__qualname__ if kind.__module__ == "builtins" else f"{kind.__module__}.{kind.__qualname__}"
+        causes.append(f"{name}: {cause}"[:300])
+        cause = cause.__cause__ or cause.__context__
+    detail = {"error": str(exc)[:300]}
+    if causes:
+        detail["error_cause"] = " <- ".join(causes)
+    return detail
+
+
 def _prompt_hash(prompt: str) -> str:
     return hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:8]
 
@@ -329,6 +352,7 @@ class AnthropicVlm:
                     "duration_ms": int((time.monotonic() - t0) * 1000),
                     "prompt_hash": prompt_hash,
                     "image_bytes": image_bytes_len,
+                    **_error_detail(exc),
                 },
             )
             raise
@@ -465,6 +489,7 @@ class AnthropicVlm:
                     "duration_ms": int((time.monotonic() - t0) * 1000),
                     "prompt_hash": prompt_hash,
                     "tool_name": tool_name,
+                    **_error_detail(exc),
                 },
             )
             raise

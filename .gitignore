@@ -43,6 +43,10 @@ backend/.e2e-data/
 
 # Dev data dir for `make dev-backend` (mock VLM + sample textbook)
 backend/.dev-data/
+
+# Screenshot helper (`make shot`): its seeded data dir and its output
+backend/.shot-data/
+frontend/screenshots/
 frontend/test-results/
 frontend/playwright-report/
 

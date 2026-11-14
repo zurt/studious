@@ -131,9 +131,8 @@ What already exists:
 - A Playwright suite (`frontend/e2e/smoke.spec.ts`, 14 journeys) that boots
   an isolated backend with the **mock VLM provider**
   (`STUDIOUS_VLM_PROVIDER=mock`) and a fresh data dir on dedicated ports. It needs no API key and no local data, runs in CI, and
-  was run inside a cloud session during this cleanup using the
-  pre-installed Chromium (`docs/troubleshooting.md` describes the
-  local-only config override needed for a pre-installed browser).
+  runs inside a cloud session on the pre-installed Chromium
+  (`STUDIOUS_CHROMIUM_PATH=/opt/pw-browsers/chromium make test-e2e`).
 - So a cloud session can already start the real stack and take screenshots.
   What it sees is mock data: the E2E fixtures, not real textbook pages.
 
@@ -144,9 +143,14 @@ Gaps to design for:
   `make dev-backend` seeds it. Still thin: one reading passage and one
   dialogue, no vertical text, no tables, no handwritten or scanned-looking
   pages. Grow it as UI work needs more shapes.
-- No screenshot helper or `make` target for "show me page X in state Y".
+- Done 2026-11-14: `make shot` takes PNGs of named views or any path, with
+  click/press/fill steps, on a freshly seeded mock stack
+  (`docs/screenshots.md`). Verified in a cloud session.
 - No visual regression checks (Playwright's screenshot assertions).
 - No frontend linting of accessibility or layout.
+- No narrow layout: `make shot SHOT="reading --mobile"` shows the chapter
+  view overflowing sideways at 390 px. Matters only if the web UI is meant
+  to be used on a phone.
 - `frontend/src/pages/chapter-view.ts` is still one 1,200-line closure and
   is the file most UI work will touch.
 
@@ -237,17 +241,17 @@ Dependencies:
   judge call can be simplified. A future major SDK bump needs the same
   check: the tests use a mock provider and will not catch a real API break.
 
-Transcription provider (`backend/app/providers/vlm/anthropic.py`), both
+Transcription provider (`backend/app/providers/vlm/anthropic.py`), two items
 found 2026-11-13 when a guest Wi-Fi network cut idle connections at 30
 seconds (see the `APIConnectionError` entry in `docs/troubleshooting.md`).
-Both touch provider logic, so run `make benchmark` before and after:
+The second, logging the underlying network error, is done (2026-11-14:
+`error` and `error_cause` on `vlm_call_error` / `vlm_tool_call_error`; log
+fields only, so no benchmark run). The first touches provider logic, so run
+`make benchmark` before and after:
 
 - **Stream the transcription call**, as the breakdown path already does.
   It is one non-streaming request today, and the model can think for
   longer than a network's idle cut-off before sending its first byte.
-- **Log the underlying network error** in the `vlm_call_error` handlers.
-  They record only the exception class, so the wrapped cause (reset,
-  protocol error, DNS) is not in the log.
 
 Small checks:
 
