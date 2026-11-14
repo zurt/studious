@@ -127,7 +127,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
-        self.wfile.write(payload)
+        # Logged before the body goes out, so the line exists by the time the
+        # client has its answer (tests read it right after the call returns).
         log.info(
             "say_helper_request",
             extra={
@@ -139,6 +140,7 @@ class Handler(BaseHTTPRequestHandler):
                 "bytes": len(payload),
             },
         )
+        self.wfile.write(payload)
 
     def do_GET(self) -> None:  # noqa: N802 - http.server API
         started = time.monotonic()
