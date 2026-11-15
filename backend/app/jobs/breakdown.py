@@ -129,11 +129,14 @@ class BreakdownJobMixin:
             "sentences": sentences,
         }
         try:
-            breakdown_links.annotate(breakdown_payload)
-            storage.save_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
-            # Sentence indices in completions only make sense against the
-            # breakdown that produced them. A new breakdown invalidates them.
-            storage.delete_exercise_completion(doc_id, chapter_id, region_id)
+            await asyncio.to_thread(breakdown_links.annotate, breakdown_payload)
+            # Save + invalidate under one lock so a concurrent completion
+            # upsert cannot land between them. Short synchronous file work.
+            with storage.locked():
+                storage.save_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
+                # Sentence indices in completions only make sense against the
+                # breakdown that produced them. A new breakdown invalidates them.
+                storage.delete_exercise_completion(doc_id, chapter_id, region_id)
         except Exception as exc:
             err_msg = f"post-processing failed: {exc}"
             log.exception("breakdown_postprocess_error", extra=job_extra)
@@ -159,14 +162,16 @@ class BreakdownJobMixin:
         # Harvest failures must not fail the breakdown job — the breakdown
         # itself saved fine and the store can catch up via backfill.
         try:
-            harvest.ingest_breakdown(doc_id, chapter_id, region_id, breakdown_payload)
+            await asyncio.to_thread(
+                harvest.ingest_breakdown, doc_id, chapter_id, region_id, breakdown_payload
+            )
         except Exception:
             log.exception("harvest_breakdown_error", extra=job_extra)
         else:
             # Card clips for the new items, made in the background.
             try:
-                speech_queue.enqueue_region(doc_id, chapter_id, region_id)
-                speech_queue.kick()
+                await asyncio.to_thread(speech_queue.enqueue_region, doc_id, chapter_id, region_id)
+                await asyncio.to_thread(speech_queue.kick)
             except Exception:
                 log.exception("speech_queue_enqueue_error", extra=job_extra)
         return duration_ms

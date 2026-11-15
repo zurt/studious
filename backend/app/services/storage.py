@@ -4,7 +4,11 @@ import json
 import os
 import re
 import shutil
+import tempfile
+import threading
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -31,11 +35,34 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+# One coarse, re-entrant lock for every read-modify-write on the JSON
+# records. Endpoints are plain `def` (threadpool) while job runners run on
+# the event loop thread, so two threads can touch one file. The data is
+# small and single-user: simplicity beats granularity. Never hold it across
+# an await, a model/network call or asyncio.to_thread.
+_LOCK = threading.RLock()
+
+
+@contextmanager
+def locked() -> Iterator[None]:
+    """Hold the storage lock for a compound load -> decide -> write."""
+    with _LOCK:
+        yield
+
+
 def _atomic_write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, path)
+    # Unique temp per write; the ".tmp" suffix keeps it out of the ".json"
+    # globs and directory scans that list records.
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp_name, path)
+    except BaseException:
+        with suppress(FileNotFoundError):
+            os.unlink(tmp_name)
+        raise
 
 
 def _docs_root() -> Path:
@@ -102,10 +129,11 @@ def document_dir(doc_id: str) -> Path:
 
 
 def save_document_meta(meta: dict[str, Any]) -> None:
-    _atomic_write_text(
-        document_dir(meta["id"]) / "meta.json",
-        json.dumps(meta, indent=2, ensure_ascii=False),
-    )
+    with _LOCK:
+        _atomic_write_text(
+            document_dir(meta["id"]) / "meta.json",
+            json.dumps(meta, indent=2, ensure_ascii=False),
+        )
 
 
 def page_image_path(doc_id: str, page: int) -> Path:
@@ -197,23 +225,25 @@ def load_chapter(doc_id: str, chapter_id: str) -> dict[str, Any] | None:
 
 
 def update_chapter(doc_id: str, chapter_id: str, **changes: Any) -> dict[str, Any] | None:
-    chapter = load_chapter(doc_id, chapter_id)
-    if chapter is None:
-        return None
-    chapter.update(changes)
-    _atomic_write_text(
-        _chapter_dir(doc_id, chapter_id) / "meta.json",
-        json.dumps(chapter, indent=2, ensure_ascii=False),
-    )
-    return chapter
+    with _LOCK:
+        chapter = load_chapter(doc_id, chapter_id)
+        if chapter is None:
+            return None
+        chapter.update(changes)
+        _atomic_write_text(
+            _chapter_dir(doc_id, chapter_id) / "meta.json",
+            json.dumps(chapter, indent=2, ensure_ascii=False),
+        )
+        return chapter
 
 
 def delete_chapter(doc_id: str, chapter_id: str) -> bool:
-    chapter_dir = _chapter_dir(doc_id, chapter_id)
-    if not chapter_dir.exists():
-        return False
-    shutil.rmtree(chapter_dir)
-    return True
+    with _LOCK:
+        chapter_dir = _chapter_dir(doc_id, chapter_id)
+        if not chapter_dir.exists():
+            return False
+        shutil.rmtree(chapter_dir)
+        return True
 
 
 # ---------- Regions ----------
@@ -278,28 +308,30 @@ def load_region(doc_id: str, chapter_id: str, region_id: str) -> dict[str, Any] 
 
 
 def update_region(doc_id: str, chapter_id: str, region_id: str, **changes: Any) -> dict[str, Any] | None:
-    region = load_region(doc_id, chapter_id, region_id)
-    if region is None:
-        return None
-    region.update(changes)
-    _atomic_write_text(
-        _region_path(doc_id, chapter_id, region_id),
-        json.dumps(region, indent=2, ensure_ascii=False),
-    )
-    return region
+    with _LOCK:
+        region = load_region(doc_id, chapter_id, region_id)
+        if region is None:
+            return None
+        region.update(changes)
+        _atomic_write_text(
+            _region_path(doc_id, chapter_id, region_id),
+            json.dumps(region, indent=2, ensure_ascii=False),
+        )
+        return region
 
 
 def delete_region(doc_id: str, chapter_id: str, region_id: str) -> bool:
-    p = _region_path(doc_id, chapter_id, region_id)
-    if not p.exists():
-        return False
-    p.unlink()
-    delete_breakdown(doc_id, chapter_id, region_id)
-    delete_exercise_completion(doc_id, chapter_id, region_id)
-    for other in list_regions(doc_id, chapter_id):
-        if other.get("continues_to") == region_id:
-            update_region(doc_id, chapter_id, other["id"], continues_to=None)
-    return True
+    with _LOCK:
+        p = _region_path(doc_id, chapter_id, region_id)
+        if not p.exists():
+            return False
+        p.unlink()
+        delete_breakdown(doc_id, chapter_id, region_id)
+        delete_exercise_completion(doc_id, chapter_id, region_id)
+        for other in list_regions(doc_id, chapter_id):
+            if other.get("continues_to") == region_id:
+                update_region(doc_id, chapter_id, other["id"], continues_to=None)
+        return True
 
 
 def _breakdowns_dir(doc_id: str, chapter_id: str) -> Path:
@@ -313,19 +345,20 @@ def breakdown_path(doc_id: str, chapter_id: str, region_id: str) -> Path:
 def save_breakdown(
     doc_id: str, chapter_id: str, region_id: str, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    existing = load_breakdown(doc_id, chapter_id, region_id)
-    now = _now_iso()
-    record = {
-        **payload,
-        "region_id": region_id,
-        "created_at": existing["created_at"] if existing else now,
-        "updated_at": now,
-    }
-    _atomic_write_text(
-        breakdown_path(doc_id, chapter_id, region_id),
-        json.dumps(record, indent=2, ensure_ascii=False),
-    )
-    return record
+    with _LOCK:
+        existing = load_breakdown(doc_id, chapter_id, region_id)
+        now = _now_iso()
+        record = {
+            **payload,
+            "region_id": region_id,
+            "created_at": existing["created_at"] if existing else now,
+            "updated_at": now,
+        }
+        _atomic_write_text(
+            breakdown_path(doc_id, chapter_id, region_id),
+            json.dumps(record, indent=2, ensure_ascii=False),
+        )
+        return record
 
 
 def load_breakdown(
@@ -338,11 +371,12 @@ def load_breakdown(
 
 
 def delete_breakdown(doc_id: str, chapter_id: str, region_id: str) -> bool:
-    p = breakdown_path(doc_id, chapter_id, region_id)
-    if not p.exists():
-        return False
-    p.unlink()
-    return True
+    with _LOCK:
+        p = breakdown_path(doc_id, chapter_id, region_id)
+        if not p.exists():
+            return False
+        p.unlink()
+        return True
 
 
 def exercise_completion_path(doc_id: str, chapter_id: str, region_id: str) -> Path:
@@ -361,19 +395,20 @@ def load_exercise_completion(
 def save_exercise_completion(
     doc_id: str, chapter_id: str, region_id: str, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    existing = load_exercise_completion(doc_id, chapter_id, region_id)
-    now = _now_iso()
-    record = {
-        **payload,
-        "region_id": region_id,
-        "created_at": existing["created_at"] if existing else now,
-        "updated_at": now,
-    }
-    _atomic_write_text(
-        exercise_completion_path(doc_id, chapter_id, region_id),
-        json.dumps(record, indent=2, ensure_ascii=False),
-    )
-    return record
+    with _LOCK:
+        existing = load_exercise_completion(doc_id, chapter_id, region_id)
+        now = _now_iso()
+        record = {
+            **payload,
+            "region_id": region_id,
+            "created_at": existing["created_at"] if existing else now,
+            "updated_at": now,
+        }
+        _atomic_write_text(
+            exercise_completion_path(doc_id, chapter_id, region_id),
+            json.dumps(record, indent=2, ensure_ascii=False),
+        )
+        return record
 
 
 def upsert_exercise_completion_entry(
@@ -383,23 +418,25 @@ def upsert_exercise_completion_entry(
     sentence_index: int,
     entry: dict[str, Any],
 ) -> dict[str, Any]:
-    existing = load_exercise_completion(doc_id, chapter_id, region_id) or {}
-    completions = dict(existing.get("completions") or {})
-    completions[str(sentence_index)] = entry
-    return save_exercise_completion(
-        doc_id,
-        chapter_id,
-        region_id,
-        {"completions": completions},
-    )
+    with _LOCK:
+        existing = load_exercise_completion(doc_id, chapter_id, region_id) or {}
+        completions = dict(existing.get("completions") or {})
+        completions[str(sentence_index)] = entry
+        return save_exercise_completion(
+            doc_id,
+            chapter_id,
+            region_id,
+            {"completions": completions},
+        )
 
 
 def delete_exercise_completion(doc_id: str, chapter_id: str, region_id: str) -> bool:
-    p = exercise_completion_path(doc_id, chapter_id, region_id)
-    if not p.exists():
-        return False
-    p.unlink()
-    return True
+    with _LOCK:
+        p = exercise_completion_path(doc_id, chapter_id, region_id)
+        if not p.exists():
+            return False
+        p.unlink()
+        return True
 
 
 def grammar_guide_path(doc_id: str, chapter_id: str) -> Path:
@@ -409,19 +446,20 @@ def grammar_guide_path(doc_id: str, chapter_id: str) -> Path:
 def save_grammar_guide(
     doc_id: str, chapter_id: str, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    existing = load_grammar_guide(doc_id, chapter_id)
-    now = _now_iso()
-    record = {
-        **payload,
-        "chapter_id": chapter_id,
-        "created_at": existing["created_at"] if existing else now,
-        "updated_at": now,
-    }
-    _atomic_write_text(
-        grammar_guide_path(doc_id, chapter_id),
-        json.dumps(record, indent=2, ensure_ascii=False),
-    )
-    return record
+    with _LOCK:
+        existing = load_grammar_guide(doc_id, chapter_id)
+        now = _now_iso()
+        record = {
+            **payload,
+            "chapter_id": chapter_id,
+            "created_at": existing["created_at"] if existing else now,
+            "updated_at": now,
+        }
+        _atomic_write_text(
+            grammar_guide_path(doc_id, chapter_id),
+            json.dumps(record, indent=2, ensure_ascii=False),
+        )
+        return record
 
 
 def load_grammar_guide(doc_id: str, chapter_id: str) -> dict[str, Any] | None:
@@ -432,35 +470,37 @@ def load_grammar_guide(doc_id: str, chapter_id: str) -> dict[str, Any] | None:
 
 
 def delete_grammar_guide(doc_id: str, chapter_id: str) -> bool:
-    p = grammar_guide_path(doc_id, chapter_id)
-    if not p.exists():
-        return False
-    p.unlink()
-    return True
+    with _LOCK:
+        p = grammar_guide_path(doc_id, chapter_id)
+        if not p.exists():
+            return False
+        p.unlink()
+        return True
 
 
 def move_region(
     doc_id: str, src_chapter_id: str, region_id: str, dst_chapter_id: str
 ) -> dict[str, Any] | None:
-    region = load_region(doc_id, src_chapter_id, region_id)
-    if region is None:
-        return None
-    region["chapter_id"] = dst_chapter_id
-    if src_chapter_id != dst_chapter_id:
-        region["continues_to"] = None
-        for other in list_regions(doc_id, src_chapter_id):
-            if other.get("id") != region_id and other.get("continues_to") == region_id:
-                update_region(doc_id, src_chapter_id, other["id"], continues_to=None)
-    dst_dir = _regions_dir(doc_id, dst_chapter_id)
-    dst_dir.mkdir(parents=True, exist_ok=True)
-    _atomic_write_text(
-        _region_path(doc_id, dst_chapter_id, region_id),
-        json.dumps(region, indent=2, ensure_ascii=False),
-    )
-    src = _region_path(doc_id, src_chapter_id, region_id)
-    if src.exists():
-        src.unlink()
-    return region
+    with _LOCK:
+        region = load_region(doc_id, src_chapter_id, region_id)
+        if region is None:
+            return None
+        region["chapter_id"] = dst_chapter_id
+        if src_chapter_id != dst_chapter_id:
+            region["continues_to"] = None
+            for other in list_regions(doc_id, src_chapter_id):
+                if other.get("id") != region_id and other.get("continues_to") == region_id:
+                    update_region(doc_id, src_chapter_id, other["id"], continues_to=None)
+        dst_dir = _regions_dir(doc_id, dst_chapter_id)
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        _atomic_write_text(
+            _region_path(doc_id, dst_chapter_id, region_id),
+            json.dumps(region, indent=2, ensure_ascii=False),
+        )
+        src = _region_path(doc_id, src_chapter_id, region_id)
+        if src.exists():
+            src.unlink()
+        return region
 
 
 # ---------- Jobs ----------
@@ -478,12 +518,13 @@ def create_job(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def update_job(job_id: str, **changes: Any) -> dict[str, Any]:
-    job = load_job(job_id)
-    if job is None:
-        raise KeyError(job_id)
-    job.update(changes)
-    _atomic_write_text(_job_path(job_id), json.dumps(job, indent=2, ensure_ascii=False))
-    return job
+    with _LOCK:
+        job = load_job(job_id)
+        if job is None:
+            raise KeyError(job_id)
+        job.update(changes)
+        _atomic_write_text(_job_path(job_id), json.dumps(job, indent=2, ensure_ascii=False))
+        return job
 
 
 def load_job(job_id: str) -> dict[str, Any] | None:
