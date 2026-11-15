@@ -103,7 +103,9 @@ class RegionJobMixin:
             # transcription itself succeeded and the store can catch up
             # via backfill.
             try:
-                harvest.ingest_vocab_list_region(doc_id, chapter_id, region)
+                await asyncio.to_thread(
+                    harvest.ingest_vocab_list_region, doc_id, chapter_id, region
+                )
             except Exception:
                 log.exception(
                     "harvest_vocab_list_error",
@@ -112,8 +114,10 @@ class RegionJobMixin:
             else:
                 # Card clips for the new items, made in the background.
                 try:
-                    speech_queue.enqueue_region(doc_id, chapter_id, region_id)
-                    speech_queue.kick()
+                    await asyncio.to_thread(
+                        speech_queue.enqueue_region, doc_id, chapter_id, region_id
+                    )
+                    await asyncio.to_thread(speech_queue.kick)
                 except Exception:
                     log.exception(
                         "speech_queue_enqueue_error",

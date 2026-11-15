@@ -122,19 +122,20 @@ class MoveRegion(BaseModel):
 @router.post("/{region_id}/move")
 def move_region(doc_id: str, chapter_id: str, region_id: str, body: MoveRegion):
     _require_chapter(doc_id, chapter_id)
-    dst_chapter = storage.load_chapter(doc_id, body.dst_chapter_id)
-    if dst_chapter is None:
-        raise HTTPException(404, "destination chapter not found")
-    region = storage.load_region(doc_id, chapter_id, region_id)
-    if region is None:
-        raise HTTPException(404, "region not found")
-    if region["page"] < dst_chapter["page_start"] or region["page"] > dst_chapter["page_end"]:
-        raise HTTPException(
-            400,
-            f"region page {region['page']} is outside destination chapter range "
-            f"({dst_chapter['page_start']}-{dst_chapter['page_end']})",
-        )
-    moved = storage.move_region(doc_id, chapter_id, region_id, body.dst_chapter_id)
+    with storage.locked():
+        dst_chapter = storage.load_chapter(doc_id, body.dst_chapter_id)
+        if dst_chapter is None:
+            raise HTTPException(404, "destination chapter not found")
+        region = storage.load_region(doc_id, chapter_id, region_id)
+        if region is None:
+            raise HTTPException(404, "region not found")
+        if region["page"] < dst_chapter["page_start"] or region["page"] > dst_chapter["page_end"]:
+            raise HTTPException(
+                400,
+                f"region page {region['page']} is outside destination chapter range "
+                f"({dst_chapter['page_start']}-{dst_chapter['page_end']})",
+            )
+        moved = storage.move_region(doc_id, chapter_id, region_id, body.dst_chapter_id)
     log.info(
         "region_moved",
         extra={
@@ -154,6 +155,12 @@ class LinkRegion(BaseModel):
 @router.post("/{region_id}/link")
 def link_region(doc_id: str, chapter_id: str, region_id: str, body: LinkRegion):
     _require_chapter(doc_id, chapter_id)
+    # Cycle check and write must see the same chain.
+    with storage.locked():
+        return _link_region_locked(doc_id, chapter_id, region_id, body)
+
+
+def _link_region_locked(doc_id: str, chapter_id: str, region_id: str, body: LinkRegion):
     region = storage.load_region(doc_id, chapter_id, region_id)
     if region is None:
         raise HTTPException(404, "region not found")
@@ -209,6 +216,14 @@ def set_region_references(doc_id: str, chapter_id: str, region_id: str, body: Se
     dropped, keeping the first occurrence's position.
     """
     _require_chapter(doc_id, chapter_id)
+    # Validation reads (region, inbound links, targets) and the write must agree.
+    with storage.locked():
+        return _set_region_references_locked(doc_id, chapter_id, region_id, body)
+
+
+def _set_region_references_locked(
+    doc_id: str, chapter_id: str, region_id: str, body: SetReferences
+):
     region = storage.load_region(doc_id, chapter_id, region_id)
     if region is None:
         raise HTTPException(404, "region not found")
@@ -307,15 +322,16 @@ def check_region(doc_id: str, chapter_id: str, region_id: str):
 @router.post("/{region_id}/check/dismiss")
 def dismiss_region_check(doc_id: str, chapter_id: str, region_id: str):
     _require_chapter(doc_id, chapter_id)
-    region = storage.load_region(doc_id, chapter_id, region_id)
-    if region is None:
-        raise HTTPException(404, "region not found")
-    check = region.get("check")
-    if not isinstance(check, dict):
-        raise HTTPException(404, "region has no check")
-    return storage.update_region(
-        doc_id, chapter_id, region_id, check={**check, "label_dismissed": True}
-    )
+    with storage.locked():
+        region = storage.load_region(doc_id, chapter_id, region_id)
+        if region is None:
+            raise HTTPException(404, "region not found")
+        check = region.get("check")
+        if not isinstance(check, dict):
+            raise HTTPException(404, "region has no check")
+        return storage.update_region(
+            doc_id, chapter_id, region_id, check={**check, "label_dismissed": True}
+        )
 
 
 class BreakdownRequest(BaseModel):
@@ -325,13 +341,16 @@ class BreakdownRequest(BaseModel):
 @router.get("/{region_id}/breakdown")
 def get_region_breakdown(doc_id: str, chapter_id: str, region_id: str):
     _require_chapter(doc_id, chapter_id)
-    breakdown = storage.load_breakdown(doc_id, chapter_id, region_id)
-    if breakdown is None:
-        raise HTTPException(404, "breakdown not found")
-    if breakdown_links.needs_links(breakdown):
-        breakdown_links.annotate(breakdown)
-        breakdown = storage.save_breakdown(doc_id, chapter_id, region_id, breakdown)
-    return breakdown
+    # Lazy link backfill is a load -> annotate -> save; keep it atomic so it
+    # cannot resurrect a breakdown that was just replaced or deleted.
+    with storage.locked():
+        breakdown = storage.load_breakdown(doc_id, chapter_id, region_id)
+        if breakdown is None:
+            raise HTTPException(404, "breakdown not found")
+        if breakdown_links.needs_links(breakdown):
+            breakdown_links.annotate(breakdown)
+            breakdown = storage.save_breakdown(doc_id, chapter_id, region_id, breakdown)
+        return breakdown
 
 
 @router.post("/{region_id}/breakdown")

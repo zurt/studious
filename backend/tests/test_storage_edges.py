@@ -17,14 +17,15 @@ def test_atomic_write_no_leftover_tmp(tmp_path: Path):
     assert leftovers == []
 
 
-def test_atomic_write_overwrites_preexisting_tmp(tmp_path: Path):
+def test_atomic_write_ignores_preexisting_tmp(tmp_path: Path):
     target = tmp_path / "out.json"
     stale = target.with_suffix(target.suffix + ".tmp")
     stale.write_text("garbage from a prior crashed write")
-    # Second write should succeed and clean the tmp.
+    # Temp names are unique per write, so a leftover from a crashed write is
+    # neither reused nor clobbered; the write itself still succeeds.
     _atomic_write_text(target, "fresh")
     assert target.read_text() == "fresh"
-    assert not stale.exists()
+    assert stale.read_text() == "garbage from a prior crashed write"
 
 
 def test_atomic_write_creates_parent_dirs(tmp_path: Path):

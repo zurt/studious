@@ -261,11 +261,12 @@ Small checks:
   API, settings modal, logging tests) are all on `main` already, in later
   form; it shares no history with `main` since the rewrite, and none of its
   test names is missing from `main`.
-- Before any network exposure, the remaining deferred findings in
-  `docs/archive/audit-2026-07-mobile-spike.md` apply: authentication (the
-  plan is Tailscale only, no login), and the read-modify-write races and
-  blocking harvest work it lists. Upload limits and reconnect on the job
-  progress stream were done 2026-11-14 (`docs/hosting.md`).
+- Before any network exposure, the one remaining deferred finding in
+  `docs/archive/audit-2026-07-mobile-spike.md` applies: authentication (the
+  plan is Tailscale only, no login). Upload limits and reconnect on the job
+  progress stream, the read-modify-write races (one re-entrant lock in
+  `storage.py`, unique temp files) and blocking harvest work (moved to
+  threads) were all done 2026-11-14 (`docs/hosting.md`).
 
 ## Working notes for future sessions
 

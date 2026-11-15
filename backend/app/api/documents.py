@@ -141,20 +141,27 @@ async def reupload_document(doc_id: str, file: UploadFile = File(...)):
     render_ms = int((time.monotonic() - t0) * 1000)
     log.info("document_reuploaded", extra={"doc_id": doc_id, "source_type": source_type, "page_count": page_count, "render_ms": render_ms})
 
-    meta["name"] = file.filename
-    meta["source_type"] = source_type
-    meta["page_count"] = page_count
-    meta["original_filename"] = f"original{suffix}"
-    storage.save_document_meta(meta)
+    # Re-load after the slow render rather than writing back the stale dict;
+    # the lock also stops a concurrent delete_document being undone.
+    with storage.locked():
+        meta = storage.load_document(doc_id)
+        if meta is None:
+            raise HTTPException(404, "document not found")
+        meta["name"] = file.filename
+        meta["source_type"] = source_type
+        meta["page_count"] = page_count
+        meta["original_filename"] = f"original{suffix}"
+        storage.save_document_meta(meta)
     return meta
 
 
 @router.delete("/{doc_id}")
 def delete_document(doc_id: str):
     doc_dir = storage.document_dir(doc_id)
-    if not doc_dir.exists():
-        raise HTTPException(404, "document not found")
-    shutil.rmtree(doc_dir)
+    with storage.locked():
+        if not doc_dir.exists():
+            raise HTTPException(404, "document not found")
+        shutil.rmtree(doc_dir)
     log.info("document_deleted", extra={"doc_id": doc_id})
     return {"deleted": doc_id}
 
