@@ -4,7 +4,6 @@ import json
 import os
 import re
 import shutil
-import tempfile
 import threading
 import uuid
 from collections.abc import Iterator
@@ -54,14 +53,16 @@ def _atomic_write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     # Unique temp per write; the ".tmp" suffix keeps it out of the ".json"
     # globs and directory scans that list records.
-    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    # Not mkstemp: that creates 0600 files, and the records should keep the
+    # umask-default mode they have always had.
+    tmp = path.parent / f".{path.name}.{uuid.uuid4().hex}.tmp"
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        with open(tmp, "x", encoding="utf-8") as fh:
             fh.write(text)
-        os.replace(tmp_name, path)
+        os.replace(tmp, path)
     except BaseException:
         with suppress(FileNotFoundError):
-            os.unlink(tmp_name)
+            os.unlink(tmp)
         raise
 
 
