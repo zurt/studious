@@ -123,12 +123,12 @@ else
 fi
 
 # 3. Contents.
-count="$(find "$scope_restored" -type f 2>/dev/null | wc -l | tr -d ' ')"
+count="$(find "$scope_restored" -type f 2>/dev/null | wc -l | tr -d ' ' || true)"
 [ "$count" -gt 0 ] || fail "the restore holds no files"
 log "restored $count files"
 
-live_jsonl="$(find "$DATA_DIR/store" -maxdepth 1 -name '*.jsonl' 2>/dev/null | wc -l | tr -d ' ')"
-restored_jsonl="$(find "$restored/store" -maxdepth 1 -name '*.jsonl' 2>/dev/null | wc -l | tr -d ' ')"
+live_jsonl="$(find "$DATA_DIR/store" -maxdepth 1 -name '*.jsonl' 2>/dev/null | wc -l | tr -d ' ' || true)"
+restored_jsonl="$(find "$restored/store" -maxdepth 1 -name '*.jsonl' 2>/dev/null | wc -l | tr -d ' ' || true)"
 if [ "$live_jsonl" -gt 0 ] && [ "$restored_jsonl" -eq 0 ]; then
   fail "the live data has $live_jsonl store/*.jsonl files and the restore has none"
 fi

@@ -853,3 +853,81 @@ re-transcribe the region. The `<callouts>` block
 right after the turn its leader line touches. The page-level prompt
 (`DEFAULT_VLM_PROMPT`) does not have the rule yet, so use regions for such
 pages.
+
+## Droplet (`deploy/`, `docs/deploy.md`)
+
+Written 2026-11-16, before any droplet existed: these are the failures the
+scripts were built to report, not ones seen yet. Unit logs are in the journal:
+`journalctl -u studious-update` (or `-backup`, `-restore-test`); `systemctl
+--failed` lists units whose last run failed.
+
+### The update timer keeps logging "new image ... is waiting" and never rolls out
+`studious-update.sh` skips a rollout while any job file in
+`/srv/studious/data/jobs/` has `"status": "queued"` or `"running"`, because
+jobs do not survive a restart (`hosting.md`). The log line lists the files.
+If a job really is running, wait. A job that was running when the container
+or droplet died stays `running` forever; after 6 hours without a write
+(`JOBS_STALE_MIN`, 360) the script ignores it and says so. To go sooner,
+confirm in the web app that nothing is running, then set the leftover's
+status to `failed` in its JSON file, or run `docker compose -f
+/opt/studious/compose.yml up -d` by hand.
+
+### `systemctl status studious-update` says failed after a rollout
+The new image did not become healthy within 180 s, so the script put the
+previous image back (the log says `rolling back to sha256:...`) and exited 1.
+The app is running the old version. Read why with `docker logs studious`
+(the failed container is gone; `docker ps -a` and the journal around the time
+help), fix `main`, and the next image rolls out by itself. The bad image ID is
+in `/var/lib/studious/failed-image` and the script will not retry that exact
+image; `rm` the file to force a retry. If the rollback is not healthy either,
+the log says so: check `/etc/studious/env` and the data directory owner
+(below). A first install that fails has nothing to roll back to.
+
+### Update log says "cannot pull" or `docker pull` says "denied" / "unauthorized"
+The package on GHCR is still private. A package created by a workflow is
+private until the owner changes it: github.com/zurt?tab=packages, `studious`,
+Package settings, Change visibility, Public (`deploy.md`, step 6). Or log the
+droplet in with a `read:packages` token. A `manifest unknown` error instead
+means `publish` has not pushed `:main` yet: check the CI run on `main`.
+
+### The container exits at once, or the app cannot write (500 on upload, `PermissionError` in `docker logs studious`)
+`/srv/studious/data` must be owned by UID 10001, the container user. A
+directory created by hand or copied with rsync is owned by root or the Mac
+user. Fix: `chown -R 10001:10001 /srv/studious/data`. `docker compose` also
+refuses to start when `/etc/studious/env` does not exist.
+
+### The container was killed (`docker inspect studious --format '{{.State.OOMKilled}}'` is true)
+It hit the 640 MiB limit in `deploy/compose.yml`. The 437 MiB measurement
+(`hosting.md`) did not include real model calls, two jobs at once or x86. Check
+`docker stats --no-stream` during the job that died; if it is the real peak,
+raise `mem_limit` and `memswap_limit` and check `free -m` leaves room for the
+host (1 GB total).
+
+### `studious-backup` or `studious-restore-test` fails with "repository is already locked"
+A restic run was killed (reboot, OOM, timeout) and left its lock in the
+repository. Make sure no restic process is running (`pgrep restic`), then:
+`set -a; . /etc/studious/restic.env; set +a; restic unlock`. Locks from a
+live run are not removed by `unlock`.
+
+### The backup says "Fatal: unable to open config file" or "wrong password"
+`restic init` was not run yet (first case), or `/etc/studious/restic-password`
+does not match the one the repository was created with (second). The
+passphrase in the password manager is the original. B2 errors that say
+`401` or `bucket not found` mean the key in `restic.env` is wrong or is
+restricted to another bucket.
+
+### `studious-restore-test` fails
+The log says which check: `restic check` (repository damage: do not prune;
+run `restic check --read-data` and see the restic docs), `bad JSON:
+<file> line N` (a store file was already corrupt when the snapshot was taken:
+look at that line in the live file), `differs from the restore` or `missing
+from the restore` (a live file changed in a way the snapshot did not catch, or
+the snapshot is stale: check `restic snapshots` and the backup log), `does not
+fit` (set `RESTORE_SUBSET=store`, or free disk space). A weekly failure with
+`restored store/ only` in the log is not a failure; it is the disk-space
+fallback.
+
+### Something answers on the droplet's public IP, or `ss -ltnp` shows 8000 on `0.0.0.0`
+It must not. `docker ps` must show `127.0.0.1:8000->8000/tcp`; a bare
+`0.0.0.0:8000` means the compose file was edited. Docker's published ports
+bypass ufw, so the loopback binding is the protection (`deploy/compose.yml`).

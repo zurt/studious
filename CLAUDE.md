@@ -8,6 +8,7 @@ Japanese study tool: upload PDFs, organize into chapters, select regions of inte
 - **Frontend**: Vanilla TypeScript + Vite (no framework)
 - **Apple** (`apple/`): SwiftPM package with an iOS companion and a native Mac app that read the same vocab/grammar store. Built in CI on macOS; not yet run on a device.
 - **Package managers**: uv (backend), npm (frontend) — both enforce 7-day cooldown on new package versions
+- **Deploy** (`deploy/`): compose file, update/backup/restore-test scripts, systemd units and `provision.sh` for the droplet; runbook `docs/deploy.md`. Written, not yet run on a droplet.
 - **Docs**: `docs/README.md` indexes what is current, what is a shipped design (`docs/design/`), and what is historical (`docs/archive/`)
 - **Open work**: read `docs/next-steps.md` at the start of a session — decisions made, open items, and where the next sessions pick up
 
@@ -36,6 +37,7 @@ make test-apple       # Swift suite (needs a Mac)
 make docker-build     # single-container image (see docs/hosting.md)
 make docker-run       # run it on the mock VLM with a throwaway volume
 make docker-smoke     # build + the checks CI runs against the image
+make deploy-selftest  # droplet tooling in deploy/ against a fake docker and a local restic repo (Linux, needs restic)
 make audit            # run npm audit + pip-audit
 make benchmark        # regression benchmark: fixtures vs. the default model, judged (real API calls)
 ```

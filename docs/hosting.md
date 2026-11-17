@@ -4,16 +4,17 @@ How Studious is meant to run away from the Mac, what exists today, and what
 is not done yet. The decision (2026-11-13, `next-steps.md` session 1): one
 container on a small DigitalOcean droplet, reachable only over Tailscale,
 real data on a volume, its own API key with a spend cap, encrypted backups.
-CI builds the image and deploys it, so no deploy credential sits on the
-laptop.
+CI builds the image and publishes it to GHCR, and the droplet pulls it, so no
+deploy credential sits on the laptop or in CI.
 
 ## Status
 
 | Piece | State |
 |---|---|
-| Image (`Dockerfile`), settings, compose file, `make docker-*` | Written. CI builds it and runs a smoke test on every push (`docker` job). |
+| Image (`Dockerfile`), settings, compose file, `make docker-*` | Written. CI builds it and runs a smoke test on every push (`docker` job), and the `publish` job pushes it to `ghcr.io/zurt/studious` on every push to `main`. |
 | Run against the real data, measure memory | Done 2026-11-13 on a copy of the real library: 437 MiB peak, and it survives a 512 MiB cap. See "Memory" below. |
-| Droplet, Tailscale, backups, CI deploy, data move | Not done (`next-steps.md`, session 1, step 6). |
+| CI publish to GHCR, droplet tooling (`deploy/`: compose file, pull-based update timer with rollback, restic backups and restore test, provision script), its CI check and self-test | Written 2026-11-16, not run against a droplet. The update script's decisions and the backup round trip are tested without one (`make deploy-selftest`). Runbook: `deploy.md`. |
+| Droplet, Tailscale, B2 bucket, GHCR package made public, data move | Not done: the one-hour session in `deploy.md` (`next-steps.md`, session 1, step 6). |
 | Mac and iOS apps talking to the API instead of the files | Not done (step 7). |
 | Features that need the Mac (speech, Anki) | Speech is built (helper, `say_remote` engine, background generation, catch-up); not yet run against a droplet. Anki needs only the tailnet route, not tried. See "New homes" (step 8). |
 
@@ -349,11 +350,55 @@ What it does not cover:
 CI prints the idle numbers for an empty mock instance in the `docker` job
 log (62 MiB locally), which is a floor, not the answer.
 
+## How it is deployed
+
+Written 2026-11-16; none of it has run against a droplet. `deploy.md` is the
+runbook, `deploy/` holds the files.
+
+- **Publish.** On a push to `main`, after every other CI job passes, the
+  `publish` job builds the image, runs `scripts/docker-smoke.sh` on that
+  image, and pushes `ghcr.io/zurt/studious:main` and `:sha-<commit>` with the
+  workflow's own `GITHUB_TOKEN` (`packages: write`, that job only). The image
+  carries `org.opencontainers.image.source` and `.revision` labels. CI never
+  joins the tailnet or connects to the droplet.
+- **Pull.** `studious-update.timer` runs `deploy/studious-update.sh` five
+  minutes after the last run finished. It pulls `:main`; if the image ID
+  differs from the running container's, it rolls out with `docker compose up
+  -d` and waits for the healthcheck. **Jobs do not survive a restart**, so it
+  skips the rollout, exits 0 and tries again next run while any job is queued
+  or running. The API has no endpoint that lists jobs, so the script reads
+  the job files in `<data>/jobs/` (`status` of `queued` or `running`); a job
+  file untouched for 6 hours is a crash leftover and is ignored. An unhealthy
+  rollout is rolled back to the previous image (kept as `:previous`), the bad
+  ID is remembered so it is not retried, and the unit fails. A package that
+  is still private makes the pull fail with `denied`.
+- **Container.** `deploy/compose.yml`: loopback port only, `restart:
+  unless-stopped`, 640 MiB memory limit with no swap, rotated logs, data bind
+  mount at `/srv/studious/data` (UID 10001), settings from `/etc/studious/env`
+  (`deploy/env.example`, including the commented Mac speech and Anki
+  variables).
+- **Network.** ufw denies incoming and allows `tailscale0` and UDP 41641;
+  public SSH stays until `provision.sh --lock-down`. `tailscale serve --bg
+  8000` publishes HTTPS to the tailnet. A DigitalOcean cloud firewall is the
+  second layer.
+- **Backups.** restic to B2, encrypted. `studious-backup.sh` runs daily
+  (7 daily, 4 weekly, 12 monthly kept) on the live data directory without
+  stopping the container: the store is append-only and other files are written
+  by atomic rename. `studious-restore-test.sh` runs weekly: `restic check`,
+  restore the latest snapshot to a temp directory, parse every
+  `store/*.jsonl`, compare files older than the snapshot with the live ones
+  by checksum. It restores everything only when the snapshot fits in 70% of
+  the free disk, else `store/` only.
+- **Tests.** `make deploy-selftest` (the `deploy` CI job, with shellcheck,
+  `docker compose config` and `systemd-analyze verify`).
+
 ## Not done yet
 
-- A droplet, the Tailscale setup (`tailscale serve` for HTTPS on the tailnet),
-  the firewall, and the dedicated API key with a spend cap.
-- Encrypted, tested backups of the data volume.
-- CI deploy: push the image to a registry and roll it out, with no
-  credential on the laptop. The `docker` job only builds and tests.
-- Moving the real data off `backend/data`.
+- Everything in `deploy.md` that is a step rather than a file: the droplet,
+  Tailscale, the B2 bucket, making the GHCR package public, the dedicated API
+  key with a spend cap on the droplet, and moving the real data off
+  `backend/data`.
+- The `publish` job has not run; the first push to `main` after this change
+  is its first run.
+- Alerting. A failed timer shows in `systemctl --failed` and the journal and
+  nowhere else.
