@@ -8,7 +8,8 @@
 | [project-description.md](project-description.md) | What Studious is and the tech stack |
 | [plan.md](plan.md) | Architecture and data model |
 | [roadmap.md](roadmap.md) | Phase-by-phase status; what is shipped, beta, and open |
-| [hosting.md](hosting.md) | The single-container image, how to build and run it, the settings, what is decided and what is not done |
+| [hosting.md](hosting.md) | The single-container image, how to build and run it, the settings, how it is published and deployed, what is not done |
+| [deploy.md](deploy.md) | Runbook for the droplet session: provision, Tailscale, backups, data move, rollback, restore. Written, not yet run |
 | [screenshots.md](screenshots.md) | `make shot`: PNGs of the app in a known state, for sessions without a browser window |
 | [troubleshooting.md](troubleshooting.md) | Failure modes by symptom, and where logs/state live |
 | [supply-chain-plan.md](supply-chain-plan.md) | Dependency cooldown, audits, Dependabot policy |

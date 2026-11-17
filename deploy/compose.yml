@@ -1,0 +1,52 @@
+# Production compose file for the droplet (docs/deploy.md, docs/hosting.md).
+# Installed to /opt/studious/compose.yml by deploy/provision.sh. Not the dev
+# file: that is docker-compose.yml at the repo root and builds locally.
+#
+# The API has NO authentication. The network is the authentication, so the
+# port is published on the droplet's loopback only; `tailscale serve --bg 8000`
+# is what puts it on the tailnet. Docker's published ports are NAT rules that
+# bypass ufw, which is why this must stay 127.0.0.1 and never become a bare
+# "8000:8000".
+name: studious
+
+services:
+  studious:
+    # CI pushes :main and :sha-<commit> to GHCR. studious-update.sh pulls
+    # :main, and retags the previous image as :previous for rollback. To pin
+    # a release by hand, set STUDIOUS_IMAGE=ghcr.io/zurt/studious:sha-<commit>
+    # for one `docker compose up -d` (docs/deploy.md, "Roll back by hand").
+    image: ${STUDIOUS_IMAGE:-ghcr.io/zurt/studious:main}
+    container_name: studious
+    restart: unless-stopped
+    # Compose only pulls when the image is missing; the update script pulls on
+    # purpose so it can compare image IDs before it touches the container.
+    pull_policy: missing
+    ports:
+      - "127.0.0.1:8000:8000"
+    # Keys and settings. Root-owned, mode 0600 (template: deploy/env.example).
+    # The file must exist: `required` is left at its default on purpose, so a
+    # missing file fails loudly instead of starting a container with no key.
+    env_file:
+      - /etc/studious/env
+    volumes:
+      # Everything the app owns. Must be writable by UID 10001, the container
+      # user: chown -R 10001:10001 /srv/studious/data. One path to back up.
+      - /srv/studious/data:/data
+    security_opt:
+      - no-new-privileges:true
+    # Memory. hosting.md ("Memory") measured a 437 MiB peak on a copy of the
+    # real library, and the container survived --memory=512m with no swap. This
+    # is 640 MiB: about 200 MiB over the measured peak, for x86 versus the
+    # arm64 measurement, real model responses and a second job at once, none of
+    # which were measured. That leaves about 320 MiB of a 1 GB droplet for
+    # Ubuntu, dockerd, Tailscale and restic. memswap_limit equal to mem_limit
+    # keeps the container out of swap, the way it was measured. If it is ever
+    # killed, docs/troubleshooting.md says how to see that.
+    mem_limit: 640m
+    memswap_limit: 640m
+    # The json-file driver never rotates by default, and the disk is small.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

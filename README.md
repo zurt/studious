@@ -171,8 +171,11 @@ status in `docs/hosting.md`):
 make docker-run      # mock VLM, throwaway volume, http://127.0.0.1:8000
 ```
 
-CI builds the image and smoke-tests it on every push. The image is not
-deployed anywhere yet.
+CI builds the image and smoke-tests it on every push, and pushes it to
+`ghcr.io/zurt/studious` on every push to `main`. The droplet tooling (a
+pull-based update timer, restic backups, a provision script) is in `deploy/`,
+with the runbook in `docs/deploy.md`; it has not been run against a droplet
+yet.
 
 ## Layout
 
@@ -196,6 +199,9 @@ deployed anywhere yet.
   `studious-mac`, a native macOS companion (`make run-mac`) that bridges
   directly to `data/store/*.jsonl` — no sync layer needed on the Mac. See
   `apple/README.md`, `docs/design/ios-app-plan.md`, and `docs/design/mac-app-plan.md`.
+- `deploy/` — what goes on the droplet: production compose file, update,
+  backup and restore-test scripts, systemd units, `provision.sh`
+  (`docs/deploy.md`).
 - `docs/` — project description, roadmap, and architecture documentation;
   `docs/README.md` indexes what is current, shipped design, or archived.
 
@@ -312,6 +318,7 @@ make test-apple      # iOS companion Swift suite (incl. FSRS golden parity)
 make test-e2e        # browser smoke suite (Playwright)
 make shot            # screenshots of the seeded app (docs/screenshots.md)
 make lint            # ruff (backend, benchmarks) + Biome (frontend)
+make deploy-selftest # deploy/ scripts against a fake docker and a local restic repo (Linux, needs restic)
 ```
 
 CI runs all of the above on every pull request (the Swift suite on a
