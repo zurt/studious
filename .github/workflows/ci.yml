@@ -100,7 +100,8 @@ jobs:
   # Builds the single-container image (Dockerfile) with plain `docker build`
   # and smoke-tests it on the mock VLM: health, built frontend at / and on a
   # deep SPA path, JSON 404 for unknown /api paths, mock provider, non-root.
-  # Image size and memory are printed in the log. Nothing is pushed anywhere.
+  # Image size and memory are printed in the log. This job pushes nothing; the
+  # `publish` job below builds again and pushes after every check has passed.
   docker:
     runs-on: ubuntu-latest
     steps:
@@ -109,6 +110,76 @@ jobs:
         run: docker build -t studious:smoke .
       - name: Smoke test
         run: scripts/docker-smoke.sh studious:smoke
+
+  # The droplet tooling (deploy/, docs/deploy.md): shellcheck, the production
+  # compose file, the systemd units, and scripts/deploy-selftest.sh, which runs
+  # the update script against a fake docker and the backup and restore-test
+  # scripts against a local restic repository. No droplet, B2 or Docker image.
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Shellcheck
+        run: shellcheck scripts/*.sh deploy/*.sh
+      - name: Validate the production compose file
+        # compose.yml reads /etc/studious/env, which exists only on the droplet.
+        run: |
+          sudo install -d -m 0700 /etc/studious
+          sudo touch /etc/studious/env
+          docker compose -f deploy/compose.yml config --quiet
+      - name: Verify the systemd units
+        # The units name scripts under /usr/local/lib/studious; verify checks
+        # that they are executable, so put empty stand-ins there.
+        run: |
+          sudo install -d /usr/local/lib/studious
+          for s in update backup restore-test; do
+            sudo install -m 0755 /dev/null "/usr/local/lib/studious/studious-$s.sh"
+          done
+          systemd-analyze verify "$PWD"/deploy/systemd/*.service "$PWD"/deploy/systemd/*.timer
+      - name: Install restic
+        run: sudo apt-get update && sudo apt-get install -y restic
+      - name: Update, backup and restore-test round trips
+        run: scripts/deploy-selftest.sh
+
+  # Only on a push to main, and only when every other job passed. Builds the
+  # image once more, smoke-tests that exact image, and pushes it to GHCR as
+  # :main and :sha-<commit>. The droplet pulls :main on a timer
+  # (deploy/studious-update.sh); CI holds no credential for the droplet and
+  # never joins the tailnet. The only secret here is the workflow's own
+  # GITHUB_TOKEN, which can write packages in this job only.
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [backend, frontend, e2e, apple, docker, deploy, audit]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    # One push at a time, so an older run cannot overwrite :main after a newer
+    # one. A run waiting behind another is replaced by the newest, not queued.
+    concurrency:
+      group: publish-image
+      cancel-in-progress: false
+    env:
+      IMAGE: ghcr.io/zurt/studious
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The labels link the package to this repository on GitHub.
+      - name: Build image
+        run: |
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            -t "$IMAGE:main" -t "$IMAGE:sha-${GITHUB_SHA}" .
+      - name: Smoke test
+        run: scripts/docker-smoke.sh "$IMAGE:main"
+      - name: Log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Push
+        run: |
+          docker push "$IMAGE:sha-${GITHUB_SHA}"
+          docker push "$IMAGE:main"
 
   audit:
     runs-on: ubuntu-latest

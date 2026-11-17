@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev dev-backend dev-reset run-backend say-helper dev-frontend test test-backend test-frontend test-e2e shot test-apple run-mac lint audit audit-log logs clean benchmark refs golden docker-build docker-run docker-smoke
+.PHONY: install install-backend install-frontend dev dev-backend dev-reset run-backend say-helper dev-frontend test test-backend test-frontend test-e2e shot test-apple run-mac lint audit audit-log logs clean benchmark refs golden docker-build docker-run docker-smoke deploy-selftest
 
 install: install-backend install-frontend
 	@echo ""
@@ -186,3 +186,9 @@ docker-smoke:
 
 clean:
 	rm -rf backend/.venv backend/.pytest_cache backend/**/__pycache__ frontend/node_modules frontend/dist
+
+# The droplet tooling in deploy/ (docs/deploy.md): the update script against a
+# fake docker, the backup and restore-test scripts against a local restic
+# repository. Linux only (flock, GNU date/find) and needs restic; no Docker.
+deploy-selftest:
+	scripts/deploy-selftest.sh

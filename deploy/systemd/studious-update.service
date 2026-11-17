@@ -1,0 +1,11 @@
+[Unit]
+Description=Pull the Studious image and roll the container over when it changed
+Documentation=https://github.com/zurt/studious/blob/main/docs/deploy.md
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/studious/studious-update.sh
+# Waiting for the healthcheck takes up to 180 s, twice when it rolls back.
+TimeoutStartSec=15min

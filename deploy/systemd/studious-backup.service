@@ -1,0 +1,15 @@
+[Unit]
+Description=Back up the Studious data directory with restic
+Documentation=https://github.com/zurt/studious/blob/main/docs/deploy.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/studious/studious-backup.sh
+# Keep restic's cache out of /root and the backup out of the container's way.
+CacheDirectory=restic
+Environment=RESTIC_CACHE_DIR=%C/restic
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=2h

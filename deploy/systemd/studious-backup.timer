@@ -1,0 +1,11 @@
+[Unit]
+Description=Back up the Studious data directory daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+# Run once at boot when the droplet was off at 03:30.
+Persistent=true
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target

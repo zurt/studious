@@ -1,0 +1,11 @@
+[Unit]
+Description=Test the Studious backup restore weekly
+
+[Timer]
+# Sunday, after the 03:30 backup has finished.
+OnCalendar=Sun *-*-* 05:00:00
+Persistent=true
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target

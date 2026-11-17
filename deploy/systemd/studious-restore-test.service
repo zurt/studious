@@ -1,0 +1,14 @@
+[Unit]
+Description=Restore the latest Studious backup to a temp directory and verify it
+Documentation=https://github.com/zurt/studious/blob/main/docs/deploy.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/studious/studious-restore-test.sh
+CacheDirectory=restic
+Environment=RESTIC_CACHE_DIR=%C/restic
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=2h
