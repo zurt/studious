@@ -122,11 +122,12 @@ jobs:
       - name: Shellcheck
         run: shellcheck scripts/*.sh deploy/*.sh
       - name: Validate the production compose file
-        # compose.yml reads /etc/studious/env, which exists only on the droplet.
+        # compose.yml reads /etc/studious/env, which exists only on the droplet
+        # and is root-only there, so compose runs as root here too.
         run: |
           sudo install -d -m 0700 /etc/studious
           sudo touch /etc/studious/env
-          docker compose -f deploy/compose.yml config --quiet
+          sudo docker compose -f deploy/compose.yml config --quiet
       - name: Verify the systemd units
         # The units name scripts under /usr/local/lib/studious; verify checks
         # that they are executable, so put empty stand-ins there.
