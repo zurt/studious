@@ -103,14 +103,17 @@ case "$1" in
     [ -f "$S/running_id" ] || exit 1
     case "$3" in
       '{{.Image}}') cat "$S/running_id" ;;
-      '{{.State.Running}}') echo true ;;
+      '{{.State.Running}}') if [ -f "$S/stopped" ]; then echo false; else echo true; fi ;;
       '{{.State.Health.Status}}')
         if grep -qxF "$(cat "$S/running_id")" "$S/bad_ids" 2>/dev/null; then echo unhealthy; else echo healthy; fi
         ;;
     esac
     ;;
   tag) resolve "$2" >"$(tagfile "$3")" ;;
-  compose) resolve ghcr.io/zurt/studious:main >"$S/running_id" ;;
+  compose)
+    resolve ghcr.io/zurt/studious:main >"$S/running_id"
+    rm -f "$S/stopped"
+    ;;
 esac
 FAKE
 chmod +x "$T/bin/docker"
@@ -144,6 +147,13 @@ reset_calls
 expect_ok "update: same image" upd
 expect_output "update: same image says up to date" "up to date"
 expect_equal "update: same image does not touch compose" 0 "$(compose_calls)"
+
+# Same image, but the container was stopped by hand: started again.
+touch "$S/stopped"
+reset_calls
+expect_ok "update: same image + stopped container" upd
+expect_output "update: stopped container is started" "starting it"
+expect_equal "update: stopped container calls compose once" 1 "$(compose_calls)"
 
 # New image, but a job is running: skipped, exit 0, container untouched.
 echo sha256:bbb >"$S/registry_id"

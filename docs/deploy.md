@@ -232,7 +232,7 @@ df -h /srv
 Mac: copy over the tailnet. Mind the trailing slashes.
 
 ```bash
-rsync -a --info=progress2 --exclude .DS_Store \
+rsync -a --stats --exclude .DS_Store \
   backend/data/ root@<droplet-tailnet-name>:/srv/studious/data/
 ```
 

@@ -104,6 +104,18 @@ if [ -z "$current_id" ]; then
   log "no container named $CONTAINER yet: first install of $new_id"
 else
   if [ "$new_id" = "$current_id" ]; then
+    # A container stopped by hand (`docker compose stop`, as the data move and
+    # the restore in docs/deploy.md do) is not restarted by its restart
+    # policy. Starting this unit is how it comes back.
+    if [ "$(docker inspect --format '{{.State.Running}}' "$CONTAINER" 2>/dev/null || echo false)" != "true" ]; then
+      log "up to date ($new_id) but the container is not running: starting it"
+      if bring_up; then
+        log "started: $new_id is healthy"
+        exit 0
+      fi
+      log "the container did not become healthy. Read: docker logs $CONTAINER"
+      exit 1
+    fi
     log "up to date ($new_id)"
     exit 0
   fi
