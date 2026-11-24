@@ -174,8 +174,8 @@ make docker-run      # mock VLM, throwaway volume, http://127.0.0.1:8000
 CI builds the image and smoke-tests it on every push, and pushes it to
 `ghcr.io/zurt/studious` on every push to `main`. The droplet tooling (a
 pull-based update timer, restic backups, a provision script) is in `deploy/`,
-with the runbook in `docs/deploy.md`; it has not been run against a droplet
-yet.
+with the runbook in `docs/deploy.md`; production has run on a droplet since
+2026-11-23, reached over Tailscale.
 
 ## Layout
 

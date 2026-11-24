@@ -96,21 +96,20 @@ Still to do, in order:
    cap, so a 1 GB droplet is enough on this evidence (limits of the
    measurement are in the hosting doc). Still open: the `docker` job is not
    a required check until the owner adds it to the ruleset.
-6. Droplet, Tailscale, backups, CI deploy, data move. Built 2026-11-16,
-   not run: the `publish` CI job (image to `ghcr.io/zurt/studious`, `:main`
+6. Droplet, Tailscale, backups, CI deploy, data move. **Done 2026-11-23**:
+   production runs on the droplet, reached over Tailscale; backups go to
+   B2 daily and the first full restore test passed; the Mac's
+   `backend/data` is an old copy that nothing runs against. Fixes from the
+   first run are in `deploy.md` and `provision.sh` (timers enabled by the
+   runbook, automatic reboot at 09:00 UTC, Tailscale auto-update). Still
+   open: alerting (a failed timer shows only in `systemctl --failed`).
+   Built 2026-11-16: the `publish` CI job (image to `ghcr.io/zurt/studious`, `:main`
    and `:sha-<commit>`, on push to `main` only), `deploy/` (production
    compose file, env templates, pull-based update timer with a job-idle
    check and rollback, restic backup and weekly restore-test timers,
    idempotent `provision.sh` with ufw and Tailscale, `--lock-down` for
    public SSH), the `deploy` CI job (shellcheck, compose config, systemd
    verify, `scripts/deploy-selftest.sh`) and the runbook `docs/deploy.md`.
-   Remaining, all in the owner's one-hour session: the B2 bucket and
-   restricted key, the droplet, `provision.sh`, `tailscale up --ssh` and
-   `tailscale serve`, locking down SSH, making the GHCR package public,
-   the production key in `/etc/studious/env`, the data move, `restic init`
-   with the first backup and restore test, and the Mac routes for speech and
-   Anki (step 8). Then check that the first `publish` run succeeded and the
-   timers fire.
 7. Move the Mac and iOS apps from direct file access to the API.
 8. **Features that rely on the service running on the Mac need a new
    home** once production is on Linux: the macOS voices (TTS), Anki sync
@@ -127,10 +126,10 @@ Still to do, in order:
    background generation at harvest with a catch-up list and
    `POST /api/tts/catch-up`, cached clips served while the engine is down,
    and the reworded messages (details in `docs/hosting.md`, "New homes").
-   Still to do: a LaunchAgent so the helper starts at login, and trying
-   the `tailscale serve` routes for both Anki and the helper once the
-   droplet exists (neither has been run). The helper was run for real on
-   the Mac over loopback: about 1.2 s a clip (`docs/hosting.md`); the
+   The `tailscale serve` routes for Anki and the helper work from the
+   droplet (2026-11-23): audio plays and Anki sync works. Still to do: a
+   LaunchAgent so the helper starts at login. The helper was run for real
+   on the Mac over loopback: about 1.2 s a clip (`docs/hosting.md`); the
    tailnet path is untimed.
 
 ### 2. Letting Claude Code sessions see the UI

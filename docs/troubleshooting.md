@@ -856,8 +856,9 @@ pages.
 
 ## Droplet (`deploy/`, `docs/deploy.md`)
 
-Written 2026-11-16, before any droplet existed: these are the failures the
-scripts were built to report, not ones seen yet. Unit logs are in the journal:
+Written 2026-11-16, before any droplet existed, as the failures the scripts
+were built to report; entries marked "seen" happened on the first droplet
+(2026-11-17 to 11-23). Unit logs are in the journal:
 `journalctl -u studious-update` (or `-backup`, `-restore-test`); `systemctl
 --failed` lists units whose last run failed.
 
@@ -911,7 +912,13 @@ live run are not removed by `unlock`.
 
 ### The backup says "Fatal: unable to open config file" or "wrong password"
 `restic init` was not run yet (first case), or `/etc/studious/restic-password`
-does not match the one the repository was created with (second). The
+does not match the one the repository was created with (second). Seen: with
+B2 the first case reads `Stat: b2_download_file_by_name: 404` and "Is there a
+repository at the following location?". On the first droplet both the backup
+and the restore test failed that way before step 11, because `provision.sh`
+then enabled the timers and the 09:00 automatic reboot started them. It no
+longer enables them; on a droplet provisioned before that, the failures are
+harmless: run step 11, then `systemctl reset-failed`. The
 passphrase in the password manager is the original. B2 errors that say
 `401` or `bucket not found` mean the key in `restic.env` is wrong or is
 restricted to another bucket.
@@ -926,6 +933,34 @@ the snapshot is stale: check `restic snapshots` and the backup log), `does not
 fit` (set `RESTORE_SUBSET=store`, or free disk space). A weekly failure with
 `restored store/ only` in the log is not a failure; it is the disk-space
 fallback.
+
+### `make say-helper` fails with "Address already in use", or `/health` on 8766 returns an HTML "File not found" page
+Seen. Another process holds 127.0.0.1:8766. The helper answers `/health` with
+JSON (`"service": "studious-say-helper"`); an HTML error page with "File not
+found" is Python's `http.server`, on the first run a file server left over
+from another Claude Code session's scratchpad. Find it on the Mac with `lsof
+-nP -iTCP:8766 -sTCP:LISTEN`, then `ps -o pid,lstart,command -p <pid>` and
+`lsof -a -p <pid> -d cwd` to see what it is; stop it with `kill <pid>` if
+nothing needs it. Or run the helper on another port
+(`STUDIOUS_SAY_HELPER_PORT=8767 make say-helper`) and use that port in
+`tailscale serve` and `STUDIOUS_SAY_HELPER_URL`.
+
+### Speech on the droplet says unavailable, or words stay "waiting for audio"
+The droplet reaches the Mac's helper through `tailscale serve --tcp 8766` on
+the Mac. Check from the droplet: `curl -s http://<mac-tailnet-name>:8766/health`.
+No answer: the helper is not running (it does not start at login yet; run
+`make say-helper`), the Mac is asleep or off the tailnet, or the route is gone
+(`tailscale serve status` on the Mac). Anki the same way on 8765, with Anki
+open. Waiting items are retried every 5 minutes, so nothing is lost.
+
+### Tailscale SSH to the droplet feels laggy
+`tailscale ping <droplet-tailnet-name>` from the Mac says which path is in
+use: `via DERP(<region>)` is a relay, `via <ip>:41641` is direct. A new
+connection often starts on a relay and goes direct within seconds; the first
+direct pong can be slow (seen: 513 ms, against 14 ms through DERP). If it stays
+on DERP, `tailscale netcheck` on the Mac shows whether its network allows
+direct UDP, and the droplet needs UDP 41641 open (ufw from `provision.sh`, and
+the DigitalOcean firewall rule).
 
 ### Something answers on the droplet's public IP, or `ss -ltnp` shows 8000 on `0.0.0.0`
 It must not. `docker ps` must show `127.0.0.1:8000->8000/tcp`; a bare

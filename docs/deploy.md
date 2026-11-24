@@ -5,13 +5,13 @@ droplet. The decisions behind it are in `hosting.md` and `next-steps.md`
 (session 1, step 6): one container, reachable only over Tailscale, pulled from
 GHCR by a timer on the droplet, encrypted backups to Backblaze B2.
 
-> **None of this has been run against a real droplet.** The scripts, units and
-> CI jobs were written and tested without one: the update script against a fake
-> `docker`, the backup and restore-test scripts against a local restic
-> repository (`make deploy-selftest`). `provision.sh`, the systemd units, the
-> `tailscale` and `ufw` commands, B2 and GHCR have not been tried. Expect the
-> first run to turn up a few problems; `troubleshooting.md` ("Droplet") lists
-> the likely ones. Fix the script or this page as you go.
+> **First run: 2026-11-17 to 11-23**, on Ubuntu 24.04 with a 1 GB droplet,
+> every step through 12. It worked as written apart from the notes now in the
+> steps below: the DigitalOcean firewall form, the GHCR package that was
+> already public, timers that started early after a reboot (fixed in
+> `provision.sh`), and a stray process on the speech helper's port.
+> `troubleshooting.md` ("Droplet") has what was seen. Fix the script or this
+> page as you go.
 
 Who runs what: **Mac** is a terminal on the laptop, **droplet** is a root shell
 on the droplet (over SSH), **web** is a browser.
@@ -22,7 +22,8 @@ on the droplet (over SSH), **web** is a browser.
 |---|---|
 | `/opt/studious/compose.yml` | The production compose file (`deploy/compose.yml`) |
 | `/usr/local/lib/studious/` | `studious-update.sh`, `studious-backup.sh`, `studious-restore-test.sh` |
-| `/etc/systemd/system/studious-*.{service,timer}` | Update every 5 minutes, backup daily 03:30 UTC, restore test Sundays 05:00 UTC |
+| `/etc/systemd/system/studious-*.{service,timer}` | Update every 5 minutes, backup daily 03:30 UTC, restore test Sundays 05:00 UTC. Enabled by hand in steps 8 and 11, not by `provision.sh` |
+| `/etc/apt/apt.conf.d/52studious-reboot` | Reboot at 09:00 UTC when a security update needs it (see "Keeping it patched") |
 | `/etc/studious/env` | The container's environment: API key and settings (0600) |
 | `/etc/studious/restic.env`, `restic-password` | Backup repository, B2 key, passphrase (0600) |
 | `/srv/studious/data` | The data directory, owned by UID 10001, bind-mounted at `/data` |
@@ -62,7 +63,12 @@ healthcheck and, if that fails, puts the previous image back and exits non-zero.
   `store`-only restore test. Resize the disk if it fills (`df -h`).
 - Region: any. It matters only for the round trip to the Anthropic API
   (`hosting.md`); the Mac reaches it over the tailnet either way.
-- Authentication: your SSH key. No password. Leave DigitalOcean's paid backups
+- Networking: IPv4 only; leave IPv6 off. Nothing here uses it.
+- Authentication: an SSH key, no password. A key made just for the droplet
+  (`ssh-keygen -t ed25519 -f ~/.ssh/studious_droplet`, then `ssh-add
+  --apple-use-keychain ~/.ssh/studious_droplet` to keep its passphrase in the
+  Keychain) can be revoked without touching anything else. After step 5 it is
+  only needed from the Recovery Console. Leave DigitalOcean's paid backups
   off; restic is the backup.
 - Note the public IP. You use it once, in the next step.
 
@@ -71,7 +77,7 @@ healthcheck and, if that fails, puts the previous image back and exits non-zero.
 Mac:
 
 ```bash
-ssh root@<droplet-public-ip>
+ssh -i ~/.ssh/studious_droplet root@<droplet-public-ip>
 ```
 
 Droplet:
@@ -86,8 +92,9 @@ cd studious/deploy
 unattended-upgrades from Ubuntu, and Tailscale from Tailscale's apt
 repository; adds a 1 GB swap file; creates `/srv/studious/data` and
 `/etc/studious`; installs the scripts, compose file and units; sets up ufw
-(deny incoming, allow `tailscale0` and UDP 41641, allow SSH for now); enables
-the three timers without starting them. It is safe to run again, and it never
+(deny incoming, allow `tailscale0` and UDP 41641, allow SSH for now); turns
+on the 09:00 UTC automatic reboot. It does not enable the timers: steps 8 and
+11 do, once what each needs exists. It is safe to run again, and it never
 overwrites the files in `/etc/studious`.
 
 At the end it prints the restic passphrase it generated. **Copy it into the
@@ -100,9 +107,12 @@ Droplet:
 
 ```bash
 tailscale up --ssh
+tailscale set --auto-update
 ```
 
 Open the login URL it prints in a browser on the Mac and approve the machine.
+The second command lets Tailscale update itself: unattended-upgrades only
+takes Ubuntu's own packages, and Tailscale is the only way in after step 5.
 Then, in the Tailscale admin console (web), open the droplet's menu and choose
 **Disable key expiry**, or it drops off the tailnet when the key expires.
 
@@ -113,7 +123,10 @@ tailscale status                       # the droplet is listed
 ssh root@<droplet-tailnet-name>        # Tailscale SSH, no key needed
 ```
 
-Do not go on until the second command works.
+Do not go on until the second command works. If typing feels laggy, `tailscale
+ping <droplet-tailnet-name>` says whether the path is `via DERP(...)` (a
+relay) or direct; new connections often start on a relay and go direct
+within seconds.
 
 ## 5. Close public SSH (droplet, then web)
 
@@ -128,10 +141,14 @@ It removes the ufw rule for port 22. Check from the Mac: `ssh -o ConnectTimeout=
 root@<droplet-public-ip>` must time out, and the tailnet SSH from step 4 must
 still work in a new terminal.
 
-Second layer (web): Networking, Firewalls, create a firewall with **one inbound
-rule, UDP 41641 from anywhere** (Tailscale's direct connections), no SSH, no
-HTTP, no HTTPS; outbound all. Apply it to the droplet. Tailscale also works
-through relays without that rule, so it only improves speed.
+Second layer (web): Networking, Firewalls, create a firewall (any name, e.g.
+`studious`) with **one inbound rule, UDP 41641 from anywhere** (Tailscale's
+direct connections), no SSH, no HTTP, no HTTPS; outbound all. In the rule
+form, set **Type to Custom**: "All UDP" hides the port field. Protocol UDP,
+port 41641, sources All IPv4 and All IPv6 only (remove the droplet's own tag
+if the form adds it). Delete the default SSH rule, and apply the firewall to
+the droplet. Tailscale also works through relays without that rule, so it
+only improves speed.
 
 Recovery if you lock yourself out: DigitalOcean's web **Recovery Console** (droplet
 page, Access) does not use the network. Open public SSH again from there with
@@ -146,7 +163,8 @@ the firewall alone would not protect port 8000. `compose.yml` binds it to
 The repo is public and the image holds no secrets, so the droplet can pull
 without a credential. github.com/zurt?tab=packages, open `studious`, Package
 settings, Change visibility, Public. A package created by the first `publish`
-run is private until you do this.
+run is private until you do this. Once it is public (it was by the first
+run), this step is just the check below.
 
 Check from the droplet (no login on this machine):
 
@@ -185,7 +203,7 @@ systemctl start studious-update.service    # waits for the healthcheck, up to 3 
 journalctl -u studious-update -n 30 --no-pager
 docker ps
 curl -s http://127.0.0.1:8000/api/health   # {"ok":true}
-systemctl start studious-update.timer
+systemctl enable --now studious-update.timer
 ```
 
 The log should say `first install of sha256:...` and `rollout done`. If it
@@ -273,8 +291,14 @@ journalctl -u studious-backup -n 20 --no-pager
 restic snapshots
 systemctl start studious-restore-test.service
 journalctl -u studious-restore-test -n 30 --no-pager
-systemctl start studious-backup.timer studious-restore-test.timer
+systemctl enable --now studious-backup.timer studious-restore-test.timer
 ```
+
+The backup log ends in `studious-backup: done`; the restore test's in
+`ok (restored: full)` (or `store`). A failure from before `restic init` (a
+`404` and "Is there a repository at the following location?") is a timer that
+ran too early: clear it with `systemctl reset-failed` once a manual run
+passes.
 
 The restore test restores the latest snapshot to a temp directory, checks the
 repository (reading 5% of the data), parses every `store/*.jsonl`, and compares
@@ -288,18 +312,45 @@ manager now by reading it back against `/etc/studious/restic-password`.
 
 ## 12. Speech and Anki on the Mac (Mac, droplet)
 
-Both stay on the Mac and are reached over the tailnet. `hosting.md`, "New
-homes", has the Mac side (`make say-helper`, `tailscale serve --tcp 8766 ...`
-and `--tcp 8765 ...`) and the variables; none of it has been tried yet. Then:
+Both stay on the Mac and are reached over the tailnet (`hosting.md`, "New
+homes"). Worked as written on the first run.
 
-1. Mac: start the helper and publish the routes as `hosting.md` says. From the
-   droplet, `curl http://<mac-tailnet-name>:8766/health` must answer.
-2. Droplet: uncomment `STUDIOUS_TTS_ENGINE`, `STUDIOUS_SAY_HELPER_URL` and
+1. Mac: start the helper in its own terminal and publish it:
+   ```bash
+   make say-helper
+   curl -s http://127.0.0.1:8766/health     # {"ok": true, "service": "studious-say-helper", ...}
+   tailscale serve --bg --tcp 8766 tcp://127.0.0.1:8766
+   ```
+   An HTML "File not found" page instead of that JSON, or `Address already
+   in use` from `make say-helper`, means something else holds the port
+   (`troubleshooting.md`).
+2. Mac, with Anki open:
+   ```bash
+   curl -s http://127.0.0.1:8765 -d '{"action":"version","version":6}'
+   tailscale serve --bg --tcp 8765 tcp://127.0.0.1:8765
+   tailscale serve status
+   ```
+3. Droplet: both must answer before going on.
+   ```bash
+   curl -s http://<mac-tailnet-name>:8766/health
+   curl -s http://<mac-tailnet-name>:8765 -d '{"action":"version","version":6}'
+   ```
+4. Droplet: uncomment `STUDIOUS_TTS_ENGINE`, `STUDIOUS_SAY_HELPER_URL` and
    `ANKI_CONNECT_URL` in `/etc/studious/env`, with the Mac's tailnet name.
-3. Droplet: apply it when no job is running (the container restarts):
+   Apply it when no job is running (the container restarts):
    `docker compose -f /opt/studious/compose.yml up -d --force-recreate`.
-4. Once, to make clips for the moved library: `POST /api/tts/catch-up` with
-   `{"all": true}` (`hosting.md`).
+5. Once, to make clips for the moved library (Settings > Speech's "Generate
+   now" only covers items already waiting):
+   ```bash
+   curl -s -X POST http://127.0.0.1:8000/api/tts/catch-up \
+     -H 'Content-Type: application/json' -d '{"all": true}'
+   ```
+   The Mac makes them in the background; keep the helper running until the
+   pending count in Settings > Speech is zero.
+6. In the app: play a word's audio, and press the Anki sync button.
+
+The `tailscale serve` routes survive a Mac reboot; the helper does not (no
+LaunchAgent yet), so run `make say-helper` again after a login.
 
 ## After that
 
@@ -320,6 +371,27 @@ anywhere by itself; look weekly until you have decided on an alert.
 
 An update waiting for a running job logs `new image ... is waiting` and exits
 0, so it does not show as failed.
+
+### Keeping it patched
+
+- **Ubuntu packages** (Docker, the compose plugin, restic, OpenSSL, ...):
+  unattended-upgrades, daily.
+- **Reboots** for kernel and glibc fixes: automatic at 09:00 UTC when one is
+  pending (`/etc/apt/apt.conf.d/52studious-reboot`). The time is the
+  droplet's own zone, UTC by default (`timedatectl`). Everything comes back
+  by itself; a job running at that moment is lost.
+- **Tailscale**: its own updater (`tailscale set --auto-update`, step 4).
+- **The image**: Dependabot PRs for Python, npm, Actions and the base images,
+  and a weekly CI audit. Merging to `main` publishes, and the droplet pulls
+  within 5 minutes.
+
+```bash
+cat /var/run/reboot-required.pkgs 2>/dev/null   # what wants a reboot, if anything
+grep -i 'packages that will be upgraded' /var/log/unattended-upgrades/unattended-upgrades.log | tail
+unattended-upgrade --dry-run --debug 2>&1 | head  # after editing the apt config
+```
+
+In that dry run's output, `ErrorText: ''` on a download line is not an error.
 
 ### Roll back by hand
 
@@ -349,8 +421,11 @@ restic snapshots
 restic restore latest --host studious --tag studious --target /
 chown -R 10001:10001 /srv/studious/data
 systemctl start studious-update.service
-systemctl start studious-update.timer studious-backup.timer
+systemctl enable --now studious-update.timer studious-backup.timer studious-restore-test.timer
 ```
+
+On a new droplet `provision.sh` has not enabled the timers; `enable --now` at
+the end does, and on the old droplet it just starts them again.
 
 `restic restore` puts files back at their original path, so `--target /`
 recreates `/srv/studious/data`. A snapshot other than the latest: use its ID
