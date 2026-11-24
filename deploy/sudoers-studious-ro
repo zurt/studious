@@ -1,0 +1,6 @@
+# What the read-only user may run as root. Installed by provision.sh to
+# /etc/sudoers.d/studious-ro (0440) after `visudo -cf` passes on it. A bare ""
+# means no arguments. studious-logs takes a number, which the script checks.
+studious-ro ALL=(root) NOPASSWD: /usr/local/sbin/studious-status ""
+studious-ro ALL=(root) NOPASSWD: /usr/local/sbin/studious-stats ""
+studious-ro ALL=(root) NOPASSWD: /usr/local/sbin/studious-logs, /usr/local/sbin/studious-logs *

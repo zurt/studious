@@ -7,5 +7,9 @@ After=network-online.target docker.service
 [Service]
 Type=oneshot
 ExecStart=/usr/local/lib/studious/studious-update.sh
-# Waiting for the healthcheck takes up to 180 s, twice when it rolls back.
-TimeoutStartSec=15min
+# The pre-rollout backup needs restic's cache, as studious-backup.service does.
+CacheDirectory=restic
+Environment=RESTIC_CACHE_DIR=%C/restic
+# Up to 10 min for the pre-rollout backup, then the healthcheck wait of up to
+# 180 s, twice when it rolls back.
+TimeoutStartSec=25min

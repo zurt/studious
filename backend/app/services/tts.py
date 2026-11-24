@@ -231,6 +231,15 @@ def _voices_path() -> Path:
     return audio_dir() / VOICES_FILE
 
 
+def _mkstemp(suffix: str, dir: Path) -> tuple[int, str]:
+    """tempfile.mkstemp, but 0644. mkstemp makes 0600 files, and these are
+    renamed into the data directory, where the read-only pull user reads them
+    through the group (docs/deploy.md)."""
+    fd, name = tempfile.mkstemp(suffix=suffix, dir=dir)
+    os.fchmod(fd, 0o644)
+    return fd, name
+
+
 def _save_listing(listing: str) -> None:
     """Keep the helper's latest voice listing on disk (atomically), so the pool
     is known while the Mac is unreachable."""
@@ -239,7 +248,7 @@ def _save_listing(listing: str) -> None:
         if path.exists() and path.read_text(encoding="utf-8") == listing:
             return
         path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(suffix=".tmp", dir=path.parent)
+        fd, tmp = _mkstemp(".tmp", path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 fh.write(listing)
@@ -493,7 +502,7 @@ def _cached(key: str) -> Path | None:
 
 def _say(text: str, out: Path, voice_name: str) -> Path:
     fd_in, in_name = tempfile.mkstemp(suffix=".txt", dir=out.parent)
-    fd_out, tmp_out = tempfile.mkstemp(suffix=".m4a", dir=out.parent)
+    fd_out, tmp_out = _mkstemp(".m4a", out.parent)
     os.close(fd_out)
     try:
         with os.fdopen(fd_in, "w", encoding="utf-8") as fh:
@@ -531,7 +540,7 @@ def _say_with_fallback(text: str, out: Path, chain: list[str]) -> Path:
 
 
 def _write_atomic(data: bytes, out: Path, suffix: str) -> None:
-    fd, tmp = tempfile.mkstemp(suffix=suffix, dir=out.parent)
+    fd, tmp = _mkstemp(suffix, out.parent)
     try:
         with os.fdopen(fd, "wb") as fh:
             fh.write(data)
@@ -607,7 +616,7 @@ def _voicevox(text: str, reading: str | None, key: str, report: dict[str, Any] |
         raise TtsError("the speech engine produced no usable audio")
     d = audio_dir()
     wav = d / f"{key}.wav"
-    fd, tmp = tempfile.mkstemp(suffix=".wav", dir=d)
+    fd, tmp = _mkstemp(".wav", d)
     try:
         with os.fdopen(fd, "wb") as fh:
             fh.write(wav_bytes)

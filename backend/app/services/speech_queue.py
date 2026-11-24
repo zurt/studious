@@ -56,6 +56,8 @@ def _save(ids: list[str]) -> None:
     path = pending_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(suffix=".tmp", dir=path.parent)
+    # mkstemp makes 0600 files; the read-only pull user reads through the group.
+    os.fchmod(fd, 0o644)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(ids, fh)

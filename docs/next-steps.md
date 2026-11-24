@@ -157,7 +157,11 @@ Still to do, in order:
      stays off the Mac.
 
    **PR 1, droplet side** (`deploy/`, `docs/deploy.md`; needs the owner to
-   re-run `provision.sh` and check):
+   re-run `provision.sh` and check). **Built 2026-11-23.** What remains for
+   the owner: re-run `provision.sh` on the droplet, add the `ssh` rule to the
+   tailnet policy (exact JSON in `docs/deploy.md`, "Read-only access"), run
+   `sudo studious-status` as `studious-ro`, and check that `docker ps` is
+   refused for it. The design as decided:
    - A read-only user `studious-ro`: in `systemd-journal` (reads the
      journal) and in a group that can read `/srv/studious/data` (for the
      pull below), **not** in `docker` (root-equivalent). A few root-owned

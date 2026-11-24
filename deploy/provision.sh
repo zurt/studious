@@ -26,6 +26,8 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR=/usr/local/lib/studious
 APP_DIR=/opt/studious
 ETC_DIR=/etc/studious
+SBIN_DIR=/usr/local/sbin
+RO_USER=studious-ro
 DATA_DIR=/srv/studious/data
 UNIT_DIR=/etc/systemd/system
 LOCKED_MARKER="$ETC_DIR/locked-down"
@@ -60,7 +62,8 @@ case "${1:-}" in
 esac
 
 for f in compose.yml env.example restic.env.example studious-update.sh studious-backup.sh \
-  studious-restore-test.sh systemd/studious-update.service systemd/studious-update.timer; do
+  studious-restore-test.sh studious-status.sh studious-logs.sh studious-stats.sh sudoers-studious-ro \
+  systemd/studious-update.service systemd/studious-update.timer; do
   [ -f "$SRC/$f" ] || fail "$SRC/$f is missing: run this from a full copy of the repo's deploy/ directory"
 done
 
@@ -149,6 +152,42 @@ for s in studious-update.sh studious-backup.sh studious-restore-test.sh; do
   install -m 0755 "$SRC/$s" "$LIB_DIR/$s"
 done
 install -m 0644 "$SRC/compose.yml" "$APP_DIR/compose.yml"
+
+# ---- Read-only user -----------------------------------------------------------
+# $RO_USER troubleshoots over Tailscale SSH (docs/deploy.md) and is the account
+# `make pull-data` copies the data with. It reads the journal and, through a
+# group, the data directory. It is not in docker (root-equivalent), sudo or adm.
+# What it may run as root is a few fixed scripts: sudoers-studious-ro.
+log "setting up the read-only user $RO_USER"
+data_group="$(getent group "$CONTAINER_UID" | cut -d: -f1 || true)"
+if [ -z "$data_group" ]; then
+  groupadd --gid "$CONTAINER_UID" studious-data
+  data_group=studious-data
+fi
+if ! id "$RO_USER" >/dev/null 2>&1; then
+  useradd --create-home --shell /bin/bash --user-group "$RO_USER"
+fi
+# No password: Tailscale SSH logs in without keys or passwords.
+passwd -l "$RO_USER" >/dev/null
+usermod -aG "systemd-journal,$data_group" "$RO_USER"
+for g in docker sudo adm; do
+  gpasswd -d "$RO_USER" "$g" >/dev/null 2>&1 || true
+done
+
+# The directory is 0750 container:container, so the group sees in only when the
+# files inside are group-readable. The app writes 0644 now, but older audio
+# clips are 0600 (tempfile.mkstemp). This is stat only, a few thousand files,
+# unlike the recursive chown above that a re-run must avoid.
+find "$DATA_DIR" -type f ! -perm -g=r -exec chmod g+r {} +
+find "$DATA_DIR" -type d ! -perm -g=rx -exec chmod g+rx {} +
+
+log "installing the read-only wrappers to $SBIN_DIR and the sudoers file"
+for w in studious-status studious-logs studious-stats; do
+  install -m 0755 -o root -g root "$SRC/$w.sh" "$SBIN_DIR/$w"
+done
+# A bad sudoers file can lock sudo out, so check it before it is in place.
+visudo -cf "$SRC/sudoers-studious-ro" >/dev/null || fail "$SRC/sudoers-studious-ro does not pass visudo -c"
+install -m 0440 -o root -g root "$SRC/sudoers-studious-ro" /etc/sudoers.d/studious-ro
 
 # ---- systemd -----------------------------------------------------------------
 log "installing systemd units"

@@ -3,15 +3,21 @@
 #
 #   scripts/deploy-selftest.sh        (or: make deploy-selftest)
 #
-# Two parts, both Linux only (they use flock, GNU date/find/stat, and restic):
-#   1. studious-update.sh against a fake `docker` on PATH and a temp data
-#      directory: new image + idle -> rollout; new image + a running job ->
-#      skipped; unhealthy after rollout -> rollback and non-zero exit; and the
-#      edge cases around them.
-#   2. studious-backup.sh and studious-restore-test.sh against a local restic
+# Three parts, all Linux only (they use flock, timeout, GNU date/find/stat, and
+# restic):
+#   1. studious-update.sh against a fake `docker` on PATH, a stub backup and a
+#      temp data directory: new image + idle -> pre-rollout backup, then
+#      rollout (a failed backup only warns; a job that appears during it skips
+#      the rollout); new image + a running job -> skipped; unhealthy after
+#      rollout -> rollback and non-zero exit; and the edge cases around them.
+#   2. The read-only user's wrappers (studious-logs, studious-stats) against
+#      the same fake docker: argument checks, and docker is never called on a
+#      bad one.
+#   3. studious-backup.sh and studious-restore-test.sh against a local restic
 #      repository: a good round trip passes; files changed since the snapshot
 #      are tolerated; a checksum mismatch, bad JSONL and a damaged repository
-#      each fail.
+#      each fail; pre-rollout snapshots are tagged and survive a daily run's
+#      retention.
 # Used by the `deploy` job in .github/workflows/ci.yml, which installs restic
 # from apt. Touches nothing outside a temp directory, removed on exit.
 set -euo pipefail
@@ -125,10 +131,27 @@ if ! command -v flock >/dev/null; then
   chmod +x "$T/bin/flock"
 fi
 
+# A stub for studious-backup.sh. It records the kind and how many compose calls
+# had happened (to show the backup comes first), exits with the code in
+# $T/backup_rc, and when $T/backup_job exists starts a job, as one arriving
+# during the backup would.
+cat >"$T/backup-stub.sh" <<'STUB'
+#!/usr/bin/env bash
+echo "$BACKUP_KIND compose_before=$(grep -c '^compose' "$FAKE_STATE/calls" || true)" >>"$BACKUP_CALLS"
+[ ! -f "$BACKUP_JOB" ] || echo '{"id": "jx", "status": "running"}' >"$BACKUP_JOB_FILE"
+exit "$(cat "$BACKUP_RC" 2>/dev/null || echo 0)"
+STUB
+chmod +x "$T/backup-stub.sh"
+# The file exists from the start, so a count with no calls is 0, not empty.
+: >"$T/backup_calls"
+backup_calls() { grep -c . "$T/backup_calls" || true; }
+
 upd() {
   env PATH="$T/bin:$PATH" FAKE_STATE="$S" DATA_DIR="$T/data" STATE_DIR="$T/state" \
     LOCK_FILE="$T/lock" COMPOSE_FILE="$T/compose.yml" HEALTH_TIMEOUT=2 HEALTH_INTERVAL=0.2 \
-    JOBS_STALE_MIN=60 bash "$DEPLOY/studious-update.sh"
+    JOBS_STALE_MIN=60 BACKUP_CMD="$T/backup-stub.sh" PRE_ROLLOUT_BACKUP_TIMEOUT=30 \
+    BACKUP_CALLS="$T/backup_calls" BACKUP_RC="$T/backup_rc" BACKUP_JOB="$T/backup_job" \
+    BACKUP_JOB_FILE="$T/data/jobs/jx.json" bash "$DEPLOY/studious-update.sh"
 }
 reset_calls() { : >"$S/calls"; }
 compose_calls() { grep -c '^compose' "$S/calls" || true; }
@@ -141,12 +164,14 @@ echo sha256:aaa >"$S/registry_id"
 reset_calls
 expect_ok "update: first install" upd
 expect_equal "update: first install runs the new image" sha256:aaa "$(running)"
+expect_equal "update: first install takes no backup" 0 "$(backup_calls)"
 
 # Nothing new: no rollout.
 reset_calls
 expect_ok "update: same image" upd
 expect_output "update: same image says up to date" "up to date"
 expect_equal "update: same image does not touch compose" 0 "$(compose_calls)"
+expect_equal "update: same image takes no backup" 0 "$(backup_calls)"
 
 # Same image, but the container was stopped by hand: started again.
 touch "$S/stopped"
@@ -154,6 +179,7 @@ reset_calls
 expect_ok "update: same image + stopped container" upd
 expect_output "update: stopped container is started" "starting it"
 expect_equal "update: stopped container calls compose once" 1 "$(compose_calls)"
+expect_equal "update: restarting a stopped container takes no backup" 0 "$(backup_calls)"
 
 # New image, but a job is running: skipped, exit 0, container untouched.
 echo sha256:bbb >"$S/registry_id"
@@ -163,6 +189,7 @@ expect_ok "update: new image + running job is skipped" upd
 expect_output "update: skip says why" "job is queued or running"
 expect_equal "update: skip leaves the container alone" sha256:aaa "$(running)"
 expect_equal "update: skip does not call compose" 0 "$(compose_calls)"
+expect_equal "update: a skipped rollout takes no backup" 0 "$(backup_calls)"
 
 # A queued job counts too.
 echo '{"id": "j1", "status": "completed"}' >"$T/data/jobs/j1.json"
@@ -180,6 +207,8 @@ reset_calls
 expect_ok "update: new image + idle (stale job ignored) rolls out" upd
 expect_output "update: rollout is logged" "rollout done"
 expect_equal "update: rollout runs the new image" sha256:bbb "$(running)"
+expect_equal "update: rollout takes one pre-rollout backup, before compose" "pre-rollout compose_before=0" "$(cat "$T/backup_calls")"
+expect_output "update: backup is logged" "pre-rollout backup done"
 expect_equal "update: the previous image is kept as :previous" sha256:aaa "$(tag_of previous)"
 if grep -q '^image prune' "$S/calls"; then pass "update: prunes after a good rollout"; else echo "no prune call" >"$T/out.txt" && bad "update: prunes after a good rollout"; fi
 
@@ -217,7 +246,60 @@ expect_fail "update: a refused pull exits non-zero" upd
 expect_output "update: refused pull points at the package visibility" "package is still private"
 rm -f "$S/pull_fails"
 
-# ---- 2. backup and restore test --------------------------------------------------
+# A failing backup (B2 down, or a timeout) only warns; the rollout happens.
+echo sha256:eee >"$S/registry_id"
+echo 3 >"$T/backup_rc"
+: >"$T/backup_calls"
+reset_calls
+expect_ok "update: a failed backup does not stop the rollout" upd
+expect_output "update: failed backup is logged as a warning" "pre-rollout backup failed \(exit 3\); rolling out anyway"
+expect_equal "update: rollout went ahead after the failed backup" sha256:eee "$(running)"
+expect_equal "update: failed-backup rollout tried the backup once" 1 "$(backup_calls)"
+
+# A job that starts while the backup runs: skip the rollout, exit 0.
+echo sha256:fff >"$S/registry_id"
+echo 0 >"$T/backup_rc"
+touch "$T/backup_job"
+: >"$T/backup_calls"
+reset_calls
+expect_ok "update: a job appearing during the backup skips the rollout" upd
+expect_output "update: says the job started during the backup" "job started during the backup"
+expect_equal "update: skipped after the backup leaves the container alone" sha256:eee "$(running)"
+expect_equal "update: skipped after the backup does not call compose" 0 "$(compose_calls)"
+expect_equal "update: that skip had taken the backup" 1 "$(backup_calls)"
+rm -f "$T/backup_job" "$T/data/jobs/jx.json"
+
+# ---- 2. the read-only user's wrappers --------------------------------------------
+
+logs() { env PATH="$T/bin:$PATH" FAKE_STATE="$S" bash "$DEPLOY/studious-logs.sh" "$@"; }
+stats() { env PATH="$T/bin:$PATH" FAKE_STATE="$S" bash "$DEPLOY/studious-stats.sh" "$@"; }
+docker_calls() { wc -l <"$S/calls" | tr -d ' '; }
+
+reset_calls
+expect_ok "logs: no argument" logs
+expect_equal "logs: defaults to 200 lines" "logs --tail 200 studious" "$(cat "$S/calls")"
+reset_calls
+expect_ok "logs: a number" logs 50
+expect_equal "logs: passes the number on" "logs --tail 50 studious" "$(cat "$S/calls")"
+for bad_arg in 0 5001 abc "1; rm" -5 123456789012345678901234567890; do
+  reset_calls
+  run logs "$bad_arg"
+  expect_equal "logs: '$bad_arg' exits 2" 2 "$RC"
+  expect_equal "logs: '$bad_arg' does not call docker" 0 "$(docker_calls)"
+done
+reset_calls
+run logs 5 6
+expect_equal "logs: two arguments exit 2" 2 "$RC"
+expect_equal "logs: two arguments do not call docker" 0 "$(docker_calls)"
+reset_calls
+expect_ok "stats: no argument" stats
+expect_equal "stats: runs docker stats once" "stats --no-stream" "$(cat "$S/calls")"
+reset_calls
+run stats --all
+expect_equal "stats: an argument exits 2" 2 "$RC"
+expect_equal "stats: an argument does not call docker" 0 "$(docker_calls)"
+
+# ---- 3. backup and restore test --------------------------------------------------
 
 if ! command -v restic >/dev/null; then
   echo "restic is not installed: skipping the backup round trip (apt install restic)" >&2
@@ -263,6 +345,26 @@ expect_output "backup: applies retention" "applying retention"
 expect_ok "restore test: good round trip" rt
 expect_output "restore test: compares older files by checksum" "[1-9][0-9]* files older than the snapshot match"
 expect_equal "restore test: leaves no temp directory" 0 "$(find "$T/restore" -mindepth 1 | wc -l | tr -d ' ')"
+
+# A pre-rollout backup is tagged as such and does not thin out snapshots. After
+# daily, pre-rollout, daily, pre-rollout runs, a daily run's retention leaves
+# one daily snapshot (KEEP_DAILY=1 and nothing else, so the count does not
+# depend on when in the week the test runs) and both pre-rollout ones, which a
+# single policy over all of them would have dropped as same-day duplicates.
+count_tag() {
+  # shellcheck disable=SC2016
+  tooling_env bash -c 'set -a; . "$RESTIC_ENV_FILE"; restic snapshots --json --tag "$1"' _ "$1" |
+    python3 -c 'import json, sys; print(len(json.load(sys.stdin)))'
+}
+expect_ok "backup: a pre-rollout backup" bk BACKUP_KIND=pre-rollout
+expect_output "backup: a pre-rollout run skips retention" "no retention"
+expect_equal "backup: the snapshot is tagged pre-rollout" 1 "$(count_tag pre-rollout)"
+expect_ok "backup: a daily run" bk KEEP_DAILY=1 KEEP_WEEKLY=0 KEEP_MONTHLY=0
+expect_ok "backup: a second pre-rollout backup" bk BACKUP_KIND=pre-rollout
+expect_ok "backup: a daily run applies retention" bk KEEP_DAILY=1 KEEP_WEEKLY=0 KEEP_MONTHLY=0
+expect_equal "backup: retention leaves one daily snapshot" 1 "$(count_tag daily)"
+expect_equal "backup: retention keeps both pre-rollout snapshots" 2 "$(count_tag pre-rollout)"
+expect_fail "backup: an unknown BACKUP_KIND fails" bk BACKUP_KIND=weekly
 
 # Only store/ when asked, and automatically when the disk is too small.
 expect_ok "restore test: subset store" rt RESTORE_SUBSET=store

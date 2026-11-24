@@ -361,10 +361,11 @@ is the runbook, `deploy/` holds the files.
   workflow's own `GITHUB_TOKEN` (`packages: write`, that job only). The image
   carries `org.opencontainers.image.source` and `.revision` labels. CI never
   joins the tailnet or connects to the droplet.
-- **Pull.** `studious-update.timer` runs `deploy/studious-update.sh` five
+- **Pull.** `studious-update.timer` runs `deploy/studious-update.sh` two
   minutes after the last run finished. It pulls `:main`; if the image ID
-  differs from the running container's, it rolls out with `docker compose up
-  -d` and waits for the healthcheck. **Jobs do not survive a restart**, so it
+  differs from the running container's, it takes a `pre-rollout` restic
+  snapshot (a failure only logs a warning), then rolls out with `docker
+  compose up -d` and waits for the healthcheck. **Jobs do not survive a restart**, so it
   skips the rollout, exits 0 and tries again next run while any job is queued
   or running. The API has no endpoint that lists jobs, so the script reads
   the job files in `<data>/jobs/` (`status` of `queued` or `running`); a job
