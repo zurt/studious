@@ -22,7 +22,10 @@ on the droplet (over SSH), **web** is a browser.
 |---|---|
 | `/opt/studious/compose.yml` | The production compose file (`deploy/compose.yml`) |
 | `/usr/local/lib/studious/` | `studious-update.sh`, `studious-backup.sh`, `studious-restore-test.sh` |
-| `/etc/systemd/system/studious-*.{service,timer}` | Update every 5 minutes, backup daily 03:30 UTC, restore test Sundays 05:00 UTC. Enabled by hand in steps 8 and 11, not by `provision.sh` |
+| `/usr/local/sbin/` | `studious-status`, `studious-logs`, `studious-stats`: root-owned wrappers the read-only user runs through sudo (see "Read-only access") |
+| `/etc/sudoers.d/studious-ro` | What that user may run as root: those three, nothing else (0440) |
+| user `studious-ro` | Read-only login: in `systemd-journal` and in the group with GID 10001 (reads the data directory), not in `docker`, `sudo` or `adm` |
+| `/etc/systemd/system/studious-*.{service,timer}` | Update every 2 minutes, backup daily 03:30 UTC, restore test Sundays 05:00 UTC. Enabled by hand in steps 8 and 11, not by `provision.sh` |
 | `/etc/apt/apt.conf.d/52studious-reboot` | Reboot at 09:00 UTC when a security update needs it (see "Keeping it patched") |
 | `/etc/studious/env` | The container's environment: API key and settings (0600) |
 | `/etc/studious/restic.env`, `restic-password` | Backup repository, B2 key, passphrase (0600) |
@@ -30,10 +33,12 @@ on the droplet (over SSH), **web** is a browser.
 | `/var/lib/studious/failed-image` | ID of an image that failed its healthcheck, so it is not retried |
 
 How an update reaches the droplet: a push to `main` passes CI, the `publish`
-job pushes `ghcr.io/zurt/studious:main` and `:sha-<commit>`, and within five
+job pushes `ghcr.io/zurt/studious:main` and `:sha-<commit>`, and within two
 minutes `studious-update.timer` pulls `:main`. If the image ID changed and no
-job is queued or running, it runs `docker compose up -d`, waits for the
-healthcheck and, if that fails, puts the previous image back and exits non-zero.
+job is queued or running, it first takes a backup tagged `pre-rollout` (a
+failed backup is logged and the rollout goes ahead), then runs `docker compose
+up -d`, waits for the healthcheck and, if that fails, puts the previous image
+back and exits non-zero.
 
 ## 0. Before you start
 
@@ -93,7 +98,8 @@ unattended-upgrades from Ubuntu, and Tailscale from Tailscale's apt
 repository; adds a 1 GB swap file; creates `/srv/studious/data` and
 `/etc/studious`; installs the scripts, compose file and units; sets up ufw
 (deny incoming, allow `tailscale0` and UDP 41641, allow SSH for now); turns
-on the 09:00 UTC automatic reboot. It does not enable the timers: steps 8 and
+on the 09:00 UTC automatic reboot; creates the read-only user `studious-ro`
+and its sudo wrappers (see "Read-only access"). It does not enable the timers: steps 8 and
 11 do, once what each needs exists. It is safe to run again, and it never
 overwrites the files in `/etc/studious`.
 
@@ -307,6 +313,13 @@ snapshot fits in 70% of the free disk; otherwise it restores `store/` only and
 says so in the log. Force one with `RESTORE_SUBSET=store` or `full` (set it in
 `/etc/systemd/system/studious-restore-test.service` with `Environment=`).
 
+Two retention policies apply, both run after the nightly backup. Nightly
+snapshots (tagged `daily`) keep 7 daily, 4 weekly and 12 monthly. Snapshots
+taken before a rollout (tagged `pre-rollout`) are kept for 14 days. They are
+separate because the daily policy keeps only the last snapshot of each day, and
+would forget the pre-rollout ones from earlier that day. A snapshot you take by
+hand with only the `studious` tag is never forgotten.
+
 A passed test means the passphrase works. Check the passphrase in the password
 manager now by reading it back against `/etc/studious/restic-password`.
 
@@ -383,7 +396,7 @@ An update waiting for a running job logs `new image ... is waiting` and exits
 - **Tailscale**: its own updater (`tailscale set --auto-update`, step 4).
 - **The image**: Dependabot PRs for Python, npm, Actions and the base images,
   and a weekly CI audit. Merging to `main` publishes, and the droplet pulls
-  within 5 minutes.
+  within 2 minutes.
 
 ```bash
 cat /var/run/reboot-required.pkgs 2>/dev/null   # what wants a reboot, if anything
@@ -392,6 +405,59 @@ unattended-upgrade --dry-run --debug 2>&1 | head  # after editing the apt config
 ```
 
 In that dry run's output, `ErrorText: ''` on a download line is not an error.
+
+### Read-only access (studious-ro)
+
+For looking at the droplet without a root shell, `provision.sh` creates the
+user `studious-ro`. It can read the journal and the data directory. It cannot
+use `docker` (that is root-equivalent), and `sudo` runs only three fixed
+scripts. The Mac's pull of the data (a later step in `docs/next-steps.md`)
+uses it too.
+
+Set it up once (Mac, then droplet). Copy `deploy/` over as in step 3 and run
+`provision.sh` again:
+
+```bash
+sudo ./provision.sh
+```
+
+Then allow the user in the tailnet policy. Tailscale SSH logs in without keys
+or passwords, so the policy is the only gate. In the admin console, under
+Access controls, add this to the `ssh` section:
+
+```json
+{
+  "action": "check",
+  "src": ["autogroup:member"],
+  "dst": ["autogroup:self"],
+  "users": ["studious-ro"]
+}
+```
+
+If the existing rule for this droplet already lists `autogroup:nonroot` under
+`users`, `studious-ro` is already allowed and nothing needs adding. If the
+droplet has a tag, use the tag as `dst` instead of `autogroup:self`. `check`
+asks again in a browser now and then; that is accepted.
+
+From the Mac:
+
+```bash
+ssh studious-ro@<droplet-tailnet-name> sudo studious-status
+ssh studious-ro@<droplet-tailnet-name> sudo studious-logs 200
+ssh studious-ro@<droplet-tailnet-name> sudo studious-stats
+ssh studious-ro@<droplet-tailnet-name> journalctl -u studious-update -n 50 --no-pager
+```
+
+`studious-logs` takes a number from 1 to 5000 (default 200). Check the limits
+once:
+
+```bash
+ssh studious-ro@<droplet-tailnet-name> docker ps            # must fail: not in the docker group
+ssh studious-ro@<droplet-tailnet-name> ls /srv/studious/data/store   # must work
+```
+
+Claude Code's sandbox blocks `ssh` (it cannot read `~/.ssh`), so each such
+run is approved outside the sandbox.
 
 ### Roll back by hand
 
@@ -432,6 +498,43 @@ recreates `/srv/studious/data`. A snapshot other than the latest: use its ID
 from `restic snapshots`. One file or directory: add `--include
 /srv/studious/data/store` and a scratch `--target`, then copy it over. Delete
 `data.broken` once the app looks right.
+
+### Restore to before a rollout
+
+Use this when a new version changed the data wrongly. Every rollout over a
+running container is preceded by a snapshot tagged `pre-rollout`.
+
+Droplet:
+
+```bash
+set -a; . /etc/studious/restic.env; set +a
+restic snapshots --tag pre-rollout
+journalctl -u studious-update --since '2 days ago' --no-pager | grep -E 'rolling out|pre-rollout'
+```
+
+The snapshot whose time matches the `rolling out` line is the one from just
+before the bad version. If the log says `pre-rollout backup failed`, there is
+no snapshot for that rollout: use the last nightly one (`restic snapshots
+--tag daily`), which loses up to a day.
+
+Then, as in "Roll back by hand" and "Restore from backup for real". The
+previous image is `ghcr.io/zurt/studious:previous`, or the `sha-<commit>` of
+the version before the bad one:
+
+```bash
+systemctl stop studious-update.timer
+docker compose -f /opt/studious/compose.yml stop
+mv /srv/studious/data /srv/studious/data.broken
+restic restore <snapshot-id> --target /
+chown -R 10001:10001 /srv/studious/data
+STUDIOUS_IMAGE=ghcr.io/zurt/studious:previous \
+  docker compose -f /opt/studious/compose.yml up -d
+```
+
+Leave the update timer stopped until `main` is fixed. If it runs first, it
+rolls the bad version out again. Then `systemctl start studious-update.timer`.
+Run `./provision.sh` again if the read-only user cannot read the restored
+files. Delete `data.broken` once the app looks right.
 
 ### Other tasks
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pull the :main image and roll the container over to it when it changed.
-# Run by studious-update.timer every few minutes (docs/deploy.md). The droplet
+# Run by studious-update.timer every two minutes (docs/deploy.md). The droplet
 # pulls; nothing pushes to it, and CI holds no credential for the droplet.
 #
 # Each run:
@@ -9,11 +9,16 @@
 #   3. when they differ, skips the rollout while any job is queued or running
 #      (jobs do not survive a restart, docs/hosting.md) and tries again on the
 #      next run;
-#   4. otherwise runs `docker compose up -d` and waits for the healthcheck;
-#   5. on an unhealthy result, retags the previous image back and restarts it,
+#   4. otherwise, when a container is already running, takes a restic snapshot
+#      tagged pre-rollout, so a bad data change is one restore away. A failed
+#      backup (B2 down) is a warning, not a reason to wait: the nightly
+#      snapshot is the fallback. Then it checks for jobs once more, since one
+#      may have started while the backup ran;
+#   5. runs `docker compose up -d` and waits for the healthcheck;
+#   6. on an unhealthy result, retags the previous image back and restarts it,
 #      remembers the bad image ID, and exits non-zero so `systemctl status` and
 #      the journal show it;
-#   6. after a good rollout prunes dangling images. The previous image stays,
+#   7. after a good rollout prunes dangling images. The previous image stays,
 #      tagged :previous, for a rollback by hand.
 #
 # The API has no endpoint that lists jobs, so "busy" is read from the data
@@ -36,6 +41,8 @@ LOCK_FILE="${LOCK_FILE:-/run/lock/studious-update.lock}"
 JOBS_STALE_MIN="${JOBS_STALE_MIN:-360}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-180}"
 HEALTH_INTERVAL="${HEALTH_INTERVAL:-3}"
+BACKUP_CMD="${BACKUP_CMD:-/usr/local/lib/studious/studious-backup.sh}"
+PRE_ROLLOUT_BACKUP_TIMEOUT="${PRE_ROLLOUT_BACKUP_TIMEOUT:-600}"
 PREVIOUS_IMAGE="${IMAGE%:*}:previous"
 FAILED_FILE="$STATE_DIR/failed-image"
 
@@ -133,6 +140,21 @@ else
     exit 0
   fi
   log "rolling out $new_id (running: $current_id)"
+  # Snapshot before the new code can touch the data. Any failure, a timeout
+  # included, only logs: the rollout is not worth holding for B2.
+  backup_status=0
+  BACKUP_KIND=pre-rollout timeout "$PRE_ROLLOUT_BACKUP_TIMEOUT" "$BACKUP_CMD" || backup_status=$?
+  if [ "$backup_status" -eq 0 ]; then
+    log "pre-rollout backup done"
+  else
+    log "warning: pre-rollout backup failed (exit $backup_status); rolling out anyway: the nightly snapshot is the fallback"
+  fi
+  # A job may have started while the backup ran.
+  busy="$(busy_jobs)"
+  if [ -n "$busy" ]; then
+    log "new image $new_id is waiting: a job started during the backup ($(echo "$busy" | tr '\n' ' ')). Trying again next run"
+    exit 0
+  fi
   # Keep the old image reachable by name, so the prune below cannot take it.
   docker tag "$current_id" "$PREVIOUS_IMAGE"
 fi

@@ -1,9 +1,10 @@
 [Unit]
-Description=Check for a new Studious image every five minutes
+Description=Check for a new Studious image every two minutes
 
 [Timer]
 OnBootSec=2min
-OnUnitInactiveSec=5min
+# A pull with no new image only fetches the manifest.
+OnUnitInactiveSec=2min
 AccuracySec=30s
 
 [Install]

@@ -137,6 +137,8 @@ jobs:
             sudo install -m 0755 /dev/null "/usr/local/lib/studious/studious-$s.sh"
           done
           systemd-analyze verify "$PWD"/deploy/systemd/*.service "$PWD"/deploy/systemd/*.timer
+      - name: Check the sudoers file for the read-only user
+        run: sudo visudo -cf deploy/sudoers-studious-ro
       - name: Install restic
         run: sudo apt-get update && sudo apt-get install -y restic
       - name: Update, backup and restore-test round trips

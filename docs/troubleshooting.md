@@ -884,6 +884,32 @@ image; `rm` the file to force a retry. If the rollback is not healthy either,
 the log says so: check `/etc/studious/env` and the data directory owner
 (below). A first install that fails has nothing to roll back to.
 
+### A rollout logged "pre-rollout backup failed"
+`studious-update.sh` runs the backup before each rollout and rolls out anyway
+when it fails; the night's snapshot is the fallback. The usual causes are B2
+being unreachable, or the repository locked by another run (restic waits 10
+minutes for a lock) or a backup that took longer than 10 minutes. Read the
+lines above the warning in `journalctl -u studious-update`, and check
+`restic snapshots --tag pre-rollout` (after sourcing `/etc/studious/restic.env`).
+Without that snapshot, "Restore to before a rollout" in `deploy.md` falls back
+to the last nightly one.
+
+### `studious-ro` cannot read a file in `/srv/studious/data` ("Permission denied")
+The user reads the data directory through the group with GID 10001, so a file
+must be group-readable. Audio clips written before 2026-11-23 were 0600
+(`tempfile.mkstemp`), and files restored by restic or copied by hand can be
+too. Re-run `provision.sh` (it fixes the whole directory with a `find ...
+chmod g+r`) or `chmod g+r` the file. If a new file is unreadable, a code path
+that writes with `mkstemp` and renames the result into the data directory has
+been added: give it mode 0644, as `tts.py` does.
+
+### `sudo studious-status` asks for a password, or says the command is not allowed
+The wrappers are in `/usr/local/sbin` and listed in `/etc/sudoers.d/studious-ro`.
+A missing file means `provision.sh` was not run again after the change.
+`studious-status` and `studious-stats` take no arguments, and `studious-logs`
+takes one number; any other form is refused by sudo. Test the file with
+`visudo -cf /etc/sudoers.d/studious-ro`.
+
 ### Update log says "cannot pull" or `docker pull` says "denied" / "unauthorized"
 The package on GHCR is still private. A package created by a workflow is
 private until the owner changes it: github.com/zurt?tab=packages, `studious`,

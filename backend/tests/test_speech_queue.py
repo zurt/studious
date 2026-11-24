@@ -366,3 +366,24 @@ def test_periodic_task_kicks(isolated_data_dir, monkeypatch):
     asyncio.run(run())
     assert len(kicks) >= 2
 
+
+
+# ---------- file modes ----------
+
+
+class TestGroupReadable:
+    """mkstemp makes 0600 files; the read-only pull user reads the data dir
+    through its group, so files renamed into place must be 0644."""
+
+    def test_pending_list(self, isolated_data_dir):
+        speech_queue.enqueue(["a"])
+        assert speech_queue.pending_path().stat().st_mode & 0o777 == 0o644
+
+    def test_clip(self, isolated_data_dir):
+        out = isolated_data_dir / "clip.m4a"
+        tts._write_atomic(b"x" * 10, out, ".m4a")
+        assert out.stat().st_mode & 0o777 == 0o644
+
+    def test_voice_listing(self, isolated_data_dir):
+        tts._save_listing("Kyoko\n")
+        assert tts._voices_path().stat().st_mode & 0o777 == 0o644
