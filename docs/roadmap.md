@@ -5,9 +5,10 @@ reading references (2.5) and chapter bulk operations are shipped as
 beta, pending real use. The Apple apps (Phase 5) are built and compiled
 in CI but have not been run on a device. Open work: Phase 4 (exercise walkthroughs), region editing, mobile-responsive web
 layout, and the hosting/auth findings in
-`docs/archive/audit-2026-07-mobile-spike.md`. The single-container image
-exists and is built and smoke-tested in CI; deployment is not done
-(`docs/hosting.md`).
+`docs/archive/audit-2026-07-mobile-spike.md`. Production has run on a
+droplet over Tailscale since 2026-11-23 (`docs/deploy.md`); next is a
+development workflow against real data (`docs/next-steps.md`, session 1,
+step 9).
 
 ## Phase 1: Chapters + Regions + Targeted Transcription (Shipped)
 

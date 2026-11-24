@@ -22,6 +22,10 @@ coverage/
 .env.local
 .env.docker
 data/
+# Old or pulled copies of the real data dir (e.g. backend/data.pre-droplet-*,
+# backend/.prod-copy from the planned `make pull-data`). Never commit them.
+backend/data.*/
+backend/.prod-copy/
 
 # Benchmarks
 benchmarks/results/
