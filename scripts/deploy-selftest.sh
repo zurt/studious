@@ -142,7 +142,9 @@ echo "$BACKUP_KIND compose_before=$(grep -c '^compose' "$FAKE_STATE/calls" || tr
 exit "$(cat "$BACKUP_RC" 2>/dev/null || echo 0)"
 STUB
 chmod +x "$T/backup-stub.sh"
-backup_calls() { grep -c . "$T/backup_calls" 2>/dev/null || true; }
+# The file exists from the start, so a count with no calls is 0, not empty.
+: >"$T/backup_calls"
+backup_calls() { grep -c . "$T/backup_calls" || true; }
 
 upd() {
   env PATH="$T/bin:$PATH" FAKE_STATE="$S" DATA_DIR="$T/data" STATE_DIR="$T/state" \
