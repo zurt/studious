@@ -89,10 +89,12 @@ fi
 # snapshot with both tags. A snapshot tagged only `studious` (taken by hand) is
 # in neither pass and is never forgotten, which is safe.
 log "applying retention: $KEEP_DAILY daily, $KEEP_WEEKLY weekly, $KEEP_MONTHLY monthly; pre-rollout for $KEEP_PRE_ROLLOUT"
-"$RESTIC" forget --retry-lock 10m --host "$BACKUP_HOST" --tag studious,daily \
+# --prune on both passes: restic prunes only when that same call forgot
+# something, so a single prune on the second pass would leave the first pass's
+# data in the repository on most nights.
+"$RESTIC" forget --retry-lock 10m --prune --host "$BACKUP_HOST" --tag studious,daily \
   --keep-daily "$KEEP_DAILY" --keep-weekly "$KEEP_WEEKLY" --keep-monthly "$KEEP_MONTHLY" \
   || fail "restic forget exited non-zero"
-# One prune at the end, after both passes, frees the space.
 "$RESTIC" forget --retry-lock 10m --prune --host "$BACKUP_HOST" --tag studious,pre-rollout \
   --keep-within "$KEEP_PRE_ROLLOUT" \
   || fail "restic forget (pre-rollout) exited non-zero"
