@@ -9,8 +9,10 @@
 #
 # What it does NOT do: join the tailnet. `tailscale up` needs a browser login or
 # a key, and no key is baked into anything. It prints the manual commands at the
-# end. Nothing is started that needs a secret: the update timer is enabled but
-# not started, so the first rollout waits until /etc/studious/env is filled in.
+# end. Nothing is started or enabled that needs a secret or a repository: each
+# timer is enabled by hand (`systemctl enable --now`) at the step of
+# docs/deploy.md where what it needs exists. An enabled timer starts on its own
+# at boot, and the automatic reboot below can come before `restic init`.
 #
 # Network. ufw denies all incoming, allows everything arriving on tailscale0
 # and Tailscale's own UDP 41641, and allows public SSH until --lock-down.
@@ -92,11 +94,26 @@ fi
 systemctl enable --now tailscaled >/dev/null 2>&1 || true
 systemctl enable --now docker >/dev/null 2>&1 || true
 
-# Security updates apply by themselves; a reboot is left to the owner.
+# Security updates apply by themselves. Kernel and glibc fixes need a reboot,
+# done automatically at 09:00 droplet time (UTC: 1am Pacific in winter, 2am in
+# summer), only when /var/run/reboot-required exists. That is after the 03:30
+# backup and the Sunday 05:00 restore test. The container (restart:
+# unless-stopped), `tailscale serve --bg` and the enabled timers come back by
+# themselves; a job running at that moment is lost. A file of our own, so the
+# package's 50unattended-upgrades stays untouched; later files win.
 cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
+cat >/etc/apt/apt.conf.d/52studious-reboot <<'EOF'
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "09:00";
+EOF
+
+# unattended-upgrades only takes Ubuntu's own origins, not Tailscale's apt
+# repository, so Tailscale updates itself. On a first run, before `tailscale
+# up`, this may not apply, which is why the steps printed at the end repeat it.
+tailscale set --auto-update >/dev/null 2>&1 || log "tailscale set --auto-update did not apply yet; run it after tailscale up"
 
 # ---- Swap ----------------------------------------------------------------------
 # 1 GB of RAM: a pull or a restic run can spike. The container itself is kept out
@@ -139,10 +156,11 @@ for u in "$SRC"/systemd/*.service "$SRC"/systemd/*.timer; do
   install -m 0644 "$u" "$UNIT_DIR/$(basename "$u")"
 done
 systemctl daemon-reload
-# Enabled, not started: each timer is started by hand in docs/deploy.md once
-# what it needs exists (env file, restic repository). They start on their own
-# after a reboot.
-systemctl enable studious-update.timer studious-backup.timer studious-restore-test.timer >/dev/null
+# Not enabled here: docs/deploy.md enables each timer with `systemctl enable
+# --now` once what it needs exists (step 8: the env file; step 11: the restic
+# repository). Enabled early, a reboot started them before then, and the first
+# droplet logged a failed backup and restore test before `restic init`
+# (2026-11-22). A re-run leaves timers that are already enabled as they are.
 
 # ---- Firewall ----------------------------------------------------------------
 log "configuring ufw"
@@ -162,18 +180,19 @@ cat <<EOF
 
 provision: done. Next, by hand (docs/deploy.md has the detail):
 
-  1. Join the tailnet and turn on Tailscale SSH:
+  1. Join the tailnet, turn on Tailscale SSH and Tailscale's own updates:
        tailscale up --ssh
+       tailscale set --auto-update
      then, from the Mac, check:  ssh root@<droplet-tailnet-name>
-  2. Fill in the secrets:
+  2. Once Tailscale SSH works from the Mac:  ./provision.sh --lock-down
+  3. Fill in the secrets:
        \$EDITOR $ETC_DIR/env           (ANTHROPIC_API_KEY)
        \$EDITOR $ETC_DIR/restic.env    (bucket name and B2 key)
-  3. First rollout:  systemctl start studious-update.service
-     then:           systemctl start studious-update.timer
-  4. HTTPS on the tailnet:  tailscale serve --bg 8000
-  5. Backups:  restic init (with the variables from restic.env, see docs/deploy.md),
-     systemctl start studious-backup.timer studious-restore-test.timer
-  6. Once Tailscale SSH works from the Mac:  ./provision.sh --lock-down
+  4. First rollout:  systemctl start studious-update.service
+     then:           systemctl enable --now studious-update.timer
+  5. HTTPS on the tailnet:  tailscale serve --bg 8000
+  6. Backups:  restic init (with the variables from restic.env, see docs/deploy.md),
+     systemctl enable --now studious-backup.timer studious-restore-test.timer
 EOF
 if [ "${new_password:-}" = "yes" ]; then
   echo

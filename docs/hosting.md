@@ -13,10 +13,10 @@ deploy credential sits on the laptop or in CI.
 |---|---|
 | Image (`Dockerfile`), settings, compose file, `make docker-*` | Written. CI builds it and runs a smoke test on every push (`docker` job), and the `publish` job pushes it to `ghcr.io/zurt/studious` on every push to `main`. |
 | Run against the real data, measure memory | Done 2026-11-13 on a copy of the real library: 437 MiB peak, and it survives a 512 MiB cap. See "Memory" below. |
-| CI publish to GHCR, droplet tooling (`deploy/`: compose file, pull-based update timer with rollback, restic backups and restore test, provision script), its CI check and self-test | Written 2026-11-16, not run against a droplet. The update script's decisions and the backup round trip are tested without one (`make deploy-selftest`). Runbook: `deploy.md`. |
-| Droplet, Tailscale, B2 bucket, GHCR package made public, data move | Not done: the one-hour session in `deploy.md` (`next-steps.md`, session 1, step 6). |
+| CI publish to GHCR, droplet tooling (`deploy/`: compose file, pull-based update timer with rollback, restic backups and restore test, provision script), its CI check and self-test | Written 2026-11-16, run for real 2026-11-17 to 11-23. Also tested without a droplet (`make deploy-selftest`). Runbook: `deploy.md`. |
+| Droplet, Tailscale, B2 bucket, GHCR package made public, data move | Done 2026-11-23: production runs on the droplet; the Mac's `backend/data` is an old copy. Backups daily to B2, first full restore test passed. |
 | Mac and iOS apps talking to the API instead of the files | Not done (step 7). |
-| Features that need the Mac (speech, Anki) | Speech is built (helper, `say_remote` engine, background generation, catch-up); not yet run against a droplet. Anki needs only the tailnet route, not tried. See "New homes" (step 8). |
+| Features that need the Mac (speech, Anki) | Working from the droplet since 2026-11-23 over `tailscale serve --tcp` routes on the Mac: audio plays and Anki sync works. Open: the helper has no LaunchAgent. See "New homes" (step 8). |
 
 Rejected: public HTTPS behind a reverse proxy with basic auth. It works from
 anywhere, but then a password is all that stands between the internet and the
@@ -199,8 +199,8 @@ Not affected:
 - **Anki: reach the Mac over Tailscale.** The Mac can be expected to be on
   for Anki exchanges, since Anki itself must be open. On the Mac,
   publish AnkiConnect to the tailnet without changing its bind address
-  (`tailscale serve --tcp 8765 tcp://127.0.0.1:8765` or the equivalent;
-  not yet tried); the droplet sets `ANKI_CONNECT_URL` to the Mac's tailnet
+  (`tailscale serve --bg --tcp 8765 tcp://127.0.0.1:8765`, working since
+  2026-11-23); the droplet sets `ANKI_CONNECT_URL` to the Mac's tailnet
   name. No code change beyond the messages. Set an AnkiConnect API key if
   any other tailnet device is not trusted.
 - **Speech: the Mac's `say` voices, generated in the background.** A small
@@ -244,8 +244,8 @@ Not affected:
   - On the Mac: `make say-helper`. Check it with
     `curl http://127.0.0.1:8766/health`.
   - On the Mac, publish it to the tailnet without changing its bind address:
-    `tailscale serve --tcp 8766 tcp://127.0.0.1:8766` (not yet tried, like
-    the Anki line above).
+    `tailscale serve --bg --tcp 8766 tcp://127.0.0.1:8766` (working since
+    2026-11-23, like the Anki line above; the route survives a Mac reboot).
   - On the droplet: `STUDIOUS_TTS_ENGINE=say_remote` and
     `STUDIOUS_SAY_HELPER_URL=http://<mac tailnet name>:8766`.
   - Once after the data move, when no clips exist on the droplet:
@@ -352,8 +352,8 @@ log (62 MiB locally), which is a floor, not the answer.
 
 ## How it is deployed
 
-Written 2026-11-16; none of it has run against a droplet. `deploy.md` is the
-runbook, `deploy/` holds the files.
+Written 2026-11-16, first run on a droplet 2026-11-17 to 11-23. `deploy.md`
+is the runbook, `deploy/` holds the files.
 
 - **Publish.** On a push to `main`, after every other CI job passes, the
   `publish` job builds the image, runs `scripts/docker-smoke.sh` on that
@@ -381,6 +381,9 @@ runbook, `deploy/` holds the files.
   public SSH stays until `provision.sh --lock-down`. `tailscale serve --bg
   8000` publishes HTTPS to the tailnet. A DigitalOcean cloud firewall is the
   second layer.
+- **Patching.** unattended-upgrades applies Ubuntu security updates daily and
+  reboots at 09:00 UTC when one needs it; Tailscale updates itself
+  (`deploy.md`, "Keeping it patched").
 - **Backups.** restic to B2, encrypted. `studious-backup.sh` runs daily
   (7 daily, 4 weekly, 12 monthly kept) on the live data directory without
   stopping the container: the store is append-only and other files are written
@@ -394,11 +397,6 @@ runbook, `deploy/` holds the files.
 
 ## Not done yet
 
-- Everything in `deploy.md` that is a step rather than a file: the droplet,
-  Tailscale, the B2 bucket, making the GHCR package public, the dedicated API
-  key with a spend cap on the droplet, and moving the real data off
-  `backend/data`.
-- The `publish` job has not run; the first push to `main` after this change
-  is its first run.
+- A LaunchAgent for the speech helper on the Mac.
 - Alerting. A failed timer shows in `systemctl --failed` and the journal and
   nowhere else.
