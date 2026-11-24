@@ -70,11 +70,13 @@ Still to do, in order:
    development key (expires about 2026-12-13; rotate it then). The former
    key is kept as `ANTHROPIC_API_KEY_PROD` for the droplet. The owner
    confirmed on 2026-11-13 that the dev key's workspace has a low spend cap.
-3. `backend/data/` still lives inside the repo. The dev server no longer
-   runs against it (step 4); `make run-backend` does, without `--reload`.
-   It leaves the repo when production moves to the droplet; until then the
-   real data and the real key are one command away, so run that target
-   deliberately.
+3. Done 2026-11-24: the real data left the Mac with the droplet move
+   (step 6). The copy taken at the move is renamed
+   `backend/data.pre-droplet-2026-11-23` (gitignored, 602 MB); **delete it
+   on or after 2026-12-23** if nothing has needed it (restic in B2 has the
+   same data and everything since). `backend/data` now holds only `refs/`
+   (rebuildable reference data that `make dev-backend` links), so
+   `make run-backend` there sees an empty library until step 9 repoints it.
 4. Done 2026-11-13: mock VLM plus seed data is the dev default.
    `make dev-backend` runs `STUDIOUS_VLM_PROVIDER=mock` on a seeded
    `backend/.dev-data` (a committed sample textbook, `backend/seed/`) with
@@ -98,8 +100,8 @@ Still to do, in order:
    a required check until the owner adds it to the ruleset.
 6. Droplet, Tailscale, backups, CI deploy, data move. **Done 2026-11-23**:
    production runs on the droplet, reached over Tailscale; backups go to
-   B2 daily and the first full restore test passed; the Mac's
-   `backend/data` is an old copy that nothing runs against. Fixes from the
+   B2 daily and the first full restore test passed; the Mac's copy from
+   the move is renamed (step 3). Fixes from the
    first run are in `deploy.md` and `provision.sh` (timers enabled by the
    runbook, automatic reboot at 09:00 UTC, Tailscale auto-update). Still
    open: alerting (a failed timer shows only in `systemctl --failed`).
@@ -131,6 +133,88 @@ Still to do, in order:
    LaunchAgent so the helper starts at login. The helper was run for real
    on the Mac over loopback: about 1.2 s a clip (`docs/hosting.md`); the
    tailnet path is untimed.
+9. **Developing with real data. Planned 2026-11-24, start here next
+   session.** The owner is the only user and developer and wants quick
+   iteration, with restic as the safety net. Expected work: UI/study
+   features, prompts and the VLM pipeline, store/data changes and the Apple
+   apps. Decided with the owner:
+   - **Where each kind of work runs.** UI changes: the local frontend
+     against the droplet's live API (what the owner does there is real and
+     kept), or the full local stack on a copy. Prompts/VLM and store
+     changes: the Mac on a copy, with real model calls through the dev key
+     (`ANTHROPIC_API_KEY`, low cap). Apple apps: the Mac pointed at the copy
+     until step 7 moves them to the API (step 7 now gates them). Cloud
+     sessions: code-only, on seed data, tests and `make shot`; the owner
+     checks the result on a copy or after it is live. Troubleshooting
+     production: Claude Code on the Mac, read-only over the tailnet.
+   - **Not chosen:** Claude Code on the droplet (1 GB: the container may
+     take 640 MiB and Claude Code needs 300–500 MB, and an agent as root
+     next to the production key and B2 credentials), and a staging
+     container (needs a 2 GB droplet). The droplet stays at 1 GB.
+   - **A trade-off accepted for speed:** pulling a copy puts the real data
+     back on the Mac, which plane 1 above set out to avoid. The copy is
+     disposable and one-way (never pushed back), and the production key
+     stays off the Mac.
+
+   **PR 1, droplet side** (`deploy/`, `docs/deploy.md`; needs the owner to
+   re-run `provision.sh` and check):
+   - A read-only user `studious-ro`: in `systemd-journal` (reads the
+     journal) and in a group that can read `/srv/studious/data` (for the
+     pull below), **not** in `docker` (root-equivalent). A few root-owned
+     wrapper scripts it may run through `sudo` with NOPASSWD, fixed
+     arguments only: status (`systemctl --failed`, the timers, `docker ps`,
+     health, `df`, `free`), the container's logs (`docker logs --tail N
+     studious`, N a number checked by the script) and `docker stats
+     --no-stream`. The tailnet policy's `ssh` section must allow this user
+     from the owner's devices; write out the exact lines for the admin
+     console. Tailscale SSH's "check" mode re-asks in a browser now and
+     then, which is acceptable.
+   - A backup before each rollout: when `studious-update.sh` is about to
+     roll out a new image (not on a first install), run the backup first,
+     tagged `pre-rollout` as well as `studious`. If it fails (B2 down),
+     log a warning and roll out anyway: the night's snapshot exists, and
+     the owner prefers speed. Then a bad data change is one `restic
+     restore` to just before the version that caused it. Check that
+     retention (`forget --keep-*`) still behaves with several snapshots a
+     day, and that the self-test covers the new path.
+   - The update timer every 2 minutes instead of 5 (a pull with no new
+     image only fetches the manifest).
+   - Docs: how to troubleshoot as `studious-ro` (`ssh
+     studious-ro@<droplet-tailnet-name> sudo studious-logs 200`), and
+     the restore-to-before-a-rollout recipe.
+
+   **PR 2, Mac side:**
+   - `make pull-data`: rsync from `studious-ro@<droplet>:/srv/studious/data/`
+     into `backend/.prod-copy/` (gitignored), one way, `--delete`, printing
+     its size and the time of the pull (keep that in a stamp file). The
+     droplet's address comes from a gitignored local file (e.g.
+     `.env.local`, `STUDIOUS_PROD_HOST`), never from the public repo.
+   - `make run-backend` runs on `backend/.prod-copy` (Keychain dev key, no
+     reload) and prints how old the copy is at start; it refuses to start
+     when there is no copy and says to run `make pull-data`. `refs/` is
+     in the copy, so the local `backend/data/refs` is only needed by
+     `make dev-backend`; decide whether `--link-refs` should read refs
+     from the copy instead, and whether `backend/data` can then go.
+   - `make dev-frontend-prod`: Vite serving the local frontend with its
+     API proxy pointed at `https://<droplet>.ts.net` (from the same local
+     file). The UI should make it obvious, like the mock pill, that it is
+     talking to production. Limit: a UI change that needs a new endpoint
+     waits until that endpoint is live.
+   - Point `make run-mac` (and the iOS dev setup, if it reads files) at
+     the copy instead of `backend/data`; also `make logs`, which tails
+     `backend/data/llm_audit.jsonl`.
+   - `docs/dev-workflow.md`: which mode for which task, the commands, and
+     how to troubleshoot production. Update `CLAUDE.md` (Development
+     Commands), the README and `troubleshooting.md`.
+
+   **Also:**
+   - CI speed: on the 2026-11-24 merge the `e2e` job took 6 of the 7
+     minutes (other jobs under 1 minute; earlier whole runs took 1–2).
+     Find out why before considering letting `publish` skip waiting
+     for it.
+   - Claude Code's sandbox blocks `ssh` (it cannot read `~/.ssh`). The
+     owner chose to approve each `ssh studious-ro@...` run outside the
+     sandbox rather than exclude it.
 
 ### 2. Letting Claude Code sessions see the UI
 
