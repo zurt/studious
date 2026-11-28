@@ -16,18 +16,18 @@
     "lint": "biome lint --error-on-warnings"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.7",
+    "@biomejs/biome": "2.6.8",
     "@playwright/test": "1.65.1",
     "@testing-library/dom": "10.4.2",
-    "@vitest/coverage-v8": "5.1.0",
+    "@vitest/coverage-v8": "5.1.1",
     "jsdom": "31.0.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "5.1.0"
   },
   "dependencies": {
-    "dompurify": "^3.4.11",
-    "marked": "^18.2.0"
+    "dompurify": "^3.4.18",
+    "marked": "^18.2.1"
   },
   "overrides": {
     "vitest": {
